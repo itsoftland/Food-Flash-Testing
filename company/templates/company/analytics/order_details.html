@@ -1,0 +1,148 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/analytics/order_details.css' %}">
+{% endblock %}
+
+{% block title %}Order Details{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Order Details</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <!-- 🔍 Filter Form -->
+        <form id="order-filter-form">
+            <div class="row align-items-end">
+            <div class="col-md-2 col-6">
+                <label class="small mb-1">Outlet</label>
+                <select class="form-control form-control-sm" id="outlet-filter">
+                <option value="">All</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-6">
+                <label class="small mb-1">Device</label>
+                <select class="form-control form-control-sm" id="device-filter">
+                <option value="">All</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-6">
+                <label class="small mb-1">Status</label>
+                <select class="form-control form-control-sm" id="status-filter">
+                <option value="">All</option>
+                <option value="preparing">Preparing</option>
+                <option value="ready">Ready</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-6">
+                <label class="small mb-1">Shown on TV</label>
+                <select class="form-control form-control-sm" id="shown-filter">
+                <option value="">All</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-6">
+                <label class="small mb-1">Notified</label>
+                <select class="form-control form-control-sm" id="notified-filter">
+                <option value="">All</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+                </select>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <label class="small mb-1">Date Range</label>
+                <select class="form-control form-control-sm" id="range-filter">
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="col-md-3 col-6 mb-2" id="custom-date-range">
+                <label class="small mb-1 d-block invisible">Custom Range</label>
+                <div class="input-group input-group-sm">
+                <input type="date" class="form-control" id="from-date">
+                <span class="input-group-text">to</span>
+                <input type="date" class="form-control" id="to-date">
+                </div>
+            </div>
+            <div class="col-md-2 col-6 mb-2">
+                <label class="small mb-1 d-block invisible">Actions</label>
+                <button type="button" id="apply-filters" class="btn btn-sm btn-outline-secondary w-100">Apply</button>
+            </div>
+            <div class="col-md-2 col-6 mb-2">
+                <label class="small mb-1 d-block invisible">Actions</label>
+                <button type="reset" id="reset-filters" class="btn btn-sm btn-outline-secondary w-100">Reset</button>
+            </div>
+        </div>
+        </form>
+
+        <!-- Enhanced scrollable table -->
+        <div class="table-wrapper">
+            <!-- Static header -->
+            <div class="table-header">
+                <table class="table table-bordered bg-light-gray mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Id</th>
+                            <th>Token No</th>
+                            <th>Status</th>
+                            <th>Counter No</th>
+                            <th>Outlet Name</th>
+                            <th>Device No</th>
+                            <th>Created Time</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            
+            <!-- Scrollable body -->
+            <div class="table-body-container">
+                <table class="table table-hover table-bordered bg-light-gray">
+                    <tbody id="orders-table-body">
+                        <!-- JS Injected Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 📄 Pagination Controls -->
+        <nav class="mt-3 d-flex justify-content-center" id="pagination-wrapper">
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item"><button class="page-link" id="prev-page">Previous</button></li>
+            <li class="page-item disabled">
+              <span class="page-link" id="current-page-info">Page 1</span>
+            </li>
+            <li class="page-item"><button class="page-link" id="next-page">Next</button></li>
+          </ul>
+        </nav>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/analytics/orderDetails.js' %}"></script>
+{% endblock %}
+
+

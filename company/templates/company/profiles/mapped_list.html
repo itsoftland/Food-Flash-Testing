@@ -1,0 +1,38 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/mapped_list.css' %}">
+{% endblock %}
+{% block title %}Mapped List{% endblock %}
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Mapped List</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h4 class="text-center mb-4">Profiles Mapped to Each Outlet</h4>
+        <div class="accordion" id="outletAccordion"></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/profiles/mappedList.js' %}"></script>
+{% endblock %}

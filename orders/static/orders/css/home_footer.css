@@ -1,0 +1,179 @@
+:root {
+    --primary: #e67e00;
+    --primary-dark: #d87600;
+    --primary-light: #fb8b24;
+    --gold: #c8a97e;
+    --light: #ffffff;
+    --off-white: #f9f9f9;
+    --gray: #757575;
+    --light-gray: #e0e0e0;
+    --text: #333333;
+}
+.premium-footer {
+    background-color: var(--light);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+/*     padding: 8px 0; */
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.footer-content {
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+/* Gold trim at the top of the footer */
+.premium-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        var(--gold) 20%, 
+        var(--primary) 50%, 
+        var(--gold) 80%, 
+        transparent 100%);
+}
+
+.footer-button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+    width: 33.33%;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-icon-wrapper {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 4px;
+    transition: all 0.3s ease;
+}
+
+.icon-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: var(--off-white);
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.footer-button.active .icon-bg {
+    background-color: var(--primary);
+    box-shadow: 0 4px 8px rgba(230, 126, 0, 0.15);
+}
+
+.footer-icon {
+    color: var(--gray);
+    font-size: 1rem;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.footer-button.active .footer-icon {
+    color: var(--light);
+}
+
+.footer-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 500;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--gray);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.footer-button.active .footer-text {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+/* Gold accent beneath active button - thinner and shorter */
+.footer-button::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        var(--gold) 20%, 
+        var(--primary) 50%, 
+        var(--gold) 80%, 
+        transparent 100%);
+    transition: width 0.3s ease;
+}
+
+.footer-button.active::after {
+    width: 50%;
+}
+
+/* Ripple effect for touch interactions */
+.ripple {
+    position: absolute;
+    background: rgba(230, 126, 0, 0.15);
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple 0.5s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+/* Active state animation */
+@keyframes gentle-pulse {
+    0%, 100% {
+        box-shadow: 0 3px 6px rgba(230, 126, 0, 0.15);
+    }
+    50% {
+        box-shadow: 0 3px 8px rgba(230, 126, 0, 0.25);
+    }
+}
+
+.footer-button.active .icon-bg {
+    animation: gentle-pulse 2s infinite ease-in-out;
+}
+
+/* Responsive styles */
+@media (max-width: 576px) {
+    .btn-icon-wrapper {
+        width: 36px;
+        height: 36px;
+    }
+
+    .footer-icon {
+        font-size: 0.9rem;
+    }
+
+    .footer-text {
+        font-size: 0.7rem;
+    }
+}

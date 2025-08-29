@@ -1,0 +1,75 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<!-- Choices.js CSS (load first) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+
+<!-- Base styles (load next) -->
+{% comment %} <link rel="stylesheet" href="{% static 'companyadmin/css/company_registration.css' %}"> {% endcomment %}
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+
+<!-- Component-specific styles (load last) -->
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+{% endblock %}
+{% block title %}Map Profiles{% endblock %}
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Map Profiles</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <!-- Assign Profile Tab -->
+        <div class="container-fluid">
+            <form id="assign-profile-form" method="POST" class="px-4 py-3 mx-auto" style="max-width: 900px;">
+            {% csrf_token %}
+            <h4 class="text-center mb-4">Map Profiles to Outlets</h4>
+
+            <div class="row">
+                <!-- Outlets -->
+                <div class="form-group col-md-6 col-12">
+                <label for="outlet-select">Outlets</label>
+                <div class="choices-scroll-wrapper">
+                    <select id="outlet-select" name="outlets[]" multiple>
+                    <!-- JS will dynamically populate options -->
+                    </select>
+                </div>
+                </div>
+                <!-- Advertisement Profiles -->
+                <div class="form-group col-md-6 col-12">
+                <label for="ad-profile-select">Advertisement Profiles</label>
+                <div class="choices-scroll-wrapper">
+                    <select id="ad-profile-select" name="profiles[]" multiple>
+                    <!-- JS will dynamically populate options -->
+                    </select>
+                </div>
+                </div>
+            </div>
+            <!-- Submit Button -->
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-golden px-4 py-2 shadow-sm">
+                <i class="fas fa-link mr-2"></i> Assign Profiles
+                </button>
+            </div>
+            </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/profiles/mapProfiles.js' %}"></script>
+{% endblock %}

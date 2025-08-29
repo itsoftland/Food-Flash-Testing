@@ -1,0 +1,63 @@
+{% extends 'companyadmin/layouts/base.html' %}
+{% load static %}
+
+{% block title %}Update Order | Superadmin{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'companyadmin/css/update_order.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1 class="text-golden">Update Order</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm update-order-card">
+          <div class="card-body update-order-wrapper">
+            <div class="row align-items-center">
+              <div class="col-md-6 order-form-section">
+                <form id="update-order-form">
+                  <input type="hidden" id="vendor_id" value="265344">
+                  <input type="hidden" id="device_id" value="202502CAL050005B">
+                  
+                  <div class="form-group mb-4">
+                    <label for="token_no" class="form-label">Token Number</label>
+                    <input type="text" class="form-control form-control-lg" id="token_no" required>
+                  </div>
+                  
+                  <div class="form-group mb-4">
+                    <label for="counter_no" class="form-label">Counter Number</label>
+                    <input type="text" class="form-control form-control-lg" id="counter_no" value="1" required>
+                  </div>
+                  
+                  <div class="form-group text-center text-md-start">
+                    <button type="submit" class="btn btn-golden px-4 py-2">Update Order</button>
+                  </div>
+                </form>
+
+                <div id="update-status" class="mt-3 text-success text-center text-md-start" style="display: none;"></div>
+              </div>
+              
+              <div class="col-md-6 image-section d-none d-md-block"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'companyadmin/js/updateOrder.js' %}"></script>
+{% endblock %}

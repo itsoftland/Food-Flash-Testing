@@ -1,0 +1,41 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/total_orders.css' %}">
+{% endblock %}
+
+{% block title %}Total Orders{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Total Orders</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="row" id="order-summary">
+        <!-- Cards will be injected here by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/analytics/totalOrders.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,137 @@
+<!-- Modal -->
+<div class="modal fade" id="menuImageModal" tabindex="-1" aria-labelledby="menuImageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Menu</h5>
+        <button type="button" id="close-menu-modal" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="menuContent">
+        <!-- Dynamic content gets injected here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Banner View Modal -->
+<div id="bannerModal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow">
+      <div class="modal-body p-0 d-flex justify-content-center align-items-center">
+        <img id="bannerModalImage" class="responsive-banner-img" alt="Banner Preview">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Banner Deletion Confirmation Modal -->
+<div id="confirmationModal" class="ff-modal hidden">
+  <div class="ff-modal-content">
+    <p id="confirmationMessage">Are you sure you want to discard this banner?</p>
+    <div class="ff-modal-actions">
+      <button id="confirmOkBtn" class="ff-btn confirm">OK</button>
+      <button id="confirmCancelBtn" class="ff-btn cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Library Modal -->
+<div class="modal fade" id="imageLibraryModal" tabindex="-1" aria-labelledby="imageLibraryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageLibraryModalLabel">Select Advertisement Images</h5>
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="select-all-images">
+          <label class="form-check-label" for="select-all-images">Select All</label>
+        </div>
+
+        <div id="image-library-grid" class="d-flex flex-wrap"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-golden" id="confirm-image-selection" disabled>
+          Confirm Selection
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content border-0 rounded shadow">
+      <div class="modal-header">
+        <h5 class="modal-title text-golden">Profile Images</h5>
+        <button type="button" class="close" data-bs-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body d-flex flex-wrap gap-2" id="modal-image-container">
+        <!-- Images will be injected by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Styled Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 shadow border-0" style="background-color: #fefaf5;">
+      <div class="modal-header border-0" style="background-color: #fff3cd;">
+        <h5 class="modal-title text-dark fw-semibold" id="errorModalLabel">
+          <i class="fas fa-exclamation-triangle text-warning me-2"></i> Something went wrong
+        </h5>
+      </div>
+      <div class="modal-body text-dark" id="errorModalBody" style="line-height: 1.6;">
+        Unexpected error occurred.
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn px-4 rounded-pill text-white error-ok-btn" style="background-color: #f0a934;">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Styled Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content success-modal-content">
+      <div class="modal-header success-modal-header">
+        <h5 class="modal-title" id="successModalLabel">
+          <i class="fas fa-check-circle success-icon"></i> Action Successful
+        </h5>
+        {% comment %} <button type="button" class="btn-close modal-close-btn" data-bs-dismiss="modal" aria-label="Close"></button> {% endcomment %}
+      </div>
+      <div class="modal-body success-modal-body" id="successModalBody">
+        Your action was completed successfully.
+      </div>
+      <div class="modal-footer success-modal-footer">
+        <button type="button" class="btn success-ok-btn" data-bs-dismiss="modal">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="customModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Dynamic content goes here -->
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -1,0 +1,104 @@
+#banner-tiles-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  padding: 10px;
+}
+
+.banner-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  aspect-ratio: 16/9;
+  height: auto; 
+}
+.banner-tile.selected::after {
+  content: "✔";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 28px;
+  height: 28px;
+  background-color: #f9aa33; /* Your golden accent */
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-in-out;
+  z-index: 5;
+}
+
+.banner-tile img {
+  width: 100%;
+  height: 100%; 
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  display: block; /* Remove any default spacing */
+  transform: scale(1.15);
+  
+}
+
+.banner-tile:hover img {
+  transform: scale(1.25);
+}
+
+.banner-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 8px;
+  opacity: 0.9; /* Make buttons more visible */
+  transition: opacity 0.2s ease;
+}
+
+.banner-tile:hover .banner-actions {
+  opacity: 1; /* Full opacity on hover */
+}
+
+.banner-actions button {
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.banner-actions button:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+.ff-btn.danger {
+  background-color: #fb8b24;
+  color: #ffffff;
+  border: none;
+  padding: 8px 10px;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: background-color 0.3s ease;
+}
+.ff-btn.danger:hover {
+  background-color: #f96d00;
+}
+.banner-tile.selected {
+  border: 2px solid #f9aa33; 
+  box-shadow: 0 0 10px rgba(249, 170, 51, 0.4);
+  border-radius: 12px;
+  transition: box-shadow 0.3s ease;
+}
+#selectionCount {
+  font-size: 0.8rem;
+  border-radius: 50%;
+}

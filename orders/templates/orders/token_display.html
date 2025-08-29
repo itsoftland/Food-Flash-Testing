@@ -1,0 +1,40 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+{% block body_class %}fixed-body{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/token_display.css' %}">
+{% endblock %}
+{% block header_heading %}
+    <div class="header-right">
+        <h2>Food Token Ready Informer</h2>
+        <button id="notifyButton" class="notification-btn" title="Trigger Notification">
+            <i class="fas fa-bell"></i>
+        </button>
+    </div>
+{% endblock %}
+{% block content %}
+<div class="dashboard">
+    <div class="orders-grid" id="orders-container">
+        <!-- Left Column - Current Token -->
+        <div class="left-column">
+            <h2 class="column-heading"><span>Current Token</span></h2>
+            <div class="order-slot selected" id="left-col-1"></div>
+            <div class="order-slot" id="left-col-2"></div>
+        </div>
+        
+        <!-- Right Column - Previous Tokens -->
+        <div class="right-column">
+            <h2 class="column-heading"><span>Previous Tokens</span></h2>
+            <div class="order-slot" id="right-col-1"></div>
+            <div class="order-slot" id="right-col-2"></div>
+            <div class="order-slot" id="right-col-3"></div>
+            <div class="order-slot" id="right-col-4"></div>
+            <div class="order-slot" id="right-col-5"></div>
+            <div class="order-slot" id="right-col-6"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script type="module" src="{% static 'orders/js/token_display.js' %}"></script>
+{% endblock %}

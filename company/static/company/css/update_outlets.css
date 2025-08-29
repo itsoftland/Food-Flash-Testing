@@ -1,0 +1,32 @@
+/* Styling for the file label */
+.file-label {
+    cursor: pointer;
+    background-color: #fdf4e5;
+    font-size: .90rem;
+    color: #fb8b24;
+    border: 1px solid #fb8b24;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Hover effect for the file label */
+.file-label:hover {
+    background-color: #fb8b24;
+    color: #fff;
+}
+
+/* Styling for the remove button */
+.remove-btn {
+    background-color: #fce8dd;
+    color: #fb8b24;
+    font-weight: bold;
+    font-size: 1rem;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+/* Hover effect for the remove button */
+.remove-btn:hover {
+    background-color: #fb8b24;
+    color: #fff;
+}
+

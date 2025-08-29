@@ -1,0 +1,38 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'company/css/dashboard.css' %}">
+{% endblock%}
+{% block title %}Company Dashboard{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Company Dashboard</h1>
+      </div>
+      <div id="welcome-info" class="col-sm-6 text-sm-end d-none d-md-block">
+        <!-- Welcome Message Injected by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="row g-4" id="dashboard-metrics">
+          <!-- Cards will be injected here by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/dashboard.js' %}"></script>
+{% endblock %}
+

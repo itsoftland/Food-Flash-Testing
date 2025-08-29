@@ -1,0 +1,50 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/profiles_list.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+{% endblock %}
+{% block title %}Banner Profiles{% endblock %}
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Banner Profiles</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <!-- Profile List -->
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
+            <thead class="thead-light">
+                <tr>
+                <th>Name</th>
+                <th>Date Range</th>
+                <th>Days Active</th>
+                <th>Priority</th>
+                <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="ad-profile-table-body">
+                <!-- JS Injected Rows -->
+            </tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/profiles/profilesList.js' %}"></script>
+{% endblock %}

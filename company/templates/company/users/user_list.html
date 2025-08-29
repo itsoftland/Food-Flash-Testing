@@ -1,0 +1,66 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+{% endblock %}
+
+{% block title %}Users List{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Users List</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <!-- Filter Dropdown -->
+        <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+          <label for="deviceFilter" class="mb-0 me-2 fw-semibold">Filter by:</label>
+          <select id="deviceFilter" class="form-control w-auto">
+            <option value="all">All Outlets</option>
+            <option value="mapped">Mapped</option>
+            <option value="unmapped">Unmapped</option>
+          </select>
+        </div>
+
+        <!-- Device Table -->
+        <div class="table-responsive">
+          <table class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
+            <thead class="thead-light">
+              <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Roles</th>
+                <th>Outlet Name</th>
+                <th>Created Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <!-- Dynamically Injected Rows -->
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/users/usersList.js' %}"></script>
+{% endblock %}

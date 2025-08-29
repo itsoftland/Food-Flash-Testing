@@ -1,0 +1,37 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'company/css/outlets.css' %}">
+{% endblock%}
+{% block title %}View Outlets{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Outlets List</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <!-- Vendors List -->
+      <div class="card-body">
+        <p class="mb-2">You can manage companies from here.</p>
+        <div class="row" id="vendor-list">
+          <!-- Vendor Cards will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/outlets.js' %}"></script>
+{% endblock %}
+

@@ -1,0 +1,47 @@
+/* static/utils/css/colors.css */
+/* This file contains CSS variables for consistent theming across the application */
+/* It defines primary brand colors, typography styles, and component-specific styles */
+/* These variables can be used in other CSS files to maintain a consistent look and feel */
+/* Ensure to use these variables in your CSS files for colors, backgrounds, and other styles */
+/* Example usage: */
+/* .my-class { */
+/*   background-color: var(--primary-gold); */
+/*   color: var(--text-dark); */
+/* } */
+/* This file should be included in the main CSS file or linked in the HTML head section */
+/* Usage: */
+/* <link rel="stylesheet" href="{% static 'utils/css/colors.css' %}"> */
+/* Note: Ensure that this file is loaded before any other CSS files that use these variables */
+
+:root {
+  /* Primary Brand Colors */
+  --primary-gold: #fdbf50;
+  --gold-muted: #f4c26b;
+  --icon-circle: #e09f3e;
+
+  /* Typography & Backgrounds */
+  --text-dark: #2b2b2b;
+  --bg-light: #f4f4f8;
+  --accordion-header: #f4f4f8;
+
+  /* Chip Styles */
+  --chip-bg: #f4f4f8;
+  --chip-text: #333;
+  --chip-border: #ddd;
+  --chip-hover-bg: #dcd9f5;
+  --chip-hover-text: #2c2c38;
+  --chip-hover-border: #dcd9f5;
+
+  /* Badges & Icons */
+  --badge-green: #c5e1a5;
+  --remove-icon-color: #dc3545;
+  --remove-icon-hover: #a71d2a;
+
+  /* Metric Icon Colors */
+  --outlets: #e09f3e;
+  --mapped-keypad-devices: #10b981;
+  --unmapped-keypad-devices: #ef4444;
+  --mapped-android-tvs: #0ea5e9;
+  --unmapped-android-tvs: #ef4444;
+}
+

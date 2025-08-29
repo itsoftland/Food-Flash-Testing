@@ -1,0 +1,154 @@
+{% extends "companyadmin/layouts/base.html" %}
+{% load static %}
+
+{% block title %}Company Registration - Superadmin Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'companyadmin/css/company_registration.css' %}">
+{% endblock %}
+
+{% block header %}
+Company Registration
+{% endblock %}
+
+{% block content %}
+<section class="content registration-content">
+    <div class="container-fluid registration-container">
+        <div class="row justify-content-center">
+            <div class="col-xl-10 col-lg-12">
+                <div id="messageBox"></div>
+                
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">Company Registration</h3>
+                    </div>
+                    
+                    <div id="loader" class="text-center my-3" style="display: none;">
+                        <div class="overlay d-flex justify-content-center align-items-center">
+                            <i class="fas fa-2x fa-sync fa-spin text-primary"></i>
+                        </div>
+                    </div>
+                    
+                    <form id="companyForm">
+                        <!-- CSRF Token for Django -->
+                        {% csrf_token %}
+                        <div class="card-body">
+                            <div class="row"> 
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="companyname">Company Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="companyname" name="CustomerName" placeholder="Company Name" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="phonenumber">Phone Number <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="phonenumber" name="PhoneNumber" placeholder="Phone number" pattern="[0-9]{10}" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="companyemail">Company Email <span class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="companyemail" name="CustomerEmail" placeholder="Company email" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="gst">GST <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="gst" name="GSTNumber" placeholder="GST" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="contactperson">Contact Person <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="contactperson" name="CustomerContactPerson" placeholder="Contact Person" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="contactphonenumber">Contact Phone Number <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="contactphonenumber" name="contactphonenumber" placeholder="Contact Phone Number" pattern="[0-9]{10}" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="comaddress1">Company Address 1 <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="comaddress1" name="CustomerAddress" placeholder="Company Address 1" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="comaddress2">Company Address 2</label>
+                                        <input type="text" class="form-control" id="comaddress2" name="CustomerAddress2" placeholder="Company Address 2">
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="state">State <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="state" name="CustomerState" placeholder="State" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="city">City <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="city" name="CustomerCity" placeholder="City" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="CustomerUsername">Username <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="CustomerUsername" name="CustomerUsername" placeholder="Username" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="CustomerPassword">Password <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="CustomerPassword" name="CustomerPassword" placeholder="Password" required>
+                                            <div class="input-group-append">
+                                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                                    <i class="fas fa-eye-slash" id="toggleIcon"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer text-center">
+                            <button type="submit" class="btn btn-outline-primary">Register Company</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% include "companyadmin/partials/loader.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'companyadmin/js/company_registration.js' %}"></script>
+{% endblock %}

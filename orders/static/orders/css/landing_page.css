@@ -1,0 +1,16 @@
+
+body {
+    font-family: 'Poppins';
+    overflow-x: hidden;
+    background-color: #f8f9fa;
+    text-align: center;
+}
+
+.title {
+    padding-top: 20px;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+.ios-guide-img{
+    transform:scale(1.07);
+}

@@ -1,0 +1,107 @@
+
+.main-sidebar {
+  background-color: #2f2f2f !important;
+}
+
+.brand-link {
+  background-color: #2f2f2f !important;
+  color: #fdbf50 !important;
+  text-decoration: none;
+}
+
+.nav-sidebar .nav-link {
+  color: #f4f4f4 !important;
+  transition: background-color 0.3s ease;
+}
+
+.nav-sidebar .nav-icon {
+  color: #fdbf50 !important; 
+}
+
+.nav-sidebar .nav-link.active {
+  background-color: #73451c !important;
+  color: #ffffff !important;
+}
+
+.nav-sidebar .nav-link.active .nav-icon {
+  color: #ffffff !important;
+}
+
+.card-primary.card-outline,
+.card-primary:not(.card-outline) > .card-header {
+  background-color: #fdbf50 !important;
+  color: #212529 !important;
+  border: none;
+}
+
+
+.main-footer {
+  background-color: #222 !important; 
+  color: #d97a1f !important;        
+  font-weight: 600;
+  text-align: center;
+  padding: 10px 0;
+}
+.text-golden {
+  color: #d97a1f; 
+}
+
+.main-footer a {
+  color: #fb8b24 !important;  
+  text-decoration: none;
+}
+
+.main-footer a:hover {
+  color: #fdbf50 !important;
+}
+
+#togglePassword.btn {
+  border-color: #fb8b24;
+  color: #fb8b24;
+  background-color: transparent;
+  transition: background-color 0.3s ease;
+}
+
+#togglePassword.btn:hover {
+  background-color: #fb8b24;
+  color: white;
+  border-color: #fb8b24;
+}
+
+#togglePassword .fas {
+  font-size: 1.1rem;
+}
+
+.form-control:focus, 
+.custom-select:focus {
+  border-color: #fb8b24 !important;
+  box-shadow: 0 0 0 0.2rem rgba(251, 139, 36, 0.25) !important;
+}
+.brand-link {
+  white-space: normal;
+  font-size: 1rem; 
+  padding: 1.1rem 1rem;
+  max-width: 100%;
+}
+
+.customer-label {
+  color: #111;
+  font-weight: 500;
+}
+
+.customer-id {
+  color: #ed7302;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.logout-link {
+  color: #fd0b0f !important;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.logout-link:hover {
+  color: #fd0b0f !important;
+  text-decoration: none;
+}

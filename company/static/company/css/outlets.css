@@ -1,0 +1,54 @@
+
+  .vendor-tile {
+    background: linear-gradient(135deg, #fdbf50, #fb8b24);
+    color: #2b2b2b;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .vendor-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .vendor-tile .inner {
+    padding: 20px;
+  }
+
+  .vendor-tile .inner h4 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .vendor-tile .inner p {
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+
+  .vendor-tile .icon {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
+  .vendor-tile .small-box-footer {
+    background: rgba(255, 255, 255, 0.1);
+    color: #2b2b2b;
+    text-align: center;
+    display: block;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-weight: 500;
+    border-radius: 0 0 20px 20px;
+    transition: background 0.2s ease;
+    text-decoration: none;
+  }
+
+  .vendor-tile .small-box-footer:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }

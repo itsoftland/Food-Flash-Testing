@@ -1,0 +1,85 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+{% block body_class %}fixed-body{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/styles.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/home_footer.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/outlet_selection.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/food_status.css' %}">
+{% endblock %}
+
+
+{% block content %}
+<!-- Header and Slider (Fixed) -->
+<div class="header-bar flex-shrink-0">
+    <div id="vendor-logo-bar" class="d-flex justify-content-between align-items-center px-3 pt-2">
+        <div class="add-btn-wrapper flex-shrink-0">
+            <button id="add-outlet-btn" class="btn add-outlet-btn" data-bs-toggle="modal" data-bs-target="#addOutletModal">+</button>
+        </div> 
+    </div>
+</div>
+<div id="ad-slider-wrapper" class="ad-slider flex-shrink-0 px-3 pt-2">
+    <div id="ad-slider" class="ad-track"></div>
+</div>
+
+<div class="page-wrapper">
+    <!-- Header with Toggle Button -->
+    <div class="chat-header">
+        <div id="toggleArrowBtn" class="toggle-arrow" title="Toggle">
+            <img src="{% static 'orders/images/down-arrow.png' %}" alt="Toggle Icon">
+        </div>
+    </div>
+
+    <!-- Scrollable Chat Area -->
+    <div class="chat-response px-1" id="chat-container">
+        <!-- Dynamic chat messages go here -->
+    </div>
+</div>
+
+<!-- Footer (Fixed) -->
+<div class="chat-footer px-3 pt-2 pb-2">
+    <div class="d-flex">
+        <input type="tel" id="chat-input" class="form-control rounded-pill me-2" placeholder="Enter your Order No...">
+        <button id="send-button" class="btn rounded-pill d-flex align-items-center justify-content-center">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>    
+</div>
+{% block footer %} 
+<footer class="premium-footer">
+    <div class="footer-content">
+        <div class="footer-button menu-btn">
+            <div class="btn-icon-wrapper">
+                <div class="icon-bg"></div>
+                <i class="fas fa-utensils footer-icon"></i>
+            </div>
+            <span class="footer-text">Menu</span>
+        </div>
+        
+        <div class="footer-button rating-btn">
+            <div class="btn-icon-wrapper">
+                <div class="icon-bg"></div>
+                <i class="fas fa-star footer-icon"></i>
+            </div>
+            <span class="footer-text">Rating</span>
+        </div>
+        
+        <div class="footer-button feedback-btn">
+            <div class="btn-icon-wrapper">
+                <div class="icon-bg"></div>
+                <i class="fas fa-comment-alt footer-icon"></i>
+            </div>
+            <span class="footer-text">Feedback</span>
+        </div>
+    </div>
+</footer>
+{% endblock %}
+<!-- Modals -->
+{% include "orders/partials/base_modals.html" %}
+{% include "orders/partials/index_modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'orders/js/scripts.js' %}"></script>
+{% endblock %}

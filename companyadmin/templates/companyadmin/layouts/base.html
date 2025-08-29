@@ -1,0 +1,108 @@
+<!-- templates/layouts/base.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Food Flash Company Admin{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="icon" href="{% static 'orders/images/food-flash-logo.ico' %}" type="image/x-icon">
+    <!-- AdminLTE + Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <!-- Your Custom Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&display=swap" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'orders/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'companyadmin/css/companyadmin.css' %}">
+    <!-- Page-Specific CSS -->
+    {% block extra_css %}{% endblock %}
+
+</head>
+
+<body class="hold-transition sidebar-mini layout-navbar-fixed layout-footer-fixed">
+<div class="wrapper">
+
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a>
+      </li>
+    </ul>
+    <ul class="navbar-nav ml-auto">
+       <li class="nav-item">
+          <a href="{% url 'logout' %}" class="nav-link logout-link">
+            <i class="fas fa-sign-out-alt mr-1"></i> Logout
+          </a>
+        </li>
+    </ul>
+  </nav>
+
+  <!-- Sidebar -->
+  <aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <a href="{% url 'companyadmin:dashboard' %}" class="brand-link">
+      <img src="{% static 'company/images/foodflashlogo.webp' %}" alt="FoodFlash Logo" class="brand-image">
+    </a>
+    <div class="sidebar">
+      <nav class="mt-2">
+        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+          <li class="nav-item">
+            <a href="{% url 'companyadmin:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+              <i class="nav-icon fas fa-tachometer-alt"></i>
+              <p>Dashboard</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{% url 'companyadmin:registration' %}" class="nav-link {% if request.resolver_match.url_name == 'registration' %}active{% endif %}">
+              <i class="nav-icon fas fa-building"></i>
+              <p>Register Company</p>
+            </a>
+          </li>
+
+          {% comment %} {% comment %} <li class="nav-item">
+            <a href="{% url 'company_list' %}" class="nav-link {% if request.resolver_match.url_name == 'company_list' %}active{% endif %}">
+              <i class="nav-icon fas fa-list"></i>
+              <p>Company List</p>
+            </a>
+          </li> {% endcomment %}
+
+          <li class="nav-item">
+            <a href="{% url 'companyadmin:order_update' %}" class="nav-link {% if request.resolver_match.url_name == 'order_update' %}active{% endif %}">
+              <i class="nav-icon fa-solid fa-pen-to-square"></i>
+              <p>Order Update</p>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper pt-2">
+    {% block content %}
+    <!-- Child templates will insert content here -->
+    {% endblock %}
+  </div>
+
+  <!-- Footer -->
+  <footer class="main-footer text-center">
+    <strong>&copy; 2025 <a href="#">FoodFlash</a>.</strong> All rights reserved.
+  </footer>
+</div>
+<!-- Your Global JS -->
+<script type ="module" src="{% static 'orders/js/utils.js' %}"></script>
+
+<!-- Page-Specific JS -->
+{% block extra_js %}{% endblock %}
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+</body>
+</html>

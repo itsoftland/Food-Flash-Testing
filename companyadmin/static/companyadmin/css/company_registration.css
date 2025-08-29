@@ -1,0 +1,132 @@
+
+.registration-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.registration-container {
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Card adjustments */
+.registration-card {
+    margin: 0 auto;
+    width: 100%;
+    max-width: none;
+}
+/* Card adjustments */
+.card {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 900px;
+}
+
+/* Form row spacing */
+.form-group {
+    margin-bottom: 1rem;
+}
+/* Wider form fields on larger screens */
+@media (min-width: 1200px) {
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+    }
+    
+    .col-md-4 {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .form-control {
+        padding: 0.5rem 1rem;
+    }
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-weight: 500;
+    color: #495057;
+} 
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .registration-content {
+        padding-top: 60px;
+        padding-bottom: 45px;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+}
+
+.loader-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(244, 244, 248, 0.9); /* soft overlay */
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+  
+  .loader-box {
+    background: #fff;
+    padding: 2rem 3rem;
+    border-radius: 2rem;
+    box-shadow: 0 0 30px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #f0a934; /* golden accent */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px auto;
+  }
+  
+  .loader-status {
+    font-size: 1.1rem;
+    color: #444;
+    font-weight: 500;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .loader-ok-btn {
+    background-color: #f0a934;
+    color: #fff;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 12px;
+    margin-top: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+  }
+  
+  .loader-ok-btn:hover {
+    background-color: #fb8b24;
+    transform: translateY(-1px);
+  }
+  
+  .loader-ok-btn:active {
+    background-color: #fdbf50;
+    transform: translateY(1px);
+  }

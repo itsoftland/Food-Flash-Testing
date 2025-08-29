@@ -1,0 +1,65 @@
+.manager-message-body {
+    margin-top: 6px;
+    font-size: 15px;
+    color: #333;
+    animation: fadeInSlideUp 1s ease;
+}
+
+.manager-badge {
+    background-color: #1c7c54;
+    color: white;
+    padding: 3px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-block;
+    border-radius: 4px;
+    margin-bottom: 6px;
+}
+
+.custom-manager-message {
+    line-height: 1.5;
+}
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Reply Button Styles */
+.reply-button {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #327039;
+    transition: color 0.3s;
+}
+.reply-button.active{
+    color: #E13C3C;
+}
+.message-content {
+    position: relative;
+    padding-right: 30px; /* space for reply button */
+}
+
+.info-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap; 
+    margin-top: 6px;
+}
+
+.info-badges .badge {
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+}

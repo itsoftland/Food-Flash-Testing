@@ -1,0 +1,166 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block extra_css %}
+<!-- Choices.js CSS (load first) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+
+<!-- Base styles (load next) -->
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+
+<!-- Component-specific styles (load last) -->
+<link rel="stylesheet" href="{% static 'company/css/new_profile.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+{% endblock %}
+{% block title %}New Profile{% endblock %}
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Company Dashboard</h1>
+      </div>
+      <div id="welcome-info" class="col-sm-6 text-sm-end d-none d-md-block">
+        <!-- Welcome Message Injected by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+          <!-- Create Profile Tab -->
+        <form id="create-profile-form" method="POST" class="px-0 py-0 mx-auto">
+          {% csrf_token %}
+          <div class="mb-4">
+            <h5 class="text-golden mb-3">Basic Details</h5>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="profile-name">Profile Name</label>
+                <input type="text" class="form-control" id="profile-name" required placeholder="Enter advertisement profile name">
+              </div>
+
+              <!-- Priority Column -->
+              <div class="form-group col-md-4">
+                <label for="priority">
+                  Banner Display Priority
+                  <i class="fas fa-info-circle text-secondary ml-1"
+                    data-toggle="tooltip"
+                    data-placement="right"
+                    title="Priority determines the display order of ads. 
+                      Top Priority ads are always shown first, followed by High Priority
+                      , and then Standard or lower priorities. 
+                      Choose based on how important this profile is."></i>
+                </label>
+                <select id="priority" class="form-control">
+                  <option value="1">Top Priority</option>
+                  <option value="2">High Priority</option>
+                  <option value="3">Standard Priority</option>
+                  <option value="4">Low Priority</option>
+                  <option value="5">Backup Priority</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <h5 class="text-golden mb-3">Schedule & Priority</h5>
+            <div class="form-row">
+              <!-- Days Active Column -->
+              <div class="form-group col-md-12">
+                <label class="d-flex justify-content-between align-items-center">
+                  Days Active
+                  <div class="custom-control custom-checkbox mr-3 mb-2">
+                    <input type="checkbox" class="custom-control-input" id="select-all-days">
+                    <label class="custom-control-label text-muted small" for="select-all-days">Select All</label>
+                  </div>
+                </label>
+
+                <div id="days-checkboxes" class="row ml-1">
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Monday" value="Monday">
+                      <label class="custom-control-label" for="day-Monday">Monday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Tuesday" value="Tuesday">
+                      <label class="custom-control-label" for="day-Tuesday">Tuesday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Wednesday" value="Wednesday">
+                      <label class="custom-control-label" for="day-Wednesday">Wednesday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Thursday" value="Thursday">
+                      <label class="custom-control-label" for="day-Thursday">Thursday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Friday" value="Friday">
+                      <label class="custom-control-label" for="day-Friday">Friday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Saturday" value="Saturday">
+                      <label class="custom-control-label" for="day-Saturday">Saturday</label>
+                    </div>
+                  </div>
+                  <div class="col-6 col-sm-4 col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input day-checkbox" id="day-Sunday" value="Sunday">
+                      <label class="custom-control-label" for="day-Sunday">Sunday</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group col-md-3">
+                <label for="date-start">Start Date</label>
+                <input type="date" class="form-control" id="date-start">
+              </div>
+
+              <div class="form-group col-md-3">
+                <label for="date-end">End Date</label>
+                <input type="date" class="form-control" id="date-end">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Trigger Button -->
+          <div class="mb-4">
+            <label class="text-golden d-block mb-2">Advertisement Images</label>
+            <button type="button" class="btn btn-outline-golden" id="open-image-library-btn">
+              <i class="fas fa-folder-open mr-1"></i> Select Images
+            </button>
+
+            <!-- Image Thumbnails -->
+            <div id="selected-images-preview" class="d-flex flex-wrap mt-3"></div>
+          </div>
+
+          <!-- Hidden field for selected image IDs -->
+          <input type="hidden" id="selected-image-ids" name="image_ids">
+          <div class="text-center">
+            <button type="submit" class="btn btn-golden mt-1">Create Ad Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/profiles/newProfile.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,77 @@
+/* Container holding the metric cards */
+#dashboard-metrics {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* Individual metric card */
+.metric-card {
+  background-color: var(--chip-bg);
+  border-radius: 1rem;
+  padding: 1.1rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.metric-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
+}
+
+/* Icon circle at the top */
+.icon-circle {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 0.9rem auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.4rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Specific background colors based on metric type */
+.icon-circle.outlets {
+  background-color: var(--outlets);
+}
+
+.icon-circle.keypad-devices {
+  background-color: var(--mapped-keypad-devices);
+}
+
+.icon-circle.unmapped-keypad-devices {
+  background-color: var(--unmapped-keypad-devices);
+}
+
+.icon-circle.android-tvs {
+  background-color: var(--mapped-android-tvs);
+}
+
+.icon-circle.unmapped-android-tvs {
+  background-color: var(--unmapped-android-tvs);
+}
+
+/* Metric label text */
+.metric-label {
+  font-size: 1.05rem;
+  color: #374151;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+/* Main value text */
+.metric-value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #111827;
+}

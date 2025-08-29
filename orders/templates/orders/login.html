@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Login</title>
+  <!-- AdminLTE CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="{% static 'orders/images/food-flash-logo.ico' %}" type="image/x-icon">
+  <link rel="stylesheet" href="{% static 'orders/css/login.css' %}">
+  <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+  <link rel="stylesheet" href="{% static 'utils/css/form.css' %}">
+</head>
+<body class="hold-transition login-page">
+
+<div class="login-box">
+  {% comment %} <div class="login-logo">
+    <a href="#"><img src="{% static 'orders/images/foodflashlogo.png' %}" alt="Logo" style="max-width: 200px;"></a>
+  </div> {% endcomment %}
+
+  <div class="card">
+    <div class="card-body login-card-body">
+      <div class="login-logo">
+        <a href="#"><img src="{% static 'orders/images/foodflashlogo.webp' %}" alt="Logo" style="max-width: 200px;"></a>
+      </div>
+      {% comment %} <p class="login-box-msg">Sign in to start your session</p> {% endcomment %}
+
+      <form method="POST" id= "loginForm">
+        {% csrf_token %}
+        <div class="input-group mb-3">
+          <input type="text" id ="username" name="username" class="form-control" placeholder="Username" required>
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-user"></span></div>
+          </div>
+        </div>
+        <div class="input-group mb-3">
+          <input type="password" id = "password" name="password" class="form-control" placeholder="Password" required>
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-lock"></span></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-8">
+            {% comment %} <div class="icheck-primary">
+              <input type="checkbox" id="remember">
+              <label for="remember">Remember Me</label>
+            </div> {% endcomment %}
+          </div>
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+          </div>
+        </div>
+      </form>
+
+      {% if form.errors %}
+        <p class="text-danger mt-3">Invalid username or password.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% include "company/partials/modals.html" %}
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script type ="module" src="{% static 'orders/js/login.js' %}"></script>
+<script type ="module" src="{% static 'utils/js/utils.js' %}"></script>
+</body>
+</html>

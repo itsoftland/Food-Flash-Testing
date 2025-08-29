@@ -1,0 +1,338 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #f5f5f5;
+    color: #333;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.custom-header {
+    display: flex;
+    justify-content: space-between; 
+    align-items: center; 
+}
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+/* Heading styles */
+.custom-header h2 {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.5rem; 
+    color: #0b0b0b;  
+    margin-top: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: color 0.3s ease;
+}
+@media (max-width: 768px) {
+    .custom-header {
+        padding: 0.6rem 2rem;
+    }
+    .header-title {
+        font-size: 2.2rem;
+        letter-spacing: 1px;
+    }
+    .nav-links {
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .custom-header {
+        padding: 0.5rem 1.5rem; 
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .header-title {
+        font-size: 1.8rem;
+    }
+    .nav-links {
+        gap: 1rem;
+    }
+}
+
+.notification-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #fb8b24;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+.dashboard {
+    padding-top: 80px;
+    padding-bottom: 60px; 
+    height: 100vh; 
+    overflow: auto;
+    width: 100%;
+}
+.orders-grid {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+.left-column {
+    flex: 7;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+}
+
+.right-column {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+}
+
+.column-heading {
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 2.5rem;
+    color: #0b0b0b;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+.column-heading span {
+    display: inline-block;
+    position: relative;
+}
+
+.column-heading span::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #d18d00 0%, rgba(160, 90, 0, 0) 80%);
+    transform: scaleX(0.8);
+    transform-origin: left;
+}
+
+.left-column .column-heading {
+    font-size: 1.5rem;
+}
+
+
+.right-column .column-heading {
+    font-size: 1.2rem;
+}
+.order-slot {
+    flex: 1;
+    min-height: 0;
+}
+
+.order-card {
+    background-color: #fefcff;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    border-left: 6px solid #28a745;
+}
+
+.order-number {
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: #0b0b0b;
+    text-align: center;
+    width: 100%;
+}
+.left-column .order-number{
+    font-size: 6rem;
+}
+.right-column .order-number{
+    font-size: 2rem;
+    color: #dc0000;
+}
+.left-column .selected .order-number{
+    font-size:8rem;
+    animation: slideIn 0.4s ease-out;
+}
+.order-details {
+    display: none;
+    text-align: center;
+    width: 100%;
+}
+
+@keyframes readyPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+}
+        
+@keyframes slideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Responiveness */
+@media (max-width: 400px) {
+    .order-number {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .dashboard {
+        padding-top: 90px;
+    }   
+    .dashboard-header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        top: 64px;
+    }
+    
+    .motivational-quote {
+        font-size: 1.2rem;
+        white-space: normal;
+        text-align: center;
+        margin-right: 0;
+    }
+     .column-heading {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .motivational-quote {
+        font-size: 1.5rem;
+    }
+    
+    .order-number {
+        font-size: 2.4rem;
+    }
+    .column-heading {
+        font-size: 1.3rem;
+    }
+    .left-column .column-heading {
+        font-size: 1.3rem;
+    }
+    .right-column .column-heading {
+        font-size: 1.1rem;
+    }
+}
+
+/* XL Screens (1920px and above) */
+@media (min-width: 1920px) {
+    .left-column .selected .order-number{
+        font-size:16rem;
+    }
+    .left-column .order-number {
+        font-size: 14rem;
+    }
+    .right-column .order-number {
+        font-size: 3rem;
+    }
+    .column-heading {
+        font-size: 2rem;
+    }
+    .left-column .column-heading {
+        font-size: 2.2rem;
+    }
+    .right-column .column-heading {
+        font-size: 2.1rem;
+    }
+    .custom-header h2 {
+        font-size: 1.8rem;
+    }
+}
+
+/* Large Desktop Screens (2560px and above - 2K/QHD) */
+@media (min-width: 2560px) {
+    .left-column .selected .order-number{
+        font-size:18rem;
+    }
+    .left-column .order-number {
+        font-size: 16rem;
+    }
+    .right-column .order-number {
+        font-size: 4rem;
+    }
+    .left-column .column-heading {
+        font-size: 2.6rem;
+    }
+    .right-column .column-heading {
+        font-size: 2.4rem;
+    }
+}
+
+/* 4K Screens (3840px and above) */
+@media (min-width: 3840px) {
+    .left-column .selected .order-number{
+        font-size:20rem;
+    }
+    .left-column .order-number {
+        font-size: 18rem;
+    }
+    .right-column .order-number {
+        font-size: 5rem;
+    }
+    .column-heading {
+        font-size: 3rem;
+    }
+    .left-column .column-heading {
+        font-size: 3.2rem;
+    }
+    .right-column .column-heading {
+        font-size: 2.8rem;
+    }
+}
+
+/* Ultra-wide Screens (5000px and above) */
+@media (min-width: 5000px) {
+    .left-column .order-number {
+        font-size: 14rem;
+    }
+    .right-column .order-number {
+        font-size: 6rem;
+    }
+    .column-heading {
+        font-size: 3.5rem;
+    }
+    .left-column .column-heading {
+        font-size: 3.8rem;
+    }
+    .right-column .column-heading {
+        font-size: 3.2rem;
+    }
+}
+
+
+
+

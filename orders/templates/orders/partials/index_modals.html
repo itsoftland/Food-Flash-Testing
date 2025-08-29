@@ -1,0 +1,110 @@
+{% load static %}
+<!-- Modals -->
+<div class="modal fade" id="addOutletModal" tabindex="-1" aria-labelledby="addOutletLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addOutletLabel">Select Outlets</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" id="close-outlet-modal" ></button>
+        </div>
+        <div class="modal-body">
+          <div id="outlet-list" class="outlet-grid"></div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button id="continue-btn" class="btn-outline-primary continue-btn">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
+<!-- Modal for Ad View -->
+<div class="modal fade" id="ad-modal" tabindex="-1" aria-labelledby="adModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="adModalLabel">Advertisement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" id="ad-modal-close" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="ad-modal-img" src="" alt="Ad" class="img-fluid rounded" style="max-height: 70vh; object-fit: contain;" />
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal for Ad View End -->
+
+
+<div class="modal fade" id="menuImageModal" tabindex="-1" aria-labelledby="menuImageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Menu</h5>
+        <button type="button" id="close-menu-modal" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> <!-- Important -->
+      </div>
+      <div class="modal-body" id="menuContent">
+        <!-- Dynamic content injected here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="permissionModal" tabindex="-1" aria-labelledby="permissionModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-body">
+        <h5 class="">Please grant permissions to play sound, receive notifications, and enable vibration.</h5>       
+      </div>
+      <div class="modal-footer d-flex flex-row justify-content-between">
+        <button type="button" class="btn btn-outline-primary flex-fill me-2" id="grant-permission">I’ll Do It</button>
+        <button type="button" class="btn btn-outline-primary flex-fill" id="deny-permission">No Thanks</button>
+      </div> 
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="notificationHelpModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enable Notifications</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>You've blocked notifications. To enable real-time alerts, please allow notifications in your browser settings.</p>
+        <ul>
+          <li>Go to Site Settings</li>
+          <li>Find "Notifications"</li>
+          <li>Set to "Allow"</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-primary" data-bs-dismiss="modal">Okay</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="notificationModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <h5 class="mb-4"></h5>
+                <button id="ok-notification" class="btn btn-outline-primary px-4 me-2">OK</button>
+                <button id="disable-notifications" class="btn btn-outline-primary px-4">Snooze</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="multi-step-feedback" class="card p-4 rounded-4 shadow-sm" style="display: none;">
+  <div id="feedback-step-container"></div>
+  <div class="d-flex justify-content-between mt-3">
+      <button id="feedback-prev" class="btn btn-secondary" style="display: none;">Previous</button>
+      <button id="feedback-next" class="btn btn-primary">Next</button>
+  </div>
+  <div class="text-end">
+    <button onclick="document.getElementById('multi-step-feedback').style.display='none'" class="btn btn-sm btn-link">✖️</button>
+  </div>  
+</div>

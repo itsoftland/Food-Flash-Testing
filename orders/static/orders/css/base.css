@@ -1,0 +1,148 @@
+.custom-header {
+    position: fixed !important;
+    display: flex;
+    justify-content: flex-end; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 0.8rem 1rem !important; 
+    background-color: rgba(255, 255, 255, 0.96) !important;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3)!important;;
+    transition: all 0.3s ease !important;
+}
+.header-title {
+    margin: 0;
+    font-size: 2.5rem !important;
+    font-weight: 700;
+    font-family: 'Playfair Display', serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #d18d00 0%, #a05a00 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: 0 2px 14px rgba(160, 90, 0, 0.35) !important;
+    position: relative !important;
+}
+
+.header-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #d18d00 0%, rgba(160, 90, 0, 0) 80%);
+    transform-origin: left;
+    transform: scaleX(0.8);
+}
+.custom-footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #ffffff;
+    color: #f9aa33;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50px;
+    z-index: 1030;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.footer-title {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #d18d00 0%, #a05a00 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 1px 8px rgba(160, 90, 0, 0.25);
+}
+
+
+.scrollable-body main.flex-fill {
+    overflow: auto;
+    padding-top: 70px;
+    padding-bottom: 60px;
+}
+
+.fixed-body main.flex-fill {
+    overflow: hidden;
+    padding: 0;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch; /* iOS-specific */
+}
+/* Hide bootstrap’s default btn-secondary/primary backgrounds */
+.btn.btn-secondary,
+.btn.btn-primary {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* -------- Predefined Option Buttons -------- */
+
+/* Override Bootstrap’s outline-primary */
+.btn-outline-primary {
+  background-color: #ffffff;
+  color: #2a2c41;
+  border: 1px solid #f9aa33;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  margin: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Hover on options */
+.btn-outline-primary:hover {
+  background-color: #f0a934;
+  color: #ffffff;
+  border-color: #f0a934;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+
+.btn-outline-primary:focus 
+{
+  background-color: #f0a934 !important;
+  color: #ffffff !important;
+  border-color: #f0a934 !important;
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  outline: none;
+}
+.header-logo {
+    max-width: 200px;
+}
+
+
+@media (max-width: 768px) {
+    .header-logo {
+        max-width: 150px;
+    }
+    .header-title {
+    font-size: 1.5rem !important;
+    }
+    .footer-title {
+    font-size: 1rem;
+}
+
+}
+

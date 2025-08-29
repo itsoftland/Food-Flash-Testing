@@ -1,0 +1,103 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+{% block title %}Update Outlet{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/update_outlets.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Outlet Update </h1>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <form id="outlet_update_form" method="POST" 
+        enctype="multipart/form-data" class="px-0 py-0 mx-auto"
+         style="max-width: 900px;">
+          {% csrf_token %}
+          <!-- Row 1 -->
+          <div class="row">
+            <div class="form-group col-md-6">
+              <label for="name">Outlet Name</label>
+              <input type="text" id="name" name="name" class="form-control form-control-sm" required />
+            </div>
+            <div class="form-group col-md-6">
+              <label for="alias_name">Outlet Alias Name</label>
+              <input type="text" id="alias_name" name="alias_name" class="form-control form-control-sm" required />
+            </div>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="row">
+            <div class="form-group col-md-6">
+              <label for="tv-select">Android TV's</label>
+              <div class="choices-scroll-wrapper">
+                <select id="tv-select" name="tv_mapping[]" multiple></select>
+              </div>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="device-select">Keypad Devices</label>
+              <div class="choices-scroll-wrapper">
+                <select id="device-select" name="device_mapping[]" multiple></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="row">
+            <div class="form-group col-md-6 col-12">
+              <label for="logo">Logo</label>
+              <small class="form-text text-muted mb-2">Leave blank to keep current</small>
+              <input type="file" id="logo" name="logo" accept=".png,.svg" class="form-control-file" />
+                <p class="mt-1"><img src="" alt="Current Logo" width="100"></p>
+            </div>
+
+            <div class="form-group col-md-6 col-12">
+              <label for="menu_files">Menu Files</label>
+              <small class="form-text text-muted mb-2">Upload multiple files | Leave blank to keep existing</small>
+              <input type="file" id="menu_files" name="menu_files" multiple accept=".pdf,.jpg,.jpeg,.png,.svg" class="form-control-file" />
+              
+              <!-- container for displaying existing menu file links -->
+              <div id="menu-files-container" class="mt-2"></div>
+            </div>
+          </div>
+
+          <!-- Row 4 -->
+          <div class="row">
+            <div class="form-group col-md-6">
+              <label for="place_id">Place ID</label>
+              <input type="text" id="place_id" name="place_id" class="form-control form-control-sm" />
+            </div>
+            <div class="form-group col-md-6">
+              <label for="location">Location</label>
+              <select name="location" id="location" class="form-control form-control-sm" required></select>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="text-center mt-1">
+            <button type="submit" class="btn btn-golden shadow-sm px-4 py-1">Update Outlet</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% include "company/partials/modals.html" %}
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/updateOutletData.js' %}"></script>
+{% endblock %}

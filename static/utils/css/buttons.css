@@ -1,0 +1,69 @@
+/* static/utils/css/buttons.css */
+.btn-golden {
+  background-color: #f0a934;
+  color: white;
+  border-radius: 12px;
+  padding: 8px 20px;
+  transition: 0.3s ease;
+}
+.btn-golden:hover {
+  background-color: #fb8b24;
+  color: white;
+}
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.icon-btn:hover {
+  transform: scale(1.1);
+}
+
+.icon-view {
+  color: #4a90e2;
+}
+
+.icon-view:hover {
+  color: #357ABD;
+}
+
+.icon-edit {
+  color: #2aa198;
+  transition: color 0.2s ease-in-out;
+}
+
+.icon-edit:hover {
+  color: #21867a; 
+}
+
+.icon-delete {
+  color: #e74c3c;
+}
+
+.icon-delete:hover {
+  color: #c0392b;
+}
+.icon-link-toggle {
+  transition: color 0.2s ease-in-out;
+}
+
+.icon-link-toggle.linked {
+  color: #218c5f;
+}
+
+.icon-link-toggle.linked:hover {
+  color: #196d4b; 
+}
+
+.icon-link-toggle.unlinked {
+  color: #c0392b;
+}
+
+.icon-link-toggle.unlinked:hover {
+  color: #922b21;
+}
+

@@ -1,0 +1,24 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block body_class %}scrollable-body{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/landing_page.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/outlet_selection.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="title">Select Outlets</h2>
+    <div id="outlet-list" class="outlet-grid"></div>
+    <button id="continue-btn" class="btn-outline-primary continue-btn">Continue</button>
+</div>
+
+<!-- Modals -->
+{% include "orders/partials/base_modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'orders/js/outlet_selection.js' %}"></script>
+{% endblock %}
