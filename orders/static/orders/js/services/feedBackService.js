@@ -127,7 +127,7 @@ export const FeedbackService = (() => {
         submitBtn.disabled = true;
 
         try {
-            const response = await fetch("/api/submit_feedback/", {
+            const response = await fetch("/food_flash/api/submit_feedback/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

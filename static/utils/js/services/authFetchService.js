@@ -21,7 +21,7 @@ export async function fetchWithAutoRefresh(url, options = {}) {
 
   if (response.status === 401 && refreshToken) {
     // Attempt to refresh the token
-    const refreshResponse = await fetch('/api/token/refresh/', {
+    const refreshResponse = await fetch('/food_flash/api/token/refresh/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken })
@@ -36,7 +36,7 @@ export async function fetchWithAutoRefresh(url, options = {}) {
       response = await fetch(url, options);
     } else {
       console.warn('Token refresh failed. Redirecting to login.');
-      window.location.href = '/login/';
+      window.location.href = '/food_flash/login/';
       return;
     }
   }

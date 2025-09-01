@@ -1,6 +1,6 @@
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from '../services/confirmModalService.js';
-import { ModalService } from '/static/utils/js/services/modalService.js';
+import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadAssignedProfiles();

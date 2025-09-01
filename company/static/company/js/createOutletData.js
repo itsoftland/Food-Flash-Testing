@@ -1,4 +1,4 @@
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const deviceSelect = document.getElementById('device-select');
 
   try {
-    const response = await fetchWithAutoRefresh(`/company/api/get_outlet_creation_data/`);
+    const response = await fetchWithAutoRefresh(`/food_flash/company/api/get_outlet_creation_data/`);
     if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
     const data = await response.json();

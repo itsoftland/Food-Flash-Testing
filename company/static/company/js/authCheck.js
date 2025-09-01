@@ -1,5 +1,5 @@
 // import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
-import { callProductAuthAPI } from '/static/utils/js//services/productAuthService.js';
+import { callProductAuthAPI } from '/food_flash/static/utils/js/services/productAuthService.js';
 
 // var PRODUCT_AUTH_URL = '/companyadmin/api/product-authentication/';
 // var COMPANY_UPDATE_URL = '/api/company-update/';

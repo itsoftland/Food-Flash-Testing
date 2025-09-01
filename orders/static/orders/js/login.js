@@ -1,5 +1,5 @@
-import { callProductAuthAPI } from '/static/utils/js/services/productAuthService.js';
-import { ModalService } from '/static/utils/js/services/modalService.js';
+import { callProductAuthAPI } from '/food_flash/static/utils/js/services/productAuthService.js';
+import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payload = { username, password };
 
         try {
-            const response = await fetch('/api/login/', {
+            const response = await fetch('/food_flash/api/login/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!isAuthValid) {
                     ModalService.showError("Your license has expired. Please click OK to return to login.", () => {
-                        window.location.href = '/login/';
+                        window.location.href = '/food_flash/login/';
                     });
                     return;
                 }
@@ -55,11 +55,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Redirect based on role
             if (role === 'Super Admin') {
-                window.location.href = '/companyadmin/dashboard/';
+                window.location.href = '/food_flash/companyadmin/dashboard/';
             } else if (role === 'Company') {
-                window.location.href = '/company/dashboard/';
+                window.location.href = '/food_flash/company/dashboard/';
             } else if (role === 'Outlet') {
-                window.location.href = '/vendor/dashboard/';
+                window.location.href = '/food_flash/vendor/dashboard/';
             } else {
                 alert('Unknown user role');
             }

@@ -1,5 +1,5 @@
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/static/utils/js/apiEndpoints.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const currentPath = window.location.pathname;

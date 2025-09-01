@@ -16,7 +16,7 @@ export const PushSubscriptionService = (() => {
             let registration = await navigator.serviceWorker.getRegistration();
             if (!registration) {
                 console.warn("No service worker found. Registering...");
-                registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+                registration = await navigator.serviceWorker.register('/food_flash/service-worker.js', { scope: '/food_flash/' });
             }
 
             if (!navigator.serviceWorker.controller) {
@@ -58,7 +58,7 @@ export const PushSubscriptionService = (() => {
                     vendor: vendor_id
                 };
 
-                const response = await fetch('/vendors/api/save-subscription/', {
+                const response = await fetch('/food_flash/vendors/api/save-subscription/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

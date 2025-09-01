@@ -1,4 +1,4 @@
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from './services/confirmModalService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {

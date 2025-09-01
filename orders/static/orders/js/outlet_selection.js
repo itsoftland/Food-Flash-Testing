@@ -19,7 +19,7 @@
         const locationId = hasLocationParam ? urlParams.get("location_id") : await AppUtils.get();
 
         if (locationId) {
-            const newUrl = new URL(`${window.location.origin}/home/`);
+            const newUrl = new URL(`${window.location.origin}/food_flash/home/`);
             newUrl.searchParams.set("location_id", locationId);
             newUrl.searchParams.set("vendor_id",hasVendorId);
             newUrl.searchParams.set("token_no", hasTokenNo);
@@ -154,6 +154,6 @@ document.getElementById("continue-btn").addEventListener("click", function () {
     console.log("Selected Outlet Data:", selectedData);
 
     const vendorIds = selectedData.map(outlet => outlet.vendor_id).join(",");
-    window.location.href = `/home/?location_id=${locationId}&vendor_id=${vendorIds}`;
+    window.location.href = `/food_flash/home/?location_id=${locationId}&vendor_id=${vendorIds}`;
 });
 

@@ -47,7 +47,7 @@ export function showWelcomeMessage(outletName) {
         messageRow.classList.add("message-row", "server");
 
         const logoImg = document.createElement("img");
-        logoImg.src = localStorage.getItem("activeVendorLogo") || "/static/images/default-logo.png";
+        logoImg.src = localStorage.getItem("activeVendorLogo") || "/food_flash/static/images/default-logo.png";
         logoImg.alt = "Vendor Logo";
         logoImg.className = "server-logo";
 
@@ -95,7 +95,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
     }
 
     if (sender === 'server') {
-        const activeLogo = localStorage.getItem("activeVendorLogo") || '/static/images/default-logo.png';
+        const activeLogo = localStorage.getItem("activeVendorLogo") || '/food_flash/static/images/default-logo.png';
         const logoImg = document.createElement('img');
         logoImg.src = activeLogo;
         logoImg.alt = 'Vendor Logo';

@@ -1,5 +1,5 @@
 // Import a utility function that automatically refreshes auth tokens if needed before fetching
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 
 // Wait for the DOM to fully load before running any script logic
 document.addEventListener('DOMContentLoaded', async () => {
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ================================
   try {
     // Make an authenticated GET request to fetch vendor data
-    const response = await fetchWithAutoRefresh('/company/api/get_vendors/', {
+    const response = await fetchWithAutoRefresh('/food_flash/company/api/get_vendors/', {
       method: 'GET'
     });
 
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const vendorId = link.dataset.vendorId;
 
       // Redirect to the outlet update page with the selected vendor ID
-      window.location.href = `/company/update_outlet/?vendor_id=${vendorId}`;
+      window.location.href = `/food_flash/company/update_outlet/?vendor_id=${vendorId}`;
     }
   });
 

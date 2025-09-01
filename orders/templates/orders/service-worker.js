@@ -69,7 +69,7 @@ self.addEventListener("push", (event) => {
         // ✅ Show custom notification using your payload data
         const customTitle = payload.title || "🍽 Food Flash Update";
         const customBody = payload.body || "You have a new update.";
-        const icon = payload.icon || "/static/orders/images/food-flash-logo.png";
+        const icon = payload.icon || "/food_flash/static/orders/images/food-flash-logo.png";
 
         console.log("[Service Worker] 🔔 Showing system notification");
 

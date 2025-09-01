@@ -6,7 +6,7 @@ export const AdSliderService = (() => {
      */
     const fetchAds = async (vendorIds) => {
         try {
-            const response = await fetch(`/api/get_banners/?vendor_ids=${JSON.stringify(vendorIds)}`, {
+            const response = await fetch(`/food_flash/api/get_banners/?vendor_ids=${JSON.stringify(vendorIds)}`, {
                 method: "GET",
             });
 
@@ -57,7 +57,7 @@ export const AdSliderService = (() => {
 
         // Default fallback images
         const defaultAds = [
-            "/media/ads/Default/Demo.jpg",
+            "/food_flash/media/ads/Default/Demo.jpg",
         ];
 
         // If no ads available, use default ones

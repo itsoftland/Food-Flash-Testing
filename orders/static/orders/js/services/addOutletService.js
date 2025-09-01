@@ -5,7 +5,7 @@ export const AddOutletService = (() => {
     const fetchOutlets = async () => {
         try {
             console.log("LocationId2",locationId)
-            const response = await fetch(`/api/outlets/?location_id=${locationId}`);
+            const response = await fetch(`/food_flash/api/outlets/?location_id=${locationId}`);
             return response.ok ? await response.json() : [];
         } catch (err) {
             console.error("Fetch error:", err);
@@ -34,7 +34,7 @@ export const AddOutletService = (() => {
             tile.dataset.location = outlet.location || "";
 
             tile.innerHTML = `
-                <img src="${outlet.logo || '/static/default-logo.png'}" alt="${outlet.name}">
+                <img src="${outlet.logo || '/food_flash/static/default-logo.png'}" alt="${outlet.name}">
                 <p class="outlet-name">${outlet.name}</p>
                 <p class="outlet-location">${outlet.location || ''}</p>
             `;
@@ -103,7 +103,7 @@ export const AddOutletService = (() => {
 
             // ✅ Save to localStorage
             AppUtils.setSelectedOutletName(selectedOutletName);
-            window.location.href = `/home/?location_id=${locationId}&vendor_id=${finalVendorIds}`;
+            window.location.href = `/food_flash/home/?location_id=${locationId}&vendor_id=${finalVendorIds}`;
         });
     };
 

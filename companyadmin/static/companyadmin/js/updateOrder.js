@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     try {
-      const res = await fetch("/vendors/api/update-order/", {
+      const res = await fetch("/food_flash/vendors/api/update-order/", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

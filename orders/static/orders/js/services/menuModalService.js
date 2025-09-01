@@ -6,7 +6,7 @@ export const MenuModalService = (() => {
                 menuContent.innerHTML = `
                     <div class="text-center">
                         <p class="text-warning">No menu available. Showing default menu.</p>
-                        <img src="/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
+                        <img src="/food_flash/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
                     </div>
                 `;
                 return;
@@ -26,7 +26,7 @@ export const MenuModalService = (() => {
 
         if (imageFiles.length === 1 && pdfFiles.length === 0) {
             menuContent.innerHTML = `
-                <img src="${imageFiles[0]}" alt="Menu" class="img-fluid" onerror="this.src='/static/orders/files/menu.jpg'">
+                <img src="${imageFiles[0]}" alt="Menu" class="img-fluid" onerror="this.src='/food_flash/static/orders/files/menu.jpg'">
             `;
             return;
         }
@@ -70,7 +70,7 @@ export const MenuModalService = (() => {
         menuContent.innerHTML = `
                     <div class="text-center">
                         <p class="text-warning">No menu available. Showing default menu.</p>
-                        <img src="/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
+                        <img src="/food_flash/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
                     </div>
                 `;
                 return;
@@ -116,7 +116,7 @@ export const MenuModalService = (() => {
                         return;
                     }
 
-                    fetch(`/api/menus/`, {
+                    fetch(`/food_flash/api/menus/`, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",

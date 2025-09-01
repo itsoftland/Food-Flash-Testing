@@ -1,8 +1,8 @@
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
-import { MenuFileManagerService } from './services/menuService.js';
-import { OutletUpdateService } from './services/updateOutletService.js';
-import { ModalService } from '/static/utils/js/services/modalService.js';
-import getFriendlyFieldLabels from '/static/utils/js/formFieldLabelService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { MenuFileManagerService } from '/food_flash/static/company/js/services/menuService.js';
+import { OutletUpdateService } from '/food_flash/static/company/js/services/updateOutletService.js';
+import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     // 1️⃣ Fetch vendor details (current data)
-    const vendorRes = await fetchWithAutoRefresh(`/company/api/get_vendor_details?vendor_id=${vendorId}`);
+    const vendorRes = await fetchWithAutoRefresh(`/food_flash/company/api/get_vendor_details?vendor_id=${vendorId}`);
     if (!vendorRes.ok) throw new Error("Vendor details fetch failed");
     vendorDetails = await vendorRes.json();
     vendorData = vendorDetails.vendor_data;
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ModalService.showSuccess("Outlet Updated Successfully", () => {
           // Callback on OK button click
           outletForm.reset();
-          window.location.href = "/company/outlets/";
+          window.location.href = "/food_flash/company/outlets/";
         });
       } else {
         const userFriendlyMessage = getFriendlyFieldLabels(result);

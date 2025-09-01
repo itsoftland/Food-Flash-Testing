@@ -1,6 +1,6 @@
-import getFriendlyFieldLabels from '/static/utils/js/formFieldLabelService.js';
-import { fetchWithAutoRefresh } from '/static/utils/js/services/authFetchService.js';
-import { ModalService } from '/static/utils/js/services/modalService.js';
+import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
+import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('create-outlet-form');
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log(formData)
   
       try {
-        const response = await fetchWithAutoRefresh('/company/api/create_vendor/', {
+        const response = await fetchWithAutoRefresh('/food_flash/company/api/create_vendor/', {
           method: 'POST',
           headers: {
             'X-CSRFToken': AppUtils.getCSRFToken()  // ✅ CSRF token only,
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
           ModalService.showSuccess("Outlet Created Successfully", () => {
           // Callback on OK button click
           form.reset();
-          window.location.href = "/company/outlets/";
+          window.location.href = "/food_flash/company/outlets/";
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);
@@ -77,4 +77,3 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
-  

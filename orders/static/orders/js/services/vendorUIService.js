@@ -29,7 +29,7 @@ export const VendorUIService = {
 
     async loadVendorLogos(vendorIds) {
         try {
-            const response = await fetch("/api/get_vendor_logos/", {
+            const response = await fetch("/food_flash/api/get_vendor_logos/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

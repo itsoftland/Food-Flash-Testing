@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let lastShownOrderIds = new Set(); // Store previously shown order IDs
 
     function fetchAndDisplayRecentOrders() {
-        fetch(`/api/get_recent_orders/?vendor_id=${vendorId}`)
+        fetch(`/food_flash/api/get_recent_orders/?vendor_id=${vendorId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error("Failed to fetch orders");
