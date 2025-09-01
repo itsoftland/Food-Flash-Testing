@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 3️⃣ Ask for it / show error / redirect
             AppUtils.showToast("No location ID found");
             // Optionally redirect to a location selection page
-            window.location.href = "/";
+            window.location.href = "/food_flash";
             throw new Error("Missing location ID");
         }
     }
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     initNotificationModal(notificationModal);
     // 1. Register the Service Worker at the root scope
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/service-worker.js", { scope: '/' })
+        navigator.serviceWorker.register("/service-worker.js", { scope: '/food_flash' })
         .then((registration) => {
             console.log("Service Worker Registered:", registration);
               if (registration.active) {
@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         console.log("Payload to send:", payload);
-        fetch('/check-status/', {
+        fetch('/food_flash/check-status/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

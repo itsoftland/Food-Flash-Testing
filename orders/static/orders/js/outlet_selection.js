@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ─────────────────────────────────────
     // Fetch and Render Outlets
     // ─────────────────────────────────────
-    fetch(`/api/outlets/?location_id=${locationId}`)
+    fetch(`/food_flash/api/outlets/?location_id=${locationId}`)
         .then(response => response.json())
         .then(data => {
             const outletList = document.getElementById("outlet-list");

@@ -15,21 +15,25 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('vendors/', include(('vendors.urls','vendors'),namespace='vendors')),
-    path('company/', include(('company.urls', 'company'), namespace='company')),
-    path('companyadmin/', include(('companyadmin.urls', 'companyadmin'), namespace='companyadmin')),
-    path('',include('orders.urls')),
-    path('manager/', include(('manager.urls','manager'),namespace='manager')),
-    path('service-worker.js', (TemplateView.as_view(template_name="orders/service-worker.js", 
-  content_type='application/javascript', )), name='service-worker.js'),
-]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    path('food_flash/', include([
+        path('vendors/', include(('vendors.urls', 'vendors'), namespace='vendors')),
+        path('company/', include(('company.urls', 'company'), namespace='company')),
+        path('companyadmin/', include(('companyadmin.urls', 'companyadmin'), namespace='companyadmin')),
+        path('manager/', include(('manager.urls', 'manager'), namespace='manager')),
+        path('', include('orders.urls')),  # This will make /food_flash/ the landing page
+        path('service-worker.js', TemplateView.as_view(
+            template_name="orders/service-worker.js",
+            content_type='application/javascript',
+        ), name='service-worker.js'),
+    ])),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
