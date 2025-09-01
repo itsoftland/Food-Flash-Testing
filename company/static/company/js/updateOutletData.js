@@ -1,6 +1,6 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { MenuFileManagerService } from '/food_flash/static/company/js/services/menuService.js';
-import { OutletUpdateService } from '/food_flash/static/company/js/services/updateOutletService.js';
+import { MenuFileManagerService } from './services/menuService.js';
+import { OutletUpdateService } from './services/updateOutletService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
 

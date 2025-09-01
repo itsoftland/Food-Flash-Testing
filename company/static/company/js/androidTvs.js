@@ -1,6 +1,7 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import { ConfirmModalService } from '/food_flash/static/utils/js/services/confirmModalService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   $(function () {
