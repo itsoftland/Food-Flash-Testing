@@ -12,7 +12,7 @@
 }
 
 .image-section {
-  background-image: url("/static/utils/Images/foodflashKeypad.webp");
+  background-image: url("/food_flash/static/utils/Images/foodflashKeypad.webp");
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;

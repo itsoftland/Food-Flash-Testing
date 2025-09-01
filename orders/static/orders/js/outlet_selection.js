@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 tile.dataset.location = outlet.location || '';
 
                 tile.innerHTML = `
-                    <img src="${outlet.logo || '/static/default-logo.png'}" alt="${outlet.name}">
+                    <img src="${outlet.logo || 'food_flash/static/default-logo.png'}" alt="${outlet.name}">
                     <p class="outlet-name">${outlet.name}</p>
                     <p class="outlet-location">${outlet.location || ''}</p>
                 `;

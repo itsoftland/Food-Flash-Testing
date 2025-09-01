@@ -1,7 +1,7 @@
 /* orders/static/orders/css/login.css */
 body.login-page {
   position: relative;
-  background: url("/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
+  background: url("/food_flash/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
   background-size: cover;
   background-color: #f9f4ed;
 }
@@ -100,7 +100,7 @@ body.login-page::before {
 
 
 /* body.login-page {
-  background: url("/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
+  background: url("/food_flash/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
   background-size: cover;
   background-color: #f9f4ed;
 }

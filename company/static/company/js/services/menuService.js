@@ -51,7 +51,7 @@ export const MenuFileManagerService = (() => {
         if (url.endsWith(".pdf")) {
             menuContent.innerHTML = `<iframe src="${url}" width="100%" height="500px" frameborder="0"></iframe>`;
         } else {
-            menuContent.innerHTML = `<img src="${url}" class="img-fluid rounded" alt="Menu Preview" onerror="this.src='/static/orders/files/menu.jpg'">`;
+            menuContent.innerHTML = `<img src="${url}" class="img-fluid rounded" alt="Menu Preview" onerror="this.src='/food_flash/static/orders/files/menu.jpg'">`;
         }
 
         if (!modalInstance) {
