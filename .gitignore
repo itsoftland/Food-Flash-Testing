@@ -9,6 +9,7 @@ __pycache__/
 .env
 *.log
 firebase/service-account.json
+venv/
 
 # Django-specific
 *.pot
