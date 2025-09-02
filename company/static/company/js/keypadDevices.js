@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       onShown: async () => {
         const vendorSelect = document.getElementById('vendor-select');
         try {
-          const res = await fetchWithAutoRefresh('/company/api/get_vendors/');
+          const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
           const data = await res.json();
           const vendors = data.vendors || [];
 
