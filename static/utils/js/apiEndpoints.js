@@ -24,7 +24,9 @@ export const API_ENDPOINTS = {
   ASSIGNED_PROFILES: '/food_flash/company/api/assigned_profiles/',
   ASSIGN_AD_PROFILE: '/food_flash/company/api/assign_ad_profile/',
   UNMAP_PROFILE: '/food_flash/company/api/unmap_profile/',
+  DELETE_AD_PROFILE: '/food_flash/company/api/delete_ad_profile/',
   AVAILABLE_PROFILES: '/food_flash/company/api/available_profiles/',
+  GET_AD_PROFILES: '/food_flash/company/api/get_ad_profiles/',
   // Add more endpoints here
 };
 

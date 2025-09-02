@@ -1,5 +1,6 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from '../services/confirmModalService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await fetchAdProfiles();
@@ -12,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function fetchAdProfiles() {
   try {
-    const res = await fetchWithAutoRefresh('/company/api/get_ad_profiles/');
+    const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_AD_PROFILES);
     const data = await res.json();
     const profiles = data.profiles || data.banners || data.ad_profiles || [];
     renderAdProfiles(profiles);
@@ -123,7 +124,7 @@ function attachActionListeners() {
       const confirmed = await ConfirmModalService.show("Do you want to discard this Ad Profile?");
       if (!confirmed) return;
       try {
-      const res = await fetchWithAutoRefresh(`/company/api/delete_ad_profile/?ad_profile_id=${profileId}`, {
+      const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.DELETE_AD_PROFILE}?ad_profile_id=${profileId}`, {
         method: 'DELETE',
       });
       await fetchAdProfiles();
