@@ -1,6 +1,7 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ImageLibraryService } from '../services/imageLibraryService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   ImageLibraryService.init();
@@ -40,7 +41,7 @@ function setupFormSubmitHandler() {
     };
 
     try {
-    const res = await fetchWithAutoRefresh('/company/api/create_ad_profile/', {
+    const res = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_AD_PROFILE, {
       method: 'POST',
       headers: {
             'X-CSRFToken': AppUtils.getCSRFToken()  // ✅ CSRF token only,
@@ -54,7 +55,7 @@ function setupFormSubmitHandler() {
       ModalService.showSuccess("Profile Created Successfully", () => {
         this.reset();
         document.getElementById('selected-images-preview').innerHTML = '';
-        window.location.href = "/company/profile_list/";
+        window.location.href = WEB_ENDPOINTS.PROFILE_LIST;
         });
     } else {
       // Extract and show error message

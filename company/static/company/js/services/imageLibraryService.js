@@ -1,4 +1,7 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+
+// Image Library Service
 export const ImageLibraryService = (() => {
   let selectedImageIds = new Set();
   let imageList = [];
@@ -6,7 +9,7 @@ export const ImageLibraryService = (() => {
   // Fetch images from server
   const fetchImages = async () => {
     try {
-      const res = await fetchWithAutoRefresh('/company/api/banner_list/');
+      const res = await fetchWithAutoRefresh(API_ENDPOINTS.BANNER_LIST);
       const data = await res.json();
       imageList = data.banners || [];
     } catch (err) {

@@ -1,5 +1,6 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await initAssignProfileForm();
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initAssignProfileForm() {
   try {
     // Fetch Ad Profiles
-    const profilesRes = await fetchWithAutoRefresh('/company/api/get_ad_profiles/');
+    const profilesRes = await fetchWithAutoRefresh(API_ENDPOINTS.GET_AD_PROFILES);
     const profilesData = await profilesRes.json();
     const profiles = profilesData.profiles || [];
     
@@ -22,7 +23,7 @@ async function initAssignProfileForm() {
     profileSelect.innerHTML = profiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     // Fetch Outlets
-    const outletsRes = await fetchWithAutoRefresh('/company/api/get_vendors/');
+    const outletsRes = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
     const outletsData = await outletsRes.json();
     const outlets = outletsData.vendors || [];
     console.log("outlet data",outlets)
@@ -68,7 +69,7 @@ async function initAssignProfileForm() {
           profile_ids: profileIds, 
           vendor_ids: outletIds
         }));
-        const res = await fetchWithAutoRefresh('/company/api/assign_ad_profile/', {
+        const res = await fetchWithAutoRefresh(API_ENDPOINTS.ASSIGN_AD_PROFILE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -85,7 +86,7 @@ async function initAssignProfileForm() {
             profileChoices.clearStore();
             outletChoices.clearStore();
             // Callback on OK button click
-            window.location.href = "/company/mapped_list/";
+            window.location.href = WEB_ENDPOINTS.MAPPED_LIST;
           });
         } else {
             ModalService.showError(result.message || "Assignment failed.");
