@@ -1,6 +1,7 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from '../services/confirmModalService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadAssignedProfiles();
@@ -14,7 +15,7 @@ async function loadAssignedProfiles() {
 
     try {
 
-        const response = await fetchWithAutoRefresh('/company/api/assigned_profiles/');
+        const response = await fetchWithAutoRefresh(API_ENDPOINTS.ASSIGNED_PROFILES);
         const data = await response.json();
 
         if (!response.ok) throw new Error();
@@ -29,7 +30,7 @@ async function loadAssignedProfiles() {
         accordion.innerHTML = '';
         outlets.forEach(outlet => {
             const assignedChips = outlet.assigned_profiles.map(profile => `
-            <span class="profile-chip" onclick="window.location.href='/company/profile_list/'">
+            <span class="profile-chip" onclick="window.location.href=${WEB_ENDPOINTS.PROFILE_LIST}">
                 ${profile.name}
                 <i class="fas fa-times remove-icon" data-vendor="${outlet.outlet_id}" data-profile="${profile.id}"></i>
             </span>
@@ -114,7 +115,7 @@ async function attachActionListeners() {
 async function unmapProfile(vendorId, profileId) {
     try {
         const res = await fetchWithAutoRefresh(
-        `/company/api/unmap_profile/${vendorId}/${profileId}/`,
+        `${API_ENDPOINTS.UNMAP_PROFILE}${vendorId}/${profileId}/`,
         { method: 'DELETE' }
         );
 
@@ -159,7 +160,7 @@ async function openAssignModal(vendorId) {
     onShown: async () => {
       const profileSelect = document.getElementById('ad-profile-select');
       try {
-        const response = await fetchWithAutoRefresh(`/company/api/available_profiles/${vendorId}/`);
+        const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.AVAILABLE_PROFILES}${vendorId}/`);
         const data = await response.json();
         const profiles = data.profiles || [];
 
@@ -200,7 +201,7 @@ async function openAssignModal(vendorId) {
 
         console.log("Request Body:", requestBody);
 
-        const res = await fetchWithAutoRefresh('/company/api/assign_ad_profile/', {
+        const res = await fetchWithAutoRefresh(API_ENDPOINTS.ASSIGN_AD_PROFILE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: requestBody
@@ -223,7 +224,7 @@ async function openAssignModal(vendorId) {
           setTimeout(() => {
             ModalService.showSuccess(msg, () => {
               profileChoices.clearStore();
-              window.location.href = "/company/mapped_list/";
+              window.location.href = WEB_ENDPOINTS.MAPPED_LIST;
             });
           }, 300);
 

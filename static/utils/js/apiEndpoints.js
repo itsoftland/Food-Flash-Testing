@@ -21,5 +21,22 @@ export const API_ENDPOINTS = {
   GET_MANAGER_DEVICES:'/food_flash/company/api/get_manager_devices/',
   BANNER_UPLOAD: '/food_flash/company/api/banner_upload/',
   BANNER_LIST: '/food_flash/company/api/banner_list/',
+  ASSIGNED_PROFILES: '/food_flash/company/api/assigned_profiles/',
+  ASSIGN_AD_PROFILE: '/food_flash/company/api/assign_ad_profile/',
+  UNMAP_PROFILE: '/food_flash/company/api/unmap_profile/',
+  AVAILABLE_PROFILES: '/food_flash/company/api/available_profiles/',
   // Add more endpoints here
+};
+
+export const WEB_ENDPOINTS = {
+  DASHBOARD: '/food_flash/company/dashboard/',
+  VENDOR_LIST: '/food_flash/company/vendor_list/',
+  OUTLET_LIST: '/food_flash/company/outlet_list/',
+  DEVICE_LIST: '/food_flash/company/device_list/',
+  ANDROID_TV_LIST: '/food_flash/company/android_tv_list/',
+  ORDER_LIST: '/food_flash/company/order_list/',
+  USER_LIST: '/food_flash/company/user_list/',
+  PROFILE_LIST: '/food_flash/company/profile_list/',
+  MAPPED_LIST: '/food_flash/company/mapped_list/',
+  // Add more web endpoints here
 };
