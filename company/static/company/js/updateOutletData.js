@@ -3,6 +3,7 @@ import { MenuFileManagerService } from './services/menuService.js';
 import { OutletUpdateService } from './services/updateOutletService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     // 1️⃣ Fetch vendor details (current data)
-    const vendorRes = await fetchWithAutoRefresh(`/food_flash/company/api/get_vendor_details?vendor_id=${vendorId}`);
+    const vendorRes = await fetchWithAutoRefresh(`${API_ENDPOINTS.GET_VENDORS_DETAILS}?vendor_id=${vendorId}`);
     if (!vendorRes.ok) throw new Error("Vendor details fetch failed");
     vendorDetails = await vendorRes.json();
     vendorData = vendorDetails.vendor_data;

@@ -3,6 +3,8 @@ export const API_ENDPOINTS = {
   CONFIG: '/food_flash/company/api/config/',
   DASHBOARD_METRICS: '/food_flash/company/api/dashboard_metrics/',
   GET_VENDORS: '/food_flash/company/api/get_vendors/',
+  GET_VENDORS_DETAILS: '/food_flash/company/api/get_vendor_details/',
+  UPDATE_VENDOR: '/food_flash/company/api/update_vendor/',
   GET_OUTLETS: '/food_flash/company/api/get_outlets/',
   GET_KEYPAD_DEVICES: '/food_flash/company/api/get_devices/',
   MAP_DEVICE: '/food_flash/company/api/map_device/',           

@@ -1,9 +1,10 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 export const OutletUpdateService = (() => {
   const updateOutlet = async (formData) => {
     try {
-      const response = await fetchWithAutoRefresh('/company/api/update_vendor/', {
+      const response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_VENDOR, {
         method: 'PATCH',
         body: formData,
       });

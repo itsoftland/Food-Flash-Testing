@@ -18,7 +18,7 @@ export async function callProductAuthAPI() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': AppUtils.getCSRFToken()
+                'X-CSRFToken': AppUtils.getCSRFToken() 
             },
             credentials: 'include',
             body: JSON.stringify({ CustomerId: customerId })
