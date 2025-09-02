@@ -247,14 +247,23 @@ def register_android_device(request):
 
     # Check vendor mapping
     if hasattr(device, 'vendor') and device.vendor:
-        logger.info("Device mapped to vendor: %s (ID: %s)", device.vendor.name, device.vendor.vendor_id)
+        mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
+
+        logger.info(
+            "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
+            device.vendor.name,
+            device.vendor.vendor_id,
+            json.dumps(mqtt_config)
+        )
+
         return Response({
             "status": "Device is mapped to vendor.",
             "mapped": True,
             "vendor_id": device.vendor.vendor_id,
             "vendor_name": device.vendor.name,
-            "mqtt_config": get_mqtt_config_for_vendor(device.vendor, device)
+            "mqtt_config": mqtt_config
         }, status=status.HTTP_200_OK)
+
 
     logger.info("Device registered but not mapped to any vendor.")
     return Response({
