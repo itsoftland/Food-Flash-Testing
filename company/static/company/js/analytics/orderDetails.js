@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function populateFilters() {
     try {
       // Fetch Vendors (Outlets)
-      const resVendors = await fetchWithAutoRefresh('/company/api/get_vendors/');
+      const resVendors = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
       const { vendors } = await resVendors.json();
 
       outletSelect.innerHTML = '<option value="">All Outlets</option>';
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       // Fetch Devices
-      const resDevices = await fetchWithAutoRefresh('/company/api/get_devices/');
+      const resDevices = await fetchWithAutoRefresh(API_ENDPOINTS.GET_KEYPAD_DEVICES);
       const { devices } = await resDevices.json();
 
       deviceSelect.innerHTML = '<option value="">All Devices</option>';
