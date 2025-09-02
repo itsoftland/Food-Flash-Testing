@@ -1,5 +1,6 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from './services/confirmModalService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -17,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(uploadForm);
-    const response = await fetchWithAutoRefresh('/company/api/banner_upload/', {
+    const response = await fetchWithAutoRefresh(API_ENDPOINTS.BANNER_UPLOAD, {
       method: 'POST',
       body: formData
     });
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function fetchBanners() {
-    const response = await fetchWithAutoRefresh('/company/api/banner_list/', {
+    const response = await fetchWithAutoRefresh(API_ENDPOINTS.BANNER_LIST, {
       method: 'GET'
     });
     const banners = await response.json();

@@ -18,6 +18,8 @@ export const API_ENDPOINTS = {
   COMPANY_UPDATE_URL : '/food_flash/api/company-update/',
   CREATE_USER: '/food_flash/company/api/create_user/',
   GET_USERS: '/food_flash/company/api/get_users/',
-  GET_MANAGER_DEVICES:'/food_flash/company/api/get_manager_devices/'
+  GET_MANAGER_DEVICES:'/food_flash/company/api/get_manager_devices/',
+  BANNER_UPLOAD: '/food_flash/company/api/banner_upload/',
+  BANNER_LIST: '/food_flash/company/api/banner_list/',
   // Add more endpoints here
 };

@@ -1,7 +1,7 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { ConfirmModalService } from '/food_flash/static/utils/js/services/confirmModalService.js';
+import { ConfirmModalService } from './services/confirmModalService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   $(function () {
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       onShown: async () => {
         const vendorSelect = document.getElementById('vendor-select');
         try {
-          const res = await fetchWithAutoRefresh('/company/api/get_vendors/');
+          const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
           const data = await res.json();
           const vendors = data.vendors || [];
 
