@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async function() {
               if (registration.active) {
                 registration.active.postMessage({
                 type: "SET_BASE_URL",
-                baseUrl: window.location.origin,
+                baseUrl: window.location.origin + "/food_flash",
                 });
 
                 registration.active.postMessage({

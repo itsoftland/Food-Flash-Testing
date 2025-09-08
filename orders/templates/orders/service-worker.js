@@ -123,7 +123,8 @@ self.addEventListener("notificationclick", (event) => {
         });
         console.log("[Service Worker] 📨 Sent OPEN_CHAT to client");
       } else {
-        const targetUrl = `${BASE_URL || "/"}?from_push=true`;
+        const targetUrl = `${BASE_URL || "/food_flash"}?from_push=true`;
+        
         const openedClient = await self.clients.openWindow(targetUrl);
         if (openedClient) {
           console.log("[Service Worker] 🌐 Opened new tab at:", targetUrl);
