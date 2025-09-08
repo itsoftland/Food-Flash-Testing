@@ -236,7 +236,7 @@ window.AppUtils = {
         console.log("[Unlock] Unlocking notification sound and TTS...");
 
         // 🔊 Unlock notification sound
-        unlockedNotificationAudio = new Audio('food_flash/static/orders/audio/0112.mp3');
+        unlockedNotificationAudio = new Audio('/food_flash/static/orders/audio/0112.mp3');
         unlockedNotificationAudio.volume = 1.0;
         unlockedNotificationAudio.muted = false;
         unlockedNotificationAudio.playsInline = true;

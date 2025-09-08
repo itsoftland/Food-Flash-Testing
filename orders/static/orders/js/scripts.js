@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     initNotificationModal(notificationModal);
     // 1. Register the Service Worker at the root scope
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/service-worker.js", { scope: '/food_flash' })
+        navigator.serviceWorker.register("/food_flash/service-worker.js", { scope: '/food_flash/' })
         .then((registration) => {
             console.log("Service Worker Registered:", registration);
               if (registration.active) {

@@ -21,8 +21,9 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # path('admin/', admin.site.urls),
     path('food_flash/', include([
+        path('admin/', admin.site.urls),
         path('vendors/', include(('vendors.urls', 'vendors'), namespace='vendors')),
         path('company/', include(('company.urls', 'company'), namespace='company')),
         path('companyadmin/', include(('companyadmin.urls', 'companyadmin'), namespace='companyadmin')),
