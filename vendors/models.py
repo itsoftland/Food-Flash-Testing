@@ -221,7 +221,7 @@ class Feedback(models.Model):
         return f"Feedback for {self.vendor.name}"
 
 class AndroidDevice(models.Model):
-    token = models.CharField(max_length=255, unique=True)
+    token = models.CharField(max_length=255)
     mac_address = models.CharField(max_length=255, blank=True, null=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL,null=True, blank=True,related_name='android_devices')
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE,related_name='android_device')
@@ -369,3 +369,32 @@ class ChatMessage(models.Model):
             models.UniqueConstraint(fields=['vendor', 'token_no', 'created_date', 'message_id'], name='unique_chat_message_per_order'),
         ]
 
+class WebChatMessage(models.Model):
+    message_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    subscription = models.ForeignKey(
+        'PushSubscription',
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+    vendor = models.ForeignKey(
+        'Vendor',
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+    token_no = models.IntegerField(null=True, blank=True)
+    sender = models.CharField(max_length=20)   
+    type = models.CharField(max_length=20, default='chat')
+    text = models.JSONField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    is_send = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering = ['timestamp']
+        indexes = [
+            models.Index(fields=['vendor', 'timestamp']),
+        ]
+
+    def __str__(self):
+        token_info = f"[T{self.token_no}] " if self.token_no else ""
+        return f"{token_info}{self.sender} → {self.type} ({self.text})"

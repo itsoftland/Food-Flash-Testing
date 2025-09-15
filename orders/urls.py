@@ -24,4 +24,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('outlet_dashboard/', views.outlet_dashboard, name='outlet_dashboard'),
     path('api/company-update/', views.update_admin_outlet, name='company_update_api'),
+    path('api/webchat-messages/', views.webchat_messages, name='webchat_messages_api'),  # New endpoint for webchat messages
+    path('api/webchat-messages-create/', views.webchat_message_create, name='webchat_message_create'),  # New endpoint to create message
+    path('api/mark-messages-read/<int:vendor_id>/', views.mark_webchat_messages_read, name='mark_webchat_messages_read'),  # New endpoint to mark messages as read
 ]

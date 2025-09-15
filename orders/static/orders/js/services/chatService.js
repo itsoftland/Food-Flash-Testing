@@ -13,55 +13,117 @@ export function updateChatOnPush(vendorId, logo_url, name) {
         }
     });
 }
-
-export function handleOutletSelection(vendorId, vendor_logo, placeId) {
+export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
     localStorage.setItem("activeVendor", vendorId);
     localStorage.setItem("activeVendorLogo", vendor_logo);
     localStorage.setItem("activeVendorRatingLink", placeId);
 
-    const chatContainer = document.getElementById("chat-container");
-    chatContainer.innerHTML = "";
+    // const chatContainer = document.getElementById("chat-container");
+    // window.isRestoringHistory = true;
 
-    const outletName = AppUtils.getSelectedOutletName() || "our outlet";
-    showWelcomeMessage(outletName);
+    // try {
+    //     const browserId = AppUtils.getBrowserId();
+    //     if (!browserId) {
+    //         console.warn("No browser ID found. Cannot load chat history.");
+    //         return;
+    //     }
 
-    window.isRestoringHistory = true;
-    const cachedMessages = ChatHistoryService.load(vendorId) || [];
-    cachedMessages.forEach(msg => {
-        appendMessage(msg.text, msg.sender, msg.timestamp, msg.type || null,msg.token_no);
-    });
-    window.isRestoringHistory = false;
+    //     const permissionStatus = localStorage.getItem("permissionStatus");
+    //     if (permissionStatus !== "granted") {
+    //         console.warn("Skipping chat history restore until notifications are allowed.");
+    //         return;
+    //     }
+
+    //     // ✅ load history
+    //     const cachedMessages = await ChatHistoryService.load(vendorId, browserId) || [];
+    //     console.log("Restored chat history:", cachedMessages);
+
+    //     chatContainer.innerHTML = "";
+
+    //     cachedMessages.forEach(msg => {
+    //         // ✅ for user-typed chat, rendered == raw text
+    //         // ✅ for others, rendered == HTML template
+    //         appendMessage(
+    //             msg.rendered,   // << use processed template
+    //             msg.sender,
+    //             msg.timestamp,
+    //             msg.type,
+    //             msg.token_no
+    //         );
+    //     });
+
+    // } catch (err) {
+    //     console.error("Failed to restore chat history:", err);
+    // } finally {
+    //     window.isRestoringHistory = false;
+    // }
 }
 
-export function showWelcomeMessage(outletName) {
-    const chatContainer = document.getElementById("chat-container");
-    if (!chatContainer) return;
+// export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
+//     localStorage.setItem("activeVendor", vendorId);
+//     localStorage.setItem("activeVendorLogo", vendor_logo);
+//     localStorage.setItem("activeVendorRatingLink", placeId);
 
-    const messages = [
-        `Hi, Good Day! Welcome to ${outletName}.`,
-        "Kindly enter the Bill Number and Send so that we can track your order."
-    ];
+//     const chatContainer = document.getElementById("chat-container");
+//     // showWelcomeMessage(AppUtils.getSelectedOutletName() || "our outlet");
+//     window.isRestoringHistory = true;
 
-    messages.forEach(msg => {
-        const messageRow = document.createElement("div");
-        messageRow.classList.add("message-row", "server");
+//     try {
+//         const browserId = AppUtils.getBrowserId();
+//         if (!browserId){
+//             console.warn("No browser ID found. Cannot load chat history.");
+//             return;
+//         }
+//         const permissionStatus = localStorage.getItem("permissionStatus");
+//         if (permissionStatus !== "granted") {
+//             console.warn("Skipping chat history restore until notifications are allowed.");
+//             return;
+//         }
+//         const cachedMessages = await ChatHistoryService.load(vendorId,browserId) || [];
+//         console.log("Restored chat history:", cachedMessages);
+//         chatContainer.innerHTML = ""; // move AFTER cached messages are loaded
+//         cachedMessages.forEach(msg => {
+//             appendMessage(msg.text, msg.sender, msg.timestamp, msg.type || null, msg.token_no);
+//         });
+//     } catch (err) {
+//         console.error("Failed to restore chat history:", err);
+//     } finally {
+//         window.isRestoringHistory = false;
+//     }
 
-        const logoImg = document.createElement("img");
-        logoImg.src = localStorage.getItem("activeVendorLogo") || "/food_flash/static/images/default-logo.png";
-        logoImg.alt = "Vendor Logo";
-        logoImg.className = "server-logo";
+    
+// }
 
-        const messageBubble = document.createElement("div");
-        messageBubble.classList.add("message-bubble", "server");
-        messageBubble.textContent = msg;
 
-        messageRow.appendChild(logoImg);
-        messageRow.appendChild(messageBubble);
-        chatContainer.appendChild(messageRow);
-    });
+// export function showWelcomeMessage(outletName) {
+//     const chatContainer = document.getElementById("chat-container");
+//     if (!chatContainer) return;
 
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-}
+//     const messages = [
+//         `Hi, Good Day! Welcome to ${outletName}.`,
+//         "Kindly enter the Bill Number and Send so that we can track your order."
+//     ];
+
+//     messages.forEach(msg => {
+//         const messageRow = document.createElement("div");
+//         messageRow.classList.add("message-row", "server");
+
+//         const logoImg = document.createElement("img");
+//         logoImg.src = localStorage.getItem("activeVendorLogo") || "/food_flash/static/images/default-logo.png";
+//         logoImg.alt = "Vendor Logo";
+//         logoImg.className = "server-logo";
+
+//         const messageBubble = document.createElement("div");
+//         messageBubble.classList.add("message-bubble", "server");
+//         messageBubble.textContent = msg;
+
+//         messageRow.appendChild(logoImg);
+//         messageRow.appendChild(messageBubble);
+//         chatContainer.appendChild(messageRow);
+//     });
+
+//     chatContainer.scrollTop = chatContainer.scrollHeight;
+// }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no) {
     const chatContainer = document.getElementById("chat-container");
@@ -165,17 +227,37 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
 
     chatContainer.appendChild(messageRow);
     chatContainer.scrollTop = chatContainer.scrollHeight;
+    AppUtils.adjustChatResponsePadding();
+}
+export async function saveChat(text, sender, type, token_no) {
+    const activeVendorId = localStorage.getItem("activeVendor");
+    if (!activeVendorId) return;
 
-    if (!window.isRestoringHistory) {
-        const activeVendorId = localStorage.getItem("activeVendor");
-        if (activeVendorId) {
-            const existingMessages = ChatHistoryService.load(activeVendorId) || [];
-            existingMessages.push({ text, sender, timestamp: timeStamp, type: type || null,token_no}); // ✅ FIXED
-            ChatHistoryService.save(activeVendorId, existingMessages);
-        }
+    let normalizedText;
+
+    if (type === "chat") {
+        // User typed message → wrap inside JSON
+        normalizedText = { content: text };
+    } else if (typeof text === "string") {
+        // Server/system accidentally sends string → wrap it
+        normalizedText = { message: text };
+    } else {
+        // Already JSON (status / offers / manager payload)
+        normalizedText = text;
     }
 
-    AppUtils.adjustChatResponsePadding();
+    try {
+        await ChatHistoryService.save({
+            vendorId: activeVendorId,
+            browser_id: AppUtils.getBrowserId(),
+            sender,
+            type,
+            text: normalizedText,
+            token_no
+        });
+    } catch (err) {
+        console.error("Failed to save chat message:", err);
+    }
 }
 
 export function clearReplyMode() {

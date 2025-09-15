@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from orders.serializers import VendorLogoSerializer
+from orders.utils import send_to_managers
 
 from vendors.models import ChatMessage, Order
 from vendors.serializers import OrdersSerializer
@@ -67,7 +68,7 @@ def create_order_by_manager(request):
 
     # Dynamically build tracking URL
     base_url = request.build_absolute_uri('/')
-    tracking_url = f"{base_url}home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&token_no={token_no}"
+    tracking_url = f"{base_url}food_flash/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&token_no={token_no}"
     logger.debug("[create_order_by_manager] Tracking URL generated | url=%s", tracking_url)
 
     # === Step 3: Check if order already exists for today ===
@@ -609,6 +610,9 @@ def device_call(request):
             logger.info(f"🕒 Order {token_no} marked as notified at {order.notified_at}")
         else:
             logger.info(f"⏳ Cooldown active. Skipping web push for {token_no}.")
+        
+        # Notify managers via FCM
+        send_to_managers(vendor, payload)
 
 
         # 📦 Final response

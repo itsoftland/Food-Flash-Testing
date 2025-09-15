@@ -484,12 +484,22 @@ window.AppUtils = {
      * Stores and retrieves it from localStorage.
      */
     getBrowserId: function () {
+        console.trace("getBrowserId called");
         let browserId = localStorage.getItem('browser_id');
         if (!browserId) {
             browserId = crypto.randomUUID();
             localStorage.setItem('browser_id', browserId);
         }
         return browserId;
+    },
+    getCurrentBrowserId: function () {
+        console.trace("getCurrentBrowserId called");
+    let browserId = localStorage.getItem('browser_id');
+    if (!browserId) {
+        console.warn("No browser ID found.");
+        return null;
+    }
+    return browserId;
     },
     // ─────────────────────────────────────
     // Device Detection

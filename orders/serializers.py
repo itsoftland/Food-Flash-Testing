@@ -138,3 +138,53 @@ class AdminOutletSerializer(serializers.ModelSerializer):
         admin_outlet = AdminOutlet.objects.create(user=user, **validated_data)
         return admin_outlet
 
+# serializers.py
+from rest_framework import serializers
+from vendors.models import WebChatMessage, Vendor, PushSubscription
+
+class WebChatMessageSerializer(serializers.ModelSerializer):
+    vendor = serializers.CharField(write_only=True)  # accept vendor_id (not PK)
+    browser_id = serializers.CharField(write_only=True)  # accept browser_id instead of full subscription object
+
+    class Meta:
+        model = WebChatMessage
+        fields = [
+            "id", "browser_id", "vendor", "token_no",
+            "sender", "type", "text", "timestamp",
+            "is_read", "is_send"
+        ]
+
+    def create(self, validated_data):
+        vendor_identifier = validated_data.pop("vendor", None)
+        browser_id = validated_data.pop("browser_id", None)
+
+        # 🔹 Vendor lookup
+        try:
+            vendor = Vendor.objects.get(vendor_id=vendor_identifier)
+        except Vendor.DoesNotExist:
+            raise serializers.ValidationError({
+                "vendor": f"Vendor with vendor_id {vendor_identifier} not found"
+            })
+
+        # 🔹 Subscription lookup using browser_id
+        if not browser_id:
+            raise serializers.ValidationError({
+                "browser_id": "Browser ID is required to link subscription."
+            })
+        print(browser_id)
+
+        try:
+            subscription = PushSubscription.objects.get(browser_id=browser_id)
+        except PushSubscription.DoesNotExist:
+            raise serializers.ValidationError({
+                "browser_id": f"No subscription found for browser_id {browser_id}"
+            })
+        print(subscription)
+
+        # 🔹 Create WebChatMessage
+        return WebChatMessage.objects.create(
+            vendor=vendor,
+            subscription=subscription,
+            **validated_data
+        )
+

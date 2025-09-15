@@ -1,0 +1,136 @@
+// services/chatRestoreService.js
+
+
+import { ChatHistoryService } from "./chatHistoryService.js";
+import { appendMessage } from "./chatService.js";
+import { WelcomeMessageService } from "./welcomeMessageService.js";
+
+export const ChatRestoreService = (() => {
+  let restorePromise = null;
+  let lastRestoredVendorId = null;
+
+  /**
+   * Restore chat history for a given vendor
+   * @param {string|number} vendorId
+   * @returns {Promise<boolean>} true if any messages restored, false otherwise
+   */
+  async function restore(vendorId) {
+    if (restorePromise) return restorePromise;
+
+    // ⚡ Skip if restoring same vendor again
+    if (lastRestoredVendorId === vendorId) {
+      console.log(`[ChatRestoreService] Already restored for vendor ${vendorId}, skipping.`);
+      return Promise.resolve(true);
+    }
+
+    restorePromise = (async () => {
+      try {
+        window.isRestoringHistory = true;
+        lastRestoredVendorId = vendorId;
+
+        const browserId = AppUtils.getBrowserId();
+        if (!browserId) {
+          console.warn("ChatRestoreService: No browser ID, skipping restore.");
+          return false;
+        }
+
+        const cachedMessages = await ChatHistoryService.load(vendorId, browserId) || [];
+        const chatContainer = document.getElementById("chat-container");
+
+        if (!chatContainer) {
+          console.warn("ChatRestoreService: Chat container not found.");
+          return false;
+        }
+
+        // Always clear when switching vendors
+        chatContainer.innerHTML = "";
+
+        // Restore messages
+        cachedMessages.forEach(msg => {
+          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+        });
+
+        console.log(`[ChatRestoreService] Restored ${cachedMessages.length} messages`);
+
+        // 🟡 Always insert welcome note at the top
+        WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet", chatContainer, { prepend: true });
+
+        return cachedMessages.length > 0;
+      } catch (err) {
+        console.error("ChatRestoreService.restore failed:", err);
+        return false;
+      } finally {
+        window.isRestoringHistory = false;
+        restorePromise = null;
+      }
+    })();
+
+    return restorePromise;
+  }
+
+  return { restore };
+})();
+
+// import { ChatHistoryService } from "./chatHistoryService.js"; 
+// import { appendMessage } from "./chatService.js";  
+// import { WelcomeMessageService } from "./welcomeMessageService.js";
+
+// export const ChatRestoreService = (() => {
+//   let restorePromise = null;
+
+//   /**
+//    * Restore chat history for a given vendor
+//    * @param {string|number} vendorId
+//    * @returns {Promise<boolean>} true if any messages restored, false otherwise
+//    */
+//   async function restore(vendorId) {
+//     if (restorePromise) return restorePromise;
+
+//     restorePromise = (async () => {
+//       try {
+//         window.isRestoringHistory = true;
+
+//         const browserId = AppUtils.getBrowserId();
+//         if (!browserId) {
+//           console.warn("ChatRestoreService: No browser ID, skipping restore.");
+//           return false;
+//         }
+
+//         const cachedMessages = await ChatHistoryService.load(vendorId, browserId) || [];
+//         const chatContainer = document.getElementById("chat-container");
+
+//         if (!chatContainer) {
+//           console.warn("ChatRestoreService: Chat container not found.");
+//           return false;
+//         }
+
+//         // Clear before repopulating
+//         chatContainer.innerHTML = "";
+
+//         cachedMessages.forEach(msg => {
+//           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+//         });
+
+//         console.log(`[ChatRestoreService] Restored ${cachedMessages.length} messages`);
+
+//         // 👉 If no messages restored, show welcome note here
+//         if (cachedMessages.length === 0) {
+//           WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
+//           return false;
+//         }
+
+//         return true; // messages restored
+//       } catch (err) {
+//         console.error("ChatRestoreService.restore failed:", err);
+//         return false;
+//       } finally {
+//         window.isRestoringHistory = false;
+//         restorePromise = null;
+//       }
+//     })();
+
+//     return restorePromise;
+//   }
+
+//   return { restore };
+// })();

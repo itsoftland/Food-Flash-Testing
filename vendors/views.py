@@ -40,46 +40,68 @@ def list_order(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def save_subscription(request):
-    data = request.data
-    endpoint = data.get("endpoint")
-    keys = data.get("keys", {})
-    browser_id = data.get("browser_id")
-    token_number = data.get("token_number")
-    vendor_id = data.get("vendor")  
-    
-    if not endpoint or not browser_id or not token_number or not vendor_id:
-        return Response({"error": "Invalid subscription data"}, status=400)
-    
     try:
-        vendor = Vendor.objects.get(id=vendor_id)
-    except Vendor.DoesNotExist:
-        return Response({"error": "Vendor not found."}, status=404)
-    
-    # Fetch latest order with matching token_no and vendor
-    order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
-    if not order:
-        return Response({"error": "Order not found."}, status=404)
-    
-    # Get or create the subscription
-    subscription, _ = PushSubscription.objects.get_or_create(
-        browser_id=browser_id,
-        defaults={
-            "endpoint": endpoint,
-            "p256dh": keys.get("p256dh", ""),
-            "auth": keys.get("auth", ""),
-        },
-    )
-    
-    # Update subscription fields (if changed)
-    subscription.endpoint = endpoint
-    subscription.p256dh = keys.get("p256dh", "")
-    subscription.auth = keys.get("auth", "")
-    subscription.save()
-    
-    # Link the subscription to the order
-    subscription.tokens.add(order)
-    
-    return Response({"message": "Subscription updated successfully."})
+        logger.info("📥 POST /save_subscription")
+        logger.info(f"IP: {request.META.get('REMOTE_ADDR')}, UA: {request.META.get('HTTP_USER_AGENT')}")
+        logger.debug(f"Payload received: {request.data}")
+
+        data = request.data
+        endpoint = data.get("endpoint")
+        keys = data.get("keys", {})
+        browser_id = data.get("browser_id")
+        token_number = data.get("token_number")
+        vendor_id = data.get("vendor_id")
+
+        if not endpoint or not browser_id or not vendor_id:
+            logger.warning("⚠️ Missing required subscription fields: endpoint=%s, browser_id=%s, vendor_id=%s",
+                           endpoint, browser_id, vendor_id)
+            return Response({"error": "Invalid subscription data"}, status=400)
+
+        try:
+            vendor = Vendor.objects.get(vendor_id=vendor_id)
+            logger.info(f"✅ Vendor resolved: {vendor.name} (vendor_id={vendor.vendor_id})")
+        except Vendor.DoesNotExist:
+            logger.error(f"❌ Vendor not found for vendor_id={vendor_id}")
+            return Response({"error": "Vendor not found."}, status=404)
+
+        # Get or create subscription
+        subscription, created = PushSubscription.objects.get_or_create(
+            browser_id=browser_id,
+            defaults={
+                "endpoint": endpoint,
+                "p256dh": keys.get("p256dh", ""),
+                "auth": keys.get("auth", ""),
+            },
+        )
+
+        if created:
+            logger.info(f"🆕 PushSubscription created for browser_id={browser_id}")
+        else:
+            logger.info(f"♻️ PushSubscription found, updating browser_id={browser_id}")
+
+        # Update subscription details if changed
+        subscription.endpoint = endpoint
+        subscription.p256dh = keys.get("p256dh", "")
+        subscription.auth = keys.get("auth", "")
+        subscription.save()
+        logger.info(f"🔄 PushSubscription updated | ID={subscription.id}, BrowserID={subscription.browser_id}")
+
+        # If token provided, try to link with order (optional)
+        if token_number:
+            order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
+            if order:
+                subscription.tokens.add(order)
+                logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={order.token_no})")
+            else:
+                logger.warning(f"⚠️ No order found for token={token_number}, vendor_id={vendor_id}")
+
+        return Response({"message": "Subscription saved successfully."}, status=200)
+
+    except Exception as e:
+        logger.exception("🔥 Unhandled exception in /save_subscription:")
+        return Response({"error": str(e)}, status=500)
+
+
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -585,3 +607,4 @@ def update_order(request):
     except Exception as e:
         logger.exception(f"[update_order] Unexpected error: {e}")
         return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

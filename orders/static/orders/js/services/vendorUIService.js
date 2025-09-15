@@ -1,5 +1,6 @@
 import { AdSliderService } from "./adSliderService.js";
 import { AddOutletService } from "./addOutletService.js";
+import { ChatRestoreService } from "./chatRestoreService.js";
 import { handleOutletSelection } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
@@ -45,14 +46,14 @@ export const VendorUIService = {
             console.error("Error fetching vendor logos:", error);
         }
     },
-
     async renderVendorLogos(vendors) {
         const logoContainer = document.getElementById("vendor-logo-bar");
         const activeVendorId = await AppUtils.getActiveVendor();
-
         if (!logoContainer) return;
 
         logoContainer.innerHTML = "";
+        let restorePromise = null;
+        let browser_id = AppUtils.getCurrentBrowserId();
 
         vendors.forEach(vendor => {
             const wrapper = document.createElement("div");
@@ -68,24 +69,31 @@ export const VendorUIService = {
                 wrapper.classList.add("active");
                 AppUtils.setSelectedOutletName(vendor.name);
                 localStorage.setItem("activeVendorLogo", vendor.logo_url);
+                handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
+                console.log("current browser id:",browser_id);
+                if (browser_id) {
+                    console.log("Restoring chat for vendor:",vendor.vendor_id);
+                    ChatRestoreService.restore(vendor.vendor_id);
+                } else {
+                    console.warn("No browser ID, skipping restore.");
+                }
                 WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
 
-                handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
-
-                setTimeout(() => {
-                    wrapper.scrollIntoView({
-                        behavior: "smooth",
-                        inline: "center",
-                        block: "nearest",
-                    });
-                }, 100);
+                // setTimeout(() => {
+                //     wrapper.scrollIntoView({
+                //         behavior: "smooth",
+                //         inline: "center",
+                //         block: "nearest",
+                //     });
+                // }, 100);
             }
 
-            logo.addEventListener("click", () => {
+            logo.addEventListener("click", async() => {
                 document.querySelectorAll(".vendor-logo-wrapper").forEach(el => el.classList.remove("active"));
                 wrapper.classList.add("active");
                 AppUtils.setSelectedOutletName(vendor.name);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
+                restorePromise = await ChatRestoreService.restore(vendor.vendor_id);
             });
 
             wrapper.appendChild(logo);
@@ -94,7 +102,71 @@ export const VendorUIService = {
 
         this.appendAddOutletButton(logoContainer);
         AddOutletService.init();
+
+        // ✅ Only now wait for restore
+        if (restorePromise) {
+            browser_id = AppUtils.getCurrentBrowserId();
+            console.log("current browser id:",browser_id);
+            if (!browser_id) {
+                console.warn("No browser ID, skipping restore wait.");
+                return;
+            }
+            console.log("Waiting for chat restore to complete...");
+            restorePromise;
+        }
     },
+
+    // async renderVendorLogos(vendors) {
+    //     const logoContainer = document.getElementById("vendor-logo-bar");
+    //     const activeVendorId = await AppUtils.getActiveVendor();
+
+    //     if (!logoContainer) return;
+
+    //     logoContainer.innerHTML = "";
+
+    //     vendors.forEach( vendor => {
+    //         const wrapper = document.createElement("div");
+    //         wrapper.classList.add("vendor-logo-wrapper");
+
+    //         const logo = document.createElement("img");
+    //         logo.src = vendor.logo_url;
+    //         logo.alt = vendor.name;
+    //         logo.classList.add("vendor-logo");
+    //         logo.dataset.vendorId = vendor.vendor_id;
+
+    //         if (vendor.vendor_id === activeVendorId) {
+    //             wrapper.classList.add("active");
+    //             AppUtils.setSelectedOutletName(vendor.name);
+    //             localStorage.setItem("activeVendorLogo", vendor.logo_url);
+    //             WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
+    //             // await ChatRestoreService.restore(vendor.vendor_id);
+
+    //             handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
+
+    //             setTimeout(() => {
+    //                 wrapper.scrollIntoView({
+    //                     behavior: "smooth",
+    //                     inline: "center",
+    //                     block: "nearest",
+    //                 });
+    //             }, 100);
+    //         }
+
+    //         logo.addEventListener("click", () => {
+    //             document.querySelectorAll(".vendor-logo-wrapper").forEach(el => el.classList.remove("active"));
+    //             wrapper.classList.add("active");
+    //             AppUtils.setSelectedOutletName(vendor.name);
+    //             WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
+    //             handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
+    //         });
+
+    //         wrapper.appendChild(logo);
+    //         logoContainer.appendChild(wrapper);
+    //     });
+
+    //     this.appendAddOutletButton(logoContainer);
+    //     AddOutletService.init();
+    // },
 
     appendAddOutletButton(container) {
         const spacer = document.createElement("div");

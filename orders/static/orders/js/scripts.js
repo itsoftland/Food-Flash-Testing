@@ -5,11 +5,10 @@ import { FeedbackService } from "./services/feedBackService.js";
 import { PermissionService } from "./services/permissionService.js";
 import { initNotificationModal, showNotificationModal } from './services/notificationService.js';
 import { VendorUIService } from "./services/vendorUIService.js";
-import { updateChatOnPush,appendMessage,clearReplyMode } from "./services/chatService.js";
+import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
-
-
+import { ChatRestoreService } from "./services/chatRestoreService.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     IosPwaInstallService.init();
@@ -155,25 +154,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 2. If there's no controller, optionally reload once to let the SW take control
     if (!navigator.serviceWorker.controller) {
-        console.log("No active service worker controller. Reloading...");
-        // You can uncomment this if you want an automatic reload:
-        // window.location.reload();
+        console.warn("Service worker not controlling page. Deferring message until SW ready.");
     }
 
     console.log("Notification API supported:", "Notification" in window);
 
     if (navigator.serviceWorker) {
-        // Update the service worker with the current page URL on load.
-        // Listen for messages from the service worker
-        navigator.serviceWorker.addEventListener("message", (event) => {
-            if (event.data && event.data.type === "OPEN_CHAT") {
-            console.log("Received OPEN_CHAT message:", event.data.payload);
-            // Call a function to display or refresh the chat view
-            showChatWindow(event.data.payload);   
-            }
-        });
-        
-        // Optionally, update the service worker with the current page URL if needed
+        // update the service worker with the current page URL if needed
         navigator.serviceWorker.ready.then((registration) => {
             if (registration.active) {
             registration.active.postMessage({
@@ -195,6 +182,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         });
         navigator.serviceWorker.addEventListener('message', async (event) => {
+            if (event.data && event.data.type === "OPEN_CHAT") {
+                console.log("Received OPEN_CHAT message:", event.data.payload);
+                // Call a function to display or refresh the chat view
+                await showChatWindow(event.data.payload);   
+            }
             if (event.data?.type === 'PUSH_RECEIVED') {
                 PushHealthMonitorService.recordPushReceived();
             }
@@ -256,10 +248,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (pushData.type =="offers"){
                     AppUtils.playNotificationSound();
                     appendMessage(offerMessageHTML, 'server',null,'offers','',pushData.message_id); 
+                    // saveChat(offerMessageHTML, 'server', 'offers',pushData.token_no);
+                    await saveChat(pushData, 'server', 'offers',pushData.token_no);
+
                 }else if (pushData.type === "manager") {
                     AppUtils.notifyOrderReady(pushData);
                     showNotificationModal(pushData, 'notification');
                     appendMessage(managerMessageHTML, 'server',null, 'manager',pushData.token_no,pushData.message_id); 
+                    await saveChat(pushData, 'server', 'manager',pushData.token_no);
                 } else {
                 if (pushData.type === "foodstatus") {
                     AppUtils.notifyOrderReady(pushData); 
@@ -326,45 +322,54 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-
-     // fallback handler
-
-    // Show chat window if token is present
     if (tokenFromQR && !isOpenedFromPush) {
         console.log("Token from QR:", tokenFromQR);
-        const permissionStatus = localStorage.getItem("permissionStatus")
+        const permissionStatus = localStorage.getItem("permissionStatus");
+        const vendorId = localStorage.getItem("activeVendor");
+        console.log("Permission status:", permissionStatus);
+
+        const handleToken = async () => {
+            try {
+                // Show user message (appendMessage now can safely call API)
+                appendMessage(tokenFromQR, 'user', 'chat');
+                // Wait for service worker ready
+                if (!navigator.serviceWorker.controller) {
+                    await navigator.serviceWorker.ready;
+                }
+                // Subscribe for push notifications
+                await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                console.log("Push subscription completed");
+                await saveChat(tokenFromQR, 'user', 'chat',tokenFromQR);
+            } catch (err) {
+                chatInput.value = tokenFromQR;
+                console.error("Failed during subscription or fetching status:", err);
+            }
+        };
 
         if (permissionStatus === "granted") {
-            // ✅ Permission already granted — proceed immediately
-            appendMessage(tokenFromQR, 'user', null);
+            console.log("Notification permission already granted");
             AppUtils.getNotificationHelpPath();
-            try {
-                    const check_status = await fetchOrderStatusOnce(tokenFromQR);
-                    console.log("Order status:", check_status);
-                } catch (err) {
-                    chatInput.value = tokenFromQR;
-                    console.error("Failed to fetch status:", err);
-                }
+            await handleToken();
+            const check_status = await fetchOrderStatusOnce(tokenFromQR);
+            console.log("Order status:", check_status);
         } else {
-        // ⚠️ Permission not granted yet — defer logic
+            console.log("else part");
+            // ⚠️ Defer logic until permission granted
             PermissionService.setDeferredCallback(async () => {
-                appendMessage(tokenFromQR, 'user', null);
+                console.log("Deferred callback executed after permission granted");
+                await handleToken();
                 AppUtils.getNotificationHelpPath();
-
-                try {
-                    const check_status = await fetchOrderStatusOnce(tokenFromQR);
-                    console.log("Order status:", check_status);
-                } catch (err) {
-                    chatInput.value = tokenFromQR;
-                    console.error("Failed to fetch status:", err);
-                }
+                // Fetch order status
+                const check_status = await fetchOrderStatusOnce(tokenFromQR);
+                console.log("Order status:", check_status);
             });
         }
     } else {
-        // No token, just show chat window
-        showChatWindow({});
+        console.log ("No token, just show chat window");
+        await showChatWindow({});
         AppUtils.playWelcomeMessage();
     }
+
 
     // Send button logic
     sendButton.addEventListener('click', async function () {
@@ -394,201 +399,96 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             appendMessage(message, 'user', null);
+            await saveChat(message, 'user', 'chat',tokenNo);
         } else {
             // No message selected → assume user typed token number directly
-            await fetchOrderStatusOnce(message); // Use message as tokenNo
             appendMessage(message, 'user', null);
+            await saveChat(message, 'user', 'chat',message);
+            await fetchOrderStatusOnce(message); // Use message as tokenNo
+            
         }
 
         // ✅ Clear input
         chatInput.value = '';
         clearReplyMode(); 
     });
-
-
-
-    // Single check to confirm the order status
+    
     async function fetchOrderStatusOnce(token, replyText = null) {
         const activeVendor = await AppUtils.getActiveVendor();
-        console.log("Active Vendor ID in order update:", activeVendor);
-        const payload = {
-            token_no: token,
-            vendor_id: activeVendor,
-        };
+        const payload = { token_no: token, vendor_id: activeVendor };
+        if (replyText) payload.reply_text = replyText;
 
-        if (replyText) {
-            payload.reply_text = replyText;
-        }
+        try {
+            const resp = await fetch('/food_flash/check-status/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': AppUtils.getCSRFToken(),
+                },
+                body: JSON.stringify(payload),
+            });
 
-        console.log("Payload to send:", payload);
-        fetch('/food_flash/check-status/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': AppUtils.getCSRFToken(),  // Optional if using CSRF protection in Django
-            },
-            body: JSON.stringify(payload),
-        })
-        // handle your response here
-        .then(async (response) => {
-            const responseData = await response.json();
+            const data = await resp.json();
 
-            if (!response.ok) {
-                const errorMessage = responseData.error || "An unknown error occurred.";
-                appendMessage(`❌ ${errorMessage}`, 'server', null);
-                throw new Error(`Server responded with error: ${errorMessage}`);
+            if (!resp.ok) {
+                const err = data.error || "Unknown server error";
+                appendMessage(`❌ ${err}`, 'server', null);
+                throw new Error(err);
             }
-            const data = responseData;
-            console.log(data);
-            const statusClassMap = {
+            if (!replyText) {
+                // build messageHTML exactly as before
+                const statusClassMap = {
                     preparing: 'preparing-color',
                     ready: 'ready-color',
                     delivered: 'delivered-color',
                     cancelled: 'cancelled-color'
                 };
-
-            const statusKey = data?.status || 'unknown';
-            const statusClass = statusClassMap[statusKey] || 'unknown-color';
-            console.log("Status Class:", statusClass);
-            const messageHTML = `
+                const statusKey = data?.status || 'unknown';
+                const statusClass = statusClassMap[statusKey] || 'unknown-color';
+                const messageHTML = `
                     <div class="response-title">${data.name || "Unknown"}</div>
-                    <div class="status">
-                        Status: 
-                        <span class="${statusClass}">
-                            ${data.status || "Unknown"}
-                        </span>
+                    <div class="status">Status:
+                        <span class="${statusClass}">${data.status || "Unknown"}</span>
                     </div>
                     <div class="info-badges">
                         <div class="badge">Counter No: ${data.counter_no || ""}</div>
                         <div class="badge">Token No: ${data.token_no || ""}</div>
-                    </div>
-                `;
-            if (!replyText){
+                    </div>`;
 
-                appendMessage(messageHTML, 'server', null, 'foodstatus',data.token_no);
-                // If status is ready, notify user
-                // if (data.status === "ready") {
-                showNotificationModal(data,'usercheck');
+                appendMessage(messageHTML, 'server', null, 'foodstatus', data.token_no);
+                await saveChat(data, 'server', 'foodstatus', data.token_no);
+                showNotificationModal(data, 'usercheck');
                 AppUtils.notifyOrderReady(data);
-                // }
             }
 
-            // Subscribe for push notifications
-            PushSubscriptionService.subscribe(token, data.vendor);
-            // Perform health monitoring
-            PushHealthMonitorService.startMonitor(token, data.vendor);
-        })
-        .catch(error => {
-            console.error("Error fetching order status:", error);
-            if (!error.handled) {
-                console.log("⚠️ Something went wrong. Please try again.", 'server', null);
-            }
-        });
+            await PushSubscriptionService.subscribe(token, data.vendor_id);
+            PushHealthMonitorService.startMonitor(token, data.vendor_id);
+
+            return data;  // << important: return the fetched data
+        } catch (err) {
+            console.error("Error fetching order status:", err);
+            throw err;
+        }
     }
-    
-    function showChatWindow(data) {
-        const chatContainer = document.querySelector('.chat-container');
+
+
+    async function showChatWindow(data) {
+        console.log("showChatWindow called with data:", data);
+        const chatContainer = document.getElementById('chat-container');
         const chatInput = document.getElementById('chat-input'); 
+        console.log(chatContainer,chatInput);
 
         if (!chatContainer || !chatInput) return;
+        const vendorId=localStorage.getItem("activeVendor");
+        const browser_id = AppUtils.getCurrentBrowserId();
 
-        // Temporarily hide and show chat
-        chatContainer.style.display = "none";
-        setTimeout(() => {
-            chatContainer.style.display = "block";
-        }, 100);
-
-        // Auto-scroll
-        setTimeout(() => {
+        if (!browser_id) {
+            console.warn("No browser ID, skipping restore wait.");
+        }else {
+            console.log("Browser ID found:", browser_id);
+            console.log("Waiting for chat restore to complete...");
+            await ChatRestoreService.restore(vendorId);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-        }, 50);
-
-        chatContainer.scrollIntoView({ behavior: "smooth" });
-        const statusClassMap = {
-                    preparing: 'preparing-color',
-                    ready: 'ready-color',
-                    delivered: 'delivered-color',
-                    cancelled: 'cancelled-color'
-                };
-
-        const statusKey = data?.status || 'unknown';
-        const statusClass = statusClassMap[statusKey] || 'unknown-color';
-
-        // ✅ Reuse the logic to render the push message
-        if (data) {
-            const messageHTML = `
-                    <div class="response-title">${data.name || "Unknown"}</div>
-                    <div class="status">
-                        Status: 
-                        <span class="${statusClass}">
-                            ${data.status || "Unknown"}
-                        </span>
-                    </div>
-                    <div class="info-badges">
-                        <div class="badge">Counter No: ${data.counter_no || ""}</div>
-                        <div class="badge">Token No: ${data.token_no || ""}</div>
-                    </div>
-                `;
-
-            const offerMessageHTML = `
-                <div class="response-title">${data.name}</div>
-                <div class="response-title">🔥 ${data.title}</div>
-                <div style="color: #333; font-size: 15px;">
-                    ${data.body || "Delicious deals await. Come grab your favorite combo now!"}
-                </div>
-            `;
-
-            const managerMessageHTML = `
-                <div class="response-title">📩 ${data.name || "Outlet"}</div>
-                <div class="manager-message-body">
-                    <div class="manager-badge">Manager Notification</div>
-                    <div class="custom-manager-message">
-                        ${data.status || "Hello! Here's an update regarding your order."}
-                    </div>
-                </div>
-            `;
-
-            if (data.type === "offers") {
-                appendMessage(offerMessageHTML, 'server', null, 'offers', '', data.message_id);
-                AppUtils.playNotificationSound();
-            } else if (data.type === "manager") {
-                appendMessage(managerMessageHTML, 'server', null, 'manager', data.token_no, data.message_id);
-                showNotificationModal(data, 'notification');
-            } else if (data.type === "foodstatus") {
-                appendMessage(messageHTML, 'server', null, 'foodstatus', data.token_no, data.message_id);
-                showNotificationModal(data, 'push');
-                AppUtils.notifyOrderReady(data);
-            }
         }
-
-        console.log("✅ Chat window is now open or refreshed.", data);
-    }
-
-    // function showChatWindow(data) {
-    //     const chatContainer = document.querySelector('.chat-container');
-    //     const chatInput = document.getElementById('chat-input'); 
-    
-    //     if (!chatContainer || !chatInput) return;
-    
-    //     // Temporarily hide and show chat
-    //     chatContainer.style.display = "none";
-    //     setTimeout(() => {
-    //         chatContainer.style.display = "block";
-    //     }, 100);
-    
-    //     // Auto-scroll
-    //     setTimeout(() => {
-    //         chatContainer.scrollTop = chatContainer.scrollHeight;
-    //     }, 50);
-    
-    //     // Set token if available
-    //     if (data && data.token_no) {
-    //         chatInput.value = data.token_no;
-    //         chatInput.value = '';  
-    //     }
-    
-    //     chatContainer.scrollIntoView({ behavior: "smooth" });
-    
-    //     console.log("Chat window is now open or refreshed.", data);
-    // }    
+    }   
 });

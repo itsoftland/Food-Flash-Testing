@@ -29,7 +29,7 @@ def notify_web_push(order, vendor, payload):
             "endpoint": sub.endpoint,
             "keys": {"p256dh": sub.p256dh, "auth": sub.auth}
         }, payload)
-
+        save_server_chat_message(payload, vendor, sub)
         if not success:
             error_msg = f"❌ Push failed for endpoint {sub.endpoint}"
             logger.error(error_msg)
@@ -68,6 +68,53 @@ def send_push_notification(subscription_info, payload):
     except Exception as e:
         logger.exception("Unexpected error in web push notification: %s", str(e))
         return False
+
+import uuid
+from django.utils.timezone import now
+from vendors.models import WebChatMessage
+
+
+def save_server_chat_message(payload, vendor,subscription):
+    """
+    Save a server-side chat message (order updates, manager messages, etc.)
+    into the WebChatMessage table.
+
+    Args:
+        payload (dict): Expected to contain fields like:
+                        token_no, sender, type, text/title/body/status.
+        vendor (Vendor): Vendor instance.
+
+    Returns:
+        WebChatMessage instance
+    """
+    try:
+        token_no = payload.get("token_no")
+        msg_type = payload.get("type")
+
+        # Build text as JSON (ensures consistent format)
+        text = payload
+
+        message = WebChatMessage.objects.create(
+            message_id=uuid.uuid4(),
+            subscription=subscription,
+            vendor=vendor,
+            token_no=token_no,
+            sender="server",
+            type=msg_type,
+            text=text,
+            timestamp=now(),
+            is_read=False,
+            is_send=True
+        )
+
+        return message
+
+    except Exception as e:
+        # Don’t raise — just log and move on, since chat should not block order update
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"[save_server_chat_message] Failed: {e}")
+        return None
 
 def archive_order(order):
     ArchivedOrder.objects.create(

@@ -1,3 +1,5 @@
+import { appendMessage } from "./chatService";
+
 export const PushSubscriptionService = (() => {
     const VAPID_PUBLIC_KEY = "BAv_HFvgMBKxx3Jnse3fLMjzUEn3n3zS76GwEGQ_oOPR_40U1e7O4AiezuOReRTK4ULx2EaGC9kGAz-lzV791Tw".trim();
 
@@ -13,69 +15,75 @@ export const PushSubscriptionService = (() => {
                 return;
             }
 
-            let registration = await navigator.serviceWorker.getRegistration();
+            // Ensure SW is fully controlling page before continuing
+            const registration = await ensureServiceWorkerReady();
             if (!registration) {
-                console.warn("No service worker found. Registering...");
-                registration = await navigator.serviceWorker.register('/food_flash/service-worker.js', { scope: '/food_flash/' });
+                console.warn("Proceeding without push subscription.");
+                return null;
             }
 
-            if (!navigator.serviceWorker.controller) {
-                console.warn("Service worker not controlling page. Reloading...");
-                window.location.reload();
-                return;
-            }
-
+            // Check for an existing subscription
             let subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
+
+            if (!subscription) {
+                // Create a new one only if none exists
+                const convertedKey = AppUtils.urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
                 try {
-                    await subscription.unsubscribe();
-                    console.log("Unsubscribed existing subscription.");
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: convertedKey
+                    });
                 } catch (err) {
-                    console.error("Failed to unsubscribe:", err);
+                    console.warn("First subscribe attempt failed, retrying in 2s...", err);
+                    await new Promise(res => setTimeout(res, 2000));
+                    try {
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: convertedKey
+                        });
+                    } catch (retryErr) {
+                        console.error("Retry also failed. Skipping push subscription.", retryErr);
+                        return; // stop here instead of saving null
+                    }
                 }
+                console.log("New push subscription created:", subscription);
+            } else {
+                console.log("Reusing existing push subscription:", subscription);
             }
 
-            const convertedKey = AppUtils.urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedKey
-            });
-
-            console.log("New push subscription:", subscription);
-
+            // Always send the current subscription to the server
             const newSubscriptionJSON = JSON.stringify(subscription);
             const storedSubscription = localStorage.getItem("pushSubscription");
 
             if (storedSubscription !== newSubscriptionJSON) {
-                const browserId = AppUtils.getBrowserId();
-                const sub = subscription.toJSON();
+                localStorage.setItem("pushSubscription", newSubscriptionJSON);
+            }
+         
+            const browserId = AppUtils.getBrowserId();
+            const sub = subscription.toJSON();
 
-                const payload = {
-                    endpoint: sub.endpoint,
-                    keys: sub.keys,
-                    browser_id: browserId,
-                    token_number: token,
-                    vendor: vendor_id
-                };
+            const payload = {
+                endpoint: sub.endpoint,
+                keys: sub.keys,
+                browser_id: browserId,
+                token_number: token,
+                vendor_id: vendor_id
+            };
 
-                const response = await fetch('/food_flash/vendors/api/save-subscription/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': AppUtils.getCSRFToken()
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify(payload)
-                });
+            const response = await fetch('/food_flash/vendors/api/save-subscription/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': AppUtils.getCSRFToken()
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            });
 
-                if (response.ok) {
-                    localStorage.setItem("pushSubscription", newSubscriptionJSON);
-                    console.log("Push subscription updated successfully.");
-                } else {
-                    console.error("Failed to save subscription to server.");
-                }
+            if (response.ok) {
+                console.log("Push subscription saved/updated successfully.");
             } else {
-                console.log("Push subscription unchanged.");
+                console.error("Failed to save subscription to server.");
             }
 
         } catch (err) {
@@ -87,3 +95,37 @@ export const PushSubscriptionService = (() => {
         subscribe
     };
 })();
+
+async function ensureServiceWorkerReady(timeout = 5000) {
+    if (!('serviceWorker' in navigator)) {
+        console.warn("⚠️ Service workers not supported. Skipping push features.");
+        appendMessage("Real time notifications unavailable. Enter your token number periodically to check the current status.",
+            "server",'chat'
+        )
+        return null;
+    }
+
+    try {
+        const controllerReady = new Promise(resolve => {
+            if (navigator.serviceWorker.controller) {
+                return resolve();
+            }
+            navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), { once: true });
+        });
+
+        const registrationReady = navigator.serviceWorker.ready;
+
+        // Race timeout vs SW ready
+        const registration = await Promise.race([
+            Promise.all([registrationReady, controllerReady]).then(([reg]) => reg),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("SW ready timeout")), timeout))
+        ]);
+
+        console.log("✅ Service worker ready and controlling page");
+        return registration;
+
+    } catch (err) {
+        console.error("❌ Service worker not ready:", err);
+        return null; // fallback
+    }
+}

@@ -520,3 +520,89 @@ def get_banners(request):
         })
 
     return Response(result)
+
+# views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from vendors.models import WebChatMessage, Vendor, PushSubscription
+from .serializers import WebChatMessageSerializer
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def webchat_messages(request):
+    try:
+        vendor_id = request.GET.get('vendor_id', None)
+        browser_id = request.GET.get('browser_id', None)
+        logger.info("📥 GET /webchat_messages")
+        logger.info(f"IP: {request.META.get('REMOTE_ADDR')}, UA: {request.META.get('HTTP_USER_AGENT')}")
+        logger.debug(f"Query Params: vendor={vendor_id} browser_id={browser_id}")
+
+        vendor = get_vendor(vendor_id)
+        if not vendor:
+            logger.warning(f"❌ Invalid vendor ID: {vendor_id}")
+            return Response({'error': 'Invalid vendor ID'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        subscription = PushSubscription.objects.filter(browser_id=browser_id).first()
+        if not subscription:
+            logger.warning(f"❌ No subscription found for browser_id: {browser_id}")
+            return Response({'error': 'No subscription found for this browser ID'}, status=status.HTTP_404_NOT_FOUND)
+
+        logger.info(f"✅ Vendor resolved: {vendor.name} ({vendor.vendor_id})")
+
+        messages = WebChatMessage.objects.filter(vendor_id=vendor.id,subscription=subscription.id).order_by('timestamp')
+        count = messages.count()
+        logger.info(f"💬 Retrieved {count} messages for vendor {vendor.name}.")
+
+        serializer = WebChatMessageSerializer(messages, many=True)
+        return Response({'messages': serializer.data}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.exception("🔥 Unhandled exception in /webchat_messages:")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def webchat_message_create(request):
+    try:
+        logger.info("📥 POST /webchat_message_create")
+        logger.info(f"IP: {request.META.get('REMOTE_ADDR')}, UA: {request.META.get('HTTP_USER_AGENT')}")
+        logger.debug(f"Payload received: {request.data}")
+ 
+        serializer = WebChatMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            message = serializer.save()
+            logger.info(f"✅ WebChatMessage created | ID: {message.id}, Vendor: {message.vendor_id}, Timestamp: {message.timestamp}")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        logger.warning(f"⚠️ Validation failed for WebChatMessage: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        logger.exception("🔥 Unhandled exception in /webchat_message_create:")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def mark_webchat_messages_read(request, vendor_id):
+    """
+    Mark all messages for a given vendor as read.
+    """
+    try:
+        updated_count = WebChatMessage.objects.filter(
+            vendor_id=vendor_id,
+            is_read=False
+        ).update(is_read=True)
+
+        return Response({
+            "status": "success",
+            "updated_count": updated_count
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
