@@ -1,4 +1,4 @@
-import { appendMessage } from "./chatService";
+import { appendMessage } from "./chatService.js";
 
 export const PushSubscriptionService = (() => {
     const VAPID_PUBLIC_KEY = "BAv_HFvgMBKxx3Jnse3fLMjzUEn3n3zS76GwEGQ_oOPR_40U1e7O4AiezuOReRTK4ULx2EaGC9kGAz-lzV791Tw".trim();
@@ -99,7 +99,10 @@ export const PushSubscriptionService = (() => {
 async function ensureServiceWorkerReady(timeout = 5000) {
     if (!('serviceWorker' in navigator)) {
         console.warn("⚠️ Service workers not supported. Skipping push features.");
-        appendMessage("Real time notifications unavailable. Enter your token number periodically to check the current status.",
+        appendMessage(`Real-time notifications are currently unavailable.
+             Please refresh the page and try entering your token number once more. 
+             If it still doesn’t work, enter your token number periodically to 
+             check the current status.`,
             "server",'chat'
         )
         return null;
@@ -126,6 +129,12 @@ async function ensureServiceWorkerReady(timeout = 5000) {
 
     } catch (err) {
         console.error("❌ Service worker not ready:", err);
+        appendMessage(`Real-time notifications are currently unavailable.
+             Please refresh the page and try entering your token number once more. 
+             If it still doesn’t work, enter your token number periodically to 
+             check the current status.`,
+            "server",'chat'
+        )
         return null; // fallback
     }
 }

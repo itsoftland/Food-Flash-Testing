@@ -13,12 +13,13 @@ function initNotificationModal(modalInstance) {
     console.log("notificationInit Service");
     notificationModal = modalInstance;
 
-    document.getElementById('ok-notification').addEventListener('click', () => {
+    document.getElementById('ok-notification').addEventListener('click',async () => {
         if (activeNotificationToken && orderStates[activeNotificationToken]) {
             orderStates[activeNotificationToken].acknowledged = true;
             AppUtils.saveOrderStates(orderStates);  // 💾 Save updated state
         }
         activeNotificationToken = null;
+        await AppUtils.unlockNotificationSound();
         notificationModal.hide();
     });
 
@@ -73,8 +74,6 @@ function initNotificationModal(modalInstance) {
 }
 
 function showNotificationModal(pushData, source) {
-    console.log(orderStates)
-    console.log("notified");
     if (!notificationsEnabled || !pushData) return;
 
     const token = pushData.token_no;

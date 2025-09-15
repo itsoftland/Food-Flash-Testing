@@ -78,7 +78,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         isAdVisible = !isAdVisible;
     });
 
-    
     MenuModalService.init();
     FeedbackService.init();
     PermissionService.init();
@@ -116,12 +115,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2) If that fails, try user agent or UA-CH fallback
     if (!braveDetected) {
         if (navigator.userAgent.includes("Brave")) {
-        braveDetected = true;
-        } else if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-        const data = await navigator.userAgentData.getHighEntropyValues(["brands"]);
-        if (data.brands.some(b => b.brand.includes("Brave"))) {
             braveDetected = true;
-        }
+        } else if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            const data = await navigator.userAgentData.getHighEntropyValues(["brands"]);
+            if (data.brands.some(b => b.brand.includes("Brave"))) {
+                braveDetected = true;
+            }
         }
     }
 
@@ -181,6 +180,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             });
         });
+
         navigator.serviceWorker.addEventListener('message', async (event) => {
             if (event.data && event.data.type === "OPEN_CHAT") {
                 console.log("Received OPEN_CHAT message:", event.data.payload);
@@ -244,18 +244,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                         </div>
                     </div>
                 `;
-                console.log("Push Data Type:", pushData.type);
                 if (pushData.type =="offers"){
                     AppUtils.playNotificationSound();
                     appendMessage(offerMessageHTML, 'server',null,'offers','',pushData.message_id); 
-                    // saveChat(offerMessageHTML, 'server', 'offers',pushData.token_no);
-                    await saveChat(pushData, 'server', 'offers',pushData.token_no);
 
                 }else if (pushData.type === "manager") {
                     AppUtils.notifyOrderReady(pushData);
                     showNotificationModal(pushData, 'notification');
                     appendMessage(managerMessageHTML, 'server',null, 'manager',pushData.token_no,pushData.message_id); 
-                    await saveChat(pushData, 'server', 'manager',pushData.token_no);
                 } else {
                 if (pushData.type === "foodstatus") {
                     AppUtils.notifyOrderReady(pushData); 
@@ -370,7 +366,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         AppUtils.playWelcomeMessage();
     }
 
-
     // Send button logic
     sendButton.addEventListener('click', async function () {
         console.log("button clicked")
@@ -404,8 +399,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // No message selected → assume user typed token number directly
             appendMessage(message, 'user', null);
             await saveChat(message, 'user', 'chat',message);
-            await fetchOrderStatusOnce(message); // Use message as tokenNo
-            
+            await fetchOrderStatusOnce(message); // Use message as tokenNo   
         }
 
         // ✅ Clear input
@@ -471,12 +465,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-
     async function showChatWindow(data) {
         console.log("showChatWindow called with data:", data);
         const chatContainer = document.getElementById('chat-container');
         const chatInput = document.getElementById('chat-input'); 
-        console.log(chatContainer,chatInput);
 
         if (!chatContainer || !chatInput) return;
         const vendorId=localStorage.getItem("activeVendor");

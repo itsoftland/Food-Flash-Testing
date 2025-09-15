@@ -30,8 +30,6 @@ export const PermissionService = (() => {
             showDeniedModal();
             return false;
         }
-
-        
     };
 
     const showDeniedModal = () => {
@@ -69,14 +67,6 @@ export const PermissionService = (() => {
             
         }
     };
-
-
-    // const handleAgree = () => {
-    //     localStorage.setItem("permissionStatus", "granted");
-    //     bootstrap.Modal.getInstance(document.getElementById("permissionModal"))?.hide();
-    //     requestPermissions();
-    //     playWelcomeMessage();
-    // };
 
     const handleDeny = () => {
         localStorage.setItem("permissionStatus", "denied");
