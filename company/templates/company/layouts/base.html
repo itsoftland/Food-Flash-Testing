@@ -42,22 +42,6 @@
           <a href="{% url 'company:dashboard' %}" class="nav-link">Home</a>
         </li>
       </ul>
-
-      {% comment %} <ul class="navbar-nav ml-auto align-items-center">
-        <li class="nav-item mr-3 d-flex align-items-center">
-          <span class="customer-label">
-            Customer ID:
-            <span class="customer-id" id="customer_id">
-              <!-- Will be filled by JavaScript -->
-            </span>
-          </span>
-        </li>
-        <li class="nav-item">
-          <a href="{% url 'logout' %}" class="nav-link logout-link">
-            <i class="fas fa-sign-out-alt mr-1"></i> Logout
-          </a>
-        </li>
-      </ul> {% endcomment %}
       <ul class="navbar-nav ml-auto align-items-center">
         <li class="nav-item mr-3 d-flex align-items-center">
           <div id="customer_info" class="customer-info" title="">
@@ -115,7 +99,7 @@
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                 <i class="nav-icon fas fa-users"></i>
                 <p>
-                  Users
+                  Users(Dev)
                   <i class="right fas fa-angle-down"></i> 
                 </p>
               </a>
@@ -137,7 +121,7 @@
             <li class="nav-item">
               <a href="{% url 'company:manager_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'manager_devices' %}active{% endif %}">
                 <i class="nav-icon fas fa-mobile-retro"></i>
-                <p>Manager Devices</p>
+                <p>Manager Devices(Dev)</p>
               </a>
             </li>
             <li class="nav-item">
@@ -176,7 +160,7 @@
                     <li class="nav-item">
                         <a href="{% url 'company:profile_list' %}" class="nav-link {% if request.resolver_match.url_name == 'profile_list' %}active{% endif %}">
                             <i class="far fa-circle nav-icon"></i>
-                            <p>Profile List</p>
+                            <p>Profile List(Dev)</p>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -203,7 +187,7 @@
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'total_orders' or request.resolver_match.url_name == 'order_details' %}active{% endif %}">
                 <i class="nav-icon fas fa-chart-line"></i>
                 <p>
-                  Analytics
+                  Analytics(Dev)
                   <i class="right fas fa-angle-down"></i> 
                 </p>
               </a>

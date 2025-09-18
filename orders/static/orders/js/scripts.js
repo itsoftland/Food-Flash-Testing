@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const handleToken = async () => {
             try {
                 // Show user message (appendMessage now can safely call API)
-                appendMessage(tokenFromQR, 'user', 'chat');
+                appendMessage(tokenFromQR, 'user', 'null');
                 // Wait for service worker ready
                 if (!navigator.serviceWorker.controller) {
                     await navigator.serviceWorker.ready;

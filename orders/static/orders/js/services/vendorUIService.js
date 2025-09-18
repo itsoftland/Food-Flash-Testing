@@ -78,14 +78,13 @@ export const VendorUIService = {
                     console.warn("No browser ID, skipping restore.");
                 }
                 WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
-
-                // setTimeout(() => {
-                //     wrapper.scrollIntoView({
-                //         behavior: "smooth",
-                //         inline: "center",
-                //         block: "nearest",
-                //     });
-                // }, 100);
+                setTimeout(() => {
+                    wrapper.scrollIntoView({
+                        behavior: "smooth",
+                        inline: "center",
+                        block: "nearest",
+                    });
+                }, 100);
             }
 
             logo.addEventListener("click", async() => {
@@ -115,58 +114,6 @@ export const VendorUIService = {
             restorePromise;
         }
     },
-
-    // async renderVendorLogos(vendors) {
-    //     const logoContainer = document.getElementById("vendor-logo-bar");
-    //     const activeVendorId = await AppUtils.getActiveVendor();
-
-    //     if (!logoContainer) return;
-
-    //     logoContainer.innerHTML = "";
-
-    //     vendors.forEach( vendor => {
-    //         const wrapper = document.createElement("div");
-    //         wrapper.classList.add("vendor-logo-wrapper");
-
-    //         const logo = document.createElement("img");
-    //         logo.src = vendor.logo_url;
-    //         logo.alt = vendor.name;
-    //         logo.classList.add("vendor-logo");
-    //         logo.dataset.vendorId = vendor.vendor_id;
-
-    //         if (vendor.vendor_id === activeVendorId) {
-    //             wrapper.classList.add("active");
-    //             AppUtils.setSelectedOutletName(vendor.name);
-    //             localStorage.setItem("activeVendorLogo", vendor.logo_url);
-    //             WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
-    //             // await ChatRestoreService.restore(vendor.vendor_id);
-
-    //             handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
-
-    //             setTimeout(() => {
-    //                 wrapper.scrollIntoView({
-    //                     behavior: "smooth",
-    //                     inline: "center",
-    //                     block: "nearest",
-    //                 });
-    //             }, 100);
-    //         }
-
-    //         logo.addEventListener("click", () => {
-    //             document.querySelectorAll(".vendor-logo-wrapper").forEach(el => el.classList.remove("active"));
-    //             wrapper.classList.add("active");
-    //             AppUtils.setSelectedOutletName(vendor.name);
-    //             WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
-    //             handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
-    //         });
-
-    //         wrapper.appendChild(logo);
-    //         logoContainer.appendChild(wrapper);
-    //     });
-
-    //     this.appendAddOutletButton(logoContainer);
-    //     AddOutletService.init();
-    // },
 
     appendAddOutletButton(container) {
         const spacer = document.createElement("div");
