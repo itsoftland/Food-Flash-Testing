@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.utils.timezone import now, localtime
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -11,7 +12,8 @@ from rest_framework import serializers
 
 from .models import (Order, Vendor, Device,
                      AndroidDevice, PushSubscription,
-                     AdminOutlet, AndroidAPK, UserProfile)
+                     AdminOutlet, AndroidAPK, UserProfile,
+                     IoTDeviceCredential)
 
 from .serializers import OrdersSerializer
 from orders.serializers import VendorLogoSerializer
@@ -21,6 +23,11 @@ from firebase_admin import messaging
 from .mqtt_client import get_mqtt_config_for_vendor
 from orders.utils import send_to_managers
 from vendors.services.order_service import send_order_update
+from vendors.services.get_or_create_azure_device import (get_or_create_device,
+                                                          generate_device_id ,
+                                                          get_device_sas_token,
+                                                          create_iot_credentials)
+from vendors.services.send_to_iot import get_azure_devices
 logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
@@ -222,27 +229,100 @@ def register_device(request):
         logger.error("Customer not found: %s", customer_id)
         return Response({"error": "Customer not found."}, status=404)
 
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def register_android_device(request):
+#     token = request.data.get('token')
+#     customer_id = request.data.get('customer_id')
+#     mac_address = request.data.get('mac_address')
+
+#     request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
+#     user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+
+#     logger.info("Android Device Registration: IP=%s | User-Agent=%s", request_ip, user_agent)
+#     logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
+
+#     # Validate required fields
+#     if not token or not customer_id or not mac_address:
+#         logger.warning("Missing required fields: token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
+#         return Response(
+#             {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
+#             status=status.HTTP_400_BAD_REQUEST
+#         )
+
+#     try:
+#         customer = AdminOutlet.objects.get(customer_id=customer_id)
+#         logger.info("Customer found: customer_id=%s (AdminOutlet ID: %s)", customer_id, customer.id)
+#     except AdminOutlet.DoesNotExist:
+#         logger.error("Customer not found: customer_id=%s", customer_id)
+#         return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#     # Register or update device
+#     try:
+#         device, created = AndroidDevice.objects.get_or_create(
+#             mac_address=mac_address,
+#             admin_outlet=customer,
+#             defaults={'token': token}
+#         )
+#         if not created:
+#             logger.info("Device found for mac_address=%s. Updating token.", mac_address)
+#             device.token = token
+#             device.save()
+#         else:
+#             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
+#     except Exception as e:
+#         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
+#         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#     # Check vendor mapping
+#     if hasattr(device, 'vendor') and device.vendor:
+#         mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
+
+#         logger.info(
+#             "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
+#             device.vendor.name,
+#             device.vendor.vendor_id,
+#             json.dumps(mqtt_config)
+#         )
+
+#         return Response({
+#             "status": "Device is mapped to vendor.",
+#             "mapped": True,
+#             "vendor_id": device.vendor.vendor_id,
+#             "vendor_name": device.vendor.name,
+#             "mqtt_config": mqtt_config
+#         }, status=status.HTTP_200_OK)
+
+
+#     logger.info("Device registered but not mapped to any vendor.")
+#     return Response({
+#         "status": "Device is registered but not yet mapped to a vendor.",
+#         "mapped": False,
+#         "vendor_id": None,
+#         "vendor_name": None,
+#         "mqtt_config": None
+#     }, status=status.HTTP_200_OK)
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_android_device(request):
-    token = request.data.get('token')
-    customer_id = request.data.get('customer_id')
-    mac_address = request.data.get('mac_address')
+    data = request.data
+    token = data.get('token')
+    customer_id = data.get('customer_id')
+    mac_address = data.get('mac_address')
 
-    request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
-    user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
-
-    logger.info("Android Device Registration: IP=%s | User-Agent=%s", request_ip, user_agent)
+    logger.info("Android Device Registration")
     logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
 
     # Validate required fields
-    if not token or not customer_id or not mac_address:
-        logger.warning("Missing required fields: token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
+    required_fields = ['customer_id', 'token', 'mac_address',]
+    missing = [f for f in required_fields if not data.get(f)]
+    if missing:
+        logger.warning(f"Missing required fields:{', '.join(missing)}",)
         return Response(
             {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
             status=status.HTTP_400_BAD_REQUEST
         )
-
     try:
         customer = AdminOutlet.objects.get(customer_id=customer_id)
         logger.info("Customer found: customer_id=%s (AdminOutlet ID: %s)", customer_id, customer.id)
@@ -266,18 +346,50 @@ def register_android_device(request):
     except Exception as e:
         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     # Check vendor mapping
     if hasattr(device, 'vendor') and device.vendor:
-        mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
-
-        logger.info(
-            "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
-            device.vendor.name,
-            device.vendor.vendor_id,
-            json.dumps(mqtt_config)
-        )
-
+        if hasattr(device.vendor, 'config') :
+            if not device.vendor.config.tv_communication_mode:
+                logger.warning(f"Vendor {device.vendor.vendor_id} has no communication configuration")
+                return Response(
+                    {"error": "Vendor has no communication configuration."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif device.vendor.config.tv_communication_mode == "MQTT":
+                mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
+                logger.info(
+                    "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
+                    device.vendor.name,
+                    device.vendor.vendor_id,
+                    json.dumps(mqtt_config)
+                )
+                logger.info(
+                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+                        device.vendor.name,
+                        device.vendor.vendor_id,
+                        json.dumps(mqtt_config)
+                    )
+            elif device.vendor.config.tv_communication_mode == "AZURE_IOT":
+                if hasattr(device,'iot_credentials') and device.iot_credentials:
+                    mqtt_config = create_iot_credentials(device)
+                    logger.info(
+                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+                        device.vendor.name,
+                        device.vendor.vendor_id,
+                        mqtt_config
+                    )
+                else:
+                    logger.warning(f"Vendor {device.vendor.vendor_id} has no Azure IoT credentials")
+                    logger.info("Generating new IoT credentials for device")
+                    mqtt_config = create_iot_credentials(device)
+                    logger.info(
+                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+                        device.vendor.name,
+                        device.vendor.vendor_id,
+                        json.dumps(mqtt_config)
+                    )
+            else:
+                logger.warning("Vendor configuration is Firebase")                
         return Response({
             "status": "Device is mapped to vendor.",
             "mapped": True,
@@ -285,8 +397,6 @@ def register_android_device(request):
             "vendor_name": device.vendor.name,
             "mqtt_config": mqtt_config
         }, status=status.HTTP_200_OK)
-
-
     logger.info("Device registered but not mapped to any vendor.")
     return Response({
         "status": "Device is registered but not yet mapped to a vendor.",
@@ -525,45 +635,49 @@ def update_order(request):
         )
         
         # FCM push notifications if TV communication mode is not MQTT
-        if vendor.config.tv_communication_mode != "MQTT":
+        if vendor.config.tv_communication_mode == "Firebase":
+            logger.info(f"[update_order] Firebase communication mode detected for vendor {vendor.vendor_id}")
+             # Prepare data payload
             try:
                 fcm_result = notify_fcm(vendor, data)
                 logger.info(f"[update_order] FCM sent successfully: {fcm_result}")
             except Exception as e:
                 logger.exception("[update_order] FCM sending failed")
                 fcm_result = {"error": str(e)}
-        
         # Create or update order in DB
         order = create_or_update_order(token_no, vendor, device, counter_no, status_to_update)
         logger.info(f"[update_order] Order {order.id} created/updated for token_no={token_no}")
-        
-        # MQTT Publish
-        logger.info(f"[update_order] Sending MQTT update for vendor {vendor.vendor_id}, token {token_no}")
-        
-        if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
-            logger.warning(f"[update_order] Vendor {vendor.vendor_id} has no MQTT configuration")
-            return Response(
-                {"message": "Vendor has no MQTT configuration."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            mqtt = send_order_update(vendor)
-            if mqtt:
-                logger.info(f"[update_order] ✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
-            else:
-                logger.error(f"[update_order] ❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+        if vendor.config.tv_communication_mode == "AZURE_IOT":
+            logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
+            azure_iot = get_azure_devices(vendor)
+            logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
+        if vendor.config.tv_communication_mode == "MQTT":
+            logger.info(f"[update_order] MQTT communication mode detected for vendor {vendor.vendor_id}")
+            # MQTT Publish
+            logger.info(f"[update_order] Sending MQTT update for vendor {vendor.vendor_id}, token {token_no}")
+            
+            if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
+                logger.warning(f"[update_order] Vendor {vendor.vendor_id} has no MQTT configuration")
                 return Response(
-                    {"message": "Failed to send MQTT update."}, 
+                    {"message": "Vendor has no MQTT configuration."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                mqtt = send_order_update(vendor)
+                if mqtt:
+                    logger.info(f"[update_order] ✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
+                else:
+                    logger.error(f"[update_order] ❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+                    return Response(
+                        {"message": "Failed to send MQTT update."}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            except Exception as mqtt_err:
+                logger.exception(f"[update_order] MQTT publish failed: {mqtt_err}")
+                return Response(
+                    {"message": "MQTT publish failed."}, 
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        except Exception as mqtt_err:
-            logger.exception(f"[update_order] MQTT publish failed: {mqtt_err}")
-            return Response(
-                {"message": "MQTT publish failed."}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
         # Web push notifications if status is "ready"
         push_errors = []
         if status_to_update.lower() == "ready" and (

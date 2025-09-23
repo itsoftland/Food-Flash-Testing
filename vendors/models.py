@@ -10,14 +10,14 @@ class MqttServerConfig(models.Model):
     name = models.CharField(max_length=100, help_text="Friendly name for MQTT server")
     host = models.CharField(max_length=255)
     port = models.PositiveIntegerField(default=1883)
-    username = models.CharField(max_length=100, blank=True, null=True)
-    password = models.CharField(max_length=100, blank=True, null=True)
+    username = models.CharField(max_length=400, blank=True, null=True)
+    password = models.CharField(max_length=400, blank=True, null=True)
     qos = models.PositiveSmallIntegerField(default=0)
     tls = models.BooleanField(default=False, help_text="Use TLS for secure connection")
 
     def __str__(self):
         return f"{self.name} ({self.host}:{self.port})"
-    
+
 class AdminOutlet(models.Model):  
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='admin_outlet',
@@ -100,7 +100,8 @@ class VendorConfig(models.Model):
         max_length=20,
         choices=[
             ("MQTT", "MQTT"),
-            ("Firebase", "Firebase")
+            ("Firebase", "Firebase"),
+            ("AZURE_IOT", "Azure IoT Hub"),
         ],
         default="MQTT"
     )
@@ -398,3 +399,18 @@ class WebChatMessage(models.Model):
     def __str__(self):
         token_info = f"[T{self.token_no}] " if self.token_no else ""
         return f"{token_info}{self.sender} → {self.type} ({self.text})"
+
+class IoTDeviceCredential(models.Model):
+    android_device = models.OneToOneField(
+        AndroidDevice, on_delete=models.CASCADE, related_name="iot_credentials"
+    )
+    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name='iot_device_credentials')
+    device_id = models.CharField(max_length=255, unique=True, db_index=True)
+    primary_connection_string = models.TextField(null=False, blank=False)
+    secondary_connection_string = models.TextField(null=False, blank=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"IoT Credentials for {self.device_id}"
+    

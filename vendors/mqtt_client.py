@@ -3,6 +3,7 @@ import json
 import ssl
 import logging
 import paho.mqtt.client as mqtt
+from vendors.services.get_or_create_azure_device import generate_device_id
  
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ def get_mqtt_topic(vendor, device=None):
     mode = getattr(vendor.config, 'mqtt_mode', 'All')
     
     if mode == "All":
-        return f"FF/{vendor.vendor_id}/ALL"
+        return "devices/5bae74db65f2cf16/messages/devicebound/#"
+        # return f"FF/{vendor.vendor_id}/ALL"
     elif mode == "Individual" and device:
         return f"FF/{vendor.vendor_id}/{device.device_id}"
     elif mode == "Keypad" and device:
@@ -45,7 +47,14 @@ def get_mqtt_config_for_vendor(vendor, device=None):
     config = getattr(vendor, "config", None)
     mqtt_server = getattr(config, "mqtt_server", None) if config else None
 
+    device_id = generate_device_id(
+        device.vendor.alias_name,
+        device.vendor.vendor_id,
+        device.mac_address
+    )
+
     return {
+        "client_id":device_id,
         "topic": get_mqtt_topic(vendor, device),
         "host": mqtt_server.host if mqtt_server else None,
         "port": mqtt_server.port if mqtt_server else None,

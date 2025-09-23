@@ -57,7 +57,7 @@ export const AdSliderService = (() => {
 
         // Default fallback images
         const defaultAds = [
-            "/food_flash/media/ads/Default/Demo.jpg",
+            "/food_flash/media/ads/Default/Demo.webp",
         ];
 
         // If no ads available, use default ones
