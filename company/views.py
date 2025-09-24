@@ -496,6 +496,59 @@ def get_manager_devices(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def unmap_manager_devices(request, device_id):
+    try:
+        manager_devices = AndroidAPK.objects.get(id=device_id)
+
+        # Permission check
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if manager_devices.admin_outlet != admin_outlet:
+            return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Unlink vendor
+        manager_devices.user_profile = None
+        manager_devices.save(update_fields=['user_profile'])
+
+        return Response({"message": "Manager unmapped from device successfully."}, status=status.HTTP_200_OK)
+
+    except AndroidAPK.DoesNotExist:
+        return Response({"error": "Manager Device not found."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def map_manager_devices(request, device_id):
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+    manager_id = request.data.get('manager_id')
+    if not manager_id:
+        return Response({"error": "manager_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        manager_devices = AndroidAPK.objects.get(id=device_id)
+    except AndroidAPK.DoesNotExist:
+        return Response({"error": "Manager device not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if manager_devices.admin_outlet != admin_outlet:
+        return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        manager = UserProfile.objects.get(id=manager_id)
+    except UserProfile.DoesNotExist:
+        return Response({"error": "Manager not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Enforce same admin outlet
+    if manager.admin_outlet != admin_outlet:
+        return Response({"error": "Vendor does not belong to your admin outlet."}, status=status.HTTP_403_FORBIDDEN)
+
+    manager_devices.user_profile = manager
+    manager_devices.save(update_fields=['user_profile'])
+
+    return Response({"message": "Manager mapped to Device successfully."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def upload_banner(request):
     try:

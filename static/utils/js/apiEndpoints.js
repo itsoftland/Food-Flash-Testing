@@ -18,6 +18,8 @@ export const API_ENDPOINTS = {
   CREATE_USER: '/food_flash/company/api/create_user/',
   GET_USERS: '/food_flash/company/api/get_users/',
   GET_MANAGER_DEVICES:'/food_flash/company/api/get_manager_devices/',
+  MAP_MANAGER_DEVICES:'/food_flash/company/api/map_manager_devices/',
+  UNMAP_MANAGER_DEVICES:'/food_flash/company/api/unmap_manager_devices/',
   BANNER_UPLOAD: '/food_flash/company/api/banner_upload/',
   BANNER_LIST: '/food_flash/company/api/banner_list/',
   CREATE_AD_PROFILE: '/food_flash/company/api/create_ad_profile/',

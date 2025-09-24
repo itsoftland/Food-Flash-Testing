@@ -95,7 +95,7 @@ function attachActionListeners() {
           if (!confirmed) return;
 
           try {
-            const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.UNMAP_ANDROID_TVS}${deviceId}/`, {
+            const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.UNMAP_MANAGER_DEVICES}${deviceId}/`, {
               method: 'POST',
             });
 
@@ -124,9 +124,9 @@ function attachActionListeners() {
     const modalBodyHTML = `
       <form id="map-device-form" class="px-4 py-3 mx-auto" style="max-width: 600px;">
         <div class="form-group col-md-12 col-12">
-          <label for="vendor-select">Select Outlet</label>
-          <select id="vendor-select" name="vendor_id" class="form-control">
-            <option disabled selected>Loading outlets...</option>
+          <label for="manager-select">Choose Manager</label>
+          <select id="manager-select" name="manager_id" class="form-control">
+            <option disabled selected>Loading managers...</option>
           </select>
         </div>
 
@@ -139,41 +139,41 @@ function attachActionListeners() {
     `;
 
     ModalService.showCustom({
-      title: 'Link Device to Outlet',
+      title: 'Link Device to Manager',
       body: modalBodyHTML,
       onShown: async () => {
-        const vendorSelect = document.getElementById('vendor-select');
+        const managerSelect = document.getElementById('manager-select');
         try {
-          const res = await fetchWithAutoRefresh('/company/api/get_vendors/');
+          const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_USERS);
           const data = await res.json();
-          const vendors = data.vendors || [];
+          const managers = data.users || [];
 
-          if (!vendors.length) {
-            vendorSelect.innerHTML = `<option disabled>No outlets available</option>`;
+          if (!managers.length) {
+            managerSelect.innerHTML = `<option disabled>No managers available</option>`;
           } else {
-            vendorSelect.innerHTML = vendors
-              .map(v => `<option value="${v.id}">${v.name} (${v.location})</option>`)
+            managerSelect.innerHTML = managers
+              .map(v => `<option value="${v.id}">${v.name}</option>`)
               .join('');
           }
         } catch (err) {
-          vendorSelect.innerHTML = `<option disabled>Error loading outlets</option>`;
+          managerSelect.innerHTML = `<option disabled>Error loading managers</option>`;
         }
 
         // Handle form submission
         document.getElementById('map-device-form').addEventListener('submit', async (e) => {
           e.preventDefault();
 
-          const vendorId = vendorSelect.value;
-          if (!vendorId) {
-            ModalService.showError('Please select an outlet.');
+          const managerId = managerSelect.value;
+          if (!managerId) {
+            ModalService.showError('Please select a manager.');
             return;
           }
 
           try {
-            const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.MAP_ANDROID_TVS}${deviceId}/`, {
+            const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.MAP_MANAGER_DEVICES}${deviceId}/`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ vendor_id: vendorId }),
+              body: JSON.stringify({ manager_id: managerId }),
             });
 
             const result = await res.json();
@@ -184,7 +184,7 @@ function attachActionListeners() {
 
             if (res.ok) {
               setTimeout(() => {
-                ModalService.showSuccess(`Device #${macAddress} linked to selected outlet.`, () => {
+                ModalService.showSuccess(`Device #${macAddress} linked to selected manager.`, () => {
                   location.reload(); // Or call loadDevices()
                 });
               }, 300);

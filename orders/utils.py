@@ -1,16 +1,16 @@
 import json
 import logging
 from firebase_admin import messaging
-
 from vendors.models import AndroidAPK
 
 logger = logging.getLogger(__name__)
 
 
-def send_fcm_multicast(fcm_tokens, data_payload):
+def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
     """
     Sends a Firebase Admin SDK multicast message with both data and notification payloads.
     Logs and categorizes failures in detail.
+    Allows custom title/body, falls back to defaults if not provided.
     """
     if not fcm_tokens:
         logger.warning("[FCM] No FCM tokens provided for multicast.")
@@ -20,15 +20,21 @@ def send_fcm_multicast(fcm_tokens, data_payload):
         # Ensure payload is dict
         if isinstance(data_payload, str):
             data_payload = json.loads(data_payload)
-        token_no = str(data_payload.get('token_no', ''))
+
+        token_no = str(data_payload.get("token_no", ""))
+
+        # Defaults
+        default_title = "Order Tracking Started"
+        default_body = f"A customer has entered their token number {token_no}. Track the order now."
+
         message = messaging.MulticastMessage(
             data={
                 "type": "ready_orders",
                 "orders": json.dumps(data_payload),
             },
             notification=messaging.Notification(
-                title="Order Tracking Started",
-                body=f"A customer has entered their token number {token_no}. Track the order now."
+                title=title or default_title,
+                body=body or default_body,
             ),
             tokens=fcm_tokens,
         )
@@ -48,21 +54,18 @@ def send_fcm_multicast(fcm_tokens, data_payload):
 
                 logger.warning(f"[FCM] Failed token: {token} | Reason: {error}")
 
-                # Optional: clean up invalid tokens
+                # Clean up invalid tokens
                 if "UNREGISTERED" in error or "INVALID_ARGUMENT" in error:
                     AndroidAPK.objects.filter(token=token).delete()
                     logger.info(f"[FCM] Removed invalid token from DB: {token}")
 
-                # Optional: add retry logic here for transient errors like 'UNAVAILABLE'
+                # Retry hint
                 if "UNAVAILABLE" in error:
                     logger.warning(f"[FCM] Transient error for token {token}. Retry may succeed.")
 
         if failed_tokens:
             logger.warning(f"[FCM] Multicast partially failed. {len(failed_tokens)} failed tokens.")
-            return False, {
-                "failed_tokens": failed_tokens,
-                "reasons": failed_reasons
-            }
+            return False, {"failed_tokens": failed_tokens, "reasons": failed_reasons}
 
         logger.info(f"[FCM] Multicast successful: {response.success_count} messages sent.")
         return True, {"success_count": response.success_count}
@@ -72,15 +75,16 @@ def send_fcm_multicast(fcm_tokens, data_payload):
         return False, {"error": str(e)}
 
 
-def send_to_managers(vendor, data):
+def send_to_managers(vendor, data, title=None, body=None):
     """
     Sends a notification to all registered AndroidAPK devices for the given vendor.
+    Supports optional custom title/body.
     """
     android_apk_devices = AndroidAPK.objects.filter(user_profile__vendor=vendor)
-    tokens = list(android_apk_devices.values_list('token', flat=True))
+    tokens = list(android_apk_devices.values_list("token", flat=True))
 
     if not tokens:
         logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
         return False, {"error": "No tokens"}
 
-    return send_fcm_multicast(tokens,data)
+    return send_fcm_multicast(tokens, data, title=title, body=body)

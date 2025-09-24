@@ -696,9 +696,10 @@ def update_order(request):
                 "logo_url": vendor_serializer.data.get("logo_url", ""),
                 "type": "foodstatus"
             }
-
+            title="Keypad Device Alert"
+            body=f"Order {token_no} is now ready to be served"
             # Notify managers via FCM
-            send_to_managers(vendor, payload)
+            send_to_managers(vendor, payload,title,body)
             
             try:
                 push_errors = notify_web_push(order, vendor, payload)
