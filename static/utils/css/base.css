@@ -80,25 +80,20 @@
 .customer-info {
   display: flex;
   align-items: center;
-  max-width: 220px;
   font-weight: 500;
   color: #111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;   
+  
 }
 
 .customer-name {
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 140px; /* adjust as needed */
+  flex-shrink: 0;        
+  white-space: nowrap;   
   display: inline-block;
 }
 
 .customer-id {
-  flex-shrink: 0;
+  flex-shrink: 0;        
   margin-left: 6px;
   color: #ed7302;
   font-weight: 600;

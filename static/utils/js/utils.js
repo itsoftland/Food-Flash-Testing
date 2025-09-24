@@ -32,6 +32,7 @@ window.AppUtils = {
     // Stores the customer name in localStorage under the key 'customer_name'
     // Useful for personalized greetings or identification
     setCustomerName: function (name) {
+        console.trace("customer name saved");
         localStorage.setItem('customer_name', name);
     },
 
