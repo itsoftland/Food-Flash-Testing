@@ -20,6 +20,7 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
 }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no) {
+    console.trace("append message called")
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
