@@ -2,7 +2,7 @@
 
 // Field-to-label map
 const fieldLabelMap = {
-  place_id: "Google Review Link",
+  place_id: "Google Rating Link",
   logoInput: "Logo Image",
   menuFilesInput: "Menu Upload",
   device_mapping: "Device Mapping",

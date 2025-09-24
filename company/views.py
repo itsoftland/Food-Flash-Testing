@@ -177,16 +177,22 @@ def get_outlet_creation_data(request):
             , status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Get all location codes already used in vendors
-    mapped_codes = Vendor.objects.filter(
-        admin_outlet=admin_outlet
-        ).values_list('location_id', flat=True)
+    # mapped_codes = Vendor.objects.filter(
+    #     admin_outlet=admin_outlet
+    #     ).values_list('location_id', flat=True)
 
     # Filter unmapped locations
-    unmapped_locations = []
+    # unmapped_locations = []
+    # for location in locations_data:
+    #     for name, code in location.items():
+    #         if code not in mapped_codes:
+    #             unmapped_locations.append({'key': name, 'value': code})
+    # All locations
+    locations = []
     for location in locations_data:
         for name, code in location.items():
-            if code not in mapped_codes:
-                unmapped_locations.append({'key': name, 'value': code})
+            # if code not in mapped_codes:
+            locations.append({'key': name, 'value': code})
 
     # Get unmapped keypad devices
     available_keypads = Device.objects.filter(
@@ -199,7 +205,7 @@ def get_outlet_creation_data(request):
         ).values('mac_address')
 
     return Response({
-        'locations': unmapped_locations,
+        'locations': locations,
         'keypad_devices': list(available_keypads),
         'android_tvs': list(available_android_tvs),
     }, status=status.HTTP_200_OK)
