@@ -26,8 +26,7 @@ def get_mqtt_topic(vendor, device=None):
     mode = getattr(vendor.config, 'mqtt_mode', 'All')
     
     if mode == "All":
-        return "devices/5bae74db65f2cf16/messages/devicebound/#"
-        # return f"FF/{vendor.vendor_id}/ALL"
+        return f"FF/{vendor.vendor_id}/ALL"
     elif mode == "Individual" and device:
         return f"FF/{vendor.vendor_id}/{device.device_id}"
     elif mode == "Keypad" and device:
