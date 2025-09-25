@@ -389,7 +389,10 @@ def register_android_device(request):
                         json.dumps(mqtt_config)
                     )
             else:
-                logger.warning("Vendor configuration is Firebase")                
+                logger.warning("Vendor configuration is Firebase") 
+        else:
+            logger.warning("Vendor has no configuration") 
+            mqtt_config = None              
         return Response({
             "status": "Device is mapped to vendor.",
             "mapped": True,

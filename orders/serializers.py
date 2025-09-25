@@ -171,7 +171,6 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "browser_id": "Browser ID is required to link subscription."
             })
-        print(browser_id)
 
         try:
             subscription = PushSubscription.objects.get(browser_id=browser_id)
@@ -179,7 +178,6 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "browser_id": f"No subscription found for browser_id {browser_id}"
             })
-        print(subscription)
 
         # 🔹 Create WebChatMessage
         return WebChatMessage.objects.create(

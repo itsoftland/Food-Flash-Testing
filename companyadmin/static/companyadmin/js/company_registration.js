@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("Sending payload:", payload);
 
         // Step 1: Product Registration
-        fetch('/companyadmin/api/product-registration/', {
+        fetch('/food_flash/companyadmin/api/product-registration/', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const pollPayload = { CustomerId: customerId };
 
                 const pollInterval = setInterval(() => {
-                    fetch('/companyadmin/api/product-authentication/', {
+                    fetch('/food_flash/companyadmin/api/product-authentication/', {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 AuthenticationResponse: authData
                             };
 
-                            fetch('/companyadmin/api/register-company/', {
+                            fetch('/food_flash/companyadmin/api/register-company/', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                     setTimeout(() => {
                                         hideLoader();
                                         form.reset();
-                                        window.location.href = "/login/";
+                                        window.location.href = "/food_flash/login/";
                                     }, 1500);
                                 } else if (result && typeof result === 'object') {
                                     console.log("Error condition 1:", result);

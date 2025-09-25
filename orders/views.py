@@ -21,8 +21,6 @@ from vendors.serializers import OrdersSerializer
 from .utils import send_to_managers
 from static.utils.functions.queries import get_vendor
 
-
-
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -30,6 +28,7 @@ from .serializers import (
     FeedbackSerializer,
     VendorMenuSerializer
 )
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +49,6 @@ def outlet_selection(request):
         )
 
     return response
-
 
 def home(request):
     cache.clear()
@@ -343,7 +341,7 @@ def login_api_view(request):
     MANAGER_ROLE_MAP = {
         'admin_manager': 'Admin Manager',
         'outlet_manager': 'Outlet Manager',
-        'order_manager': 'Order Manager',
+        'outlet_staff': 'Outlet Staff',
         'web_manager': 'Web Manager',
     }
     
@@ -352,7 +350,7 @@ def login_api_view(request):
         try:
             profile = UserProfile.objects.get(
                 user=user,
-                role__in=['outlet_manager', 'admin_manager', 'order_manager']
+                role__in=['outlet_manager', 'admin_manager', 'outlet_staff']
             )
             role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
             return Response({
@@ -388,6 +386,7 @@ def login_api_view(request):
     # 3. Company Login(AdminOutlet)
     if user.is_staff and hasattr(user, 'admin_outlet'):
         customer_id = user.admin_outlet.customer_id
+        
         request.session['customer_id'] = customer_id
         return Response({
             'message': 'Login successful',

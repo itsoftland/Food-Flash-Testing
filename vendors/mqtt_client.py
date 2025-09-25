@@ -76,12 +76,8 @@ def get_or_create_client(cfg):
     
     if int(cfg["port"]) == 8883 or cfg.get("tls"):
         client.tls_set(
-            # ca_certs="/etc/ssl/certs/ca-certificates.crt",
-            # certfile=None,
-            # keyfile=None,
             cert_reqs=ssl.CERT_REQUIRED,
             tls_version=ssl.PROTOCOL_TLS,
-            # ciphers=None
         )
         client.tls_insecure_set(False)
     
