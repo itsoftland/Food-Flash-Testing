@@ -23,7 +23,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AdvertisementProfileAssignment,
                             AdvertisementProfile,Order,
                             ArchivedOrder,UserProfile,
-                            AndroidAPK)
+                            AndroidAPK,VendorConfig)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -236,6 +236,9 @@ def create_vendor(request):
         location = request.data.get('location')
         place_id = request.data.get('place_id', '')
         location_id = request.data.get('location_id')
+        tv_communication_mode = request.data.get('tv_communication_mode')
+        business_day_start_hour = request.data.get('business_day_start_hour')
+        timezone = request.data.get('timezone')
         
         if Vendor.objects.filter(name__iexact=name).exists():
             logger.warning("Vendor with name '%s' already exists", name)
@@ -276,6 +279,13 @@ def create_vendor(request):
             menus=json.dumps(menu_paths),
         )
         logger.info("Vendor created: %s", vendor.vendor_id)
+        vendor_config = VendorConfig.objects.create(
+            vendor=vendor,
+            tv_communication_mode=tv_communication_mode,
+            business_day_start_hour=business_day_start_hour,
+            timezone=timezone
+        )
+        logger.info("Vendor Config created: %s", vendor_config.tv_communication_mode)
         
         # Handle multiple Device mappings (serial numbers)
         device_serials = request.data.getlist('device_mapping[]')

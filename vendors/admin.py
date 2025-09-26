@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (Vendor, Order, Device,
                      PushSubscription, AdminOutlet,
-                     MqttServerConfig)
+                     MqttServerConfig,VendorConfig)
 
 @admin.register(AdminOutlet)
 class AdminOutletAdmin(admin.ModelAdmin):
@@ -34,9 +34,6 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
 @admin.register(MqttServerConfig)
 class MqttServerConfigAdmin(admin.ModelAdmin):
     list_display = ("name", "host", "port", "username", "qos", "tls")
-
-from django.contrib import admin
-from .models import VendorConfig
 
 @admin.register(VendorConfig)
 class VendorConfigAdmin(admin.ModelAdmin):

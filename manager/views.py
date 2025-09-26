@@ -18,6 +18,7 @@ from vendors.serializers import OrdersSerializer
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
 from vendors.order_utils import get_last_tokens 
+from vendors.services.send_to_iot import get_azure_devices
 
 from .serializers import ChatMessageSerializer
 from .utils.utils import (get_manager_vendor, get_suggestion_messages,
@@ -25,6 +26,7 @@ from .utils.utils import (get_manager_vendor, get_suggestion_messages,
 
 from static.utils.functions.notifications import notify_android_tv
 from static.utils.functions.queries import update_existing_order_by_manager
+
 
 from static.utils.functions.utils import (
     get_vendor_business_day_range,
@@ -299,7 +301,6 @@ def manager_order_update(request):
     """
 
     try:
-        logger.info("📥 PATCH /manager_order_update called | user=%s", request.user.username)
         logger.debug("Request data: %s", request.data)
 
         data = request.data
@@ -376,12 +377,12 @@ def manager_order_update(request):
             "message_id": None
         }
 
-        android_tv_success, android_tv_info, push_errors = None, None, []
+        android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
 
         # === Step 7: Handle different action types ===
         if action_type == "ready":
             # FCM push notifications if TV communication mode is not MQTT
-            if vendor.config.tv_communication_mode != "MQTT":
+            if vendor.config.tv_communication_mode == "Firebase":
                 # 1. Notify Android TV
                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
@@ -392,19 +393,23 @@ def manager_order_update(request):
                 logger.warning("❌ Failed to update order %s", token_no)
                 return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             logger.info("✅ Order %s updated to %s", updated_order.token_no, status_to_update)
+            if vendor.config.tv_communication_mode == "AZURE_IOT":
+                logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
+                azure_iot = get_azure_devices(vendor)
+                logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
+            if vendor.config.tv_communication_mode == "MQTT":
+                # 3. Send MQTT update
+                logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
+                if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
+                    logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
+                    return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 3. Send MQTT update
-            logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
-            if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
-                logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
-                return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
-
-            mqtt_success = send_order_update(vendor)
-            if mqtt_success:
-                logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
-            else:
-                logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
-                return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                mqtt_success = send_order_update(vendor)
+                if mqtt_success:
+                    logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
+                else:
+                    logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+                    return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # 4. Send Web Push (only if cooldown passed)
             cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
@@ -577,29 +582,34 @@ def device_call(request):
         android_tv_success = False
         android_tv_info = False
         push_errors = []
+        mqtt=False
 
         # FCM push notifications if TV communication mode is not MQTT
-        if vendor.config.tv_communication_mode != "MQTT":
+        if vendor.config.tv_communication_mode == "Firebase":
             # Notify Android TV
             android_tv_success, android_tv_info = notify_android_tv(vendor, data)
             logger.info(f"📺 Android TV FCM sent | Success: {android_tv_success} | Info: {android_tv_info}")
+        if vendor.config.tv_communication_mode == "AZURE_IOT":
+            logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
+            azure_iot = get_azure_devices(vendor)
+            logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
+        if vendor.config.tv_communication_mode == "MQTT":
+            # MQTT Publish
+            logger.info(f"Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
+            # Ensure the vendor has a config with mqtt_mode set
+            if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
+                logger.warning(f"Vendor {vendor.vendor_id} has no MQTT configuration.")
+                return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
             
-       # MQTT Publish
-        logger.info(f"Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
-        # Ensure the vendor has a config with mqtt_mode set
-        if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
-            logger.warning(f"Vendor {vendor.vendor_id} has no MQTT configuration.")
-            return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
+            # Send order update via MQTT
+            logger.info(f"Sending order update via MQTT for vendor {vendor.vendor_id},MQTT Server: {vendor.config.mqtt_server}")
+            mqtt = send_order_update(vendor)
+            if mqtt:
+                logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
+            else:
+                logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+                return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Send order update via MQTT
-        logger.info(f"Sending order update via MQTT for vendor {vendor.vendor_id},MQTT Server: {vendor.config.mqtt_server}")
-        mqtt = send_order_update(vendor)
-        if mqtt:
-            logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
-        else:
-            logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
-            return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         # Send Web Push (only if cooldown passed)
         cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
         if not order.notified_at or (timezone.now() - order.notified_at) > timedelta(seconds=cooldown):
@@ -610,11 +620,10 @@ def device_call(request):
             logger.info(f"🕒 Order {token_no} marked as notified at {order.notified_at}")
         else:
             logger.info(f"⏳ Cooldown active. Skipping web push for {token_no}.")
-        
+        title="Manager Device Alert"
+        body=f"Order {token_no} is now ready to be served"
         # Notify managers via FCM
-        send_to_managers(vendor, payload)
-
-
+        send_to_managers(vendor, payload,title,body)
         # 📦 Final response
         return Response({
             "success": True,

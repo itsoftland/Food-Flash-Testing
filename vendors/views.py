@@ -23,10 +23,7 @@ from firebase_admin import messaging
 from .mqtt_client import get_mqtt_config_for_vendor
 from orders.utils import send_to_managers
 from vendors.services.order_service import send_order_update
-from vendors.services.get_or_create_azure_device import (get_or_create_device,
-                                                          generate_device_id ,
-                                                          get_device_sas_token,
-                                                          create_iot_credentials)
+from vendors.services.get_or_create_azure_device import create_iot_credentials
 from vendors.services.send_to_iot import get_azure_devices
 logger = logging.getLogger(__name__)
 

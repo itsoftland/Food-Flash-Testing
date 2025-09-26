@@ -45,15 +45,15 @@ def get_mqtt_config_for_vendor(vendor, device=None):
 
     config = getattr(vendor, "config", None)
     mqtt_server = getattr(config, "mqtt_server", None) if config else None
-
-    device_id = generate_device_id(
-        device.vendor.alias_name,
-        device.vendor.vendor_id,
-        device.mac_address
-    )
+    if device:
+        device_id = generate_device_id(
+            device.vendor.alias_name,
+            device.vendor.vendor_id,
+            device.mac_address
+        )
 
     return {
-        "client_id":device_id,
+        "client_id":device_id if device else None,
         "topic": get_mqtt_topic(vendor, device),
         "host": mqtt_server.host if mqtt_server else None,
         "port": mqtt_server.port if mqtt_server else None,
