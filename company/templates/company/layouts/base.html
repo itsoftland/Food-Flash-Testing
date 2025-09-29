@@ -84,7 +84,7 @@
                 <li class="nav-item">
                   <a href="{% url 'company:create_outlet' %}" class="nav-link {% if request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
-                    <p>New Outlet</p>
+                    <p>New Outlet(DEV)</p>
                   </a>
                 </li>
                 <li class="nav-item">
@@ -180,7 +180,7 @@
             <li class="nav-item">
               <a href="{% url 'company:configurations' %}" class="nav-link {% if request.resolver_match.url_name == 'configurations' %}active{% endif %}">
                 <i class="nav-icon fas fa-tools"></i>
-                <p>Configurations</p>
+                <p>Configurations(DEV)</p>
               </a>
             </li>
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'total_orders' or request.resolver_match.url_name == 'order_details' %}menu-open{% endif %}">

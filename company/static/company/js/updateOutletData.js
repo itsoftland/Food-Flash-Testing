@@ -3,7 +3,7 @@ import { MenuFileManagerService } from './services/menuService.js';
 import { OutletUpdateService } from './services/updateOutletService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outletForm = document.getElementById('outlet_update_form');
   const logoInput = document.getElementById('logo');
   const menuFilesInput = document.getElementById('menu_files');
+  const tvCommunicationSelect = document.getElementById('tv_communication_mode');
+  const businnessHour = document.getElementById('business_day_start_hour');
 
   let vendorData = {};
   let unmappedVendorData = {};
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     vendorDetails = await vendorRes.json();
     vendorData = vendorDetails.vendor_data;
     unmappedVendorData = vendorDetails.unmapped_data;
+
 
     } catch (error) {
     console.error("Fetch error:", error);
@@ -104,6 +107,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set selected values after initialization
     keypadDeviceChoices.setChoiceByValue(selectedKeypadDevices);
   }
+  // normalize & set business start hour (input id="business_day_start_hour")
+  if (businnessHour) { // note: your variable is spelled businnessHour
+    const raw = vendorData?.vendor_config?.business_day_start_hour || '';
+    if (raw) {
+      // raw may be "HH:MM:SS" or "HH:MM" — we take HH:MM
+      const hhmm = String(raw).split(':').slice(0, 2).join(':');
+      businnessHour.value = hhmm;
+    } else {
+      businnessHour.value = ''; // clear if no value
+    }
+  }
+
+  if (tvCommunicationSelect) {
+    tvCommunicationSelect.innerHTML = '';
+
+    // read canonical choices from API response
+    const communicationModes = Array.isArray(vendorDetails.tv_communication_modes)
+      ? vendorDetails.tv_communication_modes
+      : [
+          { key: "MQTT", value: "MQTT" },
+          { key: "Firebase", value: "Firebase" },
+          { key: "AZURE_IOT", value: "Azure IoT Hub" }
+        ];
+
+    // populate select with options
+    communicationModes.forEach(mode => {
+      const opt = document.createElement('option');
+      opt.value = mode.key;
+      opt.textContent = mode.value;
+      tvCommunicationSelect.appendChild(opt);
+    });
+
+    // pick current value from vendorData.vendor_config
+    const currentMode = vendorData?.vendor_config?.tv_communication_mode || '';
+    if (currentMode) {
+      tvCommunicationSelect.value = currentMode;
+    }
+  }
+
 
   if (vendorData.logo_url) {
     const img = document.querySelector('#logo + p img');
@@ -147,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ModalService.showSuccess("Outlet Updated Successfully", () => {
           // Callback on OK button click
           outletForm.reset();
-          window.location.href = "/food_flash/company/outlets/";
+          window.location.href = WEB_ENDPOINTS.OUTLETS;
         });
       } else {
         const userFriendlyMessage = getFriendlyFieldLabels(result);

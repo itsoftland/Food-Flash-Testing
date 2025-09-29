@@ -132,10 +132,27 @@ def get_vendor_details(request):
     unmapped_vendors_data = UnmappedVendorDetailSerializer(
         vendor, context={'request': request}
         ).data
+    # Get TV communication mode choices from the VendorConfig model field
+    try:
+        tv_comm_field = VendorConfig._meta.get_field('tv_communication_mode')
+        tv_comm_choices = [{'key': choice[0], 'value': choice[1]} for choice in tv_comm_field.choices]
+    except Exception as e:
+        # Fallback — empty list if something goes wrong
+        tv_comm_choices = []
+        # Optionally log the exception
+
+    # (Optional) Get mqtt_mode choices as well
+    try:
+        mqtt_mode_field = VendorConfig._meta.get_field('mqtt_mode')
+        mqtt_mode_choices = [{'key': choice[0], 'value': choice[1]} for choice in mqtt_mode_field.choices]
+    except Exception:
+        mqtt_mode_choices = []
     
     return Response({
         "vendor_data": serializer,
         "unmapped_data":unmapped_vendors_data,
+        'tv_communication_modes': tv_comm_choices,
+        'mqtt_modes': mqtt_mode_choices,   
         "message": "Success"
         }, status=200)
 
@@ -175,18 +192,6 @@ def get_outlet_creation_data(request):
         return Response(
             {'error': 'Invalid locations JSON'}
             , status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    # Get all location codes already used in vendors
-    # mapped_codes = Vendor.objects.filter(
-    #     admin_outlet=admin_outlet
-    #     ).values_list('location_id', flat=True)
-
-    # Filter unmapped locations
-    # unmapped_locations = []
-    # for location in locations_data:
-    #     for name, code in location.items():
-    #         if code not in mapped_codes:
-    #             unmapped_locations.append({'key': name, 'value': code})
     # All locations
     locations = []
     for location in locations_data:
@@ -203,11 +208,29 @@ def get_outlet_creation_data(request):
     available_android_tvs = AndroidDevice.objects.filter(
         admin_outlet=admin_outlet, vendor__isnull=True
         ).values('mac_address')
+    
+    # Get TV communication mode choices from the VendorConfig model field
+    try:
+        tv_comm_field = VendorConfig._meta.get_field('tv_communication_mode')
+        tv_comm_choices = [{'key': choice[0], 'value': choice[1]} for choice in tv_comm_field.choices]
+    except Exception as e:
+        # Fallback — empty list if something goes wrong
+        tv_comm_choices = []
+        # Optionally log the exception
+
+    # (Optional) Get mqtt_mode choices as well
+    try:
+        mqtt_mode_field = VendorConfig._meta.get_field('mqtt_mode')
+        mqtt_mode_choices = [{'key': choice[0], 'value': choice[1]} for choice in mqtt_mode_field.choices]
+    except Exception:
+        mqtt_mode_choices = []
 
     return Response({
         'locations': locations,
         'keypad_devices': list(available_keypads),
         'android_tvs': list(available_android_tvs),
+        'tv_communication_modes': tv_comm_choices,
+        'mqtt_modes': mqtt_mode_choices,   # optional
     }, status=status.HTTP_200_OK)
 
 def generate_unique_vendor_id():
@@ -239,6 +262,7 @@ def create_vendor(request):
         tv_communication_mode = request.data.get('tv_communication_mode')
         business_day_start_hour = request.data.get('business_day_start_hour')
         timezone = request.data.get('timezone')
+        mqtt_mode = request.data.get('mqtt_mode', 'All')  
         
         if Vendor.objects.filter(name__iexact=name).exists():
             logger.warning("Vendor with name '%s' already exists", name)
@@ -283,7 +307,8 @@ def create_vendor(request):
             vendor=vendor,
             tv_communication_mode=tv_communication_mode,
             business_day_start_hour=business_day_start_hour,
-            timezone=timezone
+            timezone=timezone,
+            mqtt_mode=mqtt_mode
         )
         logger.info("Vendor Config created: %s", vendor_config.tv_communication_mode)
         

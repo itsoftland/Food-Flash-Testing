@@ -5,13 +5,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const locationSelect = document.getElementById('location');
   const tvSelect = document.getElementById('tv-select');
   const deviceSelect = document.getElementById('device-select');
+  const tvCommunicationSelect = document.getElementById('tv_communication_mode');
+  const businnessHour = document.getElementById('business_day_start_hour');
 
   try {
     const response = await fetchWithAutoRefresh(`/food_flash/company/api/get_outlet_creation_data/`);
     if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
     const data = await response.json();
-    const { locations, android_tvs, keypad_devices } = data;
+    const { locations, android_tvs, keypad_devices, tv_communication_modes } = data;
 
     // 1️⃣ Populate Location Dropdown
     if (locationSelect) {
@@ -62,6 +64,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         placeholderValue: 'Select Devices',
         searchEnabled: true
+      });
+    }
+    if (tvCommunicationSelect) {
+      tvCommunicationSelect.innerHTML = ''; // Clear existing
+      tv_communication_modes.forEach(loc => {
+        const option = document.createElement('option');
+        option.value = loc.key;
+        option.textContent = loc.value;
+        option.setAttribute('data-location-name', loc.value);
+        tvCommunicationSelect.appendChild(option);
       });
     }
   } catch (error) {

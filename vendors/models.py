@@ -99,9 +99,9 @@ class VendorConfig(models.Model):
     tv_communication_mode = models.CharField(
         max_length=20,
         choices=[
-            ("MQTT", "MQTT"),
-            ("Firebase", "Firebase"),
-            ("AZURE_IOT", "Azure IoT Hub"),
+            ("MQTT", "Model 1(M)"),
+            ("Firebase", "Model 2(F)"),
+            ("AZURE_IOT", "Model 3(A)"),
         ],
         default="MQTT"
     )

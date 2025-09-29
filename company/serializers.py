@@ -4,7 +4,8 @@ from vendors.models import (Vendor,AndroidDevice,
                             AdvertisementProfile,
                             AdvertisementProfileAssignment,
                             AdminOutlet,UserProfile,
-                            AndroidAPK)
+                            AndroidAPK,MqttServerConfig,
+                            VendorConfig)
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
@@ -14,12 +15,31 @@ class VendorSerializer(serializers.ModelSerializer):
         model = Vendor
         fields = ['id','vendor_id', 'name', 'location']  
 
+class MqttServerConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MqttServerConfig
+        # adjust these fields to match your MqttServerConfig model
+        fields = ['id', 'name', 'host', 'port']  # example fields
 
+class VendorConfigSerializer(serializers.ModelSerializer):
+    mqtt_server = MqttServerConfigSerializer(read_only=True)
+
+    class Meta:
+        model = VendorConfig
+        fields = [
+            'mqtt_server',
+            'token_display_limit',
+            'tv_communication_mode',
+            'mqtt_mode',
+            'business_day_start_hour',
+            'timezone'
+        ]
 class VendorDetailSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
     menu_files = serializers.SerializerMethodField()
     android_tvs = serializers.SerializerMethodField()
     keypad_devices = serializers.SerializerMethodField()
+    vendor_config = serializers.SerializerMethodField()
 
     class Meta:
         model = Vendor
@@ -34,6 +54,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
             'menu_files',
             'android_tvs',
             'keypad_devices',
+            'vendor_config'
         ]
 
     def get_logo_url(self, obj):
@@ -65,6 +86,20 @@ class VendorDetailSerializer(serializers.ModelSerializer):
 
     def get_keypad_devices(self, obj):
         return list(obj.devices.values('serial_no')) if hasattr(obj, 'devices') else []
+    
+    def get_vendor_config(self, obj):
+        """
+        Returns serialized vendor config if exists, otherwise returns None.
+        """
+        try:
+            cfg = getattr(obj, 'config', None)  # OneToOne related name 'config'
+            if not cfg:
+                return None
+            # Use the nested serializer to return a clean structure
+            return VendorConfigSerializer(cfg, context=self.context).data
+        except Exception:
+            # don't crash the whole response for a config serialization issue
+            return None
 
 class UnmappedVendorDetailSerializer(serializers.ModelSerializer):
     unmapped_android_tvs = serializers.SerializerMethodField()

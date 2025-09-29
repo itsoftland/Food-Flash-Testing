@@ -2,6 +2,7 @@
 export const API_ENDPOINTS = {
   CONFIG: '/food_flash/company/api/config/',
   DASHBOARD_METRICS: '/food_flash/company/api/dashboard_metrics/',
+  CREATE_VENDOR: '/food_flash/company/api/create_vendor/',
   GET_VENDORS: '/food_flash/company/api/get_vendors/',
   GET_VENDORS_DETAILS: '/food_flash/company/api/get_vendor_details/',
   UPDATE_VENDOR: '/food_flash/company/api/update_vendor/',
@@ -34,8 +35,8 @@ export const API_ENDPOINTS = {
 
 export const WEB_ENDPOINTS = {
   DASHBOARD: '/food_flash/company/dashboard/',
-  VENDOR_LIST: '/food_flash/company/vendor_list/',
-  OUTLET_LIST: '/food_flash/company/outlet_list/',
+  OUTLETS: '/food_flash/company/outlets/',
+  UPDATE_OUTLET: '/food_flash/company/update_outlet/',
   DEVICE_LIST: '/food_flash/company/device_list/',
   ANDROID_TV_LIST: '/food_flash/company/android_tv_list/',
   ORDER_LIST: '/food_flash/company/order_list/',

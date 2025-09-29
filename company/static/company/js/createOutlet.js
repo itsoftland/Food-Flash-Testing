@@ -1,6 +1,7 @@
 import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
+import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('create-outlet-form');
@@ -19,11 +20,10 @@ document.addEventListener('DOMContentLoaded', function () {
       formData.append('location', locationKey);     // Sending readable name
       formData.append('location_id', locationValue); // Sending internal value
       formData.append('place_id', document.getElementById('place_id').value || '');
+      formData.append('tv_communication_mode', document.getElementById('tv_communication_mode').value || '');
+      formData.append('business_day_start_hour', document.getElementById('business_day_start_hour').value || '');
 
-      // You can replace this with dynamic customer_id if needed
       const customer_id =AppUtils.getCustomerId('customer_id');
-      // const customer_id = localStorage.getItem('customerId');
-      console.log("customerId",customer_id)
       formData.append('customer_id', customer_id);
   
       // File fields
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log(formData)
   
       try {
-        const response = await fetchWithAutoRefresh('/food_flash/company/api/create_vendor/', {
+        const response = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_VENDOR, {
           method: 'POST',
           headers: {
             'X-CSRFToken': AppUtils.getCSRFToken()  // ✅ CSRF token only,

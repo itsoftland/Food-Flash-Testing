@@ -1,5 +1,6 @@
 // Import a utility function that automatically refreshes auth tokens if needed before fetching
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 // Wait for the DOM to fully load before running any script logic
 document.addEventListener('DOMContentLoaded', async () => {
@@ -12,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ================================
   try {
     // Make an authenticated GET request to fetch vendor data
-    const response = await fetchWithAutoRefresh('/food_flash/company/api/get_vendors/', {
+    const response = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS, {
       method: 'GET'
     });
 
@@ -48,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Set the inner HTML of the vendor card
       col.innerHTML = `
-        <div class="vendor-tile">
+        <div class="vendor-tile" data-vendor-id="${vendor.vendor_id}" >
           <div class="inner">
             <h4>${vendor.name}</h4>
             <p>Location: ${vendor.location || 'N/A'}</p>
@@ -56,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="icon">
             <i class="fas fa-store"></i>
           </div>
-          <a data-vendor-id="${vendor.vendor_id}" class="small-box-footer">
+          <a  class="small-box-footer">
             View Details <i class="fas fa-arrow-circle-right"></i>
           </a>
         </div>
@@ -81,15 +82,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 5. Navigate to Outlet Update Page on Click
   // ============================================
   vendorListContainer.addEventListener('click', function (e) {
-    // Use event delegation to capture clicks on any "View Details" links
-    const link = e.target.closest('a[data-vendor-id]');
-    if (link) {
-      e.preventDefault(); // Prevent default link behavior
-      const vendorId = link.dataset.vendorId;
+    // Check if the click happened inside a vendor tile
+    const tile = e.target.closest('.vendor-tile');
+    if (tile && tile.dataset.vendorId) {
+      e.preventDefault();
+      const vendorId = tile.dataset.vendorId;
 
-      // Redirect to the outlet update page with the selected vendor ID
-      window.location.href = `/food_flash/company/update_outlet/?vendor_id=${vendorId}`;
+      // Redirect to outlet update page
+      window.location.href = `${WEB_ENDPOINTS.UPDATE_OUTLET}?vendor_id=${vendorId}`;
     }
   });
-
 });
