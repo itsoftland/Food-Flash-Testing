@@ -41,6 +41,16 @@
   font-weight: 600;
   text-align: center;
   padding: 10px 0;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50px;
+  z-index: 1030;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .text-golden {
   color: #d97a1f; 
@@ -105,3 +115,5 @@
   color: #fd0b0f !important;
   text-decoration: none;
 }
+
+

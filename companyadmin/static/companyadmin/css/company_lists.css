@@ -1,0 +1,140 @@
+/* Stronger table overrides for company table */
+table#companyTable,
+table#companyTable thead,
+table#companyTable tbody,
+table#companyTable tr,
+table#companyTable th,
+table#companyTable td {
+  text-align: center;      /* center all content */
+  vertical-align: middle;
+}
+
+/* Header */
+table#companyTable thead th {
+  background-color: #fbfafa;
+  color: #222;
+  font-weight: 700;
+  padding: 12px 14px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+/* Cells */
+table#companyTable td {
+  padding: 10px 12px;
+  border: 1px solid #e9ecef;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+/* Row hover */
+table#companyTable.table-hover tbody tr:hover {
+  background-color: #f8f9fb;
+}
+
+/* Badges */
+table#companyTable .badge {
+  min-width: 96px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-weight: 500;
+  font-size:0.9rem;
+  color:black;
+}
+
+/* License button */
+table#companyTable .license-cell .btn {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+}
+
+/* Responsive card-like rows on small screens — keep your existing mobile rules but scoped */
+@media (max-width: 767px) {
+  table#companyTable thead { display: none; }
+
+  table#companyTable tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(15, 15, 15, 0.04);
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #eee;
+  }
+
+  table#companyTable tbody td {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+    border: none;
+    border-bottom: 1px dashed #f0f0f0;
+  }
+
+  table#companyTable tbody td:last-child {
+    border-bottom: none;
+  }
+
+  /* show label from data-label attr */
+  table#companyTable tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #444;
+    margin-right: 8px;
+  }
+}
+
+/* Base style for license button */
+.license-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid #888;         /* neutral border */
+  border-radius: 20px;            /* pill shape */
+  background-color: #f5f5f5;      /* light neutral bg */
+  color: #333;                    /* dark text */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover state */
+.license-btn:hover {
+  background-color: #e0e0e0;
+  border-color: #666;
+}
+
+/* Active/pressed state */
+.license-btn:active {
+  background-color: #d6d6d6;
+  border-color: #555;
+}
+
+/* Disabled look */
+.license-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Success/verified state */
+.license-btn.verified {
+  background-color: #28a745;  /* green */
+  border-color: #28a745;
+  color: #fff;
+}
+
+.license-btn.verified:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+/* Error/expired state */
+.license-btn.expired {
+  background-color: #dc3545;  /* red */
+  border-color: #dc3545;
+  color: #fff;
+}
+
+.license-btn.expired:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}

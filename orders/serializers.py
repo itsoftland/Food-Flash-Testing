@@ -125,10 +125,16 @@ class UserSerializer(serializers.ModelSerializer):
 
 class AdminOutletSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    authentication_status = serializers.CharField(required=False, allow_null=True,default='Pending')
 
     class Meta:
         model = AdminOutlet
         fields = '__all__'
+
+    def validate(self, attrs):
+        if attrs.get('authentication_status') is None:
+            attrs['authentication_status'] = 'Pending'
+        return attrs
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')

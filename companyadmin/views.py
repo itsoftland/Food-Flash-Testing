@@ -14,6 +14,8 @@ from rest_framework import status
 from orders.serializers import AdminOutletSerializer
 from vendors.models import Vendor,AdminOutlet
 
+from rest_framework.pagination import PageNumberPagination
+
 @login_required
 def registration(request):
     # Clear only cache entries relevant to this view
@@ -21,6 +23,14 @@ def registration(request):
         'registration_page_data',
     ])
     return render(request, 'companyadmin/registration.html')
+
+@login_required
+def companies(request):
+    # Clear only cache entries relevant to this view
+    cache.delete_many([
+        'registration_page_data',
+    ])
+    return render(request, 'companyadmin/company_lists.html')
 
 @login_required
 def order_update(request):
@@ -115,9 +125,37 @@ def register_company(request):
     serializer = AdminOutletSerializer(data=data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Company registered successfully"}, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "success",
+            "message": "Company registered successfully"
+            }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def company_lists(request):
+    """
+    GET /api/company_lists/
+    Query params:
+      - page (pagination)
+      - page_size (optional, if you want variable page size and enabled)
+      - all=true  -> returns all records (no pagination)
+    """
+    qs = AdminOutlet.objects.all().order_by('-created_at')
+
+    # if client explicitly requests all, return non-paginated list
+    if request.query_params.get('all') in ('1', 'true', 'True'):
+        serializer = AdminOutletSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # otherwise paginate
+    paginator = PageNumberPagination()
+    paginator.page_size = 25  # default page size; change or read from settings
+    page = paginator.paginate_queryset(qs, request)
+    serializer = AdminOutletSerializer(page, many=True, context={'request': request})
+    return paginator.get_paginated_response(serializer.data)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

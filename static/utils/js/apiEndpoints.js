@@ -14,6 +14,8 @@ export const API_ENDPOINTS = {
   UNMAP_ANDROID_TVS: '/food_flash/company/api/unmap_android_tvs/',
   ORDER_COUNTS_SUMMARY: '/food_flash/company/api/order_counts_summary/',
   FILTERED_ORDERS: '/food_flash/company/api/filtered_orders/',
+  GET_COMPANIES: '/food_flash/companyadmin/api/company_lists/',
+  PRODUCT_REGISTRATION: '/food_flash/companyadmin/api/product-registration/',
   PRODUCT_AUTH_URL : '/food_flash/companyadmin/api/product-authentication/',
   COMPANY_UPDATE_URL : '/food_flash/api/company-update/',
   CREATE_USER: '/food_flash/company/api/create_user/',

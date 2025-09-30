@@ -1,0 +1,52 @@
+{% extends 'companyadmin/layouts/base.html' %}
+{% load static %}
+
+{% block title %}Update Order | Superadmin{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'companyadmin/css/company_lists.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Company List</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0"></div>
+      <div class="card-body">
+        <!-- Company Table -->
+        <div class="table-responsive">
+          <table id="companyTable" class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
+            <thead class="thead-light">
+              <tr>
+                <th>Company Name</th>
+                <th>Customer ID</th>
+                <th>Contact Person</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th>Licence</th>
+              </tr>
+            </thead>
+            <tbody id="company-table-body">
+              <!-- Data will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'companyadmin/js/companyLists.js' %}"></script>
+{% endblock %}
