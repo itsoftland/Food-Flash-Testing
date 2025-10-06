@@ -9,11 +9,12 @@ export const ConfirmModalService = (() => {
   const show = (message = "Are you sure?") => {
     return new Promise((resolve) => {
       resolveCallback = resolve;
-      messageEl.textContent = message;
+      messageEl.innerHTML = message; // <-- change here
       modal.classList.remove("hidden");
       bindEvents();
     });
   };
+
 
   const hide = () => {
     modal.classList.add("hidden");

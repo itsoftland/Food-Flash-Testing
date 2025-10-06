@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const userTableBody = document.getElementById('users-table-body');
-    const filterDropdown = document.getElementById('userFilter'); // optional if you want filter
+    const filterDropdown = document.getElementById('userFilter'); 
 
     loadUsers('all');
 

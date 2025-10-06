@@ -2,7 +2,7 @@
 export const API_ENDPOINTS = {
   CONFIG: '/food_flash/company/api/config/',
   DASHBOARD_METRICS: '/food_flash/company/api/dashboard_metrics/',
-  CREATE_VENDOR: '/food_flash/company/api/create_vendor/',
+  CREATE_VENDOR: '/food_flash/companyadmin/api/create_vendor/',
   GET_VENDORS: '/food_flash/company/api/get_vendors/',
   GET_VENDORS_DETAILS: '/food_flash/company/api/get_vendor_details/',
   UPDATE_VENDOR: '/food_flash/company/api/update_vendor/',

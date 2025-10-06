@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="{% static 'utils/css/colors.css' %}">
     <link rel="stylesheet" href="{% static 'companyadmin/css/companyadmin.css' %}">
     <!-- <link rel="stylesheet" href="{% static 'utils/css/base.css' %}"> -->
-    <!-- <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}"> -->
+    <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -72,6 +72,18 @@
             <a href="{% url 'companyadmin:company_lists' %}" class="nav-link {% if request.resolver_match.url_name == 'company_lists' %}active{% endif %}">
               <i class="nav-icon fas fa-list"></i>
               <p>Company List</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'companyadmin:create_outlet' %}" class="nav-link {% if request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
+              <i class="nav-icon fas fa-store"></i>
+              <p>Create Outlet</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{% url 'companyadmin:outlet_lists' %}" class="nav-link {% if request.resolver_match.url_name == 'outlet_lists' %}active{% endif %}">
+              <i class="nav-icon fas fa-list"></i>
+              <p>Outlet List</p>
             </a>
           </li>
 

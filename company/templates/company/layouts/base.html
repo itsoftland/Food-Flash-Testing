@@ -72,29 +72,29 @@
                 <p>Dashboard</p>
               </a>
             </li>
-            <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'outlets' or request.resolver_match.url_name == 'create_outlet' %}menu-open{% endif %}">
+            <!-- <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'outlets' or request.resolver_match.url_name == 'create_outlet' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'outlets' or request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
                 <i class="nav-icon fas fa-store"></i>
                 <p>
                   Outlets
                   <i class="right fas fa-angle-down"></i> 
                 </p>
-              </a>
-              <ul class="nav nav-treeview">
+              </a> -->
+              <!-- <ul class="nav nav-treeview">
                 <li class="nav-item">
                   <a href="{% url 'company:create_outlet' %}" class="nav-link {% if request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>New Outlet(DEV)</p>
                   </a>
-                </li>
+                </li> -->
                 <li class="nav-item">
                   <a href="{% url 'company:outlets' %}" class="nav-link {% if request.resolver_match.url_name == 'outlets' %}active{% endif %}">
-                    <i class="far fa-circle nav-icon"></i>
+                    <i class="nav-icon fas fa-store"></i>
                     <p>Outlet List</p>
                   </a>
                 </li>
-              </ul>
-            </li>
+              <!-- </ul> -->
+            <!-- </li> -->
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'create_users' or request.resolver_match.url_name == 'create_users' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                 <i class="nav-icon fas fa-users"></i>

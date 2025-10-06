@@ -1,19 +1,18 @@
 {% extends 'companyadmin/layouts/base.html' %}
 {% load static %}
 
-{% block title %}Company List {% endblock %}
+{% block title %}Outlet List{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'companyadmin/css/company_lists.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
 {% endblock %}
-
 {% block content %}
 
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Company List</h1>
+        <h1 class="page-title">Outlet List</h1>
       </div>
     </div>
   </div>
@@ -21,22 +20,20 @@
 
 <section class="content">
   <div class="container-fluid">
-    <div class="card shadow-sm border-0"></div>
+    <div class="card shadow-sm border-0">
       <div class="card-body">
-        <!-- Company Table -->
+        <!-- Outlet Table -->
         <div class="table-responsive">
-          <table id="companyTable" class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
+          <table id="outletTable" class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
             <thead class="thead-light">
               <tr>
+                <th>Outlet Name</th>
+                <th>Alias Name</th>
+                <th>Location</th>
                 <th>Company Name</th>
-                <th>Customer ID</th>
-                <th>Contact Person</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Licence Validate</th>
               </tr>
             </thead>
-            <tbody id="company-table-body">
+            <tbody id="outlet-table-body">
               <!-- Data will be populated by JavaScript -->
             </tbody>
           </table>
@@ -45,8 +42,9 @@
     </div>
   </div>
 </section>
+
 {% endblock %}
 
 {% block extra_js %}
-<script type="module" src="{% static 'companyadmin/js/companyLists.js' %}"></script>
+<script type="module" src="{% static 'companyadmin/js/outlets/outletList.js' %}"></script>
 {% endblock %}

@@ -22,7 +22,7 @@ function restore(btn) {
 }
 function markVerified(btn,statusText) {
   btn.classList.remove('btn-outline-primary');
-  if (statusText === "Verified"){
+  if (statusText === "Validated"){
     btn.classList.add('verified');
   }
   else if (statusText === "Expired"){
@@ -35,7 +35,7 @@ function markVerified(btn,statusText) {
     btn.disabled = false;
     btn.classList.remove('verified');
     btn.classList.remove('expired');
-    btn.innerText = 'License Verify';
+    btn.innerText = 'License Validate';
   }, 3000);
 }
 
@@ -171,7 +171,7 @@ async function loadCompanyList() {
         <td data-label="Phone">${esc(company.phone_number || '-')}</td>
         <td data-label="Status"><span class="badge ${badgeClass}">${statusLabel}</span></td>
         <td class="license-cell" data-label="Licence">
-          <button class="license-btn" data-company-id="${id}">License Verify</button>
+          <button class="license-btn" data-company-id="${id}">License Validate</button>
         </td>
       `;
       tableBody.appendChild(row);
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
         if (authData.Authenticationstatus === 'Approve') {
-          updateCellToVerified(row,"Verified");
+          updateCellToVerified(row,"Validated");
           payload = JSON.stringify({
             authentication_status: authData.Authenticationstatus,
             product_registration_id: authData.ProductRegistrationId,
@@ -274,7 +274,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('❌ Update failed:', result);
             alert('Failed to update company info after authentication.');
         } else {
+          setTimeout ( async () => {
             await loadCompanyList();
+          }, 3000);
             console.log('✅ Company info updated:', result);
         }
 
