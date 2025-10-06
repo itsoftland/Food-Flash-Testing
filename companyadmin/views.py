@@ -156,6 +156,32 @@ def company_lists(request):
     serializer = AdminOutletSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
+@api_view(['PUT'])
+@permission_classes([AllowAny]) 
+def update_company(request):
+    customer_id = request.data.get('customer_id')
+    if not customer_id:
+        return Response({"error": "customer_id is required."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        admin_outlet = AdminOutlet.objects.get(customer_id=customer_id)
+    except AdminOutlet.DoesNotExist:
+        return Response({"error": "AdminOutlet not found for this customer_id."},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    # Ensure username is NOT changed, so remove user data or ignore it
+    data = request.data.copy()
+    if 'user' in data:
+        data.pop('user')
+
+    serializer = AdminOutletSerializer(admin_outlet, data=data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

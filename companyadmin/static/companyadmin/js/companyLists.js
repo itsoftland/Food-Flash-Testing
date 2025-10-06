@@ -4,6 +4,12 @@ import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 // small helpers
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const company_status = {
+  'Pending': 'Pending',
+  'Approve': 'Approved',
+  'Expired': 'Expired',
+  'Block': 'Blocked'
+};
 
 function setProcessing(btn, text = 'Processing...') {
   btn.dataset._orig = btn.innerText;
@@ -22,8 +28,15 @@ function markVerified(btn,statusText) {
   else if (statusText === "Expired"){
     btn.classList.add('expired');
   }
+  
   btn.disabled = true;
   btn.innerText = statusText;
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.classList.remove('verified');
+    btn.classList.remove('expired');
+    btn.innerText = 'License Verify';
+  }, 3000);
 }
 
 // Build payload expected by product-registration endpoint using company object
@@ -117,8 +130,12 @@ function updateCellToVerified(row,statusText) {
   if (btn) markVerified(btn,statusText);
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function loadCompanyList() {
   const tableBody = document.querySelector('#companyTable tbody');
+  if (!tableBody) throw new Error('Table body element not found: #companyTable tbody');
+
+  // clear existing rows
+  tableBody.innerHTML = '';
 
   try {
     const resp = await fetchWithAutoRefresh(API_ENDPOINTS.GET_COMPANIES, { method: 'GET' });
@@ -127,36 +144,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await resp.json();
     const companies = data.results || data;
 
-    if (!companies.length) {
+    if (!companies || companies.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="6" class="text-center">No companies registered yet.</td></tr>`;
-      return;
-    }
-    const company_status = {
-      'Pending': 'Pending',
-      'Approve': 'Approved',
-      'Expired': 'Expired',
-      'Block': 'Blocked'
+      return companies || [];
     }
 
-    // render rows (adds simple license button)
+    // render rows
     companies.forEach(company => {
       const id = company.id;
-      const status = esc(company_status[company.authentication_status] || 'Pending');
-      // const status = esc(company.authentication_status || 'Pending');
+      const raw = company.authentication_status || 'Pending';
+      const statusLabel = esc(company_status[raw] || 'Pending');
+
+      // pick badge class from raw backend status (not the mapped label)
+      const badgeClass = raw === 'Approve' ? 'badge-success'
+        : raw === 'Pending' ? 'badge-warning'
+        : raw === 'Expired' ? 'badge-danger'
+        : raw === 'Block' ? 'badge-danger'
+        : 'badge-light';
+
       const row = document.createElement('tr');
       row.dataset.companyId = id;
       row.innerHTML = `
-        <td>${esc(company.customer_name || '-')}</td>
-        <td>${esc(company.customer_id || 'NIL')}</td>
-        <td>${esc(company.customer_contact_person || '-')}</td>
-        <td>${esc(company.phone_number || '-')}</td>
-        <td><span class="badge ${status.toLowerCase() === 'approved' ? 'badge-success' : status.toLowerCase() === 'pending' ? 'badge-warning' : 'badge-danger'}">${status}</span></td>
-        <td class="license-cell">
+        <td data-label="Company Name">${esc(company.customer_name || '-')}</td>
+        <td data-label="Customer ID">${esc(company.customer_id ?? 'NIL')}</td>
+        <td data-label="Contact Person">${esc(company.customer_contact_person || '-')}</td>
+        <td data-label="Phone">${esc(company.phone_number || '-')}</td>
+        <td data-label="Status"><span class="badge ${badgeClass}">${statusLabel}</span></td>
+        <td class="license-cell" data-label="Licence">
           <button class="license-btn" data-company-id="${id}">License Verify</button>
         </td>
       `;
       tableBody.appendChild(row);
     });
+
+    return companies;
+  } catch (err) {
+    console.error('Failed to load companies:', err);
+    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
+    return [];
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const tableBody = document.querySelector('#companyTable tbody');
+
+  try {
+    // call once on page load
+    const companies = await loadCompanyList();
+    let payload = {}
 
     // single event delegation for license buttons
     tableBody.addEventListener('click', async (e) => {
@@ -186,15 +221,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         const customerId = regJson.CustomerId;
 
         const authData = await pollAuthentication(customerId, btn);
+
+        // 3) Update UI to show verified
         if (authData.Authenticationstatus === 'Your licence is expired. Please contact Admin !!!') {
           updateCellToVerified(row,"Expired"); // mark as verified anyway
-          return;
+          payload = JSON.stringify({
+            authentication_status: "Expired",
+            customer_id: customerId
+          });
         }
-        // 3) Update UI to show verified
-        updateCellToVerified(row,"Verified");
-
-        // Optionally: persist authData to backend by calling your finalize/register-company endpoint later
-        // (Not implemented now — you asked to keep minimal)
+        if (authData.Authenticationstatus === 'Block') {
+          updateCellToVerified(row,"Blocked"); // mark as verified anyway
+          payload = JSON.stringify({
+            authentication_status: "Blocked",
+            customer_id: customerId
+          });
+        }
+        if (authData.Authenticationstatus === 'Approve') {
+          updateCellToVerified(row,"Verified");
+          payload = JSON.stringify({
+            authentication_status: authData.Authenticationstatus,
+            product_registration_id: authData.ProductRegistrationId,
+            unique_identifier: authData.UniqueIDentifier,
+            customer_id: authData.CustomerId,
+            product_from_date: authData.ProductFromDate,
+            product_to_date: authData.ProductToDate,
+            total_count: authData.TotalCount,
+            project_code: authData.ProjectCode,
+            web_login_count: authData.WebLoginCount,
+            android_tv_count: authData.AndroidTvCount,
+            android_apk_count: authData.AndroidApkCount,
+            keypad_device_count: authData.KeypadDeviceCount,
+            led_display_count: authData.LedDisplayCount,
+            outlet_count: authData.OutletCount,
+            locations: authData.Locations,
+            displaymode: authData.DisplayMode, 
+          });
+        }
+        console.log("Payload to update company:", payload);
+        // 4) Update company info in our backend
+        const resp = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_COMPANY, { 
+          method: 'PUT',
+          headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': AppUtils.getCSRFToken()
+            },
+          credentials: 'include',
+          body: payload
+        });
+        const result = await resp.json();
+        if (!resp.ok) {
+            console.error('❌ Update failed:', result);
+            alert('Failed to update company info after authentication.');
+        } else {
+            await loadCompanyList();
+            console.log('✅ Company info updated:', result);
+        }
 
       } catch (err) {
         console.error('License flow error:', err);
@@ -208,3 +290,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
   }
 });
+// Exported reusable loader

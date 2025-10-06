@@ -38,7 +38,7 @@ table#companyTable .badge {
   border-radius: 14px;
   font-weight: 500;
   font-size:0.9rem;
-  color:black;
+  color:#0e0d0d;
 }
 
 /* License button */
@@ -92,7 +92,7 @@ table#companyTable .license-cell .btn {
   border: 1px solid #888;         /* neutral border */
   border-radius: 20px;            /* pill shape */
   background-color: #f5f5f5;      /* light neutral bg */
-  color: #333;                    /* dark text */
+  color: #0e0d0d;                    /* dark text */
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
@@ -100,18 +100,17 @@ table#companyTable .license-cell .btn {
 /* Hover state */
 .license-btn:hover {
   background-color: #e0e0e0;
-  border-color: #666;
+  border-color: #0e0d0d;
 }
 
 /* Active/pressed state */
 .license-btn:active {
   background-color: #d6d6d6;
-  border-color: #555;
+  border-color: #0e0d0d;
 }
 
 /* Disabled look */
 .license-btn:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -119,7 +118,7 @@ table#companyTable .license-cell .btn {
 .license-btn.verified {
   background-color: #28a745;  /* green */
   border-color: #28a745;
-  color: #fff;
+  color: #0e0d0d;
 }
 
 .license-btn.verified:hover {
@@ -131,7 +130,7 @@ table#companyTable .license-cell .btn {
 .license-btn.expired {
   background-color: #dc3545;  /* red */
   border-color: #dc3545;
-  color: #fff;
+  color: #0e0d0d;
 }
 
 .license-btn.expired:hover {
