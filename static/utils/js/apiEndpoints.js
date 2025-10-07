@@ -24,6 +24,8 @@ export const API_ENDPOINTS = {
   GET_MANAGER_DEVICES:'/food_flash/company/api/get_manager_devices/',
   MAP_MANAGER_DEVICES:'/food_flash/company/api/map_manager_devices/',
   UNMAP_MANAGER_DEVICES:'/food_flash/company/api/unmap_manager_devices/',
+  ASSIGN_USER: '/food_flash/company/api/map_user/',
+  UNASSIGN_USER: '/food_flash/company/api/unmap_user/',
   BANNER_UPLOAD: '/food_flash/company/api/banner_upload/',
   BANNER_LIST: '/food_flash/company/api/banner_list/',
   CREATE_AD_PROFILE: '/food_flash/company/api/create_ad_profile/',

@@ -461,6 +461,9 @@ def register_android_apk(request):
             mac_address=mac_address,
             admin_outlet=admin_outlet,
             user_profile=user_profile if user_profile else None
+        ).first() or AndroidAPK.objects.filter(
+            mac_address=mac_address,
+            admin_outlet=admin_outlet
         ).first()
         if device:
             logger.info(
@@ -469,8 +472,6 @@ def register_android_apk(request):
             )
             device.token = token
             device.apk_version = apk_version
-            if user_profile:
-                device.user_profile = user_profile
             device.save()
         else:
             logger.info("[register_android_apk] Registering new device — MAC=%s", mac_address)
@@ -479,7 +480,6 @@ def register_android_apk(request):
                 mac_address=mac_address,
                 apk_version=apk_version,
                 admin_outlet=admin_outlet,
-                user_profile=user_profile
             )
 
         # === Step 5: Return Mapping Status ===

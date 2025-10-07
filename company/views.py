@@ -590,6 +590,59 @@ def map_manager_devices(request, device_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def unmap_user(request, user_id):
+    try:
+        user_details = UserProfile.objects.get(id=user_id)
+
+        # Permission check
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if user_details.admin_outlet != admin_outlet:
+            return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Unlink vendor
+        user_details.vendor = None
+        user_details.save(update_fields=['vendor'])
+
+        return Response({"message": "User unmapped from outlet successfully."}, status=status.HTTP_200_OK)
+
+    except UserProfile.DoesNotExist:
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def map_user(request, user_id):
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+    vendor_id = request.data.get('vendor_id')
+    if not vendor_id:
+        return Response({"error": "vendor_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        vendor_detils = Vendor.objects.get(id=vendor_id)
+    except Vendor.DoesNotExist:
+        return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if vendor_detils.admin_outlet != admin_outlet:
+        return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user_details = UserProfile.objects.get(id=user_id)
+    except UserProfile.DoesNotExist:
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Enforce same admin outlet
+    if user_details.admin_outlet != admin_outlet:
+        return Response({"error": "Vendor does not belong to your admin outlet."}, status=status.HTTP_403_FORBIDDEN)
+
+    user_details.vendor = vendor_detils
+    user_details.save(update_fields=['vendor'])
+
+    return Response({"message": "User mapped to Outlet successfully."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def upload_banner(request):
     try:

@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="text-center mt-4">
             <button type="submit" class="btn btn-golden px-4 py-2 shadow-sm">
-                <i class="fas fa-link mr-2"></i> Assign
+                <i class="fas fa-link mr-2"></i> Assign Outlet
             </button>
             </div>
         </form>`;
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onShown: async () => {
             const vendorSelect = document.getElementById('vendor-select');
             try {
-            const res = await fetchWithAutoRefresh('/company/api/get_vendors/');
+            const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS, { method: 'GET' });
             const data = await res.json();
             const vendors = data.vendors || [];
             if (!vendors.length) {
