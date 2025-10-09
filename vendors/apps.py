@@ -5,7 +5,7 @@ class VendorsConfig(AppConfig):
     name = 'vendors'
 
     def ready(self):
-        # Import the firebase initialization to run it once when app is ready
-        import vendors.firebase
+        import vendors.signals  # ✅ ensures the signal is registered
+        import vendors.firebase  # ✅ your firebase init (keep this here)
 
-    
+

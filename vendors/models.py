@@ -159,6 +159,8 @@ class Order(models.Model):
         ('preparing', 'Preparing'),
         ('ready', 'Ready'),
         ('created', 'Created'),
+        ('cancelled', 'Cancelled'),
+        ('delivered', 'Delivered'),
     ]
     USER_CHOICES = [
         ('keypad_device', 'Keypad Device'),
@@ -185,6 +187,33 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Token {self.token_no}"
+    
+class OrderStatusHistory(models.Model):
+    order = models.ForeignKey(
+        'Order',
+        on_delete=models.CASCADE,
+        related_name='status_history'
+    )
+    previous_status = models.CharField(
+        max_length=20,
+        choices=Order.STATUS_CHOICES,
+        null=True,
+        blank=True
+    )
+    new_status = models.CharField(
+        max_length=20,
+        choices=Order.STATUS_CHOICES
+    )
+    changed_by = models.CharField(
+        max_length=20,
+        choices=Order.USER_CHOICES,
+        default='manager'
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order} changed to {self.new_status} at {self.changed_at}"
+
 
 class PushSubscription(models.Model):
     browser_id = models.CharField(max_length=255, unique=True)
@@ -324,6 +353,19 @@ class ArchivedOrder(models.Model):
 
     def __str__(self):
         return f"Archived Token {self.token_no}"
+
+class ArchivedOrderStatusHistory(models.Model):
+    archived_order = models.ForeignKey(
+        'ArchivedOrder',
+        on_delete=models.CASCADE,
+        related_name='status_history'
+    )
+    previous_status = models.CharField(max_length=20)
+    new_status = models.CharField(max_length=20)
+    changed_by = models.CharField(max_length=20)
+    changed_at = models.DateTimeField()
+    def __str__(self):
+        return f"{self.archived_order} changed to {self.new_status} at {self.changed_at}"
 
 class ChatMessage(models.Model):
     SENDER_CHOICES = [

@@ -240,7 +240,6 @@ def get_suggestions(request):
             "[get_suggestion_messages] Request started | user=%s | method=%s | path=%s",
             request.user.username, request.method, request.path
         )
-
         # === Step 2: Resolve vendor from manager user ===
         vendor = get_manager_vendor(request.user)
         logger.info(
@@ -251,12 +250,8 @@ def get_suggestions(request):
         # === Step 3: Fetch suggestions for vendor ===
         suggestions = get_suggestion_messages(vendor,limit=10)
         logger.info(
-            "[get_suggestion_messages] Suggestions fetched | vendor_id=%s | count=%s",
-            vendor.id, len(suggestions)
-        )
-        logger.debug(
-            "[get_suggestion_messages] Suggestions detail | vendor_id=%s | suggestions=%s",
-            vendor.id, suggestions
+            "[get_suggestion_messages] Suggestions detail | vendor_id=%s | count=%s | suggestions=%s",
+            vendor.id,len(suggestions), suggestions
         )
 
         # === Step 4: Successful response ===
@@ -416,6 +411,7 @@ def manager_order_update(request):
             if not order.notified_at or (timezone.now() - order.notified_at) > timedelta(seconds=cooldown):
                 logger.info("📤 Sending web push...")
                 push_errors = notify_web_push(order, vendor, payload)
+                order.refresh_from_db()  # ✅ ensures latest status from DB
                 order.notified_at = timezone.now()
                 order.save(update_fields=["notified_at"])
                 logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
@@ -428,6 +424,10 @@ def manager_order_update(request):
             if updated_order:
                 payload["title"] = f"Order {action_type.capitalize()}"
                 push_errors = notify_web_push(order, vendor, payload)
+                order.refresh_from_db()  # ✅ ensures latest status from DB
+                order.notified_at = timezone.now()
+                order.save(update_fields=["notified_at"])
+                logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
 
         else:  # action_type == "message"
             MAX_MESSAGE_LENGTH = 200
@@ -615,6 +615,7 @@ def device_call(request):
         if not order.notified_at or (timezone.now() - order.notified_at) > timedelta(seconds=cooldown):
             logger.info(f"📤 Sending web push...")
             push_errors = notify_web_push(order, vendor, payload)
+            order.refresh_from_db()  # ✅ ensures latest status from DB
             order.notified_at = timezone.now()
             order.save(update_fields=["notified_at"])
             logger.info(f"🕒 Order {token_no} marked as notified at {order.notified_at}")

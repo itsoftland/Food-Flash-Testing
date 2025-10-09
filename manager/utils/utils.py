@@ -69,7 +69,7 @@ def get_vendor_business_day_range_for_date(vendor, date_local):
     start_hour = vendor.config.business_day_start_hour
     tz = pytz.timezone(vendor.config.timezone or "UTC")
 
-    start_local = tz.localize(datetime.combine(date_local, time(hour=start_hour)))
+    start_local = tz.localize(datetime.combine(date_local, start_hour))
     end_local = start_local + timedelta(days=1)
 
     start_local = start_local.astimezone(pytz.UTC)
@@ -84,13 +84,11 @@ def get_suggestion_messages(vendor,limit):
     Extract manager messages from ChatMessage for today and last two working business days,
     count duplicates, and return them sorted by frequency (descending).
     """
-    logger.info("Fetching suggestion messages for vendor %s", vendor)
 
     today_start, today_end = get_vendor_business_day_range(vendor)
     last_days = get_last_working_days(vendor, num_days=2)
 
     time_ranges = [(today_start, today_end)] + last_days
-    logger.debug("Time ranges considered: %s", time_ranges)
 
     qs = ChatMessage.objects.filter(
         vendor=vendor,
@@ -103,16 +101,13 @@ def get_suggestion_messages(vendor,limit):
         q_filter |= models.Q(created_at__range=(start_dt, end_dt))
 
     qs = qs.filter(q_filter)
-    logger.debug("Fetched %s manager messages", qs.count())
 
     counter = Counter(msg.message_text.strip() for msg in qs if msg.message_text.strip())
-    logger.debug("Message frequency count: %s", counter)
 
     suggestions = [
         msg for msg, count in sorted(counter.items(), key=lambda x: (-x[1], x[0].lower()))
     ][:limit]
     # suggestions = [msg for msg, count in sorted(counter.items(), key=lambda x: (-x[1], x[0].lower()))]
-    logger.info("Suggestions prepared: %s", suggestions)
 
     return suggestions
 

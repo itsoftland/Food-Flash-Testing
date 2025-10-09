@@ -226,80 +226,6 @@ def register_device(request):
         logger.error("Customer not found: %s", customer_id)
         return Response({"error": "Customer not found."}, status=404)
 
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-# def register_android_device(request):
-#     token = request.data.get('token')
-#     customer_id = request.data.get('customer_id')
-#     mac_address = request.data.get('mac_address')
-
-#     request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
-#     user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
-
-#     logger.info("Android Device Registration: IP=%s | User-Agent=%s", request_ip, user_agent)
-#     logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
-
-#     # Validate required fields
-#     if not token or not customer_id or not mac_address:
-#         logger.warning("Missing required fields: token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
-#         return Response(
-#             {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
-#             status=status.HTTP_400_BAD_REQUEST
-#         )
-
-#     try:
-#         customer = AdminOutlet.objects.get(customer_id=customer_id)
-#         logger.info("Customer found: customer_id=%s (AdminOutlet ID: %s)", customer_id, customer.id)
-#     except AdminOutlet.DoesNotExist:
-#         logger.error("Customer not found: customer_id=%s", customer_id)
-#         return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#     # Register or update device
-#     try:
-#         device, created = AndroidDevice.objects.get_or_create(
-#             mac_address=mac_address,
-#             admin_outlet=customer,
-#             defaults={'token': token}
-#         )
-#         if not created:
-#             logger.info("Device found for mac_address=%s. Updating token.", mac_address)
-#             device.token = token
-#             device.save()
-#         else:
-#             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
-#     except Exception as e:
-#         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
-#         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#     # Check vendor mapping
-#     if hasattr(device, 'vendor') and device.vendor:
-#         mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
-
-#         logger.info(
-#             "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
-#             device.vendor.name,
-#             device.vendor.vendor_id,
-#             json.dumps(mqtt_config)
-#         )
-
-#         return Response({
-#             "status": "Device is mapped to vendor.",
-#             "mapped": True,
-#             "vendor_id": device.vendor.vendor_id,
-#             "vendor_name": device.vendor.name,
-#             "mqtt_config": mqtt_config
-#         }, status=status.HTTP_200_OK)
-
-
-#     logger.info("Device registered but not mapped to any vendor.")
-#     return Response({
-#         "status": "Device is registered but not yet mapped to a vendor.",
-#         "mapped": False,
-#         "vendor_id": None,
-#         "vendor_name": None,
-#         "mqtt_config": None
-#     }, status=status.HTTP_200_OK)
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_android_device(request):
@@ -708,6 +634,7 @@ def update_order(request):
                 push_errors = [str(push_err)]
             
             logger.info(f"[update_order] Web push notifications sent. Errors: {push_errors}")
+            order.refresh_from_db()  # ✅ ensures latest status from DB
             order.notified_at = now()
             order.save(update_fields=['notified_at'])
             logger.info(f"[update_order] Marked order {token_no} as notified at {order.notified_at}")

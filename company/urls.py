@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/config/', views.config, name='config'), 
     path('api/order_counts_summary/', views.order_counts_summary, name='order_counts_summary'),
     path('api/filtered_orders/', views.filtered_orders, name='get_orders'),
+    path('api/order_status_timeline/<int:order_id>/', views.order_status_timeline, name='order_status_timeline'),
     path('api/dashboard_metrics/', views.dashboard_metrics, name='dashboard_metrics'),  
 ]
  

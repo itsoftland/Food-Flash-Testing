@@ -29,49 +29,6 @@ def get_vendor_current_date(vendor):
     """
     return get_vendor_current_time(vendor).date()
 
-
-# def get_vendor_business_day_range(vendor):
-#     """
-#     Returns the UTC start and end datetime for the vendor's current business day
-#     based on their configured start hour and timezone.
-
-#     Args:
-#         vendor (Vendor): Vendor instance with related VendorConfig.
-
-#     Returns:
-#         tuple: (start_datetime_utc, end_datetime_utc)
-#     """
-#     start_hour = vendor.config.business_day_start_hour
-#     vendor_tz = vendor.config.timezone or 'UTC'
-
-#     logger.info(f"[get_vendor_business_day_range] Vendor: id={vendor.id}, name={vendor.name},Vendor timezone: {vendor_tz},Business day start hour: {start_hour}")
-
-#     try:
-#         tz = pytz.timezone(vendor_tz)
-#     except pytz.UnknownTimeZoneError:
-#         logger.warning(f"[get_vendor_business_day_range] Invalid timezone '{vendor_tz}' for vendor_id={vendor.id}, defaulting to UTC")
-#         tz = pytz.UTC
-
-#     # Localize current time
-#     now_local = timezone.now().astimezone(tz)
-#     logger.info(f"[get_vendor_business_day_range] Local time: {now_local}")
-
-#     # Set today's start time in vendor's local time
-#     today_start_local = now_local.replace(hour=start_hour, minute=0, second=0, microsecond=0)
-
-#     # If current time is before start hour, shift to previous day
-#     if now_local.hour < start_hour:
-#         today_start_local -= timedelta(days=1)
-
-#     today_end_local = today_start_local + timedelta(days=1)
-
-#     # Convert to UTC for DB queries
-#     today_start_utc = today_start_local.astimezone(pytz.UTC)
-#     today_end_utc = today_end_local.astimezone(pytz.UTC)
-
-#     logger.info(f"[get_vendor_business_day_range] Final UTC range: {today_start_utc} → {today_end_utc}")
-
-#     return today_start_utc, today_end_utc
 def get_vendor_business_day_range(vendor):
     """
     Returns the UTC start and end datetime for the vendor's current business day
@@ -83,13 +40,8 @@ def get_vendor_business_day_range(vendor):
     Returns:
         tuple: (start_datetime_utc, end_datetime_utc)
     """
-    start_time = vendor.config.business_day_start_hour  # TimeField: datetime.time
+    start_time = vendor.config.business_day_start_hour  
     vendor_tz = vendor.config.timezone or 'UTC'
-
-    logger.info(
-        f"[get_vendor_business_day_range] Vendor: id={vendor.id}, name={vendor.name}, "
-        f"Vendor timezone: {vendor_tz}, Business day start time: {start_time}"
-    )
 
     try:
         tz = pytz.timezone(vendor_tz)
@@ -102,7 +54,6 @@ def get_vendor_business_day_range(vendor):
 
     # Localize current time
     now_local = timezone.now().astimezone(tz)
-    logger.info(f"[get_vendor_business_day_range] Local time: {now_local}")
 
     # Build today's start datetime using vendor's start_time
     today_start_local = now_local.replace(
@@ -121,11 +72,6 @@ def get_vendor_business_day_range(vendor):
     # Convert to UTC for DB queries
     today_start_utc = today_start_local.astimezone(pytz.UTC)
     today_end_utc = today_end_local.astimezone(pytz.UTC)
-
-    logger.info(
-        f"[get_vendor_business_day_range] Final UTC range: "
-        f"{today_start_utc} → {today_end_utc}"
-    )
 
     return today_start_utc, today_end_utc
 

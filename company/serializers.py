@@ -5,7 +5,7 @@ from vendors.models import (Vendor,AndroidDevice,
                             AdvertisementProfileAssignment,
                             AdminOutlet,UserProfile,
                             AndroidAPK,MqttServerConfig,
-                            VendorConfig)
+                            VendorConfig,OrderStatusHistory)
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
@@ -426,6 +426,7 @@ class OrderSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     device_id = serializers.IntegerField(source='device.id', allow_null=True, read_only=True)
     device_name = serializers.CharField(source='device.serial_no', allow_null=True, read_only=True)
+    ready_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -444,10 +445,17 @@ class OrderSerializer(serializers.ModelSerializer):
             'device_id',
             'device_name',
             'outlet_name',
+            'ready_status'
         ]
 
     def get_outlet_name(self, obj):
         return obj.vendor.admin_outlet.customer_name if obj.vendor and obj.vendor.admin_outlet else None
+    def get_ready_status(self, obj):
+        if obj.status_history.exists():
+            first_ready_status = obj.status_history.filter(new_status__iexact='ready').order_by('changed_at').first()
+            if first_ready_status:
+                return first_ready_status.changed_at
+        return None
 
 class UserProfileCreateSerializer(serializers.Serializer):
     ROLE_CHOICES = [
@@ -539,3 +547,8 @@ class UserListDetailSerializer(serializers.ModelSerializer):
             'updated_at',
             # Note: We won't include `role` here; instead, we manually inject `roles`
         ]
+
+class OrderStatusHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatusHistory
+        fields = ['previous_status', 'new_status', 'changed_by', 'changed_at']

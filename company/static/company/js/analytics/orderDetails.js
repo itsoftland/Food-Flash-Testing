@@ -116,14 +116,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function showOrderTimeline(orderId) {
+    const url = `${API_ENDPOINTS.ORDER_TIMELINE}${orderId}/`;
+
+    try {
+      const res = await fetchWithAutoRefresh(url);
+      const timeline = await res.json();
+
+      if (!timeline.length) {
+        alert("No status history found for this order.");
+        return;
+      }
+
+      const timelineHtml = timeline.map((item, index) => {
+        const prevStatus = index > 0 ? timeline[index - 1].new_status : "created";
+        const changedBy = item.changed_by || "System";
+        const readableTime = timeAgo(new Date(item.changed_at));
+        
+        return `
+          <div class="timeline-item">
+            <div class="timeline-status">${item.new_status}</div>
+            <span class="timeline-subtext">by ${changedBy} • ${readableTime}</span>
+          </div>
+        `;
+      }).join("");
+
+      document.querySelector("#timelineModal .timeline-container").innerHTML = timelineHtml;
+
+      const timelineModal = new bootstrap.Modal(document.getElementById('timelineModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
+      timelineModal.show();
+
+    } catch (error) {
+      console.error("Failed to load timeline:", error);
+      alert("Failed to load timeline. See console for details.");
+    }
+  }
+
+  // Convert date to human-readable time (e.g., "2 hours ago")
+  function timeAgo(date) {
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    const intervals = [
+      { label: 'year', seconds: 31536000 },
+      { label: 'month', seconds: 2592000 },
+      { label: 'day', seconds: 86400 },
+      { label: 'hour', seconds: 3600 },
+      { label: 'minute', seconds: 60 },
+      { label: 'second', seconds: 1 },
+    ];
+
+    for (let interval of intervals) {
+      const count = Math.floor(seconds / interval.seconds);
+      if (count > 0) {
+        return count === 1 ? `1 ${interval.label} ago` : `${count} ${interval.label}s ago`;
+      }
+    }
+    return "just now";
+  }
+
+
   function renderTable(orders) {
     tableBody.innerHTML = "";
+
     if (orders.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="8" class="text-center">No orders found.</td></tr>`;
       return;
     }
 
     orders.forEach((order, index) => {
+      const createdDate = new Date(order.created_at);
+      const readyDate = order.ready_status ? new Date(order.ready_status) : null;
+
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${index + 1}</td>
@@ -132,12 +199,27 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${order.counter_no}</td>
         <td>${order.vendor_name || "Not Assigned"}</td>
         <td>${order.device_name || "Not Assigned"}</td>
-        <td>${new Date(order.created_at).toLocaleString()}</td>
-        <td>--</td>
+        <td>${createdDate.toLocaleDateString()}<br>${createdDate.toLocaleTimeString()}</td>
+        <td>${readyDate ? `${readyDate.toLocaleDateString()}<br>${readyDate.toLocaleTimeString()}` : "N/A"}</td>
+        <td>
+          <button class="icon-btn view-timeline-btn" title="View Timeline" data-order-id="${order.id}">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+        </td>
       `;
       tableBody.appendChild(row);
     });
+
+
+    // Attach click listeners to timeline buttons after all rows are rendered
+    document.querySelectorAll(".view-timeline-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const orderId = e.currentTarget.dataset.orderId;
+        await showOrderTimeline(orderId);
+      });
+    });
   }
+
 
   function updatePagination(meta) {
     if (!pageInfo || !prevBtn || !nextBtn) return;

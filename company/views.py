@@ -23,7 +23,8 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AdvertisementProfileAssignment,
                             AdvertisementProfile,Order,
                             ArchivedOrder,UserProfile,
-                            AndroidAPK,VendorConfig)
+                            AndroidAPK,VendorConfig,
+                            OrderStatusHistory)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -40,7 +41,8 @@ from .serializers import (VendorSerializer,
                           DashboardMetricsSerializer,
                           DeviceSerializer,AndroidDeviceSerializer,
                           OrderSerializer,UserProfileCreateSerializer,
-                          UserListDetailSerializer,ManagerDeviceSerializer
+                          UserListDetailSerializer,ManagerDeviceSerializer,
+                          OrderStatusHistorySerializer
                           )
 
 logger = logging.getLogger(__name__)
@@ -1195,6 +1197,20 @@ def filtered_orders(request):
             "has_previous": paginated_data["has_previous"]
         }
     }, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def order_status_timeline(request, order_id):
+    """
+    Returns the complete status history (timeline) for a given order.
+    """
+    try:
+        history_qs = OrderStatusHistory.objects.filter(order_id=order_id).order_by('changed_at')
+    except OrderStatusHistory.DoesNotExist:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = OrderStatusHistorySerializer(history_qs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 

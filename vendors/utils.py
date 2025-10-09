@@ -1,7 +1,8 @@
 # vendors/utils.py
 from pywebpush import webpush, WebPushException
 from django.conf import settings
-from .models import PushSubscription, ArchivedOrder
+from .models import PushSubscription, ArchivedOrder,ArchivedOrderStatusHistory
+from django.db import transaction
 import json
 import logging
 
@@ -116,19 +117,47 @@ def save_server_chat_message(payload, vendor,subscription):
         logger.error(f"[save_server_chat_message] Failed: {e}")
         return None
 
+
 def archive_order(order):
-    ArchivedOrder.objects.create(
-        original_order_id=order.id,
-        vendor=order.vendor,
-        device=order.device,
-        user_profile=order.user_profile,
-        token_no=order.token_no,
-        status=order.status,
-        counter_no=order.counter_no,
-        shown_on_tv=order.shown_on_tv,
-        notified_at=order.notified_at,
-        updated_by=order.updated_by,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-        created_date=order.created_date
-    )
+    try:
+        with transaction.atomic():
+            # Step 1: Create archived order
+            archived_order = ArchivedOrder.objects.create(
+                original_order_id=order.id,
+                vendor=order.vendor,
+                device=order.device,
+                user_profile=order.user_profile,
+                token_no=order.token_no,
+                status=order.status,
+                counter_no=order.counter_no,
+                shown_on_tv=order.shown_on_tv,
+                notified_at=order.notified_at,
+                updated_by=order.updated_by,
+                created_at=order.created_at,
+                updated_at=order.updated_at,
+                created_date=order.created_date
+            )
+
+            # Step 2: Copy status history
+            histories = order.status_history.all()
+            if histories.exists():
+                bulk_data = [
+                    ArchivedOrderStatusHistory(
+                        archived_order=archived_order,
+                        previous_status=h.previous_status,
+                        new_status=h.new_status,
+                        changed_by=h.changed_by,
+                        changed_at=h.changed_at
+                    )
+                    for h in histories
+                ]
+                ArchivedOrderStatusHistory.objects.bulk_create(bulk_data)
+                logger.info(f"Archived {len(bulk_data)} status history records for Order {order.token_no}")
+
+            else:
+                logger.info(f"No status history found for Order {order.token_no}")
+
+            logger.info(f"Successfully archived Order {order.token_no} (Vendor ID {order.vendor_id})")
+
+    except Exception as e:
+        logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
