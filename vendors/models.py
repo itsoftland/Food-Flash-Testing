@@ -360,7 +360,7 @@ class ArchivedOrderStatusHistory(models.Model):
         on_delete=models.CASCADE,
         related_name='status_history'
     )
-    previous_status = models.CharField(max_length=20)
+    previous_status = models.CharField(max_length=20, null=True, blank=True)
     new_status = models.CharField(max_length=20)
     changed_by = models.CharField(max_length=20)
     changed_at = models.DateTimeField()

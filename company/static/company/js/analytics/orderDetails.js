@@ -116,6 +116,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function adjustModalWidth() {
+    const modal = document.getElementById('timelineModal');
+    const items = modal.querySelectorAll('.timeline-item').length;
+    const baseWidth = 160; // width per item in px
+    const gap = 60;        // same as your CSS gap
+
+    let newWidth = items * baseWidth + (items  * gap);
+    console.log ("Calculated modal width:", newWidth);
+    newWidth = Math.min(newWidth, window.innerWidth * 0.95); // max 95vw
+    newWidth = Math.max(newWidth, 300); // min 300px
+
+    modal.querySelector('.modal-dialog').style.width = newWidth + 'px';
+  }
+
   async function showOrderTimeline(orderId) {
     const url = `${API_ENDPOINTS.ORDER_TIMELINE}${orderId}/`;
 
@@ -129,19 +143,24 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const timelineHtml = timeline.map((item, index) => {
-        const prevStatus = index > 0 ? timeline[index - 1].new_status : "created";
+        const prevStatus = index > 0 ? timeline[index - 1].new_status : "Created";
         const changedBy = item.changed_by || "System";
         const readableTime = timeAgo(new Date(item.changed_at));
         
         return `
           <div class="timeline-item">
-            <div class="timeline-status">${item.new_status}</div>
-            <span class="timeline-subtext">by ${changedBy} • ${readableTime}</span>
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-status">${item.new_status}</div>
+              <span class="timeline-subtext">by ${changedBy} • ${readableTime}</span>
+            </div>
           </div>
         `;
       }).join("");
 
-      document.querySelector("#timelineModal .timeline-container").innerHTML = timelineHtml;
+      document.querySelector("#timelineModal .timeline-track").innerHTML = timelineHtml;
+      // Call this after timeline items are inserted
+      adjustModalWidth();
 
       const timelineModal = new bootstrap.Modal(document.getElementById('timelineModal'), {
         backdrop: 'static',

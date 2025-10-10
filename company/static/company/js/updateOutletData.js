@@ -10,15 +10,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const vendorId = urlParams.get('vendor_id');
 
   const locationSelect = document.getElementById('location');
-  const tvSelect = document.getElementById('tv-select');
-  const deviceSelect = document.getElementById('device-select');
+  // const tvSelect = document.getElementById('tv-select');
+  // const deviceSelect = document.getElementById('device-select');
   const name = document.getElementById('name');
   const alias = document.getElementById('alias_name');
   const placeId = document.getElementById('place_id');
   const outletForm = document.getElementById('outlet_update_form');
   const logoInput = document.getElementById('logo');
   const menuFilesInput = document.getElementById('menu_files');
-  const tvCommunicationSelect = document.getElementById('tv_communication_mode');
+  // const tvCommunicationSelect = document.getElementById('tv_communication_mode');
   const businnessHour = document.getElementById('business_day_start_hour');
 
   let vendorData = {};
@@ -61,52 +61,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   //Populate & Preselect Android TVs
-  const selectedTVs = (vendorData.android_tvs || []).map(tv => tv.mac_address);
-  if (tvSelect) {
-    tvSelect.innerHTML = '';
+  // const selectedTVs = (vendorData.android_tvs || []).map(tv => tv.mac_address);
+  // if (tvSelect) {
+  //   tvSelect.innerHTML = '';
     
-    unmapped_android_tvs.forEach(tv => {
-      const option = document.createElement('option');
-      option.value = tv.mac_address;
-      option.textContent = tv.mac_address;
-      tvSelect.appendChild(option);
-    });
-    const android_tvsChoices = new Choices(tvSelect, {
-      removeItemButton: true,
-      classNames: {
-        containerInner: 'choices-inner-foodflash',
-        item: 'choices-item-foodflash',
-      },
-      placeholderValue: 'Select TVs',
-      searchEnabled: true
-    });
-    // Set selected values after initialization
-    android_tvsChoices.setChoiceByValue(selectedTVs);
-  }
-  const selectedKeypadDevices = (vendorData.keypad_devices || []).map(device => device.serial_no);
-  if (deviceSelect) {
-    deviceSelect.innerHTML = '';
+  //   unmapped_android_tvs.forEach(tv => {
+  //     const option = document.createElement('option');
+  //     option.value = tv.mac_address;
+  //     option.textContent = tv.mac_address;
+  //     tvSelect.appendChild(option);
+  //   });
+  //   const android_tvsChoices = new Choices(tvSelect, {
+  //     removeItemButton: true,
+  //     classNames: {
+  //       containerInner: 'choices-inner-foodflash',
+  //       item: 'choices-item-foodflash',
+  //     },
+  //     placeholderValue: 'Select TVs',
+  //     searchEnabled: true
+  //   });
+  //   // Set selected values after initialization
+  //   android_tvsChoices.setChoiceByValue(selectedTVs);
+  // }
+  // const selectedKeypadDevices = (vendorData.keypad_devices || []).map(device => device.serial_no);
+  // if (deviceSelect) {
+  //   deviceSelect.innerHTML = '';
 
-    unmapped_keypad_devices.forEach(keypad => {
-      const option = document.createElement('option');
-      option.value = keypad.serial_no;
-      option.textContent = keypad.serial_no;
-      deviceSelect.appendChild(option);
-    });
+  //   unmapped_keypad_devices.forEach(keypad => {
+  //     const option = document.createElement('option');
+  //     option.value = keypad.serial_no;
+  //     option.textContent = keypad.serial_no;
+  //     deviceSelect.appendChild(option);
+  //   });
 
-    const keypadDeviceChoices = new Choices(deviceSelect, {
-      removeItemButton: true,
-      classNames: {
-        containerInner: 'choices-inner-foodflash',
-        item: 'choices-item-foodflash',
-      },
-      placeholderValue: 'Select TVs',
-      searchEnabled: true
-    });
+  //   const keypadDeviceChoices = new Choices(deviceSelect, {
+  //     removeItemButton: true,
+  //     classNames: {
+  //       containerInner: 'choices-inner-foodflash',
+  //       item: 'choices-item-foodflash',
+  //     },
+  //     placeholderValue: 'Select TVs',
+  //     searchEnabled: true
+  //   });
 
-    // Set selected values after initialization
-    keypadDeviceChoices.setChoiceByValue(selectedKeypadDevices);
-  }
+  //   // Set selected values after initialization
+  //   keypadDeviceChoices.setChoiceByValue(selectedKeypadDevices);
+  // }
   // normalize & set business start hour (input id="business_day_start_hour")
   if (businnessHour) { // note: your variable is spelled businnessHour
     const raw = vendorData?.vendor_config?.business_day_start_hour || '';
@@ -119,32 +119,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  if (tvCommunicationSelect) {
-    tvCommunicationSelect.innerHTML = '';
+  // if (tvCommunicationSelect) {
+  //   tvCommunicationSelect.innerHTML = '';
 
-    // read canonical choices from API response
-    const communicationModes = Array.isArray(vendorDetails.tv_communication_modes)
-      ? vendorDetails.tv_communication_modes
-      : [
-          { key: "MQTT", value: "MQTT" },
-          { key: "Firebase", value: "Firebase" },
-          { key: "AZURE_IOT", value: "Azure IoT Hub" }
-        ];
+  //   // read canonical choices from API response
+  //   const communicationModes = Array.isArray(vendorDetails.tv_communication_modes)
+  //     ? vendorDetails.tv_communication_modes
+  //     : [
+  //         { key: "MQTT", value: "MQTT" },
+  //         { key: "Firebase", value: "Firebase" },
+  //         { key: "AZURE_IOT", value: "Azure IoT Hub" }
+  //       ];
 
-    // populate select with options
-    communicationModes.forEach(mode => {
-      const opt = document.createElement('option');
-      opt.value = mode.key;
-      opt.textContent = mode.value;
-      tvCommunicationSelect.appendChild(opt);
-    });
+  //   // populate select with options
+  //   communicationModes.forEach(mode => {
+  //     const opt = document.createElement('option');
+  //     opt.value = mode.key;
+  //     opt.textContent = mode.value;
+  //     tvCommunicationSelect.appendChild(opt);
+  //   });
 
-    // pick current value from vendorData.vendor_config
-    const currentMode = vendorData?.vendor_config?.tv_communication_mode || '';
-    if (currentMode) {
-      tvCommunicationSelect.value = currentMode;
-    }
-  }
+  //   // pick current value from vendorData.vendor_config
+  //   const currentMode = vendorData?.vendor_config?.tv_communication_mode || '';
+  //   if (currentMode) {
+  //     tvCommunicationSelect.value = currentMode;
+  //   }
+  // }
 
 
   if (vendorData.logo_url) {
@@ -165,8 +165,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const placeIdVal = placeId.value.trim();
     const logoFile = logoInput?.files?.[0] || null;
     const menuFiles = Array.from(menuFilesInput?.files || []);
-    const selectedTVs = Array.from(tvSelect.selectedOptions).map(opt => opt.value);
-    const selectedDevices = Array.from(deviceSelect.selectedOptions).map(opt => opt.value);
+    // const selectedTVs = Array.from(tvSelect.selectedOptions).map(opt => opt.value);
+    // const selectedDevices = Array.from(deviceSelect.selectedOptions).map(opt => opt.value);
     
     console.log(menuFiles);
     
@@ -179,8 +179,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       place_id: placeIdVal,
       logoFile:logoFile,
       menuFiles:menuFiles,
-      deviceMapping: selectedDevices,
-      tvMapping: selectedTVs,
+      // deviceMapping: selectedDevices,
+      // tvMapping: selectedTVs,
     });
 
     try {

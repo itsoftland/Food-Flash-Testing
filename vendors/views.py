@@ -390,12 +390,28 @@ def register_android_apk(request):
         ).first() or AndroidAPK.objects.filter(
             mac_address=mac_address,
             admin_outlet=admin_outlet
+        ).first() or AndroidAPK.objects.filter(
+            mac_address=mac_address
         ).first()
         if device:
             logger.info(
                 "[register_android_apk] Device already exists. Updating token and version — MAC=%s, manager=%s",
                 mac_address, user_profile.name if user_profile else "None"
             )
+            if device.admin_outlet != admin_outlet:
+                logger.warning(
+                    "[register_android_apk] MAC address conflict: Already registered with another Company - MAC=%s", mac_address
+)
+                return Response(
+                    {
+                        "status": "Device already registered with another customer %s."
+                        "Please Contact Admin" % device.admin_outlet.customer_id,
+                        "mapped": False,
+                        "manager_id": None,
+                        "manager_name": None,
+                    },
+                    status=status.HTTP_200_OK
+                )
             device.token = token
             device.apk_version = apk_version
             device.save()
@@ -410,6 +426,13 @@ def register_android_apk(request):
 
         # === Step 5: Return Mapping Status ===
         if device.user_profile:
+            if device.user_profile != user_profile:
+                return Response({
+                    "status": "This Device is already using by another manager. Please contact admin.",
+                    "mapped":False,
+                    "manager_id": None,
+                    "manager_name": None,
+                }, status=status.HTTP_200_OK)
             logger.info(
                 "[register_android_apk] Device mapped to manager_id=%s (%s)",
                 device.user_profile.id, device.user_profile.name
@@ -562,26 +585,23 @@ def update_order(request):
         
         # FCM push notifications if TV communication mode is not MQTT
         if vendor.config.tv_communication_mode == "Firebase":
-            logger.info(f"[update_order] Firebase communication mode detected for vendor {vendor.vendor_id}")
              # Prepare data payload
             try:
                 fcm_result = notify_fcm(vendor, data)
                 logger.info(f"[update_order] FCM sent successfully: {fcm_result}")
             except Exception as e:
-                logger.exception("[update_order] FCM sending failed")
+                logger.exception("[update_order] FCM sending failed .Error:%s", str(e))
                 fcm_result = {"error": str(e)}
         # Create or update order in DB
         order = create_or_update_order(token_no, vendor, device, counter_no, status_to_update)
-        logger.info(f"[update_order] Order {order.id} created/updated for token_no={token_no}")
+
+        # Azure IoT Hub messages if TV communication mode is AZURE_IOT
         if vendor.config.tv_communication_mode == "AZURE_IOT":
-            logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
             azure_iot = get_azure_devices(vendor)
             logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
-        if vendor.config.tv_communication_mode == "MQTT":
-            logger.info(f"[update_order] MQTT communication mode detected for vendor {vendor.vendor_id}")
-            # MQTT Publish
-            logger.info(f"[update_order] Sending MQTT update for vendor {vendor.vendor_id}, token {token_no}")
-            
+
+        # MQTT Publish if TV communication mode is MQTT
+        if vendor.config.tv_communication_mode == "MQTT":      
             if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
                 logger.warning(f"[update_order] Vendor {vendor.vendor_id} has no MQTT configuration")
                 return Response(
@@ -637,7 +657,6 @@ def update_order(request):
             order.refresh_from_db()  # ✅ ensures latest status from DB
             order.notified_at = now()
             order.save(update_fields=['notified_at'])
-            logger.info(f"[update_order] Marked order {token_no} as notified at {order.notified_at}")
 
         response_msg = {
             "message": "Order updated and notifications sent.",

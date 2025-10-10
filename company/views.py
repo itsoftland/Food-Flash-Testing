@@ -24,7 +24,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AdvertisementProfile,Order,
                             ArchivedOrder,UserProfile,
                             AndroidAPK,VendorConfig,
-                            OrderStatusHistory)
+                            OrderStatusHistory,ArchivedOrderStatusHistory)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -1203,14 +1203,64 @@ def filtered_orders(request):
 def order_status_timeline(request, order_id):
     """
     Returns the complete status history (timeline) for a given order.
+    - Checks if the order exists in active or archived table.
+    - Fetches the timeline from the relevant source.
+    - If the order was archived, also includes its active history (if any) before archiving.
     """
-    try:
-        history_qs = OrderStatusHistory.objects.filter(order_id=order_id).order_by('changed_at')
-    except OrderStatusHistory.DoesNotExist:
-        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = OrderStatusHistorySerializer(history_qs, many=True)
+    # ✅ Step 1: Try to find order in active table
+    active_order = Order.objects.filter(id=order_id).first()
+    archived_order = None
+
+    # ✅ Step 2: If not found, try archived table
+    if not active_order:
+        archived_order = ArchivedOrder.objects.filter(id=order_id).first()
+        if not archived_order:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Step 3: Fetch status histories based on type
+    active_history = []
+    archived_history = []
+
+    if active_order:
+        active_history = OrderStatusHistory.objects.filter(order=active_order).order_by('changed_at')
+
+    if archived_order:
+        # archived order might have history in both tables
+        archived_history = ArchivedOrderStatusHistory.objects.filter(
+            archived_order=archived_order
+        ).order_by('changed_at')
+
+        # Also pull history from active table before it was archived (optional but useful)
+        prev_active_history = OrderStatusHistory.objects.filter(order_id=archived_order.original_order_id)
+        active_history = list(prev_active_history)
+
+    # ✅ Step 4: Combine and sort the timeline
+    combined_history = sorted(
+        chain(active_history, archived_history),
+        key=attrgetter('changed_at')
+    )
+
+    if not combined_history:
+        return Response({"detail": "No status history found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Step 5: Serialize combined data
+    serializer = OrderStatusHistorySerializer(combined_history, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def order_status_timeline(request, order_id):
+#     """
+#     Returns the complete status history (timeline) for a given order.
+#     """
+#     try:
+#         history_qs = OrderStatusHistory.objects.filter(order_id=order_id).order_by('changed_at')
+#     except OrderStatusHistory.DoesNotExist:
+#         return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#     serializer = OrderStatusHistorySerializer(history_qs, many=True)
+#     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 

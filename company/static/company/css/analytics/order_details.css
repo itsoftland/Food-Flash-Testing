@@ -111,50 +111,219 @@ html, body {
   width: 100%;
   color: #d97a1f;
 }
+/* ---------- Responsive Timeline (horizontal on desktop, vertical on mobile) ---------- */
 
-/* Timeline styles */
 .timeline-container {
+  /* tweak these numbers to taste, but keep them consistent */
+  --pad: 1px;
+  --pad-top: 10px;
+  --dot-size: 16px;
+  --dot-border: 3px;
+  --dot-total: 22px;  /* dot-size + 2*dot-border (16 + 6 = 22) */
+  --dot-half: 11px;   /* half of dot-total */
+
   position: relative;
-  margin: 20px 0;
-  padding-left: 20px;
+  padding: var(--pad-top) var(--pad) 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  box-sizing: border-box;
 }
 
+/* Desktop: horizontal timeline */
+.timeline-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(160px, auto);
+  gap: 20px;
+  align-items: start;
+  padding: var(--pad-top) var(--pad) 5px;
+  position: relative;
+  min-width: max-content;
+  box-sizing: border-box;
+}
+
+/* horizontal baseline */
+.timeline-track::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--pad) + var(--dot-half));
+  right: calc(var(--pad) + var(--dot-half));
+  top: calc(var(--pad-top) + var(--dot-half));
+  height: 4px;
+  background-color: #ebebeb;
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* timeline item */
 .timeline-item {
   position: relative;
-  margin-bottom: 30px;
-  padding-left: 40px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 160px;
+  padding: 6px;
 }
 
-.timeline-item::before {
-  content: '';
-  position: absolute;
-  left: 10px;
-  top: 0;
-  width: 12px;
-  height: 12px;
-  background-color: #fb8b24; /* golden accent */
+/* dot */
+.timeline-dot {
+  width: var(--dot-size);
+  height: var(--dot-size);
   border-radius: 50%;
-  border: 2px solid #fdbf50;
+  background-color: #fb8b24;
+  border: var(--dot-border) solid #fdbf50;
+  margin-bottom: 8px;
+  z-index: 3;
 }
 
-.timeline-item::after {
-  content: '';
-  position: absolute;
-  left: 15px;
-  top: 12px;
-  width: 2px;
-  height: 100%;
-  background-color: #ebebeb;
+/* content */
+.timeline-content {
+  background: #f4f4f8;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  max-width: 220px;
 }
 
+/* text */
 .timeline-status {
   font-weight: 600;
   color: #fb8b24;
+  font-size: 1rem;
 }
 
 .timeline-subtext {
   display: block;
   color: #6c757d;
-  font-size: 0.9em;
-  margin-top: 4px;
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+/* ========== Mobile: switch to vertical timeline ========== */
+@media (max-width: 768px) {
+  .timeline-container {
+    overflow-x: hidden;
+    padding: 20px;
+  }
+
+  .timeline-track {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    gap: 40px;
+  }
+
+  /* Proper vertical line */
+  .timeline-track::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 56px; /* adjust to align with dots */
+    height: 100%; /* ensures full vertical line */
+    width: 4px;
+    background-color: #ebebeb;
+    border-radius: 2px;
+  }
+
+  .timeline-item {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .timeline-dot {
+    position: absolute;
+    left: 22px; /* center on the line */
+    top: 36px;
+    width: 16px;
+    height: 16px;
+    background-color: #fb8b24;
+    border-radius: 50%;
+    z-index: 2;
+  }
+
+  .timeline-content {
+    margin-left: 60px;
+    background: #f4f4f8;
+    border-radius: 12px;
+    padding: 10px 12px;
+    width: calc(100% - 70px);
+    position: relative;
+    z-index: 3;
+  }
+}
+
+/* ---------- Premium Animation Enhancements ---------- */
+
+/* 1️⃣ Fade + slide-in effect for timeline items */
+.timeline-item {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeSlideIn 0.6s ease-out forwards;
+}
+
+.timeline-item:nth-child(1) { animation-delay: 0s; }
+.timeline-item:nth-child(2) { animation-delay: 0.15s; }
+.timeline-item:nth-child(3) { animation-delay: 0.3s; }
+.timeline-item:nth-child(4) { animation-delay: 0.45s; }
+/* (optional) continue pattern if you have more items */
+
+/* Keyframes for smooth entrance */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 2️⃣ Dot pulse animation (gentle heartbeat when loaded) */
+.timeline-dot {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 139, 36, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 12px 4px rgba(251, 139, 36, 0.25);
+  }
+}
+
+/* 3️⃣ Subtle hover elevation on timeline content */
+.timeline-content {
+  transition: all 0.3s ease;
+}
+
+.timeline-content:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 4️⃣ Gentle color transition for dots and line */
+.timeline-container::before,
+.timeline-dot {
+  transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+/* 5️⃣ Soft glow on active or hovered dot */
+.timeline-dot:hover {
+  background-color: #fdbf50;
+  border-color: #fb8b24;
+  box-shadow: 0 0 12px 2px rgba(251, 139, 36, 0.4);
+}
+
+.modal-dialog.custom-timeline-modal {
+  max-width: 95vw; /* almost full screen width */
+  width: 95%;       /* responsive on smaller screens */
 }
