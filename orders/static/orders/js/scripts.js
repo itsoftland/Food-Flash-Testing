@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const statusClass = statusClassMap[statusKey] || 'unknown-color';
 
                 const messageHTML = `
-                    <div class="response-title">${pushData.name || "Unknown"}</div>
+                    <div class="response-title">${pushData.alias_name || "Unknown"}</div>
                     <div class="status">
                         Status: 
                         <span class="${statusClass}">
@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 `;
 
                 const offerMessageHTML = `
-                        <div class="response-title">${pushData.name}</div>
+                        <div class="response-title">${pushData.alias_name}</div>
                         <div class="response-title">🔥 ${pushData.title}</div>
                         <div style="color: #333; font-size: 15px;">
                             ${pushData.body || "Delicious deals await. Come grab your favorite combo now!"}
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     
                 `;
                 const managerMessageHTML = `
-                    <div class="response-title">📩 ${pushData.name || "Outlet"}</div>
+                    <div class="response-title">📩 ${pushData.alias_name || "Outlet"}</div>
                     <div class="manager-message-body">
                         <div class="manager-badge">Manager Notification</div>
                         <div class="custom-manager-message">
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const statusKey = data?.status || 'unknown';
                 const statusClass = statusClassMap[statusKey] || 'unknown-color';
                 const messageHTML = `
-                    <div class="response-title">${data.name || "Unknown"}</div>
+                    <div class="response-title">${data.alias_name || "Unknown"}</div>
                     <div class="status">Status:
                         <span class="${statusClass}">${data.status || "Unknown"}</span>
                     </div>

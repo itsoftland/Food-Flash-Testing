@@ -10,7 +10,7 @@ function buildStatusMessage(payload) {
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
 
   return `
-    <div class="response-title">${payload.name || "Unknown"}</div>
+    <div class="response-title">${payload.alias_name || "Unknown"}</div>
     <div class="status">
         Status: 
         <span class="${statusClass}">
@@ -26,7 +26,7 @@ function buildStatusMessage(payload) {
 
 function buildOfferMessage(payload) {
   return `
-    <div class="response-title">${payload.name || "Outlet"}</div>
+    <div class="response-title">${payload.alias_name || "Outlet"}</div>
     <div class="response-title">🔥 ${payload.title || ""}</div>
     <div style="color: #333; font-size: 15px;">
         ${payload.body || "Delicious deals await. Come grab your favorite combo now!"}
@@ -36,7 +36,7 @@ function buildOfferMessage(payload) {
 
 function buildManagerMessage(payload) {
   return `
-    <div class="response-title">📩 ${payload.name || "Outlet"}</div>
+    <div class="response-title">📩 ${payload.alias_name || "Outlet"}</div>
     <div class="manager-message-body">
         <div class="manager-badge">Manager Notification</div>
         <div class="custom-manager-message">

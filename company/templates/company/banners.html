@@ -29,10 +29,20 @@
           <i class="fas fa-camera me-2"></i>Upload a New Banner
         </label>
 
+
         <form id="banner-upload-form" enctype="multipart/form-data">
+
+          <div class="progress mb-3 d-none" id="uploadProgressContainer" style="height: 25px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                role="progressbar" 
+                style="width: 0%; background: linear-gradient(90deg, #fdbf50, #fb8b24);" 
+                id="uploadProgressBar">
+              Starting...
+            </div>
+          </div>
           <div class="row g-2 align-items-center">
             <div class="col-12 col-md-8">
-              <input type="file" name="banner_images[]" id="banner_images" accept="image/*" class="form-control" multiple required>
+              <input type="file" name="banner_images[]" id="banner_images" accept=".png,.jpg,.jpeg,.webp" class="form-control" multiple required>
             </div>
             <div class="col-12 col-md-4">
               <button type="submit" class="btn btn-golden w-100 shadow-sm">Upload</button>

@@ -111,3 +111,53 @@ thead th {
   border-radius: 12px;
   font-size: 0.85rem;
 }
+
+/* If No Image */
+.image-box.thumb-container {
+  position: relative;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.image-box.thumb-container.selected {
+  border-color: #f0a934;
+  box-shadow: 0 0 5px rgba(240, 169, 52, 0.4);
+}
+
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+}
+
+.placeholder-mask {
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, #eee, #f8f8f8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-placeholder {
+  width: 100%;
+  height: 120px;
+  background: #f4f4f8;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+  color: #777;
+}
+
+.thumb-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+}

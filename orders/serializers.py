@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 class VendorLogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ['id', 'name', 'logo','vendor_id','place_id']  # 'logo' should be an ImageField
+        fields = ['id', 'name', 'logo','vendor_id','place_id','alias_name']  # 'logo' should be an ImageField
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

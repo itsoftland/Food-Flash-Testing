@@ -18,25 +18,43 @@ export const ImageLibraryService = (() => {
     }
   };
 
-  // Render image grid in modal
   const renderLibrary = () => {
     const grid = document.getElementById('image-library-grid');
     grid.innerHTML = '';
 
+    // CASE 1: No images available
+    if (!imageList || imageList.length === 0) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state text-center p-4';
+      emptyState.innerHTML = `
+        <div class="placeholder-mask mb-3">
+          <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+        </div>
+        <p class="text-muted mb-1">No images available</p>
+        <small class="text-secondary">Upload new banners to see them here.</small>
+      `;
+      grid.appendChild(emptyState);
+      return;
+    }
+
+    // CASE 2: Show image grid normally
     imageList.forEach(img => {
       const box = document.createElement('div');
       box.className = 'image-box thumb-container';
       box.dataset.id = img.id;
 
-      box.innerHTML = `<img src="${img.image_url}" class="thumb-image rounded">`;
+      // fallback masked image if image URL is missing or broken
+      const imgUrl = img.image_url || '/food_flash/static/assets/img/placeholder-image.png';
+      loadImageWithRetry(imgUrl, box);
 
       if (selectedImageIds.has(img.id)) {
         box.classList.add('selected');
+        box.style.borderColor = '#f0a934';
       }
 
       box.addEventListener('click', () => {
         toggleImageSelection(img.id, box);
-        updateSelectAllCheckbox(); // keep it in sync
+        updateSelectAllCheckbox();
         updateConfirmButton();
       });
 
@@ -46,6 +64,60 @@ export const ImageLibraryService = (() => {
     updateSelectAllCheckbox();
     updateConfirmButton();
   };
+
+  const loadImageWithRetry = (imgUrl, box, maxRetries = 10, interval = 3000) => {
+    let attempt = 0;
+
+    const getAlternateUrl = (url) => {
+      // Try swapping extension for .webp version
+      const base = url.replace(/\.[^/.]+$/, ""); // remove extension
+      return `${base}.webp`;
+    };
+
+    const tryLoad = () => {
+      const testImg = new Image();
+
+      testImg.onload = () => {
+        // Image now available
+        box.innerHTML = `<img src="${testImg.src}" class="thumb-image rounded fade-in">`;
+      };
+
+      testImg.onerror = () => {
+        attempt++;
+
+        if (attempt < maxRetries) {
+          // Show loading placeholder
+          box.innerHTML = `
+            <div class="thumb-placeholder d-flex flex-column align-items-center justify-content-center">
+              <div class="spinner-border text-warning mb-2" role="status" style="width: 1.5rem; height: 1.5rem;"></div>
+              <small class="text-muted">Processing...</small>
+            </div>
+          `;
+
+          // Retry both original and webp
+          const altUrl = getAlternateUrl(imgUrl);
+          const candidateUrl = attempt % 2 === 0 ? imgUrl : altUrl; // alternate each attempt
+
+          setTimeout(() => {
+            testImg.src = `${candidateUrl}?t=${Date.now()}`;
+          }, interval);
+        } else {
+          // After retries, give up gracefully
+          box.innerHTML = `
+            <div class="thumb-placeholder d-flex flex-column align-items-center justify-content-center">
+              <i class="bi bi-exclamation-triangle text-warning mb-2" style="font-size: 1.2rem;"></i>
+              <small class="text-muted">Image unavailable</small>
+            </div>
+          `;
+        }
+      };
+
+      testImg.src = `${imgUrl}?t=${Date.now()}`;
+    };
+
+    tryLoad();
+  };
+
 
 
   // Toggle selection state

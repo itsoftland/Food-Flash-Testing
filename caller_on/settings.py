@@ -46,6 +46,8 @@ IOTHUB_SECONDARY_KEY = os.getenv("IOTHUB_SECONDARY_KEY")
 IOTHUB_PRIMARY_CONNECTION_STRING = os.getenv("IOTHUB_PRIMARY_CONNECTION_STRING")
 IOTHUB_SECONDARY_CONNECTION_STRING = os.getenv("IOTHUB_SECONDARY_CONNECTION_STRING")
 IOTHUB_DEVICE_API_VERSION = os.getenv("IOTHUB_DEVICE_API_VERSION")
+DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", 100))
+
 
 # === APPLICATIONS ===
 INSTALLED_APPS = [
@@ -224,6 +226,11 @@ LOGGING = {
         },
         "vendors.services.send_to_iot": {
             "handlers": ["vendors_file", "managers_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "vendors.signals": {
+            "handlers": ["vendors_file"],
             "level": "DEBUG",
             "propagate": False,
         },

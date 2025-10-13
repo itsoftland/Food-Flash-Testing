@@ -95,6 +95,7 @@ def check_status(request):
 
         data = {
             'name': order.vendor.name,
+            'alias_name': order.vendor.alias_name,
             'vendor': order.vendor.id,
             'token_no': order.token_no,
             'status': order.status,
@@ -147,6 +148,7 @@ def check_status(request):
 
             new_order_data = {
                 'name': vendor.name,
+                'alias_name': vendor.alias_name,
                 'token_no': token_no,
                 'vendor': vendor.id,
                 'location_id': vendor.location_id,
@@ -163,6 +165,7 @@ def check_status(request):
 
                 data = {
                     'name': vendor.name,
+                    'alias_name': vendor.alias_name,
                     'vendor': vendor.id,
                     'token_no': token_no,
                     'status': 'preparing',

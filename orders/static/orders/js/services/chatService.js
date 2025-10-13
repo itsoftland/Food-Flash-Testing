@@ -13,6 +13,7 @@ export function updateChatOnPush(vendorId, logo_url, name) {
         }
     });
 }
+
 export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
     localStorage.setItem("activeVendor", vendorId);
     localStorage.setItem("activeVendorLogo", vendor_logo);

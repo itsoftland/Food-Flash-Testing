@@ -67,7 +67,7 @@ export const VendorUIService = {
 
             if (vendor.vendor_id === activeVendorId) {
                 wrapper.classList.add("active");
-                AppUtils.setSelectedOutletName(vendor.name);
+                AppUtils.setSelectedOutletName(vendor.alias_name);
                 localStorage.setItem("activeVendorLogo", vendor.logo_url);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
                 console.log("current browser id:",browser_id);
@@ -90,7 +90,7 @@ export const VendorUIService = {
             logo.addEventListener("click", async() => {
                 document.querySelectorAll(".vendor-logo-wrapper").forEach(el => el.classList.remove("active"));
                 wrapper.classList.add("active");
-                AppUtils.setSelectedOutletName(vendor.name);
+                AppUtils.setSelectedOutletName(vendor.alias_name);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
                 restorePromise = await ChatRestoreService.restore(vendor.vendor_id);
             });

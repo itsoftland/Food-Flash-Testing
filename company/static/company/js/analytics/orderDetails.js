@@ -119,8 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function adjustModalWidth() {
     const modal = document.getElementById('timelineModal');
     const items = modal.querySelectorAll('.timeline-item').length;
-    const baseWidth = 160; // width per item in px
-    const gap = 60;        // same as your CSS gap
+    const baseWidth = 180; 
+    const gap = 70;        
 
     let newWidth = items * baseWidth + (items  * gap);
     console.log ("Calculated modal width:", newWidth);

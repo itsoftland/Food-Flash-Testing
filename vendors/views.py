@@ -637,6 +637,7 @@ def update_order(request):
                 "status": status_to_update,
                 "counter_no": counter_no,
                 "name": vendor.name,
+                'alias_name': vendor.alias_name,
                 "vendor_id": vendor.vendor_id,
                 "location_id": vendor.location_id,
                 "logo_url": vendor_serializer.data.get("logo_url", ""),

@@ -5,6 +5,18 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 import uuid
 import pytz
+from django.db.models.signals import post_save
+
+class CustomManager(models.Manager):
+    def bulk_create(self, objs, **kwargs):
+        # Call the original bulk_create method to insert objects
+        created_objs = super().bulk_create(objs, **kwargs)
+
+        # Manually dispatch post_save signal for each created object
+        for obj in created_objs:
+            post_save.send(sender=obj.__class__, instance=obj, created=True)
+
+        return created_objs 
 
 class MqttServerConfig(models.Model):
     name = models.CharField(max_length=100, help_text="Friendly name for MQTT server")
@@ -287,6 +299,9 @@ class AdvertisementImage(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_converted = models.BooleanField(default=False)
+
+    objects = CustomManager()
 
 class AdvertisementProfile(models.Model):
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE, related_name='ad_profiles')
