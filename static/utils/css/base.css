@@ -99,3 +99,49 @@
   color: #ed7302;
   font-weight: 600;
 }
+
+.license-expiry {
+  display: inline-block;
+  animation: bounceIn 0.8s ease-in-out, pulse 1.5s 0.8s infinite;
+}
+
+/* Bounce animation – plays once */
+@keyframes bounceIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Pulse animation – loops forever, starts after bounce ends (0.8s delay) */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+  .navbar-nav .nav-item:first-child {
+    flex: 1 1 auto;  /* allow this li to grow and shrink */
+    min-width: 0;    /* needed for ellipsis inside flex */
+    max-width:200px;
+    overflow: hidden; /* prevent overflow */
+  }
+
+  .customer-info {
+    display: flex;
+    align-items: center;
+    overflow: hidden; /* hide text overflow */
+  }
+
+  .customer-name {
+    flex-shrink: 1;        /* allow shrinking */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .customer-id {
+    flex-shrink: 0;        /* always visible */
+    margin-left: 6px;
+  }
+}

@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('✅ customer_id after setting:', localStorage.getItem('customer_id'));
 
                 // Validate license only for non-Super Admin users
-                const isAuthValid = await callProductAuthAPI();
+                const { status, expiryDays } = await callProductAuthAPI();
 
-                if (!isAuthValid) {
+                if (status === false) {
                     ModalService.showError("Your license has expired. Please click OK to return to login.", () => {
                         window.location.href = '/food_flash/login/';
                     });
