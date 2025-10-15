@@ -98,10 +98,23 @@
                 required
               />
             </div>
-            <!-- <div class="form-group col-md-6">
-              <label for="tv_communication_mode">TV Communication Mode</label>
-              <select name="tv_communication_mode" id="tv_communication_mode" class="form-control form-control-sm" required></select>
-            </div> -->
+            <div class="form-group col-md-6">
+              <label for="auto_delete_time" class="form-label">Auto-Delete Orders After (in hours)
+                <i class="fas fa-info-circle text-secondary ml-1"
+                  data-toggle="tooltip"
+                  data-placement="right"
+                  title="Choose how long orders should stay in the main system before being moved to archive. Archived orders are still available for reporting and analytics.">
+                </i>
+              </label>
+              <select id="auto_delete_time" class="form-control" style="max-width: 300px;">
+                <option value="">Disable Auto Deletion</option>
+                <option value="2">2 hours</option>
+                <option value="3">3 hours</option>                                                                            
+                <option value="6">6 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">24 hours</option>
+              </select>
+            </div>
           </div>
 
           <!-- Submit -->

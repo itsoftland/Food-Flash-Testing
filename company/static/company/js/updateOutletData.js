@@ -3,49 +3,54 @@ import { MenuFileManagerService } from './services/menuService.js';
 import { OutletUpdateService } from './services/updateOutletService.js';
 import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
 import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
-import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+import { API_ENDPOINTS, WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const vendorId = urlParams.get('vendor_id');
 
   const locationSelect = document.getElementById('location');
-  // const tvSelect = document.getElementById('tv-select');
-  // const deviceSelect = document.getElementById('device-select');
-  const name = document.getElementById('name');
-  const alias = document.getElementById('alias_name');
-  const placeId = document.getElementById('place_id');
+  const nameInput = document.getElementById('name');
+  const aliasInput = document.getElementById('alias_name');
+  const placeIdInput = document.getElementById('place_id');
   const outletForm = document.getElementById('outlet_update_form');
   const logoInput = document.getElementById('logo');
   const menuFilesInput = document.getElementById('menu_files');
-  // const tvCommunicationSelect = document.getElementById('tv_communication_mode');
-  const businnessHour = document.getElementById('business_day_start_hour');
+  const businessHourInput = document.getElementById('business_day_start_hour');
+  const autoDeleteSelect = document.getElementById('auto_delete_time');
 
   let vendorData = {};
   let unmappedVendorData = {};
   let vendorDetails = {};
 
   try {
-    // 1️⃣ Fetch vendor details (current data)
+    // Fetch vendor details
     const vendorRes = await fetchWithAutoRefresh(`${API_ENDPOINTS.GET_VENDORS_DETAILS}?vendor_id=${vendorId}`);
     if (!vendorRes.ok) throw new Error("Vendor details fetch failed");
     vendorDetails = await vendorRes.json();
-    vendorData = vendorDetails.vendor_data;
-    unmappedVendorData = vendorDetails.unmapped_data;
-
-
-    } catch (error) {
+    vendorData = vendorDetails.vendor_data || {};
+    unmappedVendorData = vendorDetails.unmapped_data || {};
+  } catch (error) {
     console.error("Fetch error:", error);
     return;
   }
 
-    // 3️⃣ Prefill text inputs
-  name.value = vendorData.name || '';
-  alias.value = vendorData.alias_name || '';
-  placeId.value = vendorData.place_id || '';
-  console.log(vendorData);
+  // Prefill auto-delete hours from vendor config
+  if (autoDeleteSelect) {
+    const autoDeleteValue = vendorData?.vendor_config?.auto_delete_hours;
+    autoDeleteSelect.value = autoDeleteValue != null ? String(autoDeleteValue) : '';
+    console.log('Prefilled auto-delete value:', autoDeleteSelect.value);
+  }
 
-  const { unmapped_locations, unmapped_android_tvs, unmapped_keypad_devices } = unmappedVendorData;
+  // 2️⃣ Prefill text inputs
+  nameInput.value = vendorData.name || '';
+  aliasInput.value = vendorData.alias_name || '';
+  placeIdInput.value = vendorData.place_id || '';
+
+  
+
+  // 3️⃣ Populate locations dropdown safely
+  const { unmapped_locations = [] } = unmappedVendorData;
   const currentLocation = vendorData.location_id;
   if (locationSelect) {
     locationSelect.innerHTML = '';
@@ -53,141 +58,69 @@ document.addEventListener('DOMContentLoaded', async () => {
       const option = document.createElement('option');
       option.value = loc.value;
       option.textContent = loc.key;
-      if (loc.value === currentLocation) {
-        option.selected = true;
-      }
+      if (loc.value === currentLocation) option.selected = true;
       locationSelect.appendChild(option);
     });
   }
 
-  //Populate & Preselect Android TVs
-  // const selectedTVs = (vendorData.android_tvs || []).map(tv => tv.mac_address);
-  // if (tvSelect) {
-  //   tvSelect.innerHTML = '';
-    
-  //   unmapped_android_tvs.forEach(tv => {
-  //     const option = document.createElement('option');
-  //     option.value = tv.mac_address;
-  //     option.textContent = tv.mac_address;
-  //     tvSelect.appendChild(option);
-  //   });
-  //   const android_tvsChoices = new Choices(tvSelect, {
-  //     removeItemButton: true,
-  //     classNames: {
-  //       containerInner: 'choices-inner-foodflash',
-  //       item: 'choices-item-foodflash',
-  //     },
-  //     placeholderValue: 'Select TVs',
-  //     searchEnabled: true
-  //   });
-  //   // Set selected values after initialization
-  //   android_tvsChoices.setChoiceByValue(selectedTVs);
-  // }
-  // const selectedKeypadDevices = (vendorData.keypad_devices || []).map(device => device.serial_no);
-  // if (deviceSelect) {
-  //   deviceSelect.innerHTML = '';
-
-  //   unmapped_keypad_devices.forEach(keypad => {
-  //     const option = document.createElement('option');
-  //     option.value = keypad.serial_no;
-  //     option.textContent = keypad.serial_no;
-  //     deviceSelect.appendChild(option);
-  //   });
-
-  //   const keypadDeviceChoices = new Choices(deviceSelect, {
-  //     removeItemButton: true,
-  //     classNames: {
-  //       containerInner: 'choices-inner-foodflash',
-  //       item: 'choices-item-foodflash',
-  //     },
-  //     placeholderValue: 'Select TVs',
-  //     searchEnabled: true
-  //   });
-
-  //   // Set selected values after initialization
-  //   keypadDeviceChoices.setChoiceByValue(selectedKeypadDevices);
-  // }
-  // normalize & set business start hour (input id="business_day_start_hour")
-  if (businnessHour) { // note: your variable is spelled businnessHour
+  // 4️⃣ Set business start hour (HH:MM)
+  if (businessHourInput) {
     const raw = vendorData?.vendor_config?.business_day_start_hour || '';
     if (raw) {
-      // raw may be "HH:MM:SS" or "HH:MM" — we take HH:MM
       const hhmm = String(raw).split(':').slice(0, 2).join(':');
-      businnessHour.value = hhmm;
+      businessHourInput.value = hhmm;
     } else {
-      businnessHour.value = ''; // clear if no value
+      businessHourInput.value = '';
     }
   }
 
-  // if (tvCommunicationSelect) {
-  //   tvCommunicationSelect.innerHTML = '';
-
-  //   // read canonical choices from API response
-  //   const communicationModes = Array.isArray(vendorDetails.tv_communication_modes)
-  //     ? vendorDetails.tv_communication_modes
-  //     : [
-  //         { key: "MQTT", value: "MQTT" },
-  //         { key: "Firebase", value: "Firebase" },
-  //         { key: "AZURE_IOT", value: "Azure IoT Hub" }
-  //       ];
-
-  //   // populate select with options
-  //   communicationModes.forEach(mode => {
-  //     const opt = document.createElement('option');
-  //     opt.value = mode.key;
-  //     opt.textContent = mode.value;
-  //     tvCommunicationSelect.appendChild(opt);
-  //   });
-
-  //   // pick current value from vendorData.vendor_config
-  //   const currentMode = vendorData?.vendor_config?.tv_communication_mode || '';
-  //   if (currentMode) {
-  //     tvCommunicationSelect.value = currentMode;
-  //   }
-  // }
-
-
+  // 5️⃣ Set logo if available
   if (vendorData.logo_url) {
     const img = document.querySelector('#logo + p img');
-    img.src = vendorData.logo_url;
+    if (img) img.src = vendorData.logo_url;
   }
-  if (vendorData.menu_files && Array.isArray(vendorData.menu_files)) {
-    MenuFileManagerService.init(vendorData.menu_files)
+
+  // 6️⃣ Initialize menu files if available
+  if (Array.isArray(vendorData.menu_files) && vendorData.menu_files.length > 0) {
+    MenuFileManagerService.init(vendorData.menu_files);
   }
-  // 🔁 Handle form submission
+
+  // 7️⃣ Handle form submission
   outletForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const locationValue = locationSelect.selectedOptions[0].text;
-    const nameVal = name.value.trim();
-    const aliasVal = alias.value.trim();
-    const location_id = locationSelect.value;
-    const location_key = locationValue;
-    const placeIdVal = placeId.value.trim();
+
+    const locationValue = locationSelect.selectedOptions?.[0]?.text || '';
+    const nameVal = nameInput.value.trim();
+    const aliasVal = aliasInput.value.trim();
+    const locationIdVal = locationSelect.value;
+    const placeIdVal = placeIdInput.value.trim();
     const logoFile = logoInput?.files?.[0] || null;
     const menuFiles = Array.from(menuFilesInput?.files || []);
-    // const selectedTVs = Array.from(tvSelect.selectedOptions).map(opt => opt.value);
-    // const selectedDevices = Array.from(deviceSelect.selectedOptions).map(opt => opt.value);
-    
-    console.log(menuFiles);
-    
+    const rawAutoDelete = autoDeleteSelect.value;
+    const autoDeleteHours = rawAutoDelete === '' ? null : parseInt(rawAutoDelete, 10);
+    console.log("Raw Auto Delete ",rawAutoDelete)
+    console.log('Auto-delete hours to submit:', autoDeleteHours);
+
     const formData = OutletUpdateService.buildFormData({
       vendor_id: vendorId,
       name: nameVal,
       alias_name: aliasVal,
-      location_id: location_id,
-      location: location_key,
+      location_id: locationIdVal,
+      location: locationValue,
       place_id: placeIdVal,
-      logoFile:logoFile,
-      menuFiles:menuFiles,
-      // deviceMapping: selectedDevices,
-      // tvMapping: selectedTVs,
+      logoFile: logoFile,
+      menuFiles: menuFiles,
+      auto_delete_hours: autoDeleteHours,  // ✅ correct key name
     });
+
+    for (const pair of formData.entries()) {
+      console.log(pair[0], pair[1]);
+    }
 
     try {
       const result = await OutletUpdateService.updateOutlet(formData);
       if (result.success) {
         ModalService.showSuccess("Outlet Updated Successfully", () => {
-          // Callback on OK button click
           outletForm.reset();
           window.location.href = WEB_ENDPOINTS.OUTLETS;
         });
@@ -196,8 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ModalService.showError(userFriendlyMessage);
       }
     } catch (err) {
-      ModalService.showError(err);
+      ModalService.showError(err.message || err);
     }
   });
 });
-

@@ -32,7 +32,8 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'tv_communication_mode',
             'mqtt_mode',
             'business_day_start_hour',
-            'timezone'
+            'timezone',
+            'auto_delete_hours'
         ]
 class VendorDetailSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
@@ -161,6 +162,7 @@ class VendorUpdateSerializer(serializers.Serializer):
     location = serializers.CharField(required=False, allow_blank=True)
     place_id = serializers.CharField(required=False, allow_blank=True)
     location_id = serializers.CharField(required=False, allow_blank=True)
+    auto_delete_hours = serializers.IntegerField(required=False, allow_null=True, min_value=2)
 
     def validate_vendor_id(self, value):
         if not Vendor.objects.filter(vendor_id=value).exists():
@@ -180,6 +182,7 @@ class VendorUpdateSerializer(serializers.Serializer):
         if vendor and Vendor.objects.exclude(id=vendor.id).filter(name__iexact=value).exists():
             raise serializers.ValidationError("Vendor name already exists.")
         return value
+    
 
 class AdvertisementImageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()

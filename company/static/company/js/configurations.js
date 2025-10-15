@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawValue = document.getElementById('autoDeleteTime').value;
     const autoDeleteHours = rawValue === '' ? null : parseInt(rawValue, 10);
     
-
     try {
       const response = await fetchWithAutoRefresh(API_ENDPOINTS.CONFIG, {
         method: 'POST',

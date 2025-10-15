@@ -132,6 +132,11 @@ class VendorConfig(models.Model):
         choices=[(tz, tz) for tz in pytz.all_timezones], 
         default="UTC"
     )
+    auto_delete_hours = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
 
 

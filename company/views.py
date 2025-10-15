@@ -434,6 +434,23 @@ def update_vendor(request):
                     logger.debug("Mapped Android MAC: %s", mac)
                 except AndroidDevice.DoesNotExist:
                     logger.warning("AndroidDevice not found: %s", mac)
+        
+        # Update or create VendorConfig
+        auto_delete_val = validated_data.get('auto_delete_hours')
+        if auto_delete_val == '':
+            auto_delete_val = None  # handle "Disable Auto Deletion"
+
+        config = getattr(vendor, 'config', None)
+        if config:
+            config.auto_delete_hours = auto_delete_val
+            config.save(update_fields=['auto_delete_hours'])
+            logger.info("VendorConfig auto_delete_hours updated for vendor: %s", vendor.vendor_id)
+        else:
+            VendorConfig.objects.create(
+                vendor=vendor,
+                auto_delete_hours=auto_delete_val
+            )
+            logger.info("VendorConfig created with auto_delete_hours for vendor: %s", vendor.vendor_id)         
 
         return Response({
             'message': 'Vendor updated successfully.',

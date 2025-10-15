@@ -66,35 +66,21 @@
       <div class="sidebar">
         <nav class="mt-2">
           <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" data-accordion="false" role="menu">
+            
             <li class="nav-item">
               <a href="{% url 'company:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <i class="nav-icon fas fa-home"></i>
                 <p>Dashboard</p>
               </a>
             </li>
-            <!-- <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'outlets' or request.resolver_match.url_name == 'create_outlet' %}menu-open{% endif %}">
-              <a href="#" class="nav-link {% if request.resolver_match.url_name == 'outlets' or request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
+
+            <li class="nav-item">
+              <a href="{% url 'company:outlets' %}" class="nav-link {% if request.resolver_match.url_name == 'outlets' %}active{% endif %}">
                 <i class="nav-icon fas fa-store"></i>
-                <p>
-                  Outlets
-                  <i class="right fas fa-angle-down"></i> 
-                </p>
-              </a> -->
-              <!-- <ul class="nav nav-treeview">
-                <li class="nav-item">
-                  <a href="{% url 'company:create_outlet' %}" class="nav-link {% if request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
-                    <i class="far fa-circle nav-icon"></i>
-                    <p>New Outlet(DEV)</p>
-                  </a>
-                </li> -->
-                <li class="nav-item">
-                  <a href="{% url 'company:outlets' %}" class="nav-link {% if request.resolver_match.url_name == 'outlets' %}active{% endif %}">
-                    <i class="nav-icon fas fa-store"></i>
-                    <p>Outlet List</p>
-                  </a>
-                </li>
-              <!-- </ul> -->
-            <!-- </li> -->
+                <p>Outlet List</p>
+              </a>
+            </li>
+        
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'create_users' or request.resolver_match.url_name == 'create_users' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                 <i class="nav-icon fas fa-users"></i>
@@ -177,12 +163,12 @@
                     </li>
                 </ul>
             </li>
-            <li class="nav-item">
+            <!-- <li class="nav-item">
               <a href="{% url 'company:configurations' %}" class="nav-link {% if request.resolver_match.url_name == 'configurations' %}active{% endif %}">
                 <i class="nav-icon fas fa-tools"></i>
                 <p>Configurations(DEV)</p>
               </a>
-            </li>
+            </li> -->
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'total_orders' or request.resolver_match.url_name == 'order_details' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'total_orders' or request.resolver_match.url_name == 'order_details' %}active{% endif %}">
                 <i class="nav-icon fas fa-chart-line"></i>

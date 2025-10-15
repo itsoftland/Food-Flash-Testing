@@ -187,6 +187,12 @@ LOGGING = {
             "filename": LOG_DIR / "managers.log",
             "formatter": "verbose",
         },
+        "company_file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": LOG_DIR / "company.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
@@ -268,6 +274,11 @@ LOGGING = {
             "handlers": ["orders_file", "managers_file"],
             "level": "DEBUG",
             "propagate": False,
+        },
+        "company.views": {
+            "handlers": ["company_file"],
+            "level": "DEBUG",
+            "propagate": False, 
         },
     },
 }

@@ -30,6 +30,7 @@ export const OutletUpdateService = (() => {
         place_id,
         location_id,
         logoFile,
+        auto_delete_hours,
         menuFiles = [],
         deviceMapping = [],
         tvMapping = [],
@@ -41,6 +42,7 @@ export const OutletUpdateService = (() => {
         location,
         place_id,
         location_id,
+        auto_delete_hours,
         logoFile,
         menuFiles,
         deviceMapping,
@@ -54,6 +56,7 @@ export const OutletUpdateService = (() => {
     if (location) formData.append('location', location);
     if (place_id) formData.append('place_id', place_id);
     if (location_id) formData.append('location_id', location_id);
+    if (auto_delete_hours !== undefined) formData.append('auto_delete_hours', auto_delete_hours);
 
     if (logoFile) formData.append('logo', logoFile);
 
