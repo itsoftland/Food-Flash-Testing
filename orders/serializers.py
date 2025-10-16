@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from vendors.models import Vendor, Feedback
+from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -68,10 +69,11 @@ class VendorMenuSerializer(serializers.ModelSerializer):
             menu_paths = json.loads(menu_paths)
 
         full_menu_urls = []
+        start_url = getattr(settings, "PROJECT_NAME")
         if request:
             for path in menu_paths:
                 if not path.startswith("http"):
-                    url = request.build_absolute_uri(f"/media/{path}")
+                    url = request.build_absolute_uri(f"/{start_url}/media/{path}")
                     # Force HTTPS
                     full_menu_urls.append(url.replace("http://", "https://"))
                 else:

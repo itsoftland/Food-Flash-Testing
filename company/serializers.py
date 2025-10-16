@@ -5,10 +5,12 @@ from vendors.models import (Vendor,AndroidDevice,
                             AdvertisementProfileAssignment,
                             AdminOutlet,UserProfile,
                             AndroidAPK,MqttServerConfig,
-                            VendorConfig,OrderStatusHistory)
+                            VendorConfig,OrderStatusHistory,
+                            AdvertisementSlot)
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
+import datetime
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -202,6 +204,12 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(),
         write_only=True
     )
+    time_slots = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField()
+        ),
+        write_only=True
+    )
     
     images = AdvertisementImageSerializer(many=True, read_only=True)
 
@@ -217,6 +225,7 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
             'image_ids',
             'images',
             'created_at',
+            'time_slots'
         ]
 
     def get_images(self, obj):
@@ -237,13 +246,45 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
 
         return list(images)
 
+    def validate_time_slots(self, value):
+        """
+        Validate that each slot has start and end, and start < end,
+        and slots do not overlap with previous slot.
+        """
+        prev_end = None
+        for i, slot in enumerate(value):
+            start = slot.get('start')
+            end = slot.get('end')
+            if not start or not end:
+                raise serializers.ValidationError(f"Slot {i+1}: both start and end are required.")
+            # Convert to time objects
+            try:
+                start_time = datetime.datetime.strptime(start, "%H:%M").time()
+                end_time = datetime.datetime.strptime(end, "%H:%M").time()
+            except ValueError:
+                raise serializers.ValidationError(f"Slot {i+1}: invalid time format.")
+            if end_time <= start_time:
+                raise serializers.ValidationError(f"Slot {i+1}: end time must be after start time.")
+            if prev_end and start_time <= prev_end:
+                raise serializers.ValidationError(f"Slot {i+1}: start time must be after previous slot's end time.")
+            prev_end = end_time
+        return value
+
+
     def create(self, validated_data):
         images = validated_data.pop('image_ids', [])
+        time_slots = validated_data.pop('time_slots', [])
         profile = AdvertisementProfile.objects.create(
             admin_outlet=self.context['request'].user.admin_outlet,
             **validated_data
         )
         profile.images.set(images)
+        for slot in time_slots:
+            AdvertisementSlot.objects.create(
+                profile=profile,
+                start_time=slot['start'],
+                end_time=slot['end']
+            )
         return profile
     
     def validate(self, attrs):

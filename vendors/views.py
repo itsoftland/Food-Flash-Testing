@@ -2,7 +2,6 @@ import json
 import logging
 
 from django.utils.timezone import now, localtime
-from django.conf import settings
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes

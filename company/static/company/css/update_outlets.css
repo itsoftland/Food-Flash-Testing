@@ -1,5 +1,11 @@
 /* Styling for the file label */
 .file-label {
+    display: inline-block;       /* or block depending on layout */
+    max-width: 100%;             /* ensures it doesn't exceed parent */
+    white-space: nowrap;         /* keeps it on a single line */
+    overflow: hidden;            /* hides overflow */
+    text-overflow: ellipsis;    /* shows ... for long text */
+    vertical-align: middle;
     cursor: pointer;
     background-color: #fdf4e5;
     font-size: .90rem;

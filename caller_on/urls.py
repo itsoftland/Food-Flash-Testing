@@ -19,10 +19,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+start_url = getattr(settings, "PROJECT_NAME")
 
 urlpatterns = [
     # path('admin/', admin.site.urls),
-    path('food_flash/', include([
+    path(f"{start_url}/", include([
         path('admin/', admin.site.urls),
         path('vendors/', include(('vendors.urls', 'vendors'), namespace='vendors')),
         path('company/', include(('company.urls', 'company'), namespace='company')),

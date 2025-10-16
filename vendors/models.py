@@ -6,6 +6,7 @@ from django.utils import timezone
 import uuid
 import pytz
 from django.db.models.signals import post_save
+from static.utils.functions.utils import get_vendor_current_time
 
 class CustomManager(models.Manager):
     def bulk_create(self, objs, **kwargs):
@@ -340,6 +341,52 @@ class AdvertisementProfile(models.Model):
         )
 
         return is_date_match or is_day_match
+    
+    def is_active_now(self, vendor):
+        """
+        Checks if the profile is active for the given vendor at the vendor's local time.
+        - Date range: if both start/end are None → all dates allowed
+        - Days active: must match vendor's weekday or 'All'
+        - Time slots: if slots exist, current time must be within at least one slot
+        """
+        # 🌍 Vendor local datetime
+        now = get_vendor_current_time(vendor)
+        today = now.date()
+        weekday = now.strftime('%A')
+        current_time = now.time()
+
+        # 🗓 Date range
+        if self.date_start and self.date_end:
+            if not (self.date_start <= today <= self.date_end):
+                return False
+
+        # 📅 Days active
+        days = self.days_active or []
+        if not days:
+            return False  # inactive if empty list
+        if 'All' not in days and weekday not in days:
+            return False
+
+        # ⏰ Time slots
+        slots = self.slots.all()
+        if slots.exists():
+            if not any(slot.start_time <= current_time <= slot.end_time for slot in slots):
+                return False
+
+        return True
+    
+class AdvertisementSlot(models.Model):
+    profile = models.ForeignKey(
+        'AdvertisementProfile',
+        on_delete=models.CASCADE,
+        related_name='slots'
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')} ({self.profile.name})"
+
 
 class AdvertisementProfileAssignment(models.Model):
     profile = models.ForeignKey(

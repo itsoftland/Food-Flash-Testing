@@ -483,6 +483,46 @@ def update_admin_outlet(request):
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# @api_view(['GET'])
+# @permission_classes([AllowAny])
+# def get_banners(request):
+#     vendor_ids_param = request.GET.get('vendor_ids')
+#     if not vendor_ids_param:
+#         return Response({"error": "vendor_ids is required"}, status=400)
+
+#     try:
+#         vendor_ids = json.loads(vendor_ids_param)
+#         if not isinstance(vendor_ids, list) or not all(isinstance(v, int) for v in vendor_ids):
+#             raise ValueError
+#     except ValueError:
+#         return Response({
+#             "error": "Invalid vendor_ids format. Use JSON list of integers, e.g., [101,104]"}, status=400)
+
+#     vendors = Vendor.objects.filter(vendor_id__in=vendor_ids)
+#     result = []
+
+#     for vendor in vendors:
+#         assignments = AdvertisementProfileAssignment.objects.filter(
+#             vendor=vendor).select_related('profile')
+
+#         active_profiles = [
+#             a.profile for a in assignments
+#             if a.profile.is_active_today()
+#         ]
+#         active_profiles.sort(key=lambda p: p.priority)
+
+#         ads = []
+#         for profile in active_profiles:
+#             ads.extend([request.build_absolute_uri(img.image.url) for img in profile.images.all()])
+
+#         result.append({
+#             "vendor_id": vendor.vendor_id,
+#             "ads": ads,
+#             "name": vendor.name
+#         })
+
+#     return Response(result)
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_banners(request):
@@ -496,24 +536,27 @@ def get_banners(request):
             raise ValueError
     except ValueError:
         return Response({
-            "error": "Invalid vendor_ids format. Use JSON list of integers, e.g., [101,104]"}, status=400)
+            "error": "Invalid vendor_ids format. Use JSON list of integers, e.g., [101,104]"
+        }, status=400)
 
-    vendors = Vendor.objects.filter(vendor_id__in=vendor_ids)
+    vendors = Vendor.objects.filter(vendor_id__in=vendor_ids).select_related('config')
     result = []
 
     for vendor in vendors:
-        assignments = AdvertisementProfileAssignment.objects.filter(
-            vendor=vendor).select_related('profile')
+        assignments = (
+            AdvertisementProfileAssignment.objects
+            .filter(vendor=vendor)
+            .select_related('profile')
+            .prefetch_related('profile__images', 'profile__slots')
+        )
 
-        active_profiles = [
-            a.profile for a in assignments
-            if a.profile.is_active_today()
-        ]
+        active_profiles = [a.profile for a in assignments if a.profile.is_active_now(vendor)]
         active_profiles.sort(key=lambda p: p.priority)
 
         ads = []
         for profile in active_profiles:
-            ads.extend([request.build_absolute_uri(img.image.url) for img in profile.images.all()])
+            for img in profile.images.all():
+                ads.append(request.build_absolute_uri(img.image.url))
 
         result.append({
             "vendor_id": vendor.vendor_id,
@@ -522,6 +565,7 @@ def get_banners(request):
         })
 
     return Response(result)
+
 
 # views.py
 from rest_framework.decorators import api_view
