@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   GET_COMPANIES: '/food_flash/companyadmin/api/company_lists/',
   PRODUCT_REGISTRATION: '/food_flash/companyadmin/api/product-registration/',
   PRODUCT_AUTH_URL : '/food_flash/companyadmin/api/product-authentication/',
+  LICENSE_CHECK : '/food_flash/company/api/license_check/',
   COMPANY_UPDATE_URL : '/food_flash/api/company-update/',
   UPDATE_COMPANY: '/food_flash/companyadmin/api/update_company/',
   CREATE_USER: '/food_flash/company/api/create_user/',

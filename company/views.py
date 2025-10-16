@@ -1462,5 +1462,32 @@ def order_status_timeline(request, order_id):
 #     serializer = OrderStatusHistorySerializer(history_qs, many=True)
 #     return Response(serializer.data, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def license_check(request):
+    """
+    Returns license status for a given company/customer.
+    """
+    customer_id = request.query_params.get('customer_id')
+
+    if not customer_id:
+        return Response({"detail": "CustomerId is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    company_data = AdminOutlet.objects.filter(customer_id=customer_id).first()
+
+    if not company_data:
+        return Response({"detail": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if company_data.authentication_status == "Approve":
+        return Response({
+            "status": "success",
+            "message": "License Approved",
+            "data":company_data.product_to_date
+        }, status=status.HTTP_200_OK)
+    
+    return Response({
+        "status": "failed",
+        "message": "License Expired"
+    }, status=status.HTTP_200_OK)
 
 

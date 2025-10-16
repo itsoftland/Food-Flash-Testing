@@ -1,13 +1,15 @@
 import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+
 export async function callProductAuthAPI() {
     try {
         const customerId = localStorage.getItem("customer_id");
         if (!customerId) {
             console.warn('No customerId found, skipping product auth check.');
-            return { success: false };
+            return { status: false, expiryDays: 0 };
         }
 
+        // First, call external product auth API
         const response = await fetchWithAutoRefresh(API_ENDPOINTS.PRODUCT_AUTH_URL, {
             method: 'POST',
             headers: {
@@ -17,16 +19,32 @@ export async function callProductAuthAPI() {
             credentials: 'include',
             body: JSON.stringify({ CustomerId: customerId })
         });
+        let expiryDays = 0;
+        if (!response.ok) {
+            // Fallback: call internal LICENSE_CHECK API
+            const licence = await fetchWithAutoRefresh(`${API_ENDPOINTS.LICENSE_CHECK}?customer_id=${customerId}`, {
+                method: 'GET',
+            });
 
-        if (!response.ok) throw new Error('Auth API failed');
+            if (!licence.ok) throw new Error('License Check Failed');
+
+            const licenceData = await licence.json();
+
+            if (licenceData.status === 'success') {
+                console.log('✅ Internal license check passed.');
+                expiryDays = calculateDaysLeft(licenceData.data);
+                return { status: true, expiryDays: expiryDays };
+            } else {
+                console.warn('⚠️ License expired according to internal check.');
+                return { status: false, expiryDays: 0 };
+            }
+        }
+
         const result = await response.json();
-
-        // 🗓️ Calculate license expiry days
-        const expiryDays = calculateDaysLeft(result.ProductToDate);
+        expiryDays = calculateDaysLeft(result.ProductToDate);
 
         console.log('✅ Product Auth Response:', result, `License expires in ${expiryDays} days`);
 
-        // Handle expired license
         if (result.Authenticationstatus === 'Your licence is expired. Please contact Admin !!!') {
             await updateCompanyInfo({ ...result, CustomerId: customerId });
             localStorage.clear();
@@ -45,26 +63,15 @@ export async function callProductAuthAPI() {
     }
 }
 
-/**
- * Helper to calculate remaining days from today to given expiry date
- */
+// Helper functions unchanged
 function calculateDaysLeft(expiryDateStr) {
     if (!expiryDateStr) return 0;
-
     const expiryDate = new Date(expiryDateStr);
     const today = new Date();
-
-    // Normalize both to midnight for accurate date-only comparison
     expiryDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
-
-    const diffTime = expiryDate - today;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    // Returns positive, 0, or negative depending on expiry
-    return diffDays;
+    return Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
 }
-
 
 async function updateCompanyInfo(data) {
     try {
@@ -94,22 +101,14 @@ async function updateCompanyInfo(data) {
                 displaymode: data.DisplayMode, 
             })
         });
-
         const result = await response.json();
-        if (!response.ok) {
-            console.error('❌ Update failed:', result);
-        } else {
-            console.log('✅ Company info updated:', result);
-        }
+        if (!response.ok) console.error('❌ Update failed:', result);
+        else console.log('✅ Company info updated:', result);
     } catch (error) {
         console.error('Update request failed:', error);
     }
 }
 
-/**
- * Returns today's date in YYYY-MM-DD format.
- */
 function getTodayDateString() {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return new Date().toISOString().split('T')[0];
 }

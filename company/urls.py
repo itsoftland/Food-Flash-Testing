@@ -53,5 +53,6 @@ urlpatterns = [
     path('api/filtered_orders/', views.filtered_orders, name='get_orders'),
     path('api/order_status_timeline/<int:order_id>/', views.order_status_timeline, name='order_status_timeline'),
     path('api/dashboard_metrics/', views.dashboard_metrics, name='dashboard_metrics'),  
+    path('api/license_check/',views.license_check,name='license_check')
 ]
  
