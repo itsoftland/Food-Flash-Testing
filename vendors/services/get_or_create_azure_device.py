@@ -1,9 +1,19 @@
-import re
-from django.conf import settings
-from azure.iot.hub import IoTHubRegistryManager
+import base64
+import hashlib
+import hmac
 import logging
+import re
+import time
+import urllib.parse
+
+from azure.iot.hub import IoTHubRegistryManager
+from django.conf import settings
+
+from vendors.models import IoTDeviceCredential
 
 logger = logging.getLogger(__name__)
+# In-memory cache: { device_id: { "token": str, "expiry": int } }
+_sas_token_cache = {}
 
 IOT_HUB_NAME = getattr(settings, "IOTHUB_NAME", "FoodFlashTestHub")
 HOSTNAME = getattr(settings, "IOTHUB_HOSTNAME", f"{IOT_HUB_NAME}.azure-devices.net")
@@ -55,17 +65,6 @@ def get_or_create_device(device_id):
         "primaryConnectionString": primary_cs,
         "secondaryConnectionString": secondary_cs,
     }
-
-import base64
-import hmac
-import hashlib
-import time
-import urllib.parse
-from vendors.models import IoTDeviceCredential
-
-# In-memory cache: { device_id: { "token": str, "expiry": int } }
-_sas_token_cache = {}
-
 
 def generate_sas_token(hostname, device_id, key, expiry=30*24*3600):
     """

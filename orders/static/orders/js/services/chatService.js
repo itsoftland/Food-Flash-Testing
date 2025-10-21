@@ -21,7 +21,6 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
 }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no) {
-    console.trace("append message called")
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
@@ -53,7 +52,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
     }
 
     if (sender === 'server') {
-        const activeLogo = localStorage.getItem("activeVendorLogo") || '/food_flash/static/images/default-logo.png';
+        const activeLogo = localStorage.getItem("activeVendorLogo");
         const logoImg = document.createElement('img');
         logoImg.src = activeLogo;
         logoImg.alt = 'Vendor Logo';
@@ -62,7 +61,6 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
     }
 
     messageRow.appendChild(messageBubble);
-    console.log("Sender:", sender, "Type:", type);
     if (sender === 'server' && (type === 'foodstatus' || type === 'manager')) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) {
@@ -108,10 +106,6 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
 
                 // Optional: Store token number globally if needed
                 const tokenNo = messageBubble.dataset.tokenNo;
-                if (tokenNo) {
-                    console.log("Clicked Token No:", tokenNo);
-                }
-                console.log("Reply mode:", AppUtils.isReplyMode);
             });
         }
     } else {

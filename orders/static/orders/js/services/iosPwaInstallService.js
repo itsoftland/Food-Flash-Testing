@@ -1,5 +1,4 @@
 export const IosPwaInstallService = (() => {
-    console.log("Ios Pwa Install Service called")
     let modalInstance = null;
 
     const isIosSafari = () => {
@@ -32,7 +31,6 @@ export const IosPwaInstallService = (() => {
             });
         }
         modalInstance?.show();
-        console.log("modal shown")
     };
 
     const dismiss = () => {
@@ -43,12 +41,7 @@ export const IosPwaInstallService = (() => {
         const standalone = isInStandaloneMode();
         const prompt = shouldShowPrompt();
 
-        console.log("isIosSafari:", isIosSafari());
-        console.log("isInStandaloneMode:", standalone);
-        console.log("shouldShowPrompt:", prompt);
-
         if (isIosSafari() && !standalone && prompt) {
-            console.log("Conditions met — showing modal");
             showModal();
         }
     };

@@ -1,9 +1,24 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { ConfirmModalService } from './services/confirmModalService.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!window.BASE) {
+    console.error("window.BASE is not defined — make sure PROJECT_NAME is set in base.html");
+    return;
+  }
+
+  let fetchWithAutoRefresh, API_ENDPOINTS, ModalService, ConfirmModalService;
+
+  try {
+    const modules = await Promise.all([
+      import(`${window.BASE}static/utils/js/services/authFetchService.js`),
+      import(`${window.BASE}static/utils/js/apiEndpoints.js`),
+      import(`${window.BASE}static/utils/js/services/modalService.js`),
+      import(`${window.BASE}static/utils/js/services/confirmModalService.js`),
+    ]);
+    [{ fetchWithAutoRefresh }, { API_ENDPOINTS }, { ModalService }, { ConfirmModalService }] = modules;
+  } catch (err) {
+    console.error("❌ Failed to dynamically import modules:", err);
+    return;
+  }
+
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();
   });

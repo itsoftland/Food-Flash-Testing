@@ -2,7 +2,14 @@ import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/
 if (window.navigator.standalone) {
     console.log('Running in standalone mode');
 }
-// Global variable to store unlocked audio
+// Validate and derive project name safely
+const projectName = (typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== "")
+  ? window.PROJECT_NAME.trim()
+  : "calleron"; // fallback
+
+// Declare a truly global base
+const BASE = `/${projectName}/`; 
+
 let unlockedNotificationAudio = null;
 window.AppUtils = {
     // ─────────────────────────────────────
@@ -21,7 +28,6 @@ window.AppUtils = {
         // 1️⃣ Try localStorage
         let locationId = localStorage.getItem(this.key);
         if (locationId) {
-          console.log("[LocationStore] Loaded from localStorage:", locationId);
           return locationId;
         }
     
@@ -29,7 +35,6 @@ window.AppUtils = {
         try {
           locationId = await idbGet(this.key);
           if (locationId) {
-            console.log("[LocationStore] Loaded from IndexedDB:", locationId);
             localStorage.setItem(this.key, locationId); // Rehydrate
             return locationId;
           }
@@ -52,7 +57,6 @@ window.AppUtils = {
       },
     async set(locationId) {
     if (!locationId) return;
-    console.log("[LocationStore] Setting location:", locationId);
 
     // 1️⃣ Set in localStorage
     localStorage.setItem(this.key, locationId);
@@ -130,13 +134,10 @@ window.AppUtils = {
         if (lastVendor) {
             this.setCookie('activeVendor', lastVendor);
         }
-
-        console.log("[VendorStore] Vendors set successfully:", updatedList);
     },
     getActiveVendor: async function () {
         let vendorId = localStorage.getItem('activeVendor');
         if (vendorId) {
-            console.log("[VendorStore] Loaded from localStorage:", vendorId);
             return parseInt(vendorId, 10);
         }
 
@@ -236,7 +237,7 @@ window.AppUtils = {
         console.log("[Unlock] Unlocking notification sound and TTS...");
 
         // 🔊 Unlock notification sound
-        unlockedNotificationAudio = new Audio('/food_flash/static/orders/audio/0112.mp3');
+        unlockedNotificationAudio = new Audio(`${BASE}static/orders/audio/0112.mp3`);
         unlockedNotificationAudio.volume = 1.0;
         unlockedNotificationAudio.muted = false;
         unlockedNotificationAudio.playsInline = true;
@@ -484,7 +485,6 @@ window.AppUtils = {
      * Stores and retrieves it from localStorage.
      */
     getBrowserId: function () {
-        console.trace("getBrowserId called");
         let browserId = localStorage.getItem('browser_id');
         if (!browserId) {
             browserId = crypto.randomUUID();
@@ -493,7 +493,6 @@ window.AppUtils = {
         return browserId;
     },
     getCurrentBrowserId: function () {
-        console.trace("getCurrentBrowserId called");
     let browserId = localStorage.getItem('browser_id');
     if (!browserId) {
         console.warn("No browser ID found.");
@@ -579,7 +578,10 @@ window.AppUtils = {
     openBrowserNotificationSettings: function () {
         this.showToast("To enable notifications, go to your browser > Site Settings > Notifications.");
     },
-
+    getStartUrl: function () {
+        const base = BASE || '/caller_on/'
+        return base
+    }
 
 };
 

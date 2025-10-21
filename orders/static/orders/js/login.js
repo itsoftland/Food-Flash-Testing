@@ -1,8 +1,27 @@
-import { callProductAuthAPI } from '/food_flash/static/utils/js/services/productAuthService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
+
+    let callProductAuthAPI, ModalService, apiEndpoints, webEndpoints;
+
+    try {
+        const base = window.BASE || '/caller_on/';
+
+        // Dynamically import modules
+        const productAuthModule = await import(`${base}static/utils/js/services/productAuthService.js`);
+        const modalServiceModule = await import(`${base}static/utils/js/services/modalService.js`);
+        const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);
+
+        callProductAuthAPI = productAuthModule.callProductAuthAPI;
+        ModalService = modalServiceModule.ModalService;
+
+        // Retrieve both endpoints from the same module
+        apiEndpoints = endpointsModule.API_ENDPOINTS;
+        webEndpoints = endpointsModule.WEB_ENDPOINTS;
+    } catch (importError) {
+        console.error('❌ Failed to import required modules:', importError);
+        alert('System error: unable to load essential modules.');
+        return;
+    }
 
     loginForm.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -13,16 +32,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payload = { username, password };
 
         try {
-            const response = await fetch('/food_flash/api/login/', {
+            const response = await fetch(apiEndpoints.LOGIN, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             const data = await response.json();
-            console.log('Login response:', data);
 
             if (!response.ok) {
                 alert(data.error || 'Login failed');
@@ -37,32 +53,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             AppUtils.setCustomerName(data.user.username);
             localStorage.setItem('role', role);
 
-            // Only set customer_id if not Super Admin
             if (role !== 'Super Admin') {
                 AppUtils.setCustomerId(data.user.customer_id || '');
-                console.log('✅ customer_id after setting:', localStorage.getItem('customer_id'));
-
-                // Validate license only for non-Super Admin users
-                const { status, expiryDays } = await callProductAuthAPI();
-
+                // Validate license
+                const { status } = await callProductAuthAPI();
                 if (status === false) {
-                    ModalService.showError("Your license has expired. Please click OK to return to login.", () => {
-                        window.location.href = '/food_flash/login/';
-                    });
+                    ModalService.showError(
+                        "Your license has expired. Please click OK to return to login.",
+                        () => { window.location.href = webEndpoints.LOGIN; } // Use webEndpoints for redirect
+                    );
                     return;
                 }
             }
 
-            // Redirect based on role
+            // Redirect based on role using webEndpoints
             if (role === 'Super Admin') {
-                window.location.href = '/food_flash/companyadmin/dashboard/';
+                window.location.href = webEndpoints.ADMIN_DASHBOARD;
             } else if (role === 'Company') {
-                window.location.href = '/food_flash/company/dashboard/';
+                window.location.href = webEndpoints.COMPANY_DASHBOARD;
             } else if (role === 'Outlet') {
-                window.location.href = '/food_flash/vendor/dashboard/';
+                window.location.href = webEndpoints.DASHBOARD;
             } else {
                 alert('Unknown user role');
             }
+
         } catch (err) {
             console.error('Login error:', err);
             alert('An unexpected error occurred.');

@@ -53,9 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
         [...tvSelect.selectedOptions].forEach(option => {
             formData.append('tv_mapping[]', option.value);
         });
-        // for (let [key, value] of formData.entries()) {
-        //     console.log(`${key}:`, value);
-        // }
 
         try {
             const response = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_VENDOR, {
@@ -71,7 +68,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (result.success) {
           ModalService.showSuccess("Outlet Created Successfully", () => {
           form.reset();
-          window.location.href = WEB_ENDPOINTS.OUTLETS;
+          window.location.href = WEB_ENDPOINTS.COMPANY_OUTLETS;
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);

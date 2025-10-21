@@ -105,7 +105,6 @@ export const MenuModalService = (() => {
             button.addEventListener('click', function () {
                 buttons.forEach(btn => btn.classList.remove('active'));
                 this.classList.add('active');
-                console.log(this.classList.contains('menu-button'))
 
                 // Check if clicked button is for opening the menu modal
                 if (this.classList.contains('menu-btn')) {
@@ -151,7 +150,6 @@ export const MenuModalService = (() => {
                         });
                 }
                 else if (this.classList.contains('rating-btn')) {
-                    console.log('Rating button clicked');
                     let ratingLink = localStorage.getItem("activeVendorRatingLink") || "https://default-rating-link.com";
                     // Construct the Google Review URL
                     const googleReviewUrl = `https://search.google.com/local/writereview?placeid=${ratingLink}`;

@@ -13,7 +13,6 @@ export const PermissionService = (() => {
 
     const requestPermissions = async () => {
         const current = Notification.permission;
-        console.log("Current notification permission:", current);
         if (current === "granted") {
                 return true;
             }

@@ -1,5 +1,16 @@
 import { appendMessage } from './chatService.js';
 
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
 export const FeedbackService = (() => {
     const steps = [
         { key: 'feedback_type', question: 'Select Feedback Type', options: ['Complaint', 'Suggestion', 'Compliment'] },

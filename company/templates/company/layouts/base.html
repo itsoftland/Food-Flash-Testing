@@ -213,8 +213,12 @@
   {% include "company/partials/modals.html" %}
 
   <!-- Global JS -->
+  <script>
+    window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+  </script>
   <script type ="module" src="{% static 'company/js/authCheck.js' %}"></script>
   <script type ="module" src="{% static 'utils/js/utils.js' %}"></script>
+  
   <!-- Page-Specific JS -->
   {% block extra_js %}{% endblock %}
 

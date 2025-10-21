@@ -46,7 +46,6 @@ export const PushSubscriptionService = (() => {
                         return; // stop here instead of saving null
                     }
                 }
-                console.log("New push subscription created:", subscription);
             } else {
                 console.log("Reusing existing push subscription:", subscription);
             }

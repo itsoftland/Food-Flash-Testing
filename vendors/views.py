@@ -542,13 +542,13 @@ PUSH_COOLDOWN_SECONDS = 2
 @permission_classes([AllowAny])
 def update_order(request):
     try:
-        logger.info(
-            f"[update_order] PATCH request from IP={request.META.get('REMOTE_ADDR')} "
-            f"UA={request.META.get('HTTP_USER_AGENT')}"
-        )
-        
         # Validate request data
         data = request.data
+        logger.info(
+            f"[update_order] PATCH request from IP={request.META.get('REMOTE_ADDR')} "
+            f"UA={request.META.get('HTTP_USER_AGENT')} "
+            f"DATA={data}"
+        )
         required_fields = ['vendor_id', 'token_no', 'device_id', 'counter_no', 'status']
         missing = [f for f in required_fields if not data.get(f)]
         if missing:

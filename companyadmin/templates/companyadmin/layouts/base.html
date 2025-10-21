@@ -111,7 +111,9 @@
 </div>
 <!-- Your Global JS -->
 <script type ="module" src="{% static 'orders/js/utils.js' %}"></script>
-
+<script>
+    window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+</script>
 <!-- Page-Specific JS -->
 {% block extra_js %}{% endblock %}
 <!-- Scripts -->

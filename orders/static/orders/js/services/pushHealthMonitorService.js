@@ -12,7 +12,6 @@ export const PushHealthMonitorService = (() => {
     // Called from service worker push event in your PWA
     function recordPushReceived() {
         localStorage.setItem("lastPushReceivedAt", Date.now().toString());
-        console.log("[PushHealth] Push received at", new Date().toLocaleTimeString());
     }
 
     // Called when app starts (after token/vendor is known)
@@ -25,7 +24,6 @@ export const PushHealthMonitorService = (() => {
         }
 
         intervalId = setInterval(checkHealth, CHECK_INTERVAL_MS);
-        console.log("[PushHealth] Monitoring started...");
     }
 
     async function checkHealth() {
@@ -53,7 +51,6 @@ export const PushHealthMonitorService = (() => {
             return;
         }
         await PushSubscriptionService.subscribe(tokenNo, vendorId);
-        console.log("[PushHealth] Subscription refreshed successfully.");
     }
 
     return {

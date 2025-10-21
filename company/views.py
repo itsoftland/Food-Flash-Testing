@@ -3,7 +3,7 @@ import logging
 import random
 
 from django.db import transaction
-from django.db.models import Q
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile

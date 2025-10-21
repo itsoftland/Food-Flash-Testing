@@ -1,11 +1,23 @@
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
 export const AddOutletService = (() => {
     let locationId = null;
     let selectedVendorIds = new Set();
-
+    
     const fetchOutlets = async () => {
         try {
-            console.log("LocationId2",locationId)
-            const response = await fetch(`/food_flash/api/outlets/?location_id=${locationId}`);
+            const response = await fetch(
+                `${apiEndpoints.FETCH_OUTLETS}?location_id=${locationId}`
+            );
             return response.ok ? await response.json() : [];
         } catch (err) {
             console.error("Fetch error:", err);
@@ -34,7 +46,7 @@ export const AddOutletService = (() => {
             tile.dataset.location = outlet.location || "";
 
             tile.innerHTML = `
-                <img src="${outlet.logo || '/food_flash/static/default-logo.png'}" alt="${outlet.name}">
+                <img src="${outlet.logo}" alt="${outlet.name}">
                 <p class="outlet-name">${outlet.name}</p>
                 <p class="outlet-location">${outlet.location || ''}</p>
             `;
@@ -53,7 +65,6 @@ export const AddOutletService = (() => {
 
     const openModal = async () => {
         locationId = await AppUtils.get(); // from utils.js
-        console.log("LocationId",locationId)
     
         if (!locationId) {
             AppUtils.showToast("Location ID is missing. Please scan or provide location");
@@ -80,7 +91,6 @@ export const AddOutletService = (() => {
         }
     };
     
-
     const bindEvents = () => {
         document.getElementById("add-outlet-btn")?.addEventListener("click", openModal);
 
@@ -95,7 +105,6 @@ export const AddOutletService = (() => {
 
             // ✅ Get the last selected outlet's vendor ID
             const lastVendorId = vendorIdArray[vendorIdArray.length - 1];
-            console.log("last vendor_id",)
 
             // ✅ Find that tile and get its name
             const selectedTile = document.querySelector(`.outlet-tile[data-vendor-id="${lastVendorId}"]`);
@@ -103,7 +112,7 @@ export const AddOutletService = (() => {
 
             // ✅ Save to localStorage
             AppUtils.setSelectedOutletName(selectedOutletName);
-            window.location.href = `/food_flash/home/?location_id=${locationId}&vendor_id=${finalVendorIds}`;
+            window.location.href = `${base}home/?location_id=${locationId}&vendor_id=${finalVendorIds}`;
         });
     };
 

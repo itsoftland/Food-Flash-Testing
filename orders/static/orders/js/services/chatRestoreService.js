@@ -1,6 +1,4 @@
-// services/chatRestoreService.js
-
-
+// orders/static/orders/js/services/chatRestoreService.js
 import { ChatHistoryService } from "./chatHistoryService.js";
 import { appendMessage } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
@@ -19,7 +17,6 @@ export const ChatRestoreService = (() => {
 
     // ⚡ Skip if restoring same vendor again
     if (lastRestoredVendorId === vendorId) {
-      console.log(`[ChatRestoreService] Already restored for vendor ${vendorId}, skipping.`);
       return Promise.resolve(true);
     }
 
@@ -49,8 +46,6 @@ export const ChatRestoreService = (() => {
         cachedMessages.forEach(msg => {
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
         });
-
-        console.log(`[ChatRestoreService] Restored ${cachedMessages.length} messages`);
 
         // 🟡 Always insert welcome note at the top
         WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet", chatContainer, { prepend: true });

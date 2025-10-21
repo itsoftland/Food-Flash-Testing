@@ -1,13 +1,11 @@
 export const WelcomeMessageService = {
     show(outletName) {
-        console.trace("WelcomeMessageService.show called with outletName:", outletName);
         const chatContainer = document.getElementById("chat-container");
         if (!chatContainer) return;
 
         // 🛡 Prevent duplicate welcome messages
         const existingWelcome = chatContainer.querySelector(".welcome-wrapper");
         if (existingWelcome) {
-            console.log("[WelcomeMessageService] Welcome note already exists, skipping insert.");
             return;
         }
 
@@ -40,10 +38,8 @@ export const WelcomeMessageService = {
 
         if (chatContainer.children.length > 0) {
             chatContainer.insertBefore(wrapper, chatContainer.firstChild);
-            console.log("[WelcomeMessageService] Inserted welcome note at top");
         } else {
             chatContainer.appendChild(wrapper);
-            console.log("[WelcomeMessageService] Appended welcome note to empty chat");
         }
 
         chatContainer.scrollTop = chatContainer.scrollHeight;

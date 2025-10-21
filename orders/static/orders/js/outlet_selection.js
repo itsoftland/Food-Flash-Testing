@@ -1,25 +1,26 @@
 // ─────────────────────────────────────
+// Base URL Setup
+// ─────────────────────────────────────
+const base = window.BASE || '/caller_on/';
+
+// ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
 // ─────────────────────────────────────
 (async function redirectIfMissingLocationId() {
-    console.log("Checking for redirect conditions...");
 
     const currentUrl = new URL(window.location.href);
     const urlParams = currentUrl.searchParams;
 
     const hasLocationParam = urlParams.has("location_id");
     const hasVendorId = await AppUtils.getActiveVendor();
-    console.log('ActiveVendorid',hasVendorId)
     const hasTokenNo = await AppUtils.getToken();
 
     // ✅ Condition 1: If vendor_id and token_no are present → redirect to /home/
     if (hasVendorId || hasTokenNo) {
-        console.log("Detected vendor_id or token_no in URL. Redirecting to /home/");
-
         const locationId = hasLocationParam ? urlParams.get("location_id") : await AppUtils.get();
 
         if (locationId) {
-            const newUrl = new URL(`${window.location.origin}/food_flash/home/`);
+            const newUrl = new URL(`${window.location.origin}${base}home/`);
             newUrl.searchParams.set("location_id", locationId);
             newUrl.searchParams.set("vendor_id",hasVendorId);
             newUrl.searchParams.set("token_no", hasTokenNo);
@@ -42,15 +43,12 @@
         if (locationIdFromStorage) {
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set("location_id", locationIdFromStorage);
-            console.log("Redirecting with stored location_id:", locationIdFromStorage);
             window.location.replace(newUrl.toString());
         } else {
             console.warn("No location_id found in URL or storage.");
         }
     }
 })();
-
-
 
 // ─────────────────────────────────────
 // Main Logic: Run after DOM is ready
@@ -100,7 +98,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // ─────────────────────────────────────
     // Fetch and Render Outlets
     // ─────────────────────────────────────
-    fetch(`/food_flash/api/outlets/?location_id=${locationId}`)
+    fetch(`${base}api/outlets/?location_id=${locationId}`)
         .then(response => response.json())
         .then(data => {
             const outletList = document.getElementById("outlet-list");
@@ -119,7 +117,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 tile.dataset.location = outlet.location || '';
 
                 tile.innerHTML = `
-                    <img src="${outlet.logo || 'food_flash/static/default-logo.png'}" alt="${outlet.name}">
+                    <img src="${outlet.logo}" alt="${outlet.name}">
                     <p class="outlet-name">${outlet.name}</p>
                     <p class="outlet-location">${outlet.location || ''}</p>
                 `;
@@ -151,9 +149,6 @@ document.getElementById("continue-btn").addEventListener("click", function () {
         location: tile.dataset.location,
     }));
 
-    console.log("Selected Outlet Data:", selectedData);
-
     const vendorIds = selectedData.map(outlet => outlet.vendor_id).join(",");
-    window.location.href = `/food_flash/home/?location_id=${locationId}&vendor_id=${vendorIds}`;
+    window.location.href = `${base}home/?location_id=${locationId}&vendor_id=${vendorIds}`;
 });
-

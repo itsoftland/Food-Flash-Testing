@@ -1,3 +1,14 @@
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
 export const AdSliderService = (() => {
 
     /**
@@ -6,7 +17,7 @@ export const AdSliderService = (() => {
      */
     const fetchAds = async (vendorIds) => {
         try {
-            const response = await fetch(`/food_flash/api/get_banners/?vendor_ids=${JSON.stringify(vendorIds)}`, {
+            const response = await fetch(`${apiEndpoints.GET_BANNERS}?vendor_ids=${JSON.stringify(vendorIds)}`, {
                 method: "GET",
             });
 
@@ -57,7 +68,7 @@ export const AdSliderService = (() => {
 
         // Default fallback images
         const defaultAds = [
-            "/food_flash/media/ads/Default/Demo.webp",
+            `${base}media/ads/Default/Demo.webp`,
         ];
 
         // If no ads available, use default ones

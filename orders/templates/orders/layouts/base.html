@@ -67,6 +67,10 @@
     {% endblock %}
     <div id="customToast" class="toast"></div>
     <!-- Core JS -->
+    <script>
+        window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+    </script>
+    <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
     <script type="module" src="{% static 'orders/js/utils.js' %}"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>

@@ -1,5 +1,16 @@
-// static/js/chatHistoryService.js
+// orders/static/js/services/chatHistoryService.js
 import { ChatTemplateService } from "./chatTemplateService.js";
+
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
 
 export const ChatHistoryService = (() => {
     /**
@@ -9,10 +20,9 @@ export const ChatHistoryService = (() => {
      * @returns {Promise<Array>}
      */
     const load = async (vendorId, browserId) => {
-        console.trace("ChatHistoryService.load invoked");
         try {
             const response = await fetch(
-                `/food_flash/api/webchat-messages/?vendor_id=${vendorId}&browser_id=${browserId}`, 
+                `${apiEndpoints.GET_CHAT}?vendor_id=${vendorId}&browser_id=${browserId}`, 
                 {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
@@ -21,14 +31,11 @@ export const ChatHistoryService = (() => {
             if (!response.ok) throw new Error("Failed to fetch chat messages");
 
             const data = await response.json();
-            console.log("ChatHistoryService load data:", data);
 
             if (!data || !Array.isArray(data.messages)) {
                 console.warn("Unexpected response format:", data);
                 return [];
             }
-
-            console.log("ChatHistoryService loaded messages:", data.messages.length);
 
             return data.messages.map(msg => {
                 const rendered = ChatTemplateService.build(msg);
@@ -56,7 +63,7 @@ export const ChatHistoryService = (() => {
      */
     const save = async ({ vendorId, browser_id, sender, type, text, token_no }) => {
         try {
-            const response = await fetch('/food_flash/api/webchat-messages-create/', {
+            const response = await fetch(apiEndpoints.CREATE_CHAT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,7 +90,7 @@ export const ChatHistoryService = (() => {
 
     const markAsRead = async (vendorId) => {
         try {
-            const response = await fetch(`/food_flash/api/mark-messages-read/${vendorId}/`, {
+            const response = await fetch(`${apiEndpoints.READ_CHAT}${vendorId}/`, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': getCSRFToken() }
             });

@@ -11,6 +11,12 @@ import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js
 import { ChatRestoreService } from "./services/chatRestoreService.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
+    
+    let apiEndpoints;
+    const base = window.BASE || '/caller_on/';
+    const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+
     IosPwaInstallService.init();
     AppUtils.initPaddingAdjustmentListeners();
     const notificationModal = new bootstrap.Modal(document.getElementById('notificationModal'), {
@@ -26,8 +32,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const toggleBtn = document.getElementById("toggleArrowBtn");
     const pageWrapper = document.querySelector(".page-wrapper");
     const isOpenedFromPush = urlParams.get('from_push');
-    console.log("isOpenedFromPush",isOpenedFromPush);
-    console.log("parameters in url",tokenFromQR,locationId,vendorFromQR);
 
     let isAdVisible = true;
 
@@ -42,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 3️⃣ Ask for it / show error / redirect
             AppUtils.showToast("No location ID found");
             // Optionally redirect to a location selection page
-            window.location.href = "/food_flash";
+            window.location.href = base;
             throw new Error("Missing location ID");
         }
     }
@@ -56,7 +60,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         AddOutletService.init();
     }
     if (tokenFromQR) {
-        console.log("Token from QR:", tokenFromQR);
         await AppUtils.setToken(tokenFromQR);
     }
     // Initialize the ad slider visibility 
@@ -74,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             pageWrapper.style.borderTop = "none";
             toggleBtn.classList.remove("rotated");
         }
-
         isAdVisible = !isAdVisible;
     });
 
@@ -87,7 +89,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const vendorIdsString = localStorage.getItem("selectedVendors");
     if (vendorIdsString) {
-        console.log(vendorIdsString, "vendoridsstring");
         const vendorIdsArray = JSON.parse(vendorIdsString);
     
         const vendorIds = vendorIdsArray
@@ -97,7 +98,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     const isAndroid = /Android/i.test(navigator.userAgent);
-    console.log("Android device:", isAndroid);    
     // Adjust viewport for mobile devices
     function setDynamicVH() {
         let vh = window.innerHeight * 0.01;
@@ -131,13 +131,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     initNotificationModal(notificationModal);
     // 1. Register the Service Worker at the root scope
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/food_flash/service-worker.js", { scope: '/food_flash/' })
+        navigator.serviceWorker.register(`${base}service-worker.js`, { scope: base })
         .then((registration) => {
-            console.log("Service Worker Registered:", registration);
               if (registration.active) {
                 registration.active.postMessage({
                 type: "SET_BASE_URL",
-                baseUrl: window.location.origin + "/food_flash",
+                baseUrl: window.location.origin + base,
                 });
 
                 registration.active.postMessage({
@@ -155,8 +154,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!navigator.serviceWorker.controller) {
         console.warn("Service worker not controlling page. Deferring message until SW ready.");
     }
-
-    console.log("Notification API supported:", "Notification" in window);
 
     if (navigator.serviceWorker) {
         // update the service worker with the current page URL if needed
@@ -183,7 +180,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         navigator.serviceWorker.addEventListener('message', async (event) => {
             if (event.data && event.data.type === "OPEN_CHAT") {
-                console.log("Received OPEN_CHAT message:", event.data.payload);
                 // Call a function to display or refresh the chat view
                 await showChatWindow(event.data.payload);   
             }
@@ -192,7 +188,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
-                console.log('Received push update via postMessage:', pushData);
                 let selectedVendors = JSON.parse(localStorage.getItem('selectedVendors')) || [];
                 // Check if the vendor is already in the list
                 if (!selectedVendors.includes(pushData.vendor_id)) {
@@ -264,7 +259,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     chatInput.addEventListener("keydown", function(event) {
-        console.log("Key:", event.key, "Value:", chatInput.value, "isReplyMode:", AppUtils.isReplyMode);
         if (AppUtils.isReplyMode) {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -319,14 +313,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     if (tokenFromQR && !isOpenedFromPush) {
-        console.log("Token from QR:", tokenFromQR);
+
         const permissionStatus = localStorage.getItem("permissionStatus");
         const vendorId = localStorage.getItem("activeVendor");
-        console.log("Permission status:", permissionStatus);
 
         const handleToken = async () => {
             try {
-                // Show user message (appendMessage now can safely call API)
                 appendMessage(tokenFromQR, 'user',"", 'chat');
                 // Wait for service worker ready
                 if (!navigator.serviceWorker.controller) {
@@ -334,7 +326,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 // Subscribe for push notifications
                 await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
-                console.log("Push subscription completed");
                 await saveChat(tokenFromQR, 'user', 'chat',tokenFromQR);
             } catch (err) {
                 chatInput.value = tokenFromQR;
@@ -343,32 +334,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         if (permissionStatus === "granted") {
-            console.log("Notification permission already granted");
             AppUtils.getNotificationHelpPath();
             await handleToken();
             const check_status = await fetchOrderStatusOnce(tokenFromQR);
-            console.log("Order status:", check_status);
         } else {
-            console.log("else part");
             // ⚠️ Defer logic until permission granted
             PermissionService.setDeferredCallback(async () => {
-                console.log("Deferred callback executed after permission granted");
                 await handleToken();
                 AppUtils.getNotificationHelpPath();
                 // Fetch order status
                 const check_status = await fetchOrderStatusOnce(tokenFromQR);
-                console.log("Order status:", check_status);
             });
         }
     } else {
-        console.log ("No token, just show chat window");
         await showChatWindow({});
         AppUtils.playWelcomeMessage();
     }
 
     // Send button logic
     sendButton.addEventListener('click', async function () {
-        console.log("button clicked")
         const message = chatInput.value.trim();
         if (message === '') return;
 
@@ -413,7 +397,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (replyText) payload.reply_text = replyText;
 
         try {
-            const resp = await fetch('/food_flash/check-status/', {
+            const resp = await fetch(apiEndpoints.CHECK_STATUS, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -466,7 +450,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function showChatWindow(data) {
-        console.log("showChatWindow called with data:", data);
         const chatContainer = document.getElementById('chat-container');
         const chatInput = document.getElementById('chat-input'); 
 
@@ -477,8 +460,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!browser_id) {
             console.warn("No browser ID, skipping restore wait.");
         }else {
-            console.log("Browser ID found:", browser_id);
-            console.log("Waiting for chat restore to complete...");
             await ChatRestoreService.restore(vendorId);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }

@@ -1,5 +1,4 @@
 // notificationService.js
-console.log("notification Service");
 import { updateChatOnPush } from './chatService.js';
 
 let notificationsEnabled = true;
@@ -10,7 +9,6 @@ let notificationModal = null;
 let clearTimers = {};  // Store timers to clear token after 1 hour
 
 function initNotificationModal(modalInstance) {
-    console.log("notificationInit Service");
     notificationModal = modalInstance;
 
     document.getElementById('ok-notification').addEventListener('click',async () => {
@@ -50,7 +48,6 @@ function initNotificationModal(modalInstance) {
     });
 
     for (const [token, state] of Object.entries(orderStates)) {
-        console.log("recall");
         if (!state.acknowledged && state.snoozedAt && state.snoozeDuration) {
             const now = Date.now();
             const elapsed = now - state.snoozedAt;
@@ -91,7 +88,6 @@ function showNotificationModal(pushData, source) {
 
     // If it's user-initiated and already acknowledged, skip
     if (!isPush && orderStates[token].acknowledged) {
-        console.log(`Token ${token} already acknowledged. Skipping user modal.`);
         return;
     }
 

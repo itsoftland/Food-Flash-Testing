@@ -70,9 +70,7 @@ export const VendorUIService = {
                 AppUtils.setSelectedOutletName(vendor.alias_name);
                 localStorage.setItem("activeVendorLogo", vendor.logo_url);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
-                console.log("current browser id:",browser_id);
                 if (browser_id) {
-                    console.log("Restoring chat for vendor:",vendor.vendor_id);
                     ChatRestoreService.restore(vendor.vendor_id);
                 } else {
                     console.warn("No browser ID, skipping restore.");
@@ -105,12 +103,10 @@ export const VendorUIService = {
         // ✅ Only now wait for restore
         if (restorePromise) {
             browser_id = AppUtils.getCurrentBrowserId();
-            console.log("current browser id:",browser_id);
             if (!browser_id) {
                 console.warn("No browser ID, skipping restore wait.");
                 return;
             }
-            console.log("Waiting for chat restore to complete...");
             restorePromise;
         }
     },
