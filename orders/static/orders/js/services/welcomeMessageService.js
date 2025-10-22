@@ -23,7 +23,7 @@ export const WelcomeMessageService = {
             messageRow.classList.add("message-row", "server");
 
             const logoImg = document.createElement("img");
-            logoImg.src = localStorage.getItem("activeVendorLogo") || "/food_flash/static/images/default-logo.png";
+            logoImg.src = localStorage.getItem("activeVendorLogo");
             logoImg.alt = "Vendor Logo";
             logoImg.className = "server-logo";
 

@@ -4,6 +4,17 @@ import { ChatRestoreService } from "./chatRestoreService.js";
 import { handleOutletSelection } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
 export const VendorUIService = {
     async init(vendorIds) {
         if (!vendorIds.length) return;
@@ -30,7 +41,7 @@ export const VendorUIService = {
 
     async loadVendorLogos(vendorIds) {
         try {
-            const response = await fetch("/food_flash/api/get_vendor_logos/", {
+            const response = await fetch(apiEndpoints.VENDOR_LOGOS, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

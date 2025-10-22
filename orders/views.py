@@ -434,7 +434,8 @@ def outlet_dashboard(request):
 
 def logout_view(request):
     logout(request)
-    return redirect('/food_flash/login')
+    start_url = getattr(settings,"PROJECT_NAME","caller_on")
+    return redirect('/'+start_url+'/login')
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

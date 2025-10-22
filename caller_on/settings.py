@@ -301,7 +301,7 @@ USE_I18N = True
 USE_TZ = True
 
 # === STATIC & MEDIA FILES ===
-STATIC_URL = '/food_flash/static/'
+STATIC_URL = "/"+PROJECT_NAME +'/static/'
 # To support project-level static
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),  # Project-level static folder
@@ -309,9 +309,9 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
 
-MEDIA_URL = '/food_flash/media/'
+MEDIA_URL = "/"+PROJECT_NAME +'/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-LOGIN_URL = '/food_flash/login/'
+LOGIN_URL = "/"+PROJECT_NAME +'/login/'
 
 
 # === DEFAULT PRIMARY KEY FIELD TYPE ===

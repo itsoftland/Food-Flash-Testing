@@ -69,8 +69,9 @@ def create_order_by_manager(request):
                 vendor.id, vendor.name, request.user.username)
 
     # Dynamically build tracking URL
+    start_url = getattr(settings, "PROJECT_NAME", "calleron")
     base_url = request.build_absolute_uri('/')
-    tracking_url = f"{base_url}food_flash/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&token_no={token_no}"
+    tracking_url = f"{base_url}{start_url}/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&token_no={token_no}"
     logger.debug("[create_order_by_manager] Tracking URL generated | url=%s", tracking_url)
 
     # === Step 3: Check if order already exists for today ===

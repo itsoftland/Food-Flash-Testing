@@ -1,5 +1,17 @@
 import { appendMessage } from "./chatService.js";
 
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
+
 export const PushSubscriptionService = (() => {
     const VAPID_PUBLIC_KEY = "BAv_HFvgMBKxx3Jnse3fLMjzUEn3n3zS76GwEGQ_oOPR_40U1e7O4AiezuOReRTK4ULx2EaGC9kGAz-lzV791Tw".trim();
 
@@ -69,7 +81,7 @@ export const PushSubscriptionService = (() => {
                 vendor_id: vendor_id
             };
 
-            const response = await fetch('/food_flash/vendors/api/save-subscription/', {
+            const response = await fetch(apiEndpoints.SAVE_SUBSCRIPTION, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -58,7 +58,10 @@ export const API_ENDPOINTS = {
   GET_CHAT :`${BASE}api/webchat-messages/`,
   CREATE_CHAT : `${BASE}api/webchat-messages-create/`,
   READ_CHAT : `${BASE}api/mark-messages-read/`,
-  FEEDBACK : `${BASE}api/submit_feedback/`
+  FEEDBACK : `${BASE}api/submit_feedback/`,
+  MENU : `${BASE}/api/menus/`,
+  SAVE_SUBSCRIPTION : `${BASE}vendors/api/save-subscription/`,
+  VENDOR_LOGOS : `${BASE}api/get_vendor_logos/`
 };
 
 // =======================

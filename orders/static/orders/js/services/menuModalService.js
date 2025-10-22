@@ -1,3 +1,14 @@
+const base = AppUtils.getStartUrl();
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+let apiEndpoints;
+
+try {
+    const endpointsModule = await import(apiModulePath);
+    apiEndpoints = endpointsModule.API_ENDPOINTS;
+} catch (error) {
+    console.error("Failed to import apiEndpoints:", error);
+}
+
 export const MenuModalService = (() => {
     const menuContent = document.getElementById("menuContent");
 
@@ -6,7 +17,7 @@ export const MenuModalService = (() => {
                 menuContent.innerHTML = `
                     <div class="text-center">
                         <p class="text-warning">No menu available. Showing default menu.</p>
-                        <img src="/food_flash/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
+                        <img src="${base}static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
                     </div>
                 `;
                 return;
@@ -26,7 +37,7 @@ export const MenuModalService = (() => {
 
         if (imageFiles.length === 1 && pdfFiles.length === 0) {
             menuContent.innerHTML = `
-                <img src="${imageFiles[0]}" alt="Menu" class="img-fluid" onerror="this.src='/food_flash/static/orders/files/menu.jpg'">
+                <img src="${imageFiles[0]}" alt="Menu" class="img-fluid" onerror="this.src='${base}static/orders/files/menu.jpg'">
             `;
             return;
         }
@@ -70,7 +81,7 @@ export const MenuModalService = (() => {
         menuContent.innerHTML = `
                     <div class="text-center">
                         <p class="text-warning">No menu available. Showing default menu.</p>
-                        <img src="/food_flash/static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
+                        <img src="${base}static/orders/files/menu.jpg" alt="Default Menu" class="img-fluid rounded shadow" style="max-height: 500px;">
                     </div>
                 `;
                 return;
@@ -115,7 +126,7 @@ export const MenuModalService = (() => {
                         return;
                     }
 
-                    fetch(`/food_flash/api/menus/`, {
+                    fetch(apiEndpoints.MENU, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
