@@ -1,4 +1,16 @@
-document.addEventListener("DOMContentLoaded", () => {
+// companyadmin/static/companyadmin/js/updateOrder.js
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Validate BASE exists
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
   const form = document.getElementById("update-order-form");
   const statusBox = document.getElementById("update-status");
 
@@ -19,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     try {
-      const res = await fetch("/food_flash/vendors/api/update-order/", {
+      const res = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_ORDER, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

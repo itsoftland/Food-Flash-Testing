@@ -1,11 +1,20 @@
-// companyadmin/js/outletList.js
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
+// companyadmin/static/companyadmin/js/outletList.js
+
+document.addEventListener('DOMContentLoaded', async() => {
+  // Validate BASE exists
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  loadOutlets(fetchWithAutoRefresh, API_ENDPOINTS);
+});
 
 // simple HTML-escape helper
 const esc = s => (s === 0 || s) ? String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]) : '';
-
-// endpoint (literal to avoid depending on API_ENDPOINTS)
-const OUTLETS_API = '/food_flash/companyadmin/api/outlets/';
 
 // create a single table-row HTML for an outlet object
 function outletRowHtml(o) {
@@ -25,7 +34,7 @@ function outletRowHtml(o) {
   `;
 }
 
-async function loadOutlets() {
+async function loadOutlets(fetchWithAutoRefresh, API_ENDPOINTS) {
   const tbody = document.getElementById('outlet-table-body');
   if (!tbody) return console.error('Outlet table body not found: #outlet-table-body');
 
@@ -33,7 +42,7 @@ async function loadOutlets() {
   tbody.innerHTML = `<tr><td colspan="4" class="text-center p-3">Loading outlets…</td></tr>`;
 
   try {
-    const resp = await fetchWithAutoRefresh(OUTLETS_API, { method: 'GET', credentials: 'include' });
+    const resp = await fetchWithAutoRefresh(API_ENDPOINTS.COMPANY_OUTLETS, { method: 'GET', credentials: 'include' });
     if (!resp.ok) {
       const txt = await resp.text().catch(()=>null);
       throw new Error(`API returned ${resp.status} ${txt ? '- ' + txt.slice(0,200) : ''}`);
@@ -56,6 +65,4 @@ async function loadOutlets() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadOutlets();
-});
+

@@ -1,7 +1,16 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+// companyadmin/static/companyadmin/js/createOutletData.js
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // Validate BASE exists
+    if (!window.BASE) throw new Error('window.BASE is not defined');
+
+    // Import modules once
+    const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+    const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+    const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+    const API_ENDPOINTS = apiModule.API_ENDPOINTS;
 
     const locationSelect = document.getElementById('location');
     const tvSelect = document.getElementById('tv-select');
@@ -45,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!companyId) return;
 
             try {
-                const response = await fetchWithAutoRefresh(`/food_flash/companyadmin/api/get_outlet_creation_data/${companyId}/`);
+                const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.OUTLET_CREATION_DATA}${companyId}/`);
                 if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
                 const data = await response.json();
@@ -89,13 +98,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         searchEnabled: true
                     });
                 }
-
                 // Populate Keypad Devices
                 if (deviceSelect) {
                     if (deviceChoices) {
                         deviceChoices.destroy();
                     }
-
                     deviceSelect.innerHTML = '';
                     keypad_devices.forEach(device => {
                         const option = document.createElement('option');
@@ -103,7 +110,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         option.textContent = device.serial_no;
                         deviceSelect.appendChild(option);
                     });
-
                     deviceChoices = new Choices(deviceSelect, {
                         removeItemButton: true,
                         classNames: {
@@ -114,8 +120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         searchEnabled: true
                     });
                 }
-
-
                 // Populate TV Communication Mode
                 if (tvCommunicationSelect) {
                     tvCommunicationSelect.innerHTML = '<option value="">Select Communication Mode</option>';
@@ -126,7 +130,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         tvCommunicationSelect.appendChild(option);
                     });
                 }
-
                 // ✅ Populate Timezones
                 if (timezoneSelect) {
                     timezoneSelect.innerHTML = '';
@@ -145,7 +148,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         timezoneSelect.value = defaultTimezone;
                     }
                 }
-
             } catch (error) {
                 console.error('Error fetching outlet creation data:', error);
             }

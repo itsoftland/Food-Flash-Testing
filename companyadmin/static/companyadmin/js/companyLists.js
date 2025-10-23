@@ -1,5 +1,122 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+// companyadmin/static/companyadmin/js/companyList.js
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Validate BASE exists
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const tableBody = document.querySelector('#companyTable tbody');
+
+  try {
+    // call once on page load
+    const companies = await loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS);
+    let payload = {}
+
+    // single event delegation for license buttons
+    tableBody.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button.license-btn');
+      if (!btn) return;
+
+      const companyId = btn.dataset.companyId;
+      if (!companyId) return;
+
+      // find company object (from initial fetch)
+      const row = btn.closest('tr');
+      const company = companies.find(c => String(c.id) === String(companyId));
+      if (!company) {
+        alert('Company data not available.');
+        return;
+      }
+
+      // 1) Register product
+      try {
+        const regJson = await registerProduct(company, btn, fetchWithAutoRefresh, API_ENDPOINTS);
+        if (!regJson || regJson.status !== 'Success' || !regJson.CustomerId) {
+          throw new Error('Registration did not return success or CustomerId.');
+        }
+        // console.log('Registration successful:', regJson);
+
+        // 2) Start polling authentication
+        const customerId = regJson.CustomerId;
+
+        const authData = await pollAuthentication(customerId, btn, fetchWithAutoRefresh, API_ENDPOINTS);
+
+        // 3) Update UI to show verified
+        if (authData.Authenticationstatus === 'Your licence is expired. Please contact Admin !!!') {
+          updateCellToVerified(row,"Expired"); // mark as verified anyway
+          payload = JSON.stringify({
+            authentication_status: "Expired",
+            customer_id: customerId
+          });
+        }
+        if (authData.Authenticationstatus === 'Block') {
+          updateCellToVerified(row,"Blocked"); // mark as verified anyway
+          payload = JSON.stringify({
+            authentication_status: "Blocked",
+            customer_id: customerId
+          });
+        }
+        if (authData.Authenticationstatus === 'Approve') {
+          updateCellToVerified(row,"Validated");
+          payload = JSON.stringify({
+            authentication_status: authData.Authenticationstatus,
+            product_registration_id: authData.ProductRegistrationId,
+            unique_identifier: authData.UniqueIDentifier,
+            customer_id: authData.CustomerId,
+            product_from_date: authData.ProductFromDate,
+            product_to_date: authData.ProductToDate,
+            total_count: authData.TotalCount,
+            project_code: authData.ProjectCode,
+            web_login_count: authData.WebLoginCount,
+            android_tv_count: authData.AndroidTvCount,
+            android_apk_count: authData.AndroidApkCount,
+            keypad_device_count: authData.KeypadDeviceCount,
+            led_display_count: authData.LedDisplayCount,
+            outlet_count: authData.OutletCount,
+            locations: authData.Locations,
+            displaymode: authData.DisplayMode, 
+          });
+        }
+        // console.log("Payload to update company:", payload);
+        // 4) Update company info in our backend
+        const resp = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_COMPANY, { 
+          method: 'PUT',
+          headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': AppUtils.getCSRFToken()
+            },
+          credentials: 'include',
+          body: payload
+        });
+        const result = await resp.json();
+        if (!resp.ok) {
+            console.error('❌ Update failed:', result);
+            alert('Failed to update company info after authentication.');
+        } else {
+          setTimeout ( async () => {
+            await loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS);
+          }, 3000);
+          // console.log('✅ Company info updated:', result);
+        }
+
+      } catch (err) {
+        console.error('License flow error:', err);
+        alert('License action failed: ' + (err.message || err));
+        restore(btn);
+      }
+    });
+
+  } catch (err) {
+    console.error('Failed to load companies:', err);
+    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
+  }
+});
+
 
 // small helpers
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
@@ -61,7 +178,7 @@ function buildRegistrationPayload(company) {
 }
 
 // POST to product-registration and return parsed JSON
-async function registerProduct(company, btn) {
+async function registerProduct(company, btn,fetchWithAutoRefresh,API_ENDPOINTS) {
   const payload = buildRegistrationPayload(company);
   setProcessing(btn, 'Registering...');
   const resp = await fetchWithAutoRefresh(API_ENDPOINTS.PRODUCT_REGISTRATION, {
@@ -78,7 +195,7 @@ async function registerProduct(company, btn) {
 }
 
 // Poll product-authentication until Authenticationstatus === "Approve" or timeout
-async function pollAuthentication(customerId, btn, timeoutMs = 5 * 60 * 1000, intervalMs = 3000) {
+async function pollAuthentication(customerId, btn,fetchWithAutoRefresh, API_ENDPOINTS, timeoutMs = 5 * 60 * 1000, intervalMs = 3000) {
   const start = Date.now();
   const payload = { CustomerId: customerId };
   setProcessing(btn, 'Waiting for approval...');
@@ -96,7 +213,7 @@ async function pollAuthentication(customerId, btn, timeoutMs = 5 * 60 * 1000, in
     }
 
     const data = await resp.json();
-    console.log('Auth poll response:', data);
+    // console.log('Auth poll response:', data);
 
     // If Authenticationstatus is Approve -> done
     if (data && data.Authenticationstatus === 'Approve') {
@@ -130,7 +247,7 @@ function updateCellToVerified(row,statusText) {
   if (btn) markVerified(btn,statusText);
 }
 
-async function loadCompanyList() {
+async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
   const tableBody = document.querySelector('#companyTable tbody');
   if (!tableBody) throw new Error('Table body element not found: #companyTable tbody');
 
@@ -185,111 +302,4 @@ async function loadCompanyList() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const tableBody = document.querySelector('#companyTable tbody');
-
-  try {
-    // call once on page load
-    const companies = await loadCompanyList();
-    let payload = {}
-
-    // single event delegation for license buttons
-    tableBody.addEventListener('click', async (e) => {
-      const btn = e.target.closest('button.license-btn');
-      if (!btn) return;
-
-      const companyId = btn.dataset.companyId;
-      if (!companyId) return;
-
-      // find company object (from initial fetch)
-      const row = btn.closest('tr');
-      const company = companies.find(c => String(c.id) === String(companyId));
-      if (!company) {
-        alert('Company data not available.');
-        return;
-      }
-
-      // 1) Register product
-      try {
-        const regJson = await registerProduct(company, btn);
-        if (!regJson || regJson.status !== 'Success' || !regJson.CustomerId) {
-          throw new Error('Registration did not return success or CustomerId.');
-        }
-        console.log('Registration successful:', regJson);
-
-        // 2) Start polling authentication
-        const customerId = regJson.CustomerId;
-
-        const authData = await pollAuthentication(customerId, btn);
-
-        // 3) Update UI to show verified
-        if (authData.Authenticationstatus === 'Your licence is expired. Please contact Admin !!!') {
-          updateCellToVerified(row,"Expired"); // mark as verified anyway
-          payload = JSON.stringify({
-            authentication_status: "Expired",
-            customer_id: customerId
-          });
-        }
-        if (authData.Authenticationstatus === 'Block') {
-          updateCellToVerified(row,"Blocked"); // mark as verified anyway
-          payload = JSON.stringify({
-            authentication_status: "Blocked",
-            customer_id: customerId
-          });
-        }
-        if (authData.Authenticationstatus === 'Approve') {
-          updateCellToVerified(row,"Validated");
-          payload = JSON.stringify({
-            authentication_status: authData.Authenticationstatus,
-            product_registration_id: authData.ProductRegistrationId,
-            unique_identifier: authData.UniqueIDentifier,
-            customer_id: authData.CustomerId,
-            product_from_date: authData.ProductFromDate,
-            product_to_date: authData.ProductToDate,
-            total_count: authData.TotalCount,
-            project_code: authData.ProjectCode,
-            web_login_count: authData.WebLoginCount,
-            android_tv_count: authData.AndroidTvCount,
-            android_apk_count: authData.AndroidApkCount,
-            keypad_device_count: authData.KeypadDeviceCount,
-            led_display_count: authData.LedDisplayCount,
-            outlet_count: authData.OutletCount,
-            locations: authData.Locations,
-            displaymode: authData.DisplayMode, 
-          });
-        }
-        console.log("Payload to update company:", payload);
-        // 4) Update company info in our backend
-        const resp = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_COMPANY, { 
-          method: 'PUT',
-          headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': AppUtils.getCSRFToken()
-            },
-          credentials: 'include',
-          body: payload
-        });
-        const result = await resp.json();
-        if (!resp.ok) {
-            console.error('❌ Update failed:', result);
-            alert('Failed to update company info after authentication.');
-        } else {
-          setTimeout ( async () => {
-            await loadCompanyList();
-          }, 3000);
-            console.log('✅ Company info updated:', result);
-        }
-
-      } catch (err) {
-        console.error('License flow error:', err);
-        alert('License action failed: ' + (err.message || err));
-        restore(btn);
-      }
-    });
-
-  } catch (err) {
-    console.error('Failed to load companies:', err);
-    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
-  }
-});
 // Exported reusable loader

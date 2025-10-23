@@ -1,5 +1,16 @@
-document.addEventListener("DOMContentLoaded", function () {
-    console.log("company_registration.js loaded");
+// companyadmin/static/companyadmin/js/company_registration.js
+
+document.addEventListener("DOMContentLoaded", async function () {
+    // Validate BASE exists
+    if (!window.BASE) throw new Error('window.BASE is not defined');
+
+    // Import modules once
+    const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+    const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+    const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+    const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+    const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
 
     const form = document.getElementById("companyForm");
     if (!form) {
@@ -7,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
         const payload = {
@@ -29,42 +40,46 @@ document.addEventListener("DOMContentLoaded", function () {
             Version: "FoodFlash 1.00",
             ProjectName: "FoodFlash 1.00"
         };
-        
-        console.log("Sending payload:", payload);
 
-        fetch('/food_flash/companyadmin/api/register-company/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': AppUtils.getCSRFToken()
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(result => {
-            console.log("Success:", result);
+        try {
+            const response = await fetchWithAutoRefresh(API_ENDPOINTS.REGISTER_COMPANY, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': AppUtils.getCSRFToken()
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+
             if (result.status === "success") {
-                alert("Company registered successfully!");
-                window.location.href = '/food_flash/companyadmin/dashboard/';
+                window.location.href = WEB_ENDPOINTS.COMPANY_LIST;
             } else {
-                alert("Error: " + (result.message || "Unknown error occurred"));
+                console.warn("Error: " + (result.message || "Unknown error occurred"));
             }
-        });
+        } catch (err) {
+            console.error("Request failed:", err);
+        }
     });
 });
-                                                   
 
-document.getElementById('togglePassword').addEventListener('click', function () {
-    const passwordInput = document.getElementById('CustomerPassword');
-    const toggleIcon = document.getElementById('toggleIcon');
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
-    } else {
-        passwordInput.type = 'password';
-        toggleIcon.classList.remove('fa-eye');
-        toggleIcon.classList.add('fa-eye-slash');
-    }
-});
+// Toggle password visibility
+const toggleBtn = document.getElementById('togglePassword');
+if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+        const passwordInput = document.getElementById('CustomerPassword');
+        const toggleIcon = document.getElementById('toggleIcon');
+
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        }
+    });
+}
