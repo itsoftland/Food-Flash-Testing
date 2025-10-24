@@ -1,3 +1,4 @@
+
 export const MenuFileManagerService = (() => {
     const fileListContainer = document.getElementById("menu-files-container"); 
     const menuContent = document.getElementById("menuContent");
@@ -5,8 +6,9 @@ export const MenuFileManagerService = (() => {
     let modalInstance = null;
 
     let currentFiles = [];
+    let BASE = null;
 
-    const renderFileList = () => {
+    const renderFileList = (BASE) => {
         fileListContainer.innerHTML = "";
 
         if (currentFiles.length === 0) {
@@ -26,7 +28,7 @@ export const MenuFileManagerService = (() => {
             // Use a custom class "file-label" instead of inline styles.
             label.className = "fw-medium px-2 py-1 rounded file-label";
 
-            label.addEventListener("click", () => openPreviewModal(url));
+            label.addEventListener("click", () => openPreviewModal(url,BASE));
 
             const removeBtn = document.createElement("button");
             removeBtn.innerHTML = "&times;";
@@ -45,13 +47,13 @@ export const MenuFileManagerService = (() => {
         });
     };
 
-    const openPreviewModal = (url) => {
+    const openPreviewModal = (url,BASE) => {
         menuContent.innerHTML = "";
 
         if (url.endsWith(".pdf")) {
             menuContent.innerHTML = `<iframe src="${url}" width="100%" height="500px" frameborder="0"></iframe>`;
         } else {
-            menuContent.innerHTML = `<img src="${url}" class="img-fluid rounded" alt="Menu Preview" onerror="this.src='/food_flash/static/orders/files/menu.jpg'">`;
+            menuContent.innerHTML = `<img src="${url}" class="img-fluid rounded" alt="Menu Preview" onerror="this.src='${BASE}static/orders/files/menu.jpg'">`;
         }
 
         if (!modalInstance) {
@@ -64,9 +66,10 @@ export const MenuFileManagerService = (() => {
         modalInstance.show();
     };
 
-    const setFiles = (fileUrls) => {
+    const setFiles = (fileUrls,BASE) => {
         currentFiles = [...fileUrls];
-        renderFileList();
+        BASE = BASE
+        renderFileList(BASE);
     };
 
     const getFiles = () => currentFiles;

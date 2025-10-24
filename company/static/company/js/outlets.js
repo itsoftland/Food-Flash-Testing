@@ -1,9 +1,16 @@
-// Import a utility function that automatically refreshes auth tokens if needed before fetching
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-
 // Wait for the DOM to fully load before running any script logic
 document.addEventListener('DOMContentLoaded', async () => {
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+
 
   // Reference to the HTML container where vendor cards will be inserted
   const vendorListContainer = document.getElementById('vendor-list');

@@ -1,23 +1,17 @@
+import { ConfirmModalService } from './services/confirmModalService.js';
+
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!window.BASE) {
-    console.error("window.BASE is not defined — make sure PROJECT_NAME is set in base.html");
-    return;
-  }
+  // Validate BASE exists
+  if (!window.BASE) throw new Error('window.BASE is not defined');
 
-  let fetchWithAutoRefresh, API_ENDPOINTS, ModalService, ConfirmModalService;
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
 
-  try {
-    const modules = await Promise.all([
-      import(`${window.BASE}static/utils/js/services/authFetchService.js`),
-      import(`${window.BASE}static/utils/js/apiEndpoints.js`),
-      import(`${window.BASE}static/utils/js/services/modalService.js`),
-      import(`${window.BASE}static/utils/js/services/confirmModalService.js`),
-    ]);
-    [{ fetchWithAutoRefresh }, { API_ENDPOINTS }, { ModalService }, { ConfirmModalService }] = modules;
-  } catch (err) {
-    console.error("❌ Failed to dynamically import modules:", err);
-    return;
-  }
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const ModalService = modalModule.ModalService;
 
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();

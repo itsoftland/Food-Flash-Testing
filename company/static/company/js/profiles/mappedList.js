@@ -1,15 +1,25 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from '../services/confirmModalService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadAssignedProfiles();
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+  const ModalService = modalModule.ModalService;
+
+  await loadAssignedProfiles(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
 });
 
 // =================== INIT HELPERS ===================
 
-async function loadAssignedProfiles() {
+async function loadAssignedProfiles(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
     const accordion = document.getElementById('outletAccordion');
     accordion.innerHTML = `<p class="text-muted text-center">Loading...</p>`;
 
@@ -89,9 +99,9 @@ async function loadAssignedProfiles() {
         } catch (err) {
         accordion.innerHTML = `<p class="text-danger text-center">Error loading data.</p>`;
         }
-        await attachActionListeners();
+        await attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
     }
-async function attachActionListeners() {
+async function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
     document.querySelectorAll('.remove-icon').forEach(icon => {
         icon.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -99,7 +109,7 @@ async function attachActionListeners() {
         if (!confirmed) return;
         const vendorId = icon.dataset.vendor;
         const profileId = icon.dataset.profile;
-        await unmapProfile(vendorId, profileId);
+        await unmapProfile(vendorId, profileId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
         });
     });
     document.querySelectorAll('.assign-profile').forEach(button => {
@@ -107,12 +117,12 @@ async function attachActionListeners() {
             e.stopPropagation();
             const vendorId = button.dataset.vendor;
             console.log(vendorId);
-            await openAssignModal(vendorId);
+            await openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
         });
     });
     }
 
-async function unmapProfile(vendorId, profileId) {
+async function unmapProfile(vendorId, profileId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
     try {
         const res = await fetchWithAutoRefresh(
         `${API_ENDPOINTS.UNMAP_PROFILE}${vendorId}/${profileId}/`,
@@ -121,7 +131,7 @@ async function unmapProfile(vendorId, profileId) {
 
         if (res.ok) {
         ModalService.showSuccess("Profile unmapped successfully", async () => {
-            await loadAssignedProfiles();
+            await loadAssignedProfiles(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
         });
         } else {
         const data = await res.json();
@@ -132,7 +142,7 @@ async function unmapProfile(vendorId, profileId) {
     }
 }
 
-async function openAssignModal(vendorId) {
+async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
   const modalBodyHTML = `
     <form id="assign-profile-form" class="px-4 py-3 mx-auto" style="max-width: 900px;">
       <h4 class="text-center mb-4">Map Profiles to Outlets</h4>
@@ -253,7 +263,7 @@ async function openAssignModal(vendorId) {
           // Show error modal, then reopen Assign modal
           setTimeout(() => {
             ModalService.showError(msg, () => {
-              openAssignModal(vendorId);
+              openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
             });
           }, 300);
         }
@@ -265,7 +275,7 @@ async function openAssignModal(vendorId) {
 
         setTimeout(() => {
           ModalService.showError("Unexpected error occurred during assignment.", () => {
-            openAssignModal(vendorId);
+            openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
           });
         }, 300);
       }

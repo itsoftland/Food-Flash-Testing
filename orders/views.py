@@ -484,46 +484,6 @@ def update_admin_outlet(request):
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# @api_view(['GET'])
-# @permission_classes([AllowAny])
-# def get_banners(request):
-#     vendor_ids_param = request.GET.get('vendor_ids')
-#     if not vendor_ids_param:
-#         return Response({"error": "vendor_ids is required"}, status=400)
-
-#     try:
-#         vendor_ids = json.loads(vendor_ids_param)
-#         if not isinstance(vendor_ids, list) or not all(isinstance(v, int) for v in vendor_ids):
-#             raise ValueError
-#     except ValueError:
-#         return Response({
-#             "error": "Invalid vendor_ids format. Use JSON list of integers, e.g., [101,104]"}, status=400)
-
-#     vendors = Vendor.objects.filter(vendor_id__in=vendor_ids)
-#     result = []
-
-#     for vendor in vendors:
-#         assignments = AdvertisementProfileAssignment.objects.filter(
-#             vendor=vendor).select_related('profile')
-
-#         active_profiles = [
-#             a.profile for a in assignments
-#             if a.profile.is_active_today()
-#         ]
-#         active_profiles.sort(key=lambda p: p.priority)
-
-#         ads = []
-#         for profile in active_profiles:
-#             ads.extend([request.build_absolute_uri(img.image.url) for img in profile.images.all()])
-
-#         result.append({
-#             "vendor_id": vendor.vendor_id,
-#             "ads": ads,
-#             "name": vendor.name
-#         })
-
-#     return Response(result)
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_banners(request):
@@ -653,3 +613,31 @@ def mark_webchat_messages_read(request, vendor_id):
             "status": "error",
             "message": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+    
+from django.http import JsonResponse
+from django.conf import settings
+
+def manifest(request):
+    base_path = getattr(settings, "PROJECT_NAME", "calleron")
+    display_name = getattr(settings, "PROJECT_DISPLAY_NAME", "calleron")
+    data = {
+        "name": display_name,
+        "short_name": display_name,
+        "start_url": f"/{base_path}/?standalone=true",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#ffffff",
+        "icons": [
+            {
+                "src": f"/{base_path}/static/orders/images/food-flash-icon.webp",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": f"/{base_path}/static/orders/images/food-flash-icon.webp",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    }
+    return JsonResponse(data)

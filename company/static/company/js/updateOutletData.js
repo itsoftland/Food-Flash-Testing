@@ -1,11 +1,21 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { MenuFileManagerService } from './services/menuService.js';
 import { OutletUpdateService } from './services/updateOutletService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
-import { API_ENDPOINTS, WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+  const labelModule = await import(`${window.BASE}static/utils/js/formFieldLabelService.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+  const ModalService = modalModule.ModalService;
+  const getFriendlyFieldLabels = labelModule.default;
+
   const urlParams = new URLSearchParams(window.location.search);
   const vendorId = urlParams.get('vendor_id');
 
@@ -38,8 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Prefill auto-delete hours from vendor config
   if (autoDeleteSelect) {
     const autoDeleteValue = vendorData?.vendor_config?.auto_delete_hours;
-    autoDeleteSelect.value = autoDeleteValue != null ? String(autoDeleteValue) : '';
-    console.log('Prefilled auto-delete value:', autoDeleteSelect.value);
+    autoDeleteSelect.value = autoDeleteValue != null ? String(autoDeleteValue) : 0;
   }
 
   // 2️⃣ Prefill text inputs
@@ -79,10 +88,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const img = document.querySelector('#logo + p img');
     if (img) img.src = vendorData.logo_url;
   }
-
+  console.log(vendorData.menu_files)
   // 6️⃣ Initialize menu files if available
   if (Array.isArray(vendorData.menu_files) && vendorData.menu_files.length > 0) {
-    MenuFileManagerService.init(vendorData.menu_files);
+    MenuFileManagerService.init(vendorData.menu_files,window.BASE);
   }
 
   // 7️⃣ Handle form submission
@@ -97,7 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const logoFile = logoInput?.files?.[0] || null;
     const menuFiles = Array.from(menuFilesInput?.files || []);
     const rawAutoDelete = autoDeleteSelect.value;
-    const autoDeleteHours = rawAutoDelete === '' ? null : parseInt(rawAutoDelete, 10);
+    const autoDeleteHours = parseInt(rawAutoDelete, 10);
     console.log("Raw Auto Delete ",rawAutoDelete)
     console.log('Auto-delete hours to submit:', autoDeleteHours);
 
@@ -118,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      const result = await OutletUpdateService.updateOutlet(formData);
+      const result = await OutletUpdateService.updateOutlet(formData,fetchWithAutoRefresh,API_ENDPOINTS);
       if (result.success) {
         ModalService.showSuccess("Outlet Updated Successfully", () => {
           outletForm.reset();

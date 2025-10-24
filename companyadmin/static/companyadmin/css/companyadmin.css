@@ -116,4 +116,62 @@
   text-decoration: none;
 }
 
+/* ===== Sidebar Logo Switch (Expanded ↔ Collapsed) ===== */
+
+/* Default: show full logo */
+.brand-link .logo-lg {
+  display: inline-block;
+  width: 200px;
+  height: auto;
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.brand-link .logo-sm {
+  display: none;
+  width: 42px;
+  height: 42px;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Collapsed state: show small logo, hide large logo */
+.sidebar-collapse .brand-link .logo-lg {
+  display: none !important;
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.sidebar-collapse .brand-link .logo-sm {
+  display: inline-block !important;
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 🟡 When sidebar is hovered open (AdminLTE auto adds .sidebar-open or :hover on .main-sidebar) */
+.sidebar-collapse.sidebar-open .brand-link .logo-lg,
+.sidebar-collapse .main-sidebar:hover .brand-link .logo-lg {
+  display: inline-block !important;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sidebar-collapse.sidebar-open .brand-link .logo-sm,
+.sidebar-collapse .main-sidebar:hover .brand-link .logo-sm {
+  display: none !important;
+  opacity: 0;
+}
+
+/* Center alignment and smooth transition */
+.brand-link.text-center {
+  text-align: center;
+  padding: 1rem 0.5rem;
+}
+
+.brand-link .brand-image {
+  object-fit: contain;
+  vertical-align: middle;
+  transition: all 0.3s ease-in-out;
+}
+
 

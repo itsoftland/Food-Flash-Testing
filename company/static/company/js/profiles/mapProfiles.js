@@ -1,9 +1,18 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { API_ENDPOINTS,WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
-  await initAssignProfileForm();
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+  const ModalService = modalModule.ModalService;
+
+  await initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
   $(function () {
   $('[data-toggle="tooltip"]').tooltip();
   });
@@ -11,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // =================== ASSIGN PROFILE ===================
 
-async function initAssignProfileForm() {
+async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
   try {
     // Fetch Ad Profiles
     const profilesRes = await fetchWithAutoRefresh(API_ENDPOINTS.GET_AD_PROFILES);

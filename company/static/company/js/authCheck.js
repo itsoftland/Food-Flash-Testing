@@ -1,7 +1,15 @@
-import { callProductAuthAPI } from '/food_flash/static/utils/js/services/productAuthService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-
 document.addEventListener('DOMContentLoaded', async function () {
+    if (!window.BASE) throw new Error('window.BASE is not defined');
+
+    // Import modules once
+    const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+    const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+    const productAuthModule = await import(`${window.BASE}static/utils/js/services/productAuthService.js`);
+
+    const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+    const ModalService = modalModule.ModalService;
+    const callProductAuthAPI = productAuthModule.callProductAuthAPI;
+
     const displayElement = document.getElementById('customer_info');
     const customerIdRaw = AppUtils.getCustomerId();
     const customerName = AppUtils.getCustomerName();
@@ -19,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.warn('License expired or invalid. Redirecting to login.');
         ModalService.showError(
             "Your license has expired. Please click OK to return to login.",
-            () => { window.location.href = '/food_flash/login/'; }
+            () => { window.location.href = WEB_ENDPOINTS.LOGIN; }
         );
         return;
     }

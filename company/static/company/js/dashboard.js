@@ -1,14 +1,20 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+
   const currentPath = window.location.pathname;
 
   // Show welcome only on dashboard
-  if (currentPath.includes('/dashboard') || currentPath.endsWith('/company/')) {
+  if (currentPath.includes('/dashboard')) {
     setupOutletGreeting();
   }
-  await getDashboardMetrics();
+  await getDashboardMetrics(fetchWithAutoRefresh,API_ENDPOINTS);
 });
 
 function setupOutletGreeting() {
@@ -16,7 +22,7 @@ function setupOutletGreeting() {
   const outletName = localStorage.getItem('customer_name') || 'Admin';
   welcomeInfoContainer.innerHTML = `<span class="text-golden fw-bold">Welcome, ${outletName}</span>`;
 }
-async function getDashboardMetrics() {
+async function getDashboardMetrics(fetchWithAutoRefresh,API_ENDPOINTS) {
   const metricsContainer = document.getElementById("dashboard-metrics");
 
   try {

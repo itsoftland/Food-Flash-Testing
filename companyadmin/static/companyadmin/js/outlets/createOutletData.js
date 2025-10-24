@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!companyId) return;
 
             try {
-                const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.OUTLET_CREATION_DATA}${companyId}/`);
+                const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.COMPANYADMIN_OUTLET_CREATION_DATA}${companyId}/`);
                 if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
                 const data = await response.json();

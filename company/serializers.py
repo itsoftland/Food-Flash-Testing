@@ -11,6 +11,8 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 import json
 import datetime
+from django.conf import settings
+start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -74,7 +76,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
             if request:
                 for path in menu_list:
                     if not path.startswith("http"):
-                        url = request.build_absolute_uri(f"/media/{path}")
+                        url = request.build_absolute_uri(f"/{start_url}/media/{path}")
                         full_menu_urls.append(url.replace("http://", "https://"))
                     else:
                         full_menu_urls.append(path)
@@ -164,7 +166,7 @@ class VendorUpdateSerializer(serializers.Serializer):
     location = serializers.CharField(required=False, allow_blank=True)
     place_id = serializers.CharField(required=False, allow_blank=True)
     location_id = serializers.CharField(required=False, allow_blank=True)
-    auto_delete_hours = serializers.IntegerField(required=False, allow_null=True, min_value=2)
+    auto_delete_hours = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_vendor_id(self, value):
         if not Vendor.objects.filter(vendor_id=value).exists():

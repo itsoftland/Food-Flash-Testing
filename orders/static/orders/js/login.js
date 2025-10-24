@@ -6,6 +6,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const base = window.BASE || '/caller_on/';
 
+        // ✅ Directly set background on <body>
+        const body = document.querySelector("body.login-page");
+        if (body) {
+            body.style.backgroundImage = `url("${base}static/utils/Images/foodflash-login-bg.webp")`;
+            body.style.backgroundRepeat = "no-repeat";
+            body.style.backgroundPosition = "center center";
+            body.style.backgroundAttachment = "fixed";
+            body.style.backgroundSize = "cover";
+            body.style.backgroundColor = "#f9f4ed";
+        }
+
         // Dynamically import modules
         const productAuthModule = await import(`${base}static/utils/js/services/productAuthService.js`);
         const modalServiceModule = await import(`${base}static/utils/js/services/modalService.js`);

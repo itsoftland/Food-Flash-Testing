@@ -1,9 +1,18 @@
-import getFriendlyFieldLabels from '/food_flash/static/utils/js/formFieldLabelService.js';
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
+document.addEventListener('DOMContentLoaded', async function () {
+    if (!window.BASE) throw new Error('window.BASE is not defined');
 
-document.addEventListener('DOMContentLoaded', function () {
+    // Import modules once
+    const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+    const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+    const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+    const labelModule = await import(`${window.BASE}static/utils/js/formFieldLabelService.js`);
+  
+    const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+    const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+    const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS
+    const ModalService = modalModule.ModalService;
+    const getFriendlyFieldLabels = labelModule.default;
+
     const form = document.getElementById('create-outlet-form');
   
     form.addEventListener('submit', async function (e) {
@@ -66,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
           ModalService.showSuccess("Outlet Created Successfully", () => {
           // Callback on OK button click
           form.reset();
-          window.location.href = "/food_flash/company/outlets/";
+          window.location.href = WEB_ENDPOINTS.OUTLETS;
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);

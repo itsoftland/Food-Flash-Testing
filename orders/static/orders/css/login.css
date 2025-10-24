@@ -1,10 +1,4 @@
 /* orders/static/orders/css/login.css */
-body.login-page {
-  position: relative;
-  background: url("/food_flash/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
-  background-size: cover;
-  background-color: #f9f4ed;
-}
 
 body.login-page::before {
   content: "";
@@ -14,11 +8,8 @@ body.login-page::before {
   width: 100%;
   height: 100%;
   background: inherit;  
-/*   filter: blur(2px);     */
   z-index: -1;          
 }
-
-
 
 .login-logo a {
   color: #fb8b24; 
@@ -97,82 +88,3 @@ body.login-page::before {
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);  
   color: #fff; 
 }
-
-
-/* body.login-page {
-  background: url("/food_flash/static/utils/Images/foodflash-login-bg.webp") no-repeat center center fixed;
-  background-size: cover;
-  background-color: #f9f4ed;
-}
-
-.login-logo a {
-  color: #fb8b24; 
-  font-weight: 600;
-  font-size: 1.8rem;
-}
-
-.login-logo img {
-  max-height: 200px;
-  display: inline-block;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-}
-
-.login-card-body {
-  background: transparent; 
-  padding: 2rem;
-}
-
-.form-control {
-  border-radius: 0.5rem;
-  border: 1px solid #e6b97e;      
-  background-color: #fff5e6;           
-  color: #5a4a3c;                      
-  box-shadow: none;
-  border:none;
-}
-
-.input-group-text span{
-  color: #f0a934;
-  border:none;
-}
-
-.btn-primary {
-  background-color: #f0a934;
-  border-color: #f0a934;
-  border-radius: 0.5rem;
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #2a2c41;
-}
-
-.btn-primary:hover {
-  background-color: #fb8b24;
-  border-color: #fb8b24;
-  color: #2a2c41;
-}
-
-.icheck-primary input[type="checkbox"] + label::before {
-  border-radius: 0.25rem;
-  border-color: #fb8b24;
-}
-
-.icheck-primary input[type="checkbox"]:checked + label::before {
-  background-color: #fb8b24;
-  border-color: #fb8b24;
-}
-
-.login-box-msg {
-  font-size: 1.05rem;
-  color: #444;
-  margin-bottom: 1.5rem;
-} */
-

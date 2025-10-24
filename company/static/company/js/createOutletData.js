@@ -1,6 +1,15 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+ 
+  
 
   const locationSelect = document.getElementById('location');
   const tvSelect = document.getElementById('tv-select');
@@ -9,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const businnessHour = document.getElementById('business_day_start_hour');
 
   try {
-    const response = await fetchWithAutoRefresh(`/food_flash/company/api/get_outlet_creation_data/`);
+    const response = await fetchWithAutoRefresh(API_ENDPOINTS.COMPANY_OUTLET_CREATION_DATA);
     if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
     const data = await response.json();

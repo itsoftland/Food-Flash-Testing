@@ -1,9 +1,17 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ConfirmModalService } from '../services/confirmModalService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await fetchAdProfiles();
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+
+  await fetchAdProfiles(fetchWithAutoRefresh,API_ENDPOINTS);
   $(function () {
   $('[data-toggle="tooltip"]').tooltip();
   });
@@ -11,17 +19,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // =================== FETCH PROFILES ===================
 
-async function fetchAdProfiles() {
+async function fetchAdProfiles(fetchWithAutoRefresh,API_ENDPOINTS) {
   try {
     const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_AD_PROFILES);
     const data = await res.json();
     const profiles = data.profiles || data.banners || data.ad_profiles || [];
-    renderAdProfiles(profiles);
+    renderAdProfiles(profiles,fetchWithAutoRefresh,API_ENDPOINTS);
   } catch (err) {
     console.error('Error fetching advertisement profiles:', err);
   }
 }
-function renderAdProfiles(profiles) {
+function renderAdProfiles(profiles,fetchWithAutoRefresh,API_ENDPOINTS) {
   const tbody = document.getElementById("ad-profile-table-body");
   tbody.innerHTML = "";
 
@@ -84,13 +92,13 @@ function renderAdProfiles(profiles) {
     tbody.appendChild(row);
   });
 
-  attachActionListeners();
+  attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS);
 
 }
 
 // =================== ACTIONS ===================
 
-function attachActionListeners() {
+function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS) {
   document.querySelectorAll('.icon-view').forEach(btn => {
     btn.addEventListener('click', () => {
       const images = JSON.parse(btn.dataset.images || '[]');

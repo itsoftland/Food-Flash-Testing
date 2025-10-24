@@ -1,10 +1,15 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-
-// Image Library Service
 export const ImageLibraryService = (() => {
   let selectedImageIds = new Set();
   let imageList = [];
+  let fetchWithAutoRefresh = null;
+  let API_ENDPOINTS = null;
+
+  // Initialize dependencies
+  const init = (fetchFn, endpoints) => {
+    fetchWithAutoRefresh = fetchFn;
+    API_ENDPOINTS = endpoints;
+    bindModalEvents();
+  };
 
   // Fetch images from server
   const fetchImages = async () => {
@@ -22,7 +27,6 @@ export const ImageLibraryService = (() => {
     const grid = document.getElementById('image-library-grid');
     grid.innerHTML = '';
 
-    // CASE 1: No images available
     if (!imageList || imageList.length === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state text-center p-4';
@@ -37,14 +41,12 @@ export const ImageLibraryService = (() => {
       return;
     }
 
-    // CASE 2: Show image grid normally
     imageList.forEach(img => {
       const box = document.createElement('div');
       box.className = 'image-box thumb-container';
       box.dataset.id = img.id;
 
-      // fallback masked image if image URL is missing or broken
-      const imgUrl = img.image_url || '/food_flash/static/assets/img/placeholder-image.png';
+      const imgUrl = img.image_url;
       loadImageWithRetry(imgUrl, box);
 
       if (selectedImageIds.has(img.id)) {
@@ -68,17 +70,12 @@ export const ImageLibraryService = (() => {
   const loadImageWithRetry = (imgUrl, box, maxRetries = 10, interval = 3000) => {
     let attempt = 0;
 
-    const getAlternateUrl = (url) => {
-      // Try swapping extension for .webp version
-      const base = url.replace(/\.[^/.]+$/, ""); // remove extension
-      return `${base}.webp`;
-    };
+    const getAlternateUrl = (url) => url.replace(/\.[^/.]+$/, "") + ".webp";
 
     const tryLoad = () => {
       const testImg = new Image();
 
       testImg.onload = () => {
-        // Image now available
         box.innerHTML = `<img src="${testImg.src}" class="thumb-image rounded fade-in">`;
       };
 
@@ -86,23 +83,18 @@ export const ImageLibraryService = (() => {
         attempt++;
 
         if (attempt < maxRetries) {
-          // Show loading placeholder
           box.innerHTML = `
             <div class="thumb-placeholder d-flex flex-column align-items-center justify-content-center">
               <div class="spinner-border text-warning mb-2" role="status" style="width: 1.5rem; height: 1.5rem;"></div>
               <small class="text-muted">Processing...</small>
             </div>
           `;
-
-          // Retry both original and webp
           const altUrl = getAlternateUrl(imgUrl);
-          const candidateUrl = attempt % 2 === 0 ? imgUrl : altUrl; // alternate each attempt
-
+          const candidateUrl = attempt % 2 === 0 ? imgUrl : altUrl;
           setTimeout(() => {
             testImg.src = `${candidateUrl}?t=${Date.now()}`;
           }, interval);
         } else {
-          // After retries, give up gracefully
           box.innerHTML = `
             <div class="thumb-placeholder d-flex flex-column align-items-center justify-content-center">
               <i class="bi bi-exclamation-triangle text-warning mb-2" style="font-size: 1.2rem;"></i>
@@ -118,9 +110,6 @@ export const ImageLibraryService = (() => {
     tryLoad();
   };
 
-
-
-  // Toggle selection state
   const toggleImageSelection = (id, box) => {
     if (selectedImageIds.has(id)) {
       selectedImageIds.delete(id);
@@ -133,20 +122,17 @@ export const ImageLibraryService = (() => {
     }
   };
 
-  // Sync select-all checkbox
   const updateSelectAllCheckbox = () => {
     const selectAllCheckbox = document.getElementById('select-all-images');
     const allSelected = imageList.length > 0 && imageList.every(img => selectedImageIds.has(img.id));
     selectAllCheckbox.checked = allSelected;
   };
 
-  // Enable/disable confirm button
   const updateConfirmButton = () => {
     const confirmBtn = document.getElementById('confirm-image-selection');
     confirmBtn.disabled = selectedImageIds.size === 0;
   };
 
-  // Handle select-all checkbox change
   const bindModalEvents = () => {
     const selectAll = document.getElementById('select-all-images');
     const confirmBtn = document.getElementById('confirm-image-selection');
@@ -157,7 +143,7 @@ export const ImageLibraryService = (() => {
       } else {
         selectedImageIds.clear();
       }
-      renderLibrary(); // re-render with updated selection
+      renderLibrary();
     });
 
     confirmBtn.addEventListener('click', () => {
@@ -178,7 +164,6 @@ export const ImageLibraryService = (() => {
     });
   };
 
-  // Open the modal
   const open = async (reset = false) => {
     if (reset) selectedImageIds.clear();
     await fetchImages();
@@ -187,7 +172,7 @@ export const ImageLibraryService = (() => {
   };
 
   return {
-    init: bindModalEvents,
+    init,
     open,
     getSelectedImageIds: () => Array.from(selectedImageIds),
     getSelectedImages: () => imageList.filter(img => selectedImageIds.has(img.id))

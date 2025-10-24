@@ -27,4 +27,5 @@ urlpatterns = [
     path('api/webchat-messages/', views.webchat_messages, name='webchat_messages_api'),  # New endpoint for webchat messages
     path('api/webchat-messages-create/', views.webchat_message_create, name='webchat_message_create'),  # New endpoint to create message
     path('api/mark-messages-read/<int:vendor_id>/', views.mark_webchat_messages_read, name='mark_webchat_messages_read'),  # New endpoint to mark messages as read
+    path("manifest.json", views.manifest, name="manifest"),
 ]

@@ -437,7 +437,7 @@ def update_vendor(request):
         
         # Update or create VendorConfig
         auto_delete_val = validated_data.get('auto_delete_hours')
-        if auto_delete_val == '':
+        if auto_delete_val == 0:
             auto_delete_val = None  # handle "Disable Auto Deletion"
 
         config = getattr(vendor, 'config', None)
@@ -660,66 +660,6 @@ def map_user(request, user_id):
 
     return Response({"message": "User mapped to Outlet successfully."}, status=status.HTTP_200_OK)
 
-from .utils.image_utils import convert_to_webp_file
-
-
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# @parser_classes([MultiPartParser])
-# def upload_banner(request):
-#     try:
-#         images = request.FILES.getlist('banner_images[]')
-#         if not images:
-#             return Response({'error': 'No image file provided.'}, status=400)
-
-#         admin_outlet = request.user.admin_outlet
-#         banner_objs = []
-
-#         for img in images:
-#             try:
-#                 webp_file = convert_to_webp_file(img, quality=85, target_kb=None, max_dim=None)
-#             except Exception as e:
-#                 logger.exception(f"Failed to convert {img.name}")
-#                 continue
-
-#             banner = AdvertisementImage(admin_outlet=admin_outlet, image=webp_file)
-#             banner_objs.append(banner)
-
-#         if banner_objs:
-#             AdvertisementImage.objects.bulk_create(banner_objs)
-
-#         return Response({
-#             'message': f'{len(banner_objs)} banner(s) uploaded successfully.'
-#         }, status=status.HTTP_200_OK)
-
-#     except Exception as e:
-#         logger.exception("Error during Banner upload")
-#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# bulk_create
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# @parser_classes([MultiPartParser])
-# def upload_banner(request):
-#     try:
-#         images = request.FILES.getlist('banner_images[]')
-#         if not images:
-#             return Response({'error': 'No image file provided.'}, status=400)
-#         admin_outlet = request.user.admin_outlet
-#         banner_objs = []
-#         for img in images:
-#             banner = AdvertisementImage(admin_outlet=admin_outlet, image=img)
-#             banner_objs.append(banner)
-#         AdvertisementImage.objects.bulk_create(banner_objs)
-#         return Response({
-#                 'message': f'{len(banner_objs)} banner(s) uploaded successfully.',
-#             }, status=status.HTTP_200_OK)
-#     except Exception as e:
-#         logger.exception("Error during Banner upload")
-#         return Response({
-#             'error': str(e)
-#         }, status=status.HTTP_400_BAD_REQUEST)
-
 # save individually
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -748,127 +688,7 @@ def upload_banner(request):
         return Response({
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-
-
-# The following is an advanced version that converts images to WebP and compresses them to ≤50 KB.
-# It is commented out for now but can be used if needed.
-# import os
-# import io
-# import cairosvg
-# from PIL import Image
-# from django.conf import settings
-# from .utils.image_to_webp import resize_if_needed, save_webp_bytes, extract_exif_bytes
-
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# @parser_classes([MultiPartParser])
-# def upload_banner(request):
-#     """
-#     Upload banner images → Convert to WebP (≤50 KB) → Store only converted images in MEDIA_ROOT/ads/.
-#     """
-#     try:
-#         images = request.FILES.getlist('banner_images[]')
-#         if not images:
-#             return Response({'error': 'No image file provided.'}, status=400)
-
-#         admin_outlet = request.user.admin_outlet
-#         banner_objs = []
-#         converted_file_names = []
-
-#         # --- Conversion Settings ---
-#         TARGET_KB = 50
-#         MIN_QUALITY = 20
-#         START_QUALITY = 85
-#         MAX_DIM = 1920
-#         METHOD = 6
-#         LOSSLESS = False
-
-#         for img_file in images:
-#             try:
-#                 # --- Handle SVG separately ---
-#                 if img_file.name.lower().endswith('.svg'):
-#                     png_bytes = cairosvg.svg2png(bytestring=img_file.read())
-#                     img = Image.open(io.BytesIO(png_bytes))
-#                     exif_bytes = None  # SVG has no EXIF
-#                 else:
-#                     img = Image.open(img_file)
-#                     try:
-#                         exif_bytes = extract_exif_bytes(img_file.name, img)
-#                     except Exception:
-#                         exif_bytes = None
-
-#                 # --- Normalize mode (ensure WebP compatible) ---
-#                 if img.mode not in ('RGB', 'RGBA'):
-#                     if 'transparency' in img.info or img.mode == 'P':
-#                         img = img.convert('RGBA')
-#                     else:
-#                         img = img.convert('RGB')
-
-#                 # --- Resize if necessary ---
-#                 img = resize_if_needed(img, MAX_DIM)
-
-#                 # --- Compress to target ≤50 KB ---
-#                 target_bytes = TARGET_KB * 1024
-#                 q = START_QUALITY
-#                 chosen_data = None
-#                 best_data = None
-#                 best_bytes = None
-
-#                 while q >= MIN_QUALITY:
-#                     data = save_webp_bytes(img, quality=q, lossless=LOSSLESS, method=METHOD, exif_bytes=exif_bytes)
-#                     size = len(data)
-#                     if best_bytes is None or size < best_bytes:
-#                         best_bytes = size
-#                         best_data = data
-#                     if size <= target_bytes:
-#                         chosen_data = data
-#                         break
-#                     if q > 70:
-#                         q -= 10
-#                     elif q > 40:
-#                         q -= 6
-#                     else:
-#                         q -= 2
-
-#                 if chosen_data is None:
-#                     chosen_data = best_data
-
-#                 # --- Save to MEDIA_ROOT/ads/ ---
-#                 base_name, _ = os.path.splitext(os.path.basename(img_file.name))
-#                 webp_name = f"{base_name}.webp"
-#                 relative_path = os.path.join('ads', webp_name)
-#                 abs_path = os.path.join(settings.MEDIA_ROOT, relative_path)
-#                 os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-
-#                 with open(abs_path, 'wb') as f:
-#                     f.write(chosen_data)
-
-#                 # --- Save DB record ---
-#                 banner = AdvertisementImage(
-#                     admin_outlet=admin_outlet,
-#                     image=relative_path
-#                 )
-#                 banner_objs.append(banner)
-#                 converted_file_names.append(f"{webp_name} ({len(chosen_data)//1024} KB)")
-
-#             except Exception as inner_e:
-#                 logger.exception(f"Error converting banner image {img_file.name}: {inner_e}")
-
-#         if banner_objs:
-#             AdvertisementImage.objects.bulk_create(banner_objs)
-
-#         return Response({
-#             'message': f'{len(banner_objs)} banner(s) converted to ≤{TARGET_KB} KB and saved successfully.',
-#             'converted_files': converted_file_names
-#         }, status=status.HTTP_200_OK)
-
-#     except Exception as e:
-#         logger.exception("Error during banner upload")
-#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
+    
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_banners(request):

@@ -4,13 +4,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Validate BASE exists
   if (!window.BASE) throw new Error('window.BASE is not defined');
 
+  // ✅ Dynamically set background image for .image-section
+  const imageSection = document.querySelector(".image-section");
+  if (imageSection) {
+    imageSection.style.backgroundImage = `url("${window.BASE}static/utils/Images/foodflashKeypad.webp")`;
+    imageSection.style.backgroundRepeat = "no-repeat";
+    imageSection.style.backgroundPosition = "center";
+    imageSection.style.backgroundSize = "contain";
+    imageSection.style.minHeight = "300px";
+  }
+
   // Import modules once
   const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
   const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
-  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+  
   const form = document.getElementById("update-order-form");
   const statusBox = document.getElementById("update-status");
 

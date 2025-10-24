@@ -1,8 +1,16 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { API_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
-
 document.addEventListener('DOMContentLoaded', async () => {
+
+    if (!window.BASE) throw new Error('window.BASE is not defined');
+
+    // Import modules once
+    const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+    const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+    const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+
+    const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+    const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+    const ModalService = modalModule.ModalService;
+
     const outletSelect = document.getElementById('outlet');
     const roleSelect = document.getElementById('role');
     const createUserForm = document.getElementById('create-user-form');

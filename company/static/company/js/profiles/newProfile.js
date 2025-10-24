@@ -1,12 +1,22 @@
-import { fetchWithAutoRefresh } from '/food_flash/static/utils/js/services/authFetchService.js';
 import { ImageLibraryService } from '../services/imageLibraryService.js';
-import { ModalService } from '/food_flash/static/utils/js/services/modalService.js';
-import { API_ENDPOINTS, WEB_ENDPOINTS } from '/food_flash/static/utils/js/apiEndpoints.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  ImageLibraryService.init();
-  setupFormSubmitHandler();
-  setupTimeSlotHandlers();
+
+  if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Import modules once
+  const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+
+  const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
+  const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+  const ModalService = modalModule.ModalService;
+
+  ImageLibraryService.init(fetchWithAutoRefresh,API_ENDPOINTS);
+  setupFormSubmitHandler(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
+  setupTimeSlotHandlers(ModalService);
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();
   });
@@ -21,7 +31,7 @@ document.getElementById('select-all-days').addEventListener('change', function (
 });
 
 // =================== FORM SUBMIT ===================
-function setupFormSubmitHandler() {
+function setupFormSubmitHandler(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
   document.getElementById('create-profile-form').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -35,7 +45,7 @@ function setupFormSubmitHandler() {
       time_slots: getTimeSlots()
     };
 
-    if (!validateAllTimeSlots()) return;
+    if (!validateAllTimeSlots(ModalService)) return;
 
     try {
       const res = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_AD_PROFILE, {
@@ -80,7 +90,7 @@ document.getElementById('open-image-library-btn')?.addEventListener('click', () 
 });
 
 // =================== TIME SLOT HANDLERS ===================
-function setupTimeSlotHandlers() {
+function setupTimeSlotHandlers(ModalService) {
   const slotsContainer = document.getElementById('time-slots-container');
   const addSlotBtn = document.getElementById('add-slot-btn');
 
@@ -97,7 +107,7 @@ function setupTimeSlotHandlers() {
     newSlot.querySelector('.remove-slot-btn').classList.remove('d-none');
 
     slotsContainer.appendChild(newSlot);
-    setupSlotValidation(newSlot);
+    setupSlotValidation(newSlot,ModalService);
   });
 
   // Remove slot
@@ -110,7 +120,7 @@ function setupTimeSlotHandlers() {
 }
 
 // =================== TIME SLOT VALIDATION ===================
-function setupSlotValidation(slot) {
+function setupSlotValidation(slot,ModalService) {
   const startInput = slot.querySelector('.start-time');
   const endInput = slot.querySelector('.end-time');
 

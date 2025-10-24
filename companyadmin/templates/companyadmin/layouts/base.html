@@ -23,7 +23,6 @@
     <link rel="stylesheet" href="{% static 'orders/css/base.css' %}">
     <link rel="stylesheet" href="{% static 'utils/css/colors.css' %}">
     <link rel="stylesheet" href="{% static 'companyadmin/css/companyadmin.css' %}">
-    <!-- <link rel="stylesheet" href="{% static 'utils/css/base.css' %}"> -->
     <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -46,11 +45,11 @@
         </li>
     </ul>
   </nav>
-
   <!-- Sidebar -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <a href="{% url 'companyadmin:dashboard' %}" class="brand-link">
-      <img src="{% static 'company/images/foodflashlogo.webp' %}" alt="FoodFlash Logo" class="brand-image">
+    <a href="{% url 'companyadmin:dashboard' %}" class="brand-link text-center">
+      <img id="main-logo" src="" alt="Main Logo" class="brand-image logo-lg">
+      <img id="mini-logo" src="" alt="Mini Logo" class="brand-image logo-sm d-none">
     </a>
     <div class="sidebar">
       <nav class="mt-2">
@@ -113,6 +112,36 @@
 <script type ="module" src="{% static 'orders/js/utils.js' %}"></script>
 <script>
     window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      const base = "{% static '' %}";
+      const projectName = window.PROJECT_NAME?.toLowerCase() || 'calleron';
+
+      // Define your mapping (project name → logo filenames)
+      const logos = {
+          food_flash: {
+              full: `${base}company/images/foodflashlogo.webp`,
+              mini: `${base}company/images/ff_logo.webp`
+          },
+          airline_flash: {
+              full: `${base}company/images/airlineflashlogo.webp`,
+              mini: `${base}company/images/af_logo.webp`
+          },
+          service_flash: {
+              full: `${base}company/images/serviceflashlogo.webp`,
+              mini: `${base}company/images/sf_logo.webp`
+          }
+          // Add more projects here if needed
+      };
+
+      // Get correct logo set or fallback to default
+      const selected = logos[projectName] || logos.foodflash;
+
+      // Apply dynamically
+      document.getElementById('main-logo').src = selected.full;
+      document.getElementById('mini-logo').src = selected.mini;
+  });
 </script>
 <!-- Page-Specific JS -->
 {% block extra_js %}{% endblock %}
