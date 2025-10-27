@@ -46,12 +46,13 @@ from .serializers import (VendorSerializer,
                           )
 
 logger = logging.getLogger(__name__)
+base = getattr(settings, 'LOGIN_URL')
 
-@login_required
+@login_required()
 def dashboard(request):
     return render(request, 'company/dashboard.html')
 
-@login_required(login_url='/login/')
+@login_required(login_url=base)
 def create_outlet(request):
     return render(request, 'company/outlets/create_outlet.html')
 

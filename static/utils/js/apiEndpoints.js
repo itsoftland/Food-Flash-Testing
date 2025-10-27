@@ -1,29 +1,47 @@
-// static/js/apiEndpoints.js
-// ✅ Safely read project info from the global scope
+// static/utils/js/apiEndpoints.js
+// ==========================================================
+// 🌐 Global Project Info Initialization
+// ==========================================================
+
+// ✅ Safely read project info from the global scope with fallback values
 const projectName = (
   typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== ""
-) ? window.PROJECT_NAME.trim() : "calleron"; // fallback
+)
+  ? window.PROJECT_NAME.trim()
+  : "calleron"; // Default project name fallback
 
 const projectDisplayName = (
   typeof window.PROJECT_DISPLAY_NAME === "string" && window.PROJECT_DISPLAY_NAME.trim() !== ""
-) ? window.PROJECT_DISPLAY_NAME.trim() : "Caller On"; // fallback
+)
+  ? window.PROJECT_DISPLAY_NAME.trim()
+  : "Caller On"; // Default display name fallback
 
 const appVersion = (
   typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
-) ? window.APP_VERSION.trim() : "1.0.0"; // fallback
+)
+  ? window.APP_VERSION.trim()
+  : "1.0.0"; // Default app version fallback
 
-// ✅ Define global base URL
+// ==========================================================
+// 🌍 Define and Expose Global Variables
+// ==========================================================
+
+// Construct the base path for the project (e.g., /airline_flash/)
 window.BASE = `/${projectName}/`;
 
-// ✅ Reassign globals for consistency and availability across scripts
+// Reassign and expose consistent global variables for reuse across modules
 window.PROJECT_NAME = projectName;
 window.PROJECT_DISPLAY_NAME = projectDisplayName;
 window.APP_VERSION = appVersion;
 
-// ✅ Log details for debugging / version tracking
-console.log("Global BASE:", window.BASE);
-console.log(`Loaded Project: ${projectDisplayName}`);
-console.log(`App Version: ${appVersion}`);
+// ==========================================================
+// 🧩 Debug / Version Tracking (Optional)
+// ==========================================================
+// Uncomment these lines for debugging environment setup and version tracking
+// console.log("🌍 Global BASE:", window.BASE);
+// console.log(`🚀 Loaded Project: ${projectDisplayName}`);
+// console.log(`🧩 App Version: ${projectDisplayName} ${appVersion}`);
+
 
 // =======================
 // ✅ API ENDPOINTS

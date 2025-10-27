@@ -1,35 +1,89 @@
-console.log("Utils loaded")
+// ================================================
+// 🌐 Global App Initialization Script
+// ================================================
+
+// ✅ Import IndexedDB helper (for caching small key-value pairs)
 import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js";
+
+// ✅ Detect if running as a standalone (PWA) app
 if (window.navigator.standalone) {
-    console.log('Running in standalone mode');
+    console.log("Running in standalone mode");
 }
-// ✅ Safely read project info from the global scope
+
+// ==================================================
+// 🔧 Project Configuration (Safe Defaults + Globals)
+// ==================================================
+
+// Safely read project variables from the global window object with fallbacks
 const projectName = (
   typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== ""
-) ? window.PROJECT_NAME.trim() : "calleron"; // fallback
+)
+  ? window.PROJECT_NAME.trim()
+  : "calleron"; // Fallback project name
 
 const projectDisplayName = (
   typeof window.PROJECT_DISPLAY_NAME === "string" && window.PROJECT_DISPLAY_NAME.trim() !== ""
-) ? window.PROJECT_DISPLAY_NAME.trim() : "Caller On"; // fallback
+)
+  ? window.PROJECT_DISPLAY_NAME.trim()
+  : "Caller On"; // Fallback display name
 
 const appVersion = (
   typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
-) ? window.APP_VERSION.trim() : "1.0.0"; // fallback
+)
+  ? window.APP_VERSION.trim()
+  : "1.0.0"; // Fallback version
 
-// ✅ Define global base URL
+// ==================================================
+// 🌍 Base Path Setup
+// ==================================================
+
+// Define a global base URL (e.g., /airline_flash/)
 window.BASE = `/${projectName}/`;
 
-// ✅ Reassign globals for consistency and availability across scripts
+// Reassign globals for consistent access across modules
 window.PROJECT_NAME = projectName;
 window.PROJECT_DISPLAY_NAME = projectDisplayName;
 window.APP_VERSION = appVersion;
 
-// ✅ Log details for debugging / version tracking
-console.log("Global BASE:", window.BASE);
-console.log(`Loaded Project: ${projectDisplayName}`);
-console.log(`App Version: ${appVersion}`);
+// (Optional) Debug Logs
+// console.log("🔗 BASE URL:", window.BASE);
+// console.log(`🚀 Project: ${projectDisplayName}`);
+// console.log(`🧩 Version: ${appVersion}`);
 
+// ==================================================
+// 🧱 Static Assets Configuration
+// ==================================================
+
+// Compute the base URL for static images (handles subdirectory deployments)
+const staticBase = `${window.location.origin}/${projectName ? projectName + '/' : ''}static/orders/images/`;
+
+// Define project-to-favicon mapping
+const faviconMap = {
+  "food_flash": "food-flash-logo.ico",
+  "airline_flash": "airline-flash-logo.ico",
+  "service_flash": "service-flash-logo.ico",
+  "dine_flash": "dine-flash-logo.ico",
+  "calleron": "calleron-logo.ico",
+};
+
+// Select favicon based on current project
+const iconFile = faviconMap[projectName] || "default-logo.ico";
+const faviconUrl = `${staticBase}${iconFile}`;
+
+// Dynamically insert favicon into <head>
+const link = document.createElement("link");
+link.rel = "icon";
+link.type = "image/x-icon";
+link.href = faviconUrl;
+document.head.appendChild(link);
+
+// ==================================================
+// 🔔 Notification Audio Placeholder
+// ==================================================
+
+// This variable will later hold the unlocked notification sound reference
 let unlockedNotificationAudio = null;
+
 window.AppUtils = {
     // ─────────────────────────────────────
     // CSRF Token

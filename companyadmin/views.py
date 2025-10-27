@@ -35,6 +35,7 @@ from vendors.models import (
 )
 
 logger = logging.getLogger(__name__)
+base = getattr(settings, 'LOGIN_URL')
 
 @login_required
 def registration(request):
@@ -251,7 +252,7 @@ def dashboard(request):
     is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
     is_vendor = Vendor.objects.filter(user=request.user).exists()
     if is_admin_outlet or is_vendor:
-        return redirect('/login')
+        return redirect(base)
 
     context = {
         'user': request.user,

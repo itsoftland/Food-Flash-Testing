@@ -104,9 +104,14 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'vendors.context_processors.project_info',
             ],
+            'builtins': [
+                'django.templatetags.static',             # already adds {% static %}
+                'django.template.defaultfilters',         # ✅ enables slugify, lower, truncatewords, etc.
+            ],
         },
     },
 ]
+
 
 ROOT_URLCONF = 'caller_on.urls'
 WSGI_APPLICATION = 'caller_on.wsgi.application'

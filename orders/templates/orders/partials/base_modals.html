@@ -1,10 +1,11 @@
+<!-- orders/templates/orders/partials/base_modals.html -->
 {% load static %}
 <!-- iOS Install Modal -->
 <div class="modal fade" id="iosInstallModal" tabindex="-1" aria-labelledby="iosInstallModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content text-center">
       <div class="modal-header">
-        <h5 class="modal-title" id="iosInstallModalLabel">Add Food Flash to Home Screen</h5>
+        <h5 class="modal-title" id="iosInstallModalLabel">Add {{ PROJECT_DISPLAY_NAME }} to Home Screen</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       {% comment %} <div class="modal-body">
@@ -20,9 +21,9 @@
           </li>
           <li>
             <strong>Scroll Down and Tap “Add to Home Screen”:</strong><br>
-            You’ll see the Food Flash icon and app name.
+            You’ll see the {{ PROJECT_DISPLAY_NAME }} icon and app name.
           </li>
-          <li><strong>Confirm by Tapping “Add”:</strong> Tap <strong>Add</strong> on the top-right corner. The Food Flash icon will now appear on your home screen like a regular app.Visit the web app now from the homescreen</li>
+          <li><strong>Confirm by Tapping “Add”:</strong> Tap <strong>Add</strong> on the top-right corner. The {{ PROJECT_DISPLAY_NAME }} icon will now appear on your home screen like a regular app.Visit the web app now from the homescreen</li>
         </ol>
       </div> {% endcomment %}
       <div class="modal-body">

@@ -21,24 +21,6 @@ onDOMReady(async function () {
 
     let apiEndpoints;
     const base = window.BASE || '/caller_on/';
-    const projectName = (window.PROJECT_NAME || 'caller_on').toLowerCase();
-
-    const staticBase = `${window.location.origin}/${projectName ? projectName + '/' : ''}static/orders/images/`;
-
-    const faviconMap = {
-        'food_flash': 'food-flash-logo.ico',
-        'airline_flash': 'airline-flash-logo.ico',
-        'service_flash': 'service-flash-logo.ico',
-    };
-
-    const iconFile = faviconMap[projectName] || 'default-logo.ico';
-    const faviconUrl = `${staticBase}${iconFile}`;
-
-    const link = document.createElement('link');
-    link.rel = 'icon';
-    link.type = 'image/x-icon';
-    link.href = faviconUrl;
-    document.head.appendChild(link);
 
     // ✅ Import endpoints dynamically
     const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);

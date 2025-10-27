@@ -7,17 +7,16 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-status-bar-style" content="default">
-    <meta name="mobile-web-app-title" content="Food Flash">
+    <meta name="mobile-web-app-title" content="{{ PROJECT_DISPLAY_NAME }}">
 
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&display=swap" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <link rel="apple-touch-icon" href="{% static 'orders/images/food-flash-icon.webp' %}">
-    <link rel="manifest" href="{% url 'manifest' %}">
+    <link rel="apple-touch-icon" href="{% static 'orders/images/' %}{{ PROJECT_NAME|cut:'_' }}-mini-logo.webp">
+    <link rel="manifest" href="{% url 'manifest' %}?v={{ APP_VERSION }}">
 
-
-    <title>Food Flash</title>
+    <title>{{ PROJECT_DISPLAY_NAME }}</title>
 
     <!-- ✅ Dynamic Viewport Height JS (for iOS keyboard + Safari Chrome Fix) -->
     <script>
@@ -48,8 +47,7 @@
 
     <!-- Header -->
     <header class="bg-white custom-header">
-        {% comment %} <img src="{% static 'orders/images/foodflashlogo.webp' %}" alt="Logo" class="header-logo"> {% endcomment %}
-        <h1 class="header-title">Food Flash</h1>
+        <h1 class="header-title">{{ PROJECT_DISPLAY_NAME }}</h1>
         {% block header_heading %}{% endblock %}
     </header>
     

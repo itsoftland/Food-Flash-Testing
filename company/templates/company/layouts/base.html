@@ -7,8 +7,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Company Dashboard{% endblock %}</title>
-  <link rel="icon" href="{% static 'orders/images/food-flash-logo.ico' %}" type="image/x-icon">
-
+ 
   <!-- AdminLTE CSS CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" />
@@ -60,7 +59,7 @@
 
     <!-- Main Sidebar Container -->
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
-      <a href="{% url 'companyadmin:dashboard' %}" class="brand-link text-center">
+      <a href="{% url 'company:dashboard' %}" class="brand-link text-center">
         <img id="main-logo" src="" alt="Main Logo" class="brand-image logo-lg">
         <img id="mini-logo" src="" alt="Mini Logo" class="brand-image logo-sm d-none">
       </a>
@@ -202,53 +201,26 @@
 
     <!-- Sticky Footer -->
     <footer class="main-footer text-center">
-      <strong>© 2025 FoodFlash.</strong> All rights reserved.
+      <strong>© 2025 {{ PROJECT_DISPLAY_NAME }}.</strong> All rights reserved.
     </footer>
 
   </div>
   {% include "company/partials/modals.html" %}
   <!-- Global JS -->
   <script>
+    window.STATIC_BASE = "{% get_static_prefix %}";
     window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+    window.PROJECT_DISPLAY_NAME = "{{ PROJECT_DISPLAY_NAME }}";
+    window.APP_VERSION = "{{ APP_VERSION }}"
   </script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const base = "{% static '' %}";
-        const projectName = window.PROJECT_NAME?.toLowerCase() || 'calleron';
-
-        // Define your mapping (project name → logo filenames)
-        const logos = {
-            food_flash: {
-                full: `${base}company/images/foodflashlogo.webp`,
-                mini: `${base}company/images/ff_logo.webp`
-            },
-            airline_flash: {
-                full: `${base}company/images/airlineflashlogo.webp`,
-                mini: `${base}company/images/af_logo.webp`
-            },
-            service_flash: {
-                full: `${base}company/images/serviceflashlogo.webp`,
-                mini: `${base}company/images/sf_logo.webp`
-            }
-            // Add more projects here if needed
-        };
-
-        // Get correct logo set or fallback to default
-        const selected = logos[projectName] || logos.foodflash;
-
-        // Apply dynamically
-        document.getElementById('main-logo').src = selected.full;
-        document.getElementById('mini-logo').src = selected.mini;
-    });
-  </script>
+  <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
+  <script src="{% static 'utils/js/projectAssets.js' %}"></script>
   <script type ="module" src="{% static 'company/js/authCheck.js' %}"></script>
   <script type ="module" src="{% static 'utils/js/utils.js' %}"></script>
-  
   <!-- Page-Specific JS -->
   {% block extra_js %}{% endblock %}
 
   <!-- CDN Scripts -->
-  <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
   <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>

@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.utils import timezone
+from django.http import JsonResponse
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -32,6 +33,7 @@ from .serializers import (
 import logging
 
 logger = logging.getLogger(__name__)
+base = getattr(settings, 'LOGIN_URL')
 
 def outlet_selection(request):
     location_id = request.GET.get("location_id")
@@ -425,7 +427,7 @@ def outlet_dashboard(request):
     try:
         vendor = Vendor.objects.get(user=request.user)
     except Vendor.DoesNotExist:
-        return redirect('/login')
+        return redirect(base)
 
     context = {
         'vendor': vendor,
@@ -434,8 +436,7 @@ def outlet_dashboard(request):
 
 def logout_view(request):
     logout(request)
-    start_url = getattr(settings,"PROJECT_NAME","caller_on")
-    return redirect('/'+start_url+'/login')
+    return redirect(base)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -613,31 +614,53 @@ def mark_webchat_messages_read(request, vendor_id):
             "status": "error",
             "message": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-    
-from django.http import JsonResponse
-from django.conf import settings
 
 def manifest(request):
-    base_path = getattr(settings, "PROJECT_NAME", "calleron")
-    display_name = getattr(settings, "PROJECT_DISPLAY_NAME", "calleron")
+    project_name = getattr(settings, "PROJECT_NAME", "calleron")
+    display_name = getattr(settings, "PROJECT_DISPLAY_NAME", "Caller On")
+    app_version = getattr(settings, "APP_VERSION", "1.0.0")
+
+    icon_map = {
+        "food_flash": "foodflash-mini-logo.webp",
+        "airline_flash": "airlineflash-mini-logo.webp",
+        "service_flash": "serviceflash-mini-logo.webp",
+        "dine_flash": "dineflash-mini-logo.webp",
+        "calleron": "calleron-mini-logo.webp",
+    }
+
+    icon_filename = icon_map.get(project_name.lower(), "calleron-icon.webp")
+    base_path = f"/{project_name}/"
+    version_suffix = f"?v={app_version}"
+
     data = {
+        # 👇 Unique stable ID — Chrome’s recommended fix
+        "id": f"{base_path}?app_id={project_name}",
+
         "name": display_name,
         "short_name": display_name,
-        "start_url": f"/{base_path}/?standalone=true",
+        "start_url": f"{base_path}?standalone=true&v={app_version}",
         "display": "standalone",
         "background_color": "#ffffff",
         "theme_color": "#ffffff",
+        "version": app_version,
         "icons": [
             {
-                "src": f"/{base_path}/static/orders/images/food-flash-icon.webp",
+                "src": f"{base_path}static/utils/Images/{icon_filename}{version_suffix}",
                 "sizes": "192x192",
                 "type": "image/webp"
             },
             {
-                "src": f"/{base_path}/static/orders/images/food-flash-icon.webp",
+                "src": f"{base_path}static/utils/Images/{icon_filename}{version_suffix}",
                 "sizes": "512x512",
                 "type": "image/webp"
             }
         ]
     }
-    return JsonResponse(data)
+
+    response = JsonResponse(data)
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
+
+
