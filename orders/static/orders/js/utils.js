@@ -1,3 +1,4 @@
+console.log("Utils loaded")
 import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js";
 if (window.navigator.standalone) {
     console.log('Running in standalone mode');

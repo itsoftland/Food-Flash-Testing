@@ -8,6 +8,7 @@ const projectName = (typeof window.PROJECT_NAME === "string" && window.PROJECT_N
 // Declare a truly global base
 window.BASE = `/${projectName}/`;  // ✅ globally accessible
 console.log("Global BASE:", window.BASE);
+console.log("API ENDPOINTS")
 
 // =======================
 // ✅ API ENDPOINTS
