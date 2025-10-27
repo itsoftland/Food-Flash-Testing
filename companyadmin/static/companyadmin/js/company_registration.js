@@ -37,8 +37,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             DeviceModel: "Windows",
             DeviceIdentifier1: form.companyname.value,
             DeviceType: 1,
-            Version: "FoodFlash 1.00",
-            ProjectName: "FoodFlash 1.00"
+            Version: `${window.PROJECT_NAME} ${window.APP_VERSION}`,
+            ProjectName: window.PROJECT_NAME 
         };
 
         try {

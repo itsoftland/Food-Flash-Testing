@@ -49,6 +49,7 @@ IOTHUB_DEVICE_API_VERSION = os.getenv("IOTHUB_DEVICE_API_VERSION")
 DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", 100))
 PROJECT_NAME = os.getenv("PROJECT_NAME")
 PROJECT_DISPLAY_NAME = os.getenv("PROJECT_DISPLAY_NAME")
+APP_VERSION = os.getenv("APP_VERSION")
 
 
 # === APPLICATIONS ===
@@ -101,7 +102,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'vendors.context_processors.project_name',
+                'vendors.context_processors.project_info',
             ],
         },
     },

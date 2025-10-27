@@ -1,10 +1,10 @@
-<!-- templates/layouts/base.html -->
+<!-- companyadmin/templates/companyadmin/layouts/base.html -->
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}Food Flash Company Admin{% endblock %}</title>
+    <title>{% block title %}Super Admin | {{ PROJECT_DISPLAY_NAME }} {% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <link rel="icon" href="{% static 'orders/images/food-flash-logo.ico' %}" type="image/x-icon">
@@ -104,14 +104,16 @@
 
   <!-- Sticky Footer -->
   <footer class="main-footer text-center">
-    <strong>© 2025 FoodFlash.</strong> All rights reserved.
+    <strong>© 2025 {{ PROJECT_DISPLAY_NAME }}.</strong> All rights reserved.
   </footer>
 
 </div>
 <!-- Your Global JS -->
 <script type ="module" src="{% static 'orders/js/utils.js' %}"></script>
 <script>
-    window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+  window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+  window.PROJECT_DISPLAY_NAME = "{{ PROJECT_DISPLAY_NAME }}";
+  window.APP_VERSION = "{{ APP_VERSION }}"
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {

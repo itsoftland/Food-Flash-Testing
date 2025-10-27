@@ -67,7 +67,7 @@ self.addEventListener("push", (event) => {
 
       if (shouldShowSystemNotification) {
         // ✅ Show custom notification using your payload data
-        const customTitle = payload.title || "🍽 Food Flash Update";
+        const customTitle = payload.title || "🍽 New Update";
         const customBody = payload.body || "You have a new update.";
         const defaultIcon = `${BASE_URL}/static/orders/images/food-flash-logo.png`;
         const icon = payload.icon || defaultIcon;

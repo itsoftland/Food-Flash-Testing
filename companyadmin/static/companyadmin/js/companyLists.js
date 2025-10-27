@@ -29,9 +29,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const row = btn.closest('tr');
       const company = companies.find(c => String(c.id) === String(companyId));
       if (!company) {
-        alert('Company data not available.');
+        // alert('Company data not available.');
         return;
       }
+      console.log("company Details",company)
 
       // 1) Register product
       try {
@@ -96,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const result = await resp.json();
         if (!resp.ok) {
             console.error('❌ Update failed:', result);
-            alert('Failed to update company info after authentication.');
+            // alert('Failed to update company info after authentication.');
         } else {
           setTimeout ( async () => {
             await loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS);
@@ -106,7 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       } catch (err) {
         console.error('License flow error:', err);
-        alert('License action failed: ' + (err.message || err));
+        // alert('License action failed: ' + (err.message || err));
         restore(btn);
       }
     });
@@ -172,8 +173,8 @@ function buildRegistrationPayload(company) {
     DeviceModel: "Windows",
     DeviceIdentifier1: company.customer_name,
     DeviceType: 1,
-    Version: "FoodFlash 1.00",
-    ProjectName: "FoodFlash 1.00"
+    Version: `${window.PROJECT_NAME} ${window.APP_VERSION}`,
+    ProjectName: window.PROJECT_NAME 
   };
 }
 

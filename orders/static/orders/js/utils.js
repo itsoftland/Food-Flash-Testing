@@ -3,13 +3,31 @@ import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/
 if (window.navigator.standalone) {
     console.log('Running in standalone mode');
 }
-// Validate and derive project name safely
-const projectName = (typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== "")
-  ? window.PROJECT_NAME.trim()
-  : "calleron"; // fallback
+// ✅ Safely read project info from the global scope
+const projectName = (
+  typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== ""
+) ? window.PROJECT_NAME.trim() : "calleron"; // fallback
 
-// Declare a truly global base
-const BASE = `/${projectName}/`; 
+const projectDisplayName = (
+  typeof window.PROJECT_DISPLAY_NAME === "string" && window.PROJECT_DISPLAY_NAME.trim() !== ""
+) ? window.PROJECT_DISPLAY_NAME.trim() : "Caller On"; // fallback
+
+const appVersion = (
+  typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+) ? window.APP_VERSION.trim() : "1.0.0"; // fallback
+
+// ✅ Define global base URL
+window.BASE = `/${projectName}/`;
+
+// ✅ Reassign globals for consistency and availability across scripts
+window.PROJECT_NAME = projectName;
+window.PROJECT_DISPLAY_NAME = projectDisplayName;
+window.APP_VERSION = appVersion;
+
+// ✅ Log details for debugging / version tracking
+console.log("Global BASE:", window.BASE);
+console.log(`Loaded Project: ${projectDisplayName}`);
+console.log(`App Version: ${appVersion}`);
 
 let unlockedNotificationAudio = null;
 window.AppUtils = {
