@@ -60,10 +60,6 @@ class AdminOutlet(models.Model):
     led_display_count = models.IntegerField(blank=True, null=True)
     outlet_count = models.IntegerField(blank=True, null=True)
     locations = models.JSONField(blank=True, null=True) 
-    auto_delete_hours = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
-    
     customer_email = models.EmailField(blank=True, null=True) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -105,7 +101,6 @@ class VendorConfig(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        default=1,
         related_name="vendor_configs"
     )
     token_display_limit = models.PositiveIntegerField(default=8)

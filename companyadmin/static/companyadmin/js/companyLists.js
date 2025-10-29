@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       console.log("company Details",company)
+      console.log("Starting license flow for company ID:", company.id);
 
       // 1) Register product
       try {
@@ -44,7 +45,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 2) Start polling authentication
         const customerId = regJson.CustomerId;
-
+        const saveCustomerID = await fetchWithAutoRefresh(`${API_ENDPOINTS.UPDATE_COMPANY_ID}${company.id}/`, { 
+          method: 'PUT',
+          headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': AppUtils.getCSRFToken()
+            },
+          credentials: 'include',
+          body: JSON.stringify({
+            customer_id: customerId,
+          })  
+        });
+        if (!saveCustomerID.ok) {
+            console.error('❌ Update failed:', result);
+        }
         const authData = await pollAuthentication(customerId, btn, fetchWithAutoRefresh, API_ENDPOINTS);
 
         // 3) Update UI to show verified

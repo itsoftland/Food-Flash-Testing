@@ -16,31 +16,31 @@ document.addEventListener('DOMContentLoaded', function () {
             fullLogo: `${base}company/images/foodflashlogo.webp`,
             miniLogo: `${base}company/images/ff_logo.webp`,
             favicon: `${base}orders/images/food-flash-logo.ico`,
-            apple: `${base}orders/images/foodflash-mini-logo.webp`,
+            apple: `${base}company/images/ff_logo.webp`,
         },
         airline_flash: {
             fullLogo: `${base}company/images/airlineflashlogo.webp`,
             miniLogo: `${base}company/images/af_logo.webp`,
             favicon: `${base}orders/images/airline-flash-logo.ico`,
-            apple: `${base}orders/images/airlineflash-mini-logo.webp`,
+            apple: `${base}company/images/af_logo.webp`,
         },
         service_flash: {
             fullLogo: `${base}company/images/serviceflashlogo.webp`,
             miniLogo: `${base}company/images/sf_logo.webp`,
             favicon: `${base}orders/images/service-flash-logo.ico`,
-            apple: `${base}orders/images/serviceflash-mini-logo.webp`,
+            apple: `${base}company/images/sf_logo.webp`,
         },
         dine_flash: {
             fullLogo: `${base}company/images/dineflashlogo.webp`,
             miniLogo: `${base}company/images/df_logo.webp`,
             favicon: `${base}orders/images/dine-flash-logo.ico`,
-            apple: `${base}orders/images/dineflash-mini-logo.webp`,
+            apple: `${base}company/images/df_logo.webp`,
         },
         calleron: {
             fullLogo: `${base}company/images/calleronlogo.webp`,
             miniLogo: `${base}company/images/co_logo.webp`,
             favicon: `${base}orders/images/calleron-logo.ico`,
-            apple: `${base}orders/images/calleron-mini-logo.webp`,
+            apple: `${base}company/images/co_logo.webp`,
         },
     };
 

@@ -10,11 +10,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # === SECURITY SETTINGS ===
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback-secret-key')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS").split(",")
 
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://calleron.softlandindia.net").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS").split(",")
 CORS_ALLOW_ALL_ORIGINS = True
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -33,7 +33,7 @@ VAPID_CLAIMS = {
 }
 # === LICENSE PORTAL URL ===
 
-LICENSE_PORTAL_URL = os.getenv("LICENSE_PORTAL_URL", "http://licencemanagement.softlandindia.net/public/login")
+LICENSE_PORTAL_URL = os.getenv("LICENSE_PORTAL_URL")
 
 # IoT Hub configs
 IOTHUB_NAME = os.getenv("IOTHUB_NAME")
@@ -103,11 +103,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'vendors.context_processors.project_info',
-            ],
-            'builtins': [
-                'django.templatetags.static',             # already adds {% static %}
-                'django.template.defaultfilters',         # ✅ enables slugify, lower, truncatewords, etc.
-            ],
+                'core.context_processors.project_labels',
+            ]
         },
     },
 ]
@@ -120,11 +117,11 @@ WSGI_APPLICATION = 'caller_on.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv("DB_NAME", "my_project_db"),
-        'USER': os.getenv("DB_USER", "caller_on"),
-        'PASSWORD': os.getenv("DB_PASSWORD", "sil@2025"),
-        'HOST': os.getenv("DB_HOST", "localhost"),
-        'PORT': os.getenv("DB_PORT", "3306"),
+        'NAME': os.getenv("DB_NAME"),
+        'USER': os.getenv("DB_USER"),
+        'PASSWORD': os.getenv("DB_PASSWORD"),
+        'HOST': os.getenv("DB_HOST"),
+        'PORT': os.getenv("DB_PORT"),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'charset': 'utf8mb4',
@@ -143,8 +140,8 @@ REST_FRAMEWORK = {
 }
 # === JWT Configurations ===
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("ACCESS_TOKEN_LIFETIME", "120"),)),   # 🔁 Default is 5 minutes
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv("REFRESH_TOKEN_LIFETIME", "7"))),      # 🔁 Default is 1 day
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("ACCESS_TOKEN_LIFETIME"),)),   # 🔁 Default is 5 minutes
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv("REFRESH_TOKEN_LIFETIME"))),      # 🔁 Default is 1 day
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),

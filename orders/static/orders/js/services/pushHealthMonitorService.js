@@ -1,4 +1,4 @@
-// pushHealthMonitorService.js
+// orders/static/orders/js/services/pushHealthMonitorService.js
 import { PushSubscriptionService } from "./pushSubscriptionService.js";
 
 export const PushHealthMonitorService = (() => {

@@ -56,39 +56,39 @@
           <li class="nav-item">
             <a href="{% url 'companyadmin:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
               <i class="nav-icon fas fa-tachometer-alt"></i>
-              <p>Dashboard</p>
+              <p>{{ LABELS.sidebar.dashboard }}</p>
             </a>
           </li>
 
           <li class="nav-item">
             <a href="{% url 'companyadmin:registration' %}" class="nav-link {% if request.resolver_match.url_name == 'registration' %}active{% endif %}">
               <i class="nav-icon fas fa-building"></i>
-              <p>Register Company</p>
+              <p>{{ LABELS.sidebar.register_company }}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'companyadmin:company_lists' %}" class="nav-link {% if request.resolver_match.url_name == 'company_lists' %}active{% endif %}">
               <i class="nav-icon fas fa-list"></i>
-              <p>Company List</p>
+              <p>{{ LABELS.sidebar.company_list }}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'companyadmin:create_outlet' %}" class="nav-link {% if request.resolver_match.url_name == 'create_outlet' %}active{% endif %}">
               <i class="nav-icon fas fa-store"></i>
-              <p>Create Outlet</p>
+              <p>{{ LABELS.sidebar.create_outlet }}</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="{% url 'companyadmin:outlet_lists' %}" class="nav-link {% if request.resolver_match.url_name == 'outlet_lists' %}active{% endif %}">
               <i class="nav-icon fas fa-list"></i>
-              <p>Outlet List</p>
+              <p>{{ LABELS.sidebar.outlet_list }}</p>
             </a>
           </li>
 
           <li class="nav-item">
             <a href="{% url 'companyadmin:order_update' %}" class="nav-link {% if request.resolver_match.url_name == 'order_update' %}active{% endif %}">
               <i class="nav-icon fa-solid fa-pen-to-square"></i>
-              <p>Order Update</p>
+              <p>{{ LABELS.sidebar.order_update }}</p>
             </a>
           </li>
         </ul>

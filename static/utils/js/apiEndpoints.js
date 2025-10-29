@@ -70,6 +70,7 @@ export const API_ENDPOINTS = {
   LICENSE_CHECK : `${BASE}company/api/license_check/`,
   COMPANY_UPDATE_URL : `${BASE}api/company-update/`,
   UPDATE_COMPANY : `${BASE}companyadmin/api/update_company/`,
+  UPDATE_COMPANY_ID : `${BASE}companyadmin/api/update_company_id/`,
   CREATE_USER : `${BASE}company/api/create_user/`,
   GET_USERS : `${BASE}company/api/get_users/`,
   GET_MANAGER_DEVICES : `${BASE}company/api/get_manager_devices/`,
@@ -99,7 +100,7 @@ export const API_ENDPOINTS = {
   CREATE_CHAT : `${BASE}api/webchat-messages-create/`,
   READ_CHAT : `${BASE}api/mark-messages-read/`,
   FEEDBACK : `${BASE}api/submit_feedback/`,
-  MENU : `${BASE}/api/menus/`,
+  MENU : `${BASE}api/menus/`,
   SAVE_SUBSCRIPTION : `${BASE}vendors/api/save-subscription/`,
   VENDOR_LOGOS : `${BASE}api/get_vendor_logos/`
 };

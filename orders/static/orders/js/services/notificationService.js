@@ -1,4 +1,4 @@
-// notificationService.js
+// orders/static/orders/js/services/notificationService.js
 import { updateChatOnPush } from './chatService.js';
 
 let notificationsEnabled = true;
@@ -17,7 +17,6 @@ function initNotificationModal(modalInstance) {
             AppUtils.saveOrderStates(orderStates);  // 💾 Save updated state
         }
         activeNotificationToken = null;
-        // await AppUtils.unlockNotificationSound();
         notificationModal.hide();
     });
 

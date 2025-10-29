@@ -1,14 +1,14 @@
 {% extends "companyadmin/layouts/base.html" %}
 {% load static %}
 
-{% block title %}Company Registration - Superadmin Dashboard{% endblock %}
+{% block title %}{{ LABELS.registration.title }} - Superadmin Dashboard{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'companyadmin/css/company_registration.css' %}">
 {% endblock %}
 
 {% block header %}
-Company Registration
+{{ LABELS.registration.title }}
 {% endblock %}
 
 {% block content %}
@@ -20,7 +20,7 @@ Company Registration
                 
                 <div class="card card-primary">
                     <div class="card-header">
-                        <h3 class="card-title">Company Registration</h3>
+                        <h3 class="card-title">{{ LABELS.registration.title }}</h3>
                     </div>
                     
                     <div id="loader" class="text-center my-3" style="display: none;">
@@ -30,28 +30,27 @@ Company Registration
                     </div>
                     
                     <form id="companyForm">
-                        <!-- CSRF Token for Django -->
                         {% csrf_token %}
                         <div class="card-body">
                             <div class="row"> 
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="companyname">Company Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="companyname" name="CustomerName" placeholder="Company Name" required>
+                                        <label for="companyname">{{ LABELS.registration.company_name }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="companyname" name="CustomerName" placeholder="{{ LABELS.registration.company_name }}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="phonenumber">Phone Number <span class="text-danger">*</span></label>
-                                        <input type="tel" class="form-control" id="phonenumber" name="PhoneNumber" placeholder="Phone number" pattern="[0-9]{10}" required>
+                                        <label for="phonenumber">{{ LABELS.registration.contact_phone }} <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="phonenumber" name="PhoneNumber" placeholder="{{ LABELS.registration.contact_phone }}" pattern="[0-9]{10}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="companyemail">Company Email <span class="text-danger">*</span></label>
-                                        <input type="email" class="form-control" id="companyemail" name="CustomerEmail" placeholder="Company email" required>
+                                        <label for="companyemail">{{ LABELS.registration.email }} <span class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="companyemail" name="CustomerEmail" placeholder="{{ LABELS.registration.email }}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
@@ -60,46 +59,22 @@ Company Registration
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="gst">GST <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="gst" name="GSTNumber" placeholder="GST" required>
+                                        <label for="gst">{{ LABELS.registration.gst }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="gst" name="GSTNumber" placeholder="{{ LABELS.registration.gst }}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="contactperson">Contact Person <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="contactperson" name="CustomerContactPerson" placeholder="Contact Person" required>
+                                        <label for="contactperson">{{ LABELS.registration.contact_person }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="contactperson" name="CustomerContactPerson" placeholder="{{ LABELS.registration.contact_person }}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="contactphonenumber">Contact Phone Number <span class="text-danger">*</span></label>
-                                        <input type="tel" class="form-control" id="contactphonenumber" name="contactphonenumber" placeholder="Contact Phone Number" pattern="[0-9]{10}" required>
-                                        <span class="text-danger error-message"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="comaddress1">Company Address 1 <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="comaddress1" name="CustomerAddress" placeholder="Company Address 1" required>
-                                        <span class="text-danger error-message"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="comaddress2">Company Address 2</label>
-                                        <input type="text" class="form-control" id="comaddress2" name="CustomerAddress2" placeholder="Company Address 2">
-                                        <span class="text-danger error-message"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="state">State <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="state" name="CustomerState" placeholder="State" required>
+                                        <label for="contactphonenumber">{{ LABELS.registration.contact_manager_phone }} <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="contactphonenumber" name="contactphonenumber" placeholder="{{ LABELS.registration.contact_phone }}" pattern="[0-9]{10}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
@@ -108,23 +83,47 @@ Company Registration
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="city">City <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="city" name="CustomerCity" placeholder="City" required>
+                                        <label for="comaddress1">{{ LABELS.registration.address1 }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="comaddress1" name="CustomerAddress" placeholder="{{ LABELS.registration.address1 }}" required>
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="CustomerUsername">Username <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="CustomerUsername" name="CustomerUsername" placeholder="Username" required>
+                                        <label for="comaddress2">{{ LABELS.registration.address2 }}</label>
+                                        <input type="text" class="form-control" id="comaddress2" name="CustomerAddress2" placeholder="{{ LABELS.registration.address2 }}">
                                         <span class="text-danger error-message"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="CustomerPassword">Password <span class="text-danger">*</span></label>
+                                        <label for="state">{{ LABELS.registration.state }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="state" name="CustomerState" placeholder="{{ LABELS.registration.state }}" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="city">{{ LABELS.registration.city }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="city" name="CustomerCity" placeholder="{{ LABELS.registration.city }}" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="CustomerUsername">{{ LABELS.registration.username }} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="CustomerUsername" name="CustomerUsername" placeholder="{{ LABELS.registration.username }}" required>
+                                        <span class="text-danger error-message"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="CustomerPassword">{{ LABELS.registration.password }} <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <input type="password" class="form-control" id="CustomerPassword" name="CustomerPassword" placeholder="Password" required>
+                                            <input type="password" class="form-control" id="CustomerPassword" name="CustomerPassword" placeholder="{{ LABELS.registration.password }}" required>
                                             <div class="input-group-append">
                                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                                     <i class="fas fa-eye-slash" id="toggleIcon"></i>
@@ -138,7 +137,7 @@ Company Registration
                         </div>
                         
                         <div class="card-footer text-center">
-                            <button type="submit" class="btn btn-outline-primary">Register Company</button>
+                            <button type="submit" class="btn btn-outline-primary">{{ LABELS.registration.submit_button }}</button>
                         </div>
                     </form>
                 </div>

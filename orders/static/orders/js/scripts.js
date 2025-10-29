@@ -198,6 +198,13 @@ onDOMReady(async function () {
             }
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
+                // ✅ Send ACK back to Service Worker confirming receipt
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: "PUSH_STATUS_ACK",
+                        token_no: pushData.token_no,
+                    });
+                }
                 let selectedVendors = JSON.parse(localStorage.getItem('selectedVendors')) || [];
                 // Check if the vendor is already in the list
                 if (!selectedVendors.includes(pushData.vendor_id)) {
@@ -324,42 +331,120 @@ onDOMReady(async function () {
 
     if (tokenFromQR && !isOpenedFromPush) {
 
-        const permissionStatus = localStorage.getItem("permissionStatus");
         const vendorId = localStorage.getItem("activeVendor");
 
+        // console.log("🔍 QR Scan Detected:", { tokenFromQR, vendorId, permissionStatus });
+
+        // 🔧 Define core flow to handle token setup
         const handleToken = async () => {
             try {
-                appendMessage(tokenFromQR, 'user',"", 'chat');
-                // Wait for service worker ready
-                if (!navigator.serviceWorker.controller) {
-                    await navigator.serviceWorker.ready;
+                appendMessage(tokenFromQR, 'user', "", 'chat');
+                // console.log("💬 Token appended to chat:", tokenFromQR);
+
+                // ✅ Step 1: Ensure Service Worker is ready
+                try {
+                    if (!navigator.serviceWorker.controller) {
+                        // console.log("⏳ Waiting for Service Worker to become active...");
+                        await navigator.serviceWorker.ready;
+                    }
+                    console.log("🟢 Service Worker ready");
+                } catch (swErr) {
+                    console.error("❌ Service Worker initialization failed:", swErr);
+                    appendMessage(
+                        "⚠️ Unable to start background service. You may still continue, but live updates might not appear automatically. Please try again manually if needed.",
+                        'server', null, 'error'
+                    );
                 }
-                // Subscribe for push notifications
-                await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
-                await saveChat(tokenFromQR, 'user', 'chat',tokenFromQR);
+
+                // ✅ Step 2: Subscribe for push notifications
+                try {
+                    await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                    // console.log("✅ Push subscription successful");
+                } catch (subErr) {
+                    console.error("❌ Push subscription failed:", subErr);
+                    appendMessage(
+                        "⚠️ Couldn’t enable live notifications right now. You can still view updates manually if required.",
+                        'server', null, 'error'
+                    );
+                }
+
+                // ✅ Step 3: Save chat log
+                try {
+                    await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
+                    // console.log("💾 Chat saved successfully");
+                } catch (chatErr) {
+                    console.error("❌ Chat saving failed:", chatErr);
+                    appendMessage(
+                        "⚠️ Temporary data couldn’t be saved. You can continue using the app, or re-enter details if needed.",
+                        'server', null, 'error'
+                    );
+                }
+
             } catch (err) {
                 chatInput.value = tokenFromQR;
-                console.error("Failed during subscription or fetching status:", err);
+                // console.error("❌ Unexpected error in handleToken:", err);
+                appendMessage(
+                    "⚠️ Something went wrong while processing your request. Please try entering the details manually once more.",
+                    'server', null, 'error'
+                );
             }
         };
 
-        if (permissionStatus === "granted") {
-            AppUtils.getNotificationHelpPath();
-            await handleToken();
-            const check_status = await fetchOrderStatusOnce(tokenFromQR);
-        } else {
-            // ⚠️ Defer logic until permission granted
-            PermissionService.setDeferredCallback(async () => {
-                await handleToken();
+        // ✅ Always show permission modal regardless of prior state
+        // console.log("📢 Showing permission modal...")
+        PermissionService.showModal(true);
+
+        // ✅ Defer main flow until modal OK button is clicked
+        PermissionService.setDeferredCallback(async () => {
+            // console.log("🧩 Permission modal confirmed (OK clicked)");
+
+            try {
                 AppUtils.getNotificationHelpPath();
-                // Fetch order status
-                const check_status = await fetchOrderStatusOnce(tokenFromQR);
-            });
-        }
+                // console.log("📂 Notification help path loaded");
+
+                await handleToken();
+
+                // ✅ Step 4: Fetch order status
+                try {
+                    // console.log("📡 Fetching order status...");
+                    const check_status = await fetchOrderStatusOnce(tokenFromQR);
+
+                    if (!check_status) {
+                        console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
+                        appendMessage(
+                            "⚠️ Couldn’t fetch the latest update right now. Please wait a few seconds or try again manually.",
+                            'server', null, 'error'
+                        );
+                    }
+                    // } else {
+                    //     console.log("✅ Order status retrieved successfully:", check_status);
+                    // }
+
+                } catch (fetchErr) {
+                    console.error("❌ Order status fetch failed:", fetchErr);
+                    appendMessage(
+                        "⚠️ Couldn’t load current status. You’ll still get alerts once updates are available, or you can retry manually.",
+                        'server', null, 'error'
+                    );
+                }
+
+                // console.log("🎉 Permission flow and order fetch complete");
+
+            } catch (err) {
+                console.error("❌ Error during permission flow:", err);
+                appendMessage(
+                    "⚠️ A technical issue occurred while initializing. Please re-enter your details and try again.",
+                    'server', null, 'error'
+                );
+            }
+        });
+
     } else {
+        // console.log("💬 No QR detected or opened from push notification. Loading chat window...");
         await showChatWindow({});
         AppUtils.playWelcomeMessage();
     }
+
 
     // Send button logic
     sendButton.addEventListener('click', async function () {

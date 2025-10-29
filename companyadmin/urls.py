@@ -10,6 +10,7 @@ urlpatterns = [
     path('outlet_lists/', views.outlet_lists, name='outlet_lists'),
     path('api/outlets/', views.all_outlets, name='all_outlets'),
     path('api/create_vendor/', views.create_vendor, name='create_vendor'),
+    path('api/update_company_id/<int:id>/', views.update_company_id, name='update_company_id'),
     path('api/update_company/', views.update_company, name='update_company'),
     path('api/product-registration/', views.product_registration, name='product-registration'),
     path('api/product-authentication/', views.product_authentication, name='product-authentication'),

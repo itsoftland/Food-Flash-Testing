@@ -13,9 +13,7 @@
     <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <link rel="apple-touch-icon" href="{% static 'orders/images/' %}{{ PROJECT_NAME|cut:'_' }}-mini-logo.webp">
     <link rel="manifest" href="{% url 'manifest' %}?v={{ APP_VERSION }}">
-
     <title>{{ PROJECT_DISPLAY_NAME }}</title>
 
     <!-- ✅ Dynamic Viewport Height JS (for iOS keyboard + Safari Chrome Fix) -->
@@ -69,6 +67,7 @@
         window.PROJECT_NAME = "{{ PROJECT_NAME }}";
     </script>
     <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
+    <script src="{% static 'utils/js/projectAssets.js' %}" ></script>
     <script type="module" src="{% static 'orders/js/utils.js' %}"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
