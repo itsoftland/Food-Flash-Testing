@@ -6,10 +6,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
     const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
     const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+    const labelModule = await import(`${window.BASE}static/utils/js/formFieldLabelService.js`);
 
     const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
     const API_ENDPOINTS = apiModule.API_ENDPOINTS;
     const ModalService = modalModule.ModalService;
+    const getFriendlyFieldLabels = labelModule.default;
 
     const outletSelect = document.getElementById('outlet');
     const roleSelect = document.getElementById('role');
@@ -98,7 +100,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 createUserForm.reset();
                 toggleOutletBasedOnRole(); // reset outlet state if needed
             } else {
-                ModalService.showError(resData.message || 'Failed to create user.');
+                console.log('Error response data:', resData);
+                const userFriendlyMessage = getFriendlyFieldLabels(resData);
+                console.log ('User friendly message:', userFriendlyMessage);
+                ModalService.showError(userFriendlyMessage || 'Failed to create user.');
             }
         } catch (err) {
             console.error('Error creating user:', err);

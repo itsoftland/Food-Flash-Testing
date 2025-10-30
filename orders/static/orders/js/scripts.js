@@ -453,6 +453,7 @@ onDOMReady(async function () {
 
         const granted = await PermissionService.requestPermissions();
         if (!granted) {
+            console.warn("⚠️ Notification permission not granted by user.");
             AppUtils.showToast("Notification not enabled. Proceeding without push alerts");
         }
 

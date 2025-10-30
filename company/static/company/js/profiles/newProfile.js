@@ -255,14 +255,17 @@ function formatTime(totalMins) {
 
 // =================== COLLECT TIME SLOTS ===================
 function getTimeSlots() {
-  return [...document.querySelectorAll('.time-slot')].map(slot => ({
-    start: slot.querySelector('.start-time').value,
-    end: slot.querySelector('.end-time').value
-  }));
+  return [...document.querySelectorAll('.time-slot')]
+    .map(slot => ({
+      start: slot.querySelector('.start-time').value,
+      end: slot.querySelector('.end-time').value
+    }))
+    .filter(slot => slot.start && slot.end); // ✅ Filter empty slots
 }
 
+
 // =================== VALIDATE ALL SLOTS ===================
-function validateAllTimeSlots() {
+function validateAllTimeSlots(ModalService) {
   const slots = [...document.querySelectorAll('.time-slot')];
   let prevEndMins = null;
 
@@ -271,8 +274,8 @@ function validateAllTimeSlots() {
     const startInput = slot.querySelector('.start-time');
     const endInput = slot.querySelector('.end-time');
 
-    if (!startInput.value || !endInput.value) {
-      ModalService.showError(`Slot ${i + 1}: Both start and end times are required.`);
+    if ((startInput.value && !endInput.value) || (!startInput.value && endInput.value)) {
+      ModalService.showError(`Slot ${i + 1}: Both start and end times are required if either is provided.`);
       return false;
     }
 

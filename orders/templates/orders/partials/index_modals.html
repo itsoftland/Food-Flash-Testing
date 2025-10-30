@@ -1,21 +1,21 @@
 {% load static %}
 <!-- Modals -->
 <div class="modal fade" id="addOutletModal" tabindex="-1" aria-labelledby="addOutletLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="addOutletLabel">Select Outlets</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" id="close-outlet-modal" ></button>
-        </div>
-        <div class="modal-body">
-          <div id="outlet-list" class="outlet-grid"></div>
-        </div>
-        <div class="modal-footer justify-content-center">
-          <button id="continue-btn" class="btn-outline-primary continue-btn">Continue</button>
-        </div>
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addOutletLabel">{{ LABELS.select_outlet_modal.title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" id="close-outlet-modal" ></button>
+      </div>
+      <div class="modal-body">
+        <div id="outlet-list" class="outlet-grid"></div>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button id="continue-btn" class="btn-outline-primary continue-btn">Continue</button>
       </div>
     </div>
   </div>
+</div>
   
 
 <!-- Modal for Ad View -->

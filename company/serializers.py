@@ -250,16 +250,19 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
 
     def validate_time_slots(self, value):
         """
-        Validate that each slot has start and end, and start < end,
-        and slots do not overlap with previous slot.
+        Time slots are optional.
+        If none are given → interpreted as full day.
+        If present → each must have start and end, start < end, and not overlap.
         """
+        if not value:
+            return []  # means full day
+
         prev_end = None
         for i, slot in enumerate(value):
             start = slot.get('start')
             end = slot.get('end')
             if not start or not end:
-                raise serializers.ValidationError(f"Slot {i+1}: both start and end are required.")
-            # Convert to time objects
+                raise serializers.ValidationError(f"Slot {i+1}: both start and end times are required.")
             try:
                 start_time = datetime.datetime.strptime(start, "%H:%M").time()
                 end_time = datetime.datetime.strptime(end, "%H:%M").time()
@@ -271,6 +274,7 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Slot {i+1}: start time must be after previous slot's end time.")
             prev_end = end_time
         return value
+
 
 
     def create(self, validated_data):

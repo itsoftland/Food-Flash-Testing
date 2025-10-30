@@ -73,6 +73,10 @@ FOOD_FLASH = {
         "password": "Password",
         "submit_button": "Register Restaurant",
     },
+    "select_outlet_modal": {
+        "title": "Select Outlet",
+        "instruction": "Please select your outlet to proceed.",
+    },
 }
 
 
@@ -107,6 +111,10 @@ AIRLINE_FLASH = {
         "username": "Username",
         "password": "Password",
         "submit_button": "Register Airline",
+    },
+    "select_outlet_modal": {
+        "title": "Select Airport",
+        "instruction": "Please select your airport to proceed.",
     },
 }
 

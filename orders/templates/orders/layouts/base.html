@@ -64,7 +64,10 @@
     <div id="customToast" class="toast"></div>
     <!-- Core JS -->
     <script>
+        window.STATIC_BASE = "{% get_static_prefix %}";
         window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+        window.PROJECT_DISPLAY_NAME = "{{ PROJECT_DISPLAY_NAME }}";
+        window.APP_VERSION = "{{ APP_VERSION }}"
     </script>
     <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
     <script src="{% static 'utils/js/projectAssets.js' %}" ></script>

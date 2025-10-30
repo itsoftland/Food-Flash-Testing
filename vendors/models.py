@@ -364,9 +364,11 @@ class AdvertisementProfile(models.Model):
 
         # ⏰ Time slots
         slots = self.slots.all()
+        # If no slots defined → full day active
         if slots.exists():
             if not any(slot.start_time <= current_time <= slot.end_time for slot in slots):
                 return False
+
 
         return True
     
