@@ -73,27 +73,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 4️⃣ Set business start hour (HH:MM)
+  // 🕓 Set business hour safely
   if (businessHourInput) {
-    const raw = vendorData?.vendor_config?.business_day_start_hour || '';
+    let raw = vendorData?.vendor_config?.business_day_start_hour || '';
+    // console.log("Raw from API:", raw);
+
     if (raw) {
-      const hhmm = String(raw).split(':').slice(0, 2).join(':');
-      businessHourInput.value = hhmm;
+      // normalize to valid HTML5 time format (HH:MM)
+      const [h, m] = raw.split(':');
+      const hh = h.padStart(2, '0');
+      const mm = (m || '00').padStart(2, '0');
+      businessHourInput.value = `${hh}:${mm}`;
     } else {
       businessHourInput.value = '';
     }
+
+    // console.log("Final set value to input:", businessHourInput.value);
   }
+
 
   // 5️⃣ Set logo if available
   if (vendorData.logo_url) {
     const img = document.querySelector('#logo + p img');
     if (img) img.src = vendorData.logo_url;
   }
-  console.log(vendorData.menu_files)
+  // console.log(vendorData.menu_files)
   // 6️⃣ Initialize menu files if available
   if (Array.isArray(vendorData.menu_files) && vendorData.menu_files.length > 0) {
     MenuFileManagerService.init(vendorData.menu_files,window.BASE);
   }
-
+  // console.log("Businesss Hour",businessHourInput);
   // 7️⃣ Handle form submission
   outletForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -107,9 +116,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const menuFiles = Array.from(menuFilesInput?.files || []);
     const rawAutoDelete = autoDeleteSelect.value;
     const autoDeleteHours = parseInt(rawAutoDelete, 10);
-    console.log("Raw Auto Delete ",rawAutoDelete)
-    console.log('Auto-delete hours to submit:', autoDeleteHours);
-
+    const businessHourVal = businessHourInput?.value?.trim() || "";
+    // console.log("Captured business hour before submit:", businessHourVal);
+    
     const formData = OutletUpdateService.buildFormData({
       vendor_id: vendorId,
       name: nameVal,
@@ -120,6 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       logoFile: logoFile,
       menuFiles: menuFiles,
       auto_delete_hours: autoDeleteHours,  // ✅ correct key name
+      business_day_start_hour : businessHourVal
     });
 
     for (const pair of formData.entries()) {

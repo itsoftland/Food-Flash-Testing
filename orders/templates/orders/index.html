@@ -7,8 +7,11 @@
 <link rel="stylesheet" href="{% static 'orders/css/home_footer.css' %}">
 <link rel="stylesheet" href="{% static 'orders/css/outlet_selection.css' %}">
 <link rel="stylesheet" href="{% static 'orders/css/food_status.css' %}">
-{% endblock %}
 
+{% if PROJECT_NAME == 'airline_flash' %}
+  <link rel="stylesheet" href="{% static 'orders/css/flight_status.css' %}">
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <!-- Header and Slider (Fixed) -->
@@ -40,7 +43,8 @@
 <!-- Footer (Fixed) -->
 <div class="chat-footer px-3 pt-2 pb-2">
     <div class="d-flex">
-        <input type="tel" id="chat-input" class="form-control rounded-pill me-2" placeholder="Enter your Order No...">
+        <input type="tel" id="chat-input" class="form-control rounded-pill me-2"
+            placeholder="{% if PROJECT_NAME == 'airline_flash' %}Enter your Sequence Code{% else %}Enter Your Token Number{% endif %}">
         <button id="send-button" class="btn rounded-pill d-flex align-items-center justify-content-center">
             <i class="fas fa-paper-plane"></i>
         </button>

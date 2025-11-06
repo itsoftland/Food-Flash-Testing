@@ -494,6 +494,12 @@ window.AppUtils = {
                 message = `Your order number ${pushData.token_no} has been delivered. Thank you for choosing us.`;
             } else if (pushData.status === 'preparing') {
                 message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
+            } else if (pushData.status === 'boarding') {
+                message = `Boarding has started for flight ${pushData.flight_no}. Please proceed to gate with your boarding pass ready.`;
+            } else if (pushData.status == 'final_call'){
+                message = `Final call for flight ${pushData.flight_no}. Please proceed to the aircraft`
+            } else if (projectName == 'airline_flash' && pushData.type == 'manager') {
+                message = `You have a new message. Please check the app for details.`;
             }
             else {
                 message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
@@ -652,7 +658,7 @@ window.AppUtils = {
         this.showToast("To enable notifications, go to your browser > Site Settings > Notifications.");
     },
     getStartUrl: function () {
-        const base = BASE || '/caller_on/'
+        const base = window.BASE || '/caller_on/'
         return base
     }
 

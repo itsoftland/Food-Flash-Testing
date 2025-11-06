@@ -34,6 +34,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
+project_name = getattr(settings, "PROJECT_NAME", "calleron")
 
 def outlet_selection(request):
     location_id = request.GET.get("location_id")
@@ -63,32 +64,51 @@ def home(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def check_status(request):
-    token_no = request.data.get('token_no')
     vendor_id = request.data.get('vendor_id')
-    reply_text = request.data.get('reply_text')  # Optional
-
-    logger.info("check_status called with token_no: %s, vendor_id: %s", token_no, vendor_id)
+    reply_text = request.data.get('reply_text')  # Optional reply message from user
 
     # ───── Validations ─────
-    if not token_no:
-        return Response({'error': 'Token number is required.'}, status=status.HTTP_400_BAD_REQUEST)
     if not vendor_id:
         return Response({'error': 'Vendor ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if project_name == "airline_flash":
+        identifier_field = "sequence_code"
+        identifier_value = request.data.get("sequence_code")
+        order_filter = {
+            identifier_field: identifier_value,
+            "vendor__vendor_id": vendor_id,
+        }
+        status_check_name = "waiting"
+        status_to_update = "boarding"
+    else:
+        identifier_field = "token_no"
+        identifier_value = request.data.get("token_no")
+        order_filter = {
+            identifier_field: identifier_value,
+            "vendor__vendor_id": vendor_id,
+            "created_date": timezone.now().date()
+        }
+        status_check_name = "created"
+        status_to_update = "preparing"
+
+    if not identifier_value:
+        return Response({'error': f'{identifier_field} is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        token_no = int(token_no)
         vendor_id = int(vendor_id)
-        if token_no <= 0:
-            return Response({'error': 'Token number must be a positive integer.'}, status=status.HTTP_400_BAD_REQUEST)
+        if project_name != "airline_flash":
+            identifier_value = int(identifier_value)
+            if identifier_value <= 0:
+                return Response({'error': 'Token number must be a positive integer.'}, status=status.HTTP_400_BAD_REQUEST)
     except ValueError:
-        return Response({'error': 'Token number and Vendor ID must be integers.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response({'error': 'Invalid data type for identifier or vendor ID.'}, status=status.HTTP_400_BAD_REQUEST)
+    # ───── Main Logic ─────
     try:
         # ───── Existing Order ─────
-        order = Order.objects.get(token_no=token_no, vendor__vendor_id=vendor_id, created_date=timezone.now().date())
+        order = Order.objects.get(**order_filter)
 
-        if order.status == 'created':
-            order.status = 'preparing'
+        if order.status == status_check_name:
+            order.status = status_to_update
             order.updated_by = 'customer'
             order.save()
 
@@ -109,10 +129,15 @@ def check_status(request):
             'vendor_id': order.vendor.vendor_id,
             'location_id': order.vendor.location_id,
             'logo_url': logo_url,
-            'type': 'foodstatus',
+            'type': 'foodstatus' if project_name != "airline_flash" else 'flightstatus',
             'updated_by': order.updated_by,
             'message': 'Order retrieved successfully.',
-            'reply_status': ''
+            'reply_status': '',
+            'flight_no': order.flight_no,
+            'pnr_no': order.pnr_no,
+            'seat_no': order.seat_no,
+            'passenger_name': order.passenger_name,
+            'sequence_code': order.sequence_code,
         }
 
         if reply_text:
@@ -131,6 +156,7 @@ def check_status(request):
                 ChatMessage.objects.create(
                     vendor=order.vendor,
                     token_no=order.token_no,
+                    sequence_code = order.sequence_code,
                     created_date=timezone.now().date(),
                     sender='user',
                     message_text=reply_text
@@ -142,7 +168,13 @@ def check_status(request):
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:
-        # ───── New Order ─────
+        if project_name == 'airline_flash':
+            return Response(
+                {'error': 'Invalid passenger details. Please verify and try again.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ───── For other projects, continue creating a new order ─────
         try:
             vendor = Vendor.objects.get(vendor_id=vendor_id)
             vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
@@ -151,7 +183,7 @@ def check_status(request):
             new_order_data = {
                 'name': vendor.name,
                 'alias_name': vendor.alias_name,
-                'token_no': token_no,
+                identifier_field: identifier_value,
                 'vendor': vendor.id,
                 'location_id': vendor.location_id,
                 'counter_no': 1,
@@ -160,7 +192,6 @@ def check_status(request):
                 'updated_by': 'customer',
                 'type': 'foodstatus',
             }
-
             serializer = OrdersSerializer(data=new_order_data)
             if serializer.is_valid():
                 order = serializer.save()
@@ -169,7 +200,7 @@ def check_status(request):
                     'name': vendor.name,
                     'alias_name': vendor.alias_name,
                     'vendor': vendor.id,
-                    'token_no': token_no,
+                    identifier_field: identifier_value,
                     'status': 'preparing',
                     'counter_no': 1,
                     'device_id': None,

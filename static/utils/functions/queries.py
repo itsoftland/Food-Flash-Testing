@@ -17,6 +17,13 @@ def get_order(token_no, vendor):
     ).first()
     return order
 
+def get_airline_data(sequence_code, vendor):
+    order = Order.objects.filter(
+        sequence_code=sequence_code,
+        vendor=vendor,
+    ).first()
+    return order
+
 
 
 def update_existing_order_by_manager(token_no, vendor, device, status,manager):
@@ -30,6 +37,24 @@ def update_existing_order_by_manager(token_no, vendor, device, status,manager):
     if not order:
         order = Order.objects.create(
             token_no=token_no,
+            vendor=vendor,
+            status=status,  
+            device=device,
+            user_profile=manager,
+            updated_by="manager"
+        )
+    return order
+def update_existing_status_by_airlinemanager(sequence_code, vendor, device, status,manager):
+    order = get_airline_data(sequence_code, vendor)
+    if order:
+        order.status = status
+        order.updated_by = "manager"
+        order.device = device
+        order.user_profile = manager
+        order.save()
+    if not order:
+        order = Order.objects.create(
+            sequence_code=sequence_code,
             vendor=vendor,
             status=status,  
             device=device,

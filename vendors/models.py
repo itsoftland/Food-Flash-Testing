@@ -7,6 +7,8 @@ import uuid
 import pytz
 from django.db.models.signals import post_save
 from static.utils.functions.utils import get_vendor_current_time
+from django.conf import settings
+from core.config.status_choices import STATUS_CHOICES_MAP
 
 class CustomManager(models.Manager):
     def bulk_create(self, objs, **kwargs):
@@ -168,13 +170,8 @@ class UserProfile(models.Model):
         return f"{self.user.username} ({self.role})"
 
 class Order(models.Model):
-    STATUS_CHOICES = [
-        ('preparing', 'Preparing'),
-        ('ready', 'Ready'),
-        ('created', 'Created'),
-        ('cancelled', 'Cancelled'),
-        ('delivered', 'Delivered'),
-    ]
+    STATUS_CHOICES = STATUS_CHOICES_MAP.get(getattr(settings, "PROJECT_NAME").lower(), [])
+
     USER_CHOICES = [
         ('keypad_device', 'Keypad Device'),
         ('customer', 'Customer'),
@@ -198,8 +195,24 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_date = models.DateField(auto_now_add=True) 
 
+    # ---- Airline Flash–specific fields ----
+    sequence_code = models.CharField(max_length=200, blank=True, null=True, unique=True)
+    flight_no = models.CharField(max_length=20, blank=True, null=True)
+    pnr_no = models.CharField(max_length=20, blank=True, null=True)
+    seat_no = models.CharField(max_length=10, blank=True, null=True)
+    zone = models.CharField(max_length=10, blank=True, null=True)
+    passenger_name = models.CharField(max_length=100, blank=True, null=True)
+
     def __str__(self):
-        return f"Token {self.token_no}"
+        return f"Token {self.token_no} ({self.vendor.name})"
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['vendor', 'token_no']),
+            models.Index(fields=['sequence_code']),
+            models.Index(fields=['flight_no', 'pnr_no']),
+        ]
     
 class OrderStatusHistory(models.Model):
     order = models.ForeignKey(
@@ -444,6 +457,7 @@ class ChatMessage(models.Model):
 
     # 👇 Order context
     token_no = models.IntegerField()
+    sequence_code = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateField()
 
     # 👇 Identify sender
@@ -489,6 +503,7 @@ class WebChatMessage(models.Model):
         related_name='messages'
     )
     token_no = models.IntegerField(null=True, blank=True)
+    sequence_code = models.CharField(max_length=100, blank=True, null=True)
     sender = models.CharField(max_length=20)   
     type = models.CharField(max_length=20, default='chat')
     text = models.JSONField(blank=True, null=True)

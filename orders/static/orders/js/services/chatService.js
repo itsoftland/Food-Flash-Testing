@@ -20,7 +20,7 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
     localStorage.setItem("activeVendorRatingLink", placeId);
 }
 
-export function appendMessage(text, sender, timestamp = null,type,token_no) {
+export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
@@ -35,22 +35,6 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
     const messageBubble = document.createElement('div');
     messageBubble.classList.add('message-bubble', sender);
     
-    
-    messageBubble.innerHTML = `
-    <div class="message-content">
-        <button class="reply-button" title="Reply">
-            <i class="fa-solid fa-reply"></i>
-        </button>
-        ${text}
-        <span class="message-timestamp">
-            ${timeStamp} 
-        </span>
-    </div>
-    `;
-    if (token_no) {
-        messageBubble.dataset.tokenNo = token_no;
-    }
-
     if (sender === 'server') {
         const activeLogo = localStorage.getItem("activeVendorLogo");
         const logoImg = document.createElement('img');
@@ -58,10 +42,52 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
         logoImg.alt = 'Vendor Logo';
         logoImg.className = 'server-logo';
         messageRow.appendChild(logoImg);
+
+        messageBubble.innerHTML = `
+            <div class="message-content">
+                <button class="reply-button" title="Reply">
+                    <i class="fa-solid fa-reply"></i>
+                </button>
+                ${text}
+                <span class="message-timestamp">
+                    ${timeStamp} 
+                </span>
+            </div>
+            `;
+    } else if (window.BASE == '/airline_flash/'){
+        messageBubble.innerHTML = `
+            <div class="message-content">
+                <button class="reply-button" title="Reply">
+                    <i class="fa-solid fa-reply"></i>
+                </button>
+                ${text}
+                <span class="passenger-name-label">👤 ${passenger_name}</span>
+                <span class="dot">•</span>
+                <span class="message-timestamp">
+                    ${timeStamp} 
+                </span>
+            </div>
+            `;
+    } else {
+        messageBubble.innerHTML = `
+            <div class="message-content">
+                <button class="reply-button" title="Reply">
+                    <i class="fa-solid fa-reply"></i>
+                </button>
+                ${text}
+                <span class="message-timestamp timestamp-padded">
+                    ${timeStamp} 
+                </span>
+            </div>
+            `;
+    }
+
+    if (token_no) {
+        messageBubble.dataset.tokenNo = token_no;
     }
 
     messageRow.appendChild(messageBubble);
-    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')) {
+    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager')) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) {
             replyBtn.addEventListener('click', (e) => {
@@ -112,14 +138,12 @@ export function appendMessage(text, sender, timestamp = null,type,token_no) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) replyBtn.remove();
     }
-
-
-
     chatContainer.appendChild(messageRow);
     chatContainer.scrollTop = chatContainer.scrollHeight;
     AppUtils.adjustChatResponsePadding();
 }
 export async function saveChat(text, sender, type, token_no) {
+    console.log("Saving chat message:", {text, sender, type, token_no});
     const activeVendorId = localStorage.getItem("activeVendor");
     if (!activeVendorId) return;
 

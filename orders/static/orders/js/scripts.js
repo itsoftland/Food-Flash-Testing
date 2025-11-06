@@ -9,6 +9,11 @@ import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./servic
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js";
+import { ChatTemplateService } from "./services/chatTemplateService.js";
+import { maskSequenceCode } from "./services/clipBoardService.js"
+import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
+window.maskSequenceCode = maskSequenceCode
+
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', callback);
@@ -17,7 +22,7 @@ function onDOMReady(callback) {
     }
 }
 onDOMReady(async function () {
-    console.log("✅ DOM ready — initialization...");
+    // console.log("✅ DOM ready — initialization...");
 
     let apiEndpoints;
     const base = window.BASE || '/caller_on/';
@@ -38,12 +43,14 @@ onDOMReady(async function () {
     const urlParams = new URLSearchParams(window.location.search);
     let locationId = urlParams.get("location_id");
     const vendorFromQR = urlParams.get('vendor_id');
-    const tokenFromQR = urlParams.get('token_no');
+    const tokenFromQR = urlParams.get('token_no') || urlParams.get('sequence_code');
+    const passengerName = urlParams.get('passenger_name');
     const toggleBtn = document.getElementById("toggleArrowBtn");
     const pageWrapper = document.querySelector(".page-wrapper");
     const isOpenedFromPush = urlParams.get('from_push');
 
     let isAdVisible = true;
+    let storedName = null;
 
     // 1️⃣ Check URL param first
     if (locationId) {
@@ -71,6 +78,9 @@ onDOMReady(async function () {
     }
     if (tokenFromQR) {
         await AppUtils.setToken(tokenFromQR);
+    }
+    if (tokenFromQR && passengerName) {
+        savePassengerInfo(tokenFromQR, passengerName);
     }
     // Initialize the ad slider visibility 
     toggleBtn.addEventListener("click", function () {
@@ -213,67 +223,77 @@ onDOMReady(async function () {
                     VendorUIService.init(vendorIds);
                 }
                 updateChatOnPush(pushData.vendor_id,pushData.logo_url,pushData.name);
-                // Customize the chat message as needed. Here we assume pushData contains token_number and status.
-                
-                const statusClassMap = {
-                    preparing: 'preparing-color',
-                    ready: 'ready-color',
-                    delivered: 'delivered-color',
-                    cancelled: 'cancelled-color'
-                };
+                let type = window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus';
+                const messageType = pushData.type || type;
+                console.log("Received push message:", messageType, pushData);
 
-                const statusKey = pushData?.status || 'unknown';
-                const statusClass = statusClassMap[statusKey] || 'unknown-color';
+                const messageHTML = ChatTemplateService.build({
+                    type: messageType,
+                    text: pushData
+                });
 
-                const messageHTML = `
-                    <div class="response-title">${pushData.alias_name || "Unknown"}</div>
-                    <div class="status">
-                        Status: 
-                        <span class="${statusClass}">
-                            ${pushData.status || "Unknown"}
-                        </span>
-                    </div>
-                    <div class="info-badges">
-                        <div class="badge">Counter No: ${pushData.counter_no || ""}</div>
-                        <div class="badge">Token No: ${pushData.token_no || ""}</div>
-                    </div>
-                `;
+                // Handle different message types
+                switch (messageType) {
+                    case 'offers':
+                        AppUtils.playNotificationSound();
+                        appendMessage(messageHTML, 'server', null, 'offers', '', pushData.message_id);
+                        break;
 
-                const offerMessageHTML = `
-                        <div class="response-title">${pushData.alias_name}</div>
-                        <div class="response-title">🔥 ${pushData.title}</div>
-                        <div style="color: #333; font-size: 15px;">
-                            ${pushData.body || "Delicious deals await. Come grab your favorite combo now!"}
-                        </div>
-                    
-                `;
-                const managerMessageHTML = `
-                    <div class="response-title">📩 ${pushData.alias_name || "Outlet"}</div>
-                    <div class="manager-message-body">
-                        <div class="manager-badge">Manager Notification</div>
-                        <div class="custom-manager-message">
-                            ${pushData.status || "Hello! Here's an update regarding your order."}
-                        </div>
-                    </div>
-                `;
-                if (pushData.type =="offers"){
-                    AppUtils.playNotificationSound();
-                    appendMessage(offerMessageHTML, 'server',null,'offers','',pushData.message_id); 
+                    case 'manager':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'notification');
+                        appendMessage(messageHTML, 'server', null, 'manager', pushData.token_no, pushData.message_id);
+                        break;
+                    case 'airline_manager':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'notification');
+                        appendMessage(messageHTML, 'server', null, 'manager', pushData.sequence_code, pushData.message_id);
+                        break;
 
-                }else if (pushData.type === "manager") {
-                    AppUtils.notifyOrderReady(pushData);
-                    showNotificationModal(pushData, 'notification');
-                    appendMessage(managerMessageHTML, 'server',null, 'manager',pushData.token_no,pushData.message_id); 
-                } else {
-                if (pushData.type === "foodstatus") {
-                    AppUtils.notifyOrderReady(pushData); 
-                    showNotificationModal(pushData,'push');
-                    appendMessage(messageHTML, 'server',null,'foodstatus',pushData.token_no,pushData.message_id);
-                    }
+                    case 'foodstatus':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        break;
+                    case 'flightstatus':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
+                        break;
+
+                    default:
+                        console.warn("Unhandled push message type:", messageType);
                 }
             }
         });
     }
+
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.secure-copy-btn');
+        if (!btn) return;
+
+        const encoded = btn.getAttribute('data-code');
+        if (!encoded) return;
+
+        // Decode the real sequence code (kept hidden from UI)
+        const realCode = atob(encoded);
+        const inputBox = document.getElementById("chat-input");
+
+        if (!inputBox) return;
+
+        // Insert masked code visually
+        inputBox.value = maskSequenceCode(realCode);
+
+        // Store the actual sequence code internally (for use on send)
+        inputBox.dataset.actualSequence = realCode;
+
+        // Show confirmation toast
+        if (window.AppUtils && typeof AppUtils.showToast === 'function') {
+            AppUtils.showToast("Sequence code added securely!");
+        } else {
+            alert("Sequence code added securely!");
+        }
+    });
 
     chatInput.addEventListener("keydown", function(event) {
         if (AppUtils.isReplyMode) {
@@ -298,7 +318,7 @@ onDOMReady(async function () {
                 event.preventDefault();
                 sendButton.click();
             }
-        } else {
+        } else if (base === "/food_flash/") {
             event.preventDefault();
             appendMessage("Please enter a valid 4-digit Order No.", "server", null);
         }
@@ -307,7 +327,7 @@ onDOMReady(async function () {
     
     // Sanitize input on any indirect changes (e.g. autocomplete)
     chatInput.addEventListener("input", function(event) {
-        if (AppUtils.isReplyMode) return;  // ✅ Skip restrictions while replying
+        if (AppUtils.isReplyMode || base === '/airline_flash/') return;  // ✅ Skip restrictions while replying
 
         let cleanValue = chatInput.value.replace(/[^0-9]/g, "").substring(0, 4);
         if (chatInput.value !== cleanValue) {
@@ -325,7 +345,12 @@ onDOMReady(async function () {
             chatInput.placeholder = "Type your message..."; 
         } else {
             chatInput.type = "tel";
-            chatInput.placeholder = "Enter your Order No..."; 
+            // console.log(base)
+            if (base == '/airline_flash/'){
+                chatInput.placeholder = "Enter your Sequence Code..."; 
+            }else{
+                chatInput.placeholder = "Enter your Order No...";
+            } 
         }
     });
 
@@ -338,7 +363,19 @@ onDOMReady(async function () {
         // 🔧 Define core flow to handle token setup
         const handleToken = async () => {
             try {
-                appendMessage(tokenFromQR, 'user', "", 'chat');
+                let displayToken = tokenFromQR;
+                // Apply masking only for airline_flash
+                if (window.BASE && window.BASE.includes('/airline_flash/')) {
+                    storedName = getPassengerName(tokenFromQR);
+                    // console.log("Passenger:", storedName);
+                    // Append masked token in chat for Airline Flash
+                    displayToken = maskSequenceCode(displayToken);
+                    appendMessage(displayToken, 'user', "", 'chat',"",storedName);
+                }else{
+                    appendMessage(displayToken, 'user', "", 'chat');
+                }
+
+                // appendMessage(tokenFromQR, 'user', "", 'chat');
                 // console.log("💬 Token appended to chat:", tokenFromQR);
 
                 // ✅ Step 1: Ensure Service Worker is ready
@@ -448,8 +485,18 @@ onDOMReady(async function () {
 
     // Send button logic
     sendButton.addEventListener('click', async function () {
-        const message = chatInput.value.trim();
+        let message = chatInput.value.trim();
         if (message === '') return;
+        const actualSequence = chatInput.dataset.actualSequence;
+
+        if (window.BASE && window.BASE.includes('/airline_flash/') && actualSequence) {
+            // Use the real unmasked value for backend logic
+            message = actualSequence;
+
+            // Clean up after sending
+            delete chatInput.dataset.actualSequence;
+        }
+
 
         const granted = await PermissionService.requestPermissions();
         if (!granted) {
@@ -465,6 +512,7 @@ onDOMReady(async function () {
         const selectedMessage = document.querySelector(".message-bubble.server.selected");
 
         if (selectedMessage) {
+            // console.log(selectedMessage.dataset.tokenNo)
             const tokenNo = selectedMessage.dataset.tokenNo;
             if (tokenNo) {
                 // This is a reply to a message with tokenNo
@@ -472,12 +520,22 @@ onDOMReady(async function () {
             } else {
                 console.warn("Selected message has no token number.");
             }
-
-            appendMessage(message, 'user', null);
+            if (window.BASE && window.BASE.includes('/airline_flash/')) {
+                storedName = getPassengerName(tokenNo);
+                appendMessage(message, 'user', "","chat",tokenNo,storedName);
+            }else{
+                appendMessage(message, 'user', null);
+            }
+            
             await saveChat(message, 'user', 'chat',tokenNo);
         } else {
             // No message selected → assume user typed token number directly
-            appendMessage(message, 'user', null);
+            if (window.BASE && window.BASE.includes('/airline_flash/')) {
+                storedName = getPassengerName(message);
+                appendMessage(message, 'user', "","chat",message,storedName);
+            } else {
+                appendMessage(message, 'user', null);
+            }
             await saveChat(message, 'user', 'chat',message);
             await fetchOrderStatusOnce(message); // Use message as tokenNo   
         }
@@ -489,7 +547,15 @@ onDOMReady(async function () {
     
     async function fetchOrderStatusOnce(token, replyText = null) {
         const activeVendor = await AppUtils.getActiveVendor();
-        const payload = { token_no: token, vendor_id: activeVendor };
+        let payload = {};
+        let type = '';
+        if (window.BASE && window.BASE.includes('/airline_flash/')) {
+            payload = { sequence_code: token, vendor_id: activeVendor };
+            type = 'flightstatus';
+        } else {
+            payload = { token_no: token, vendor_id: activeVendor };
+            type = 'foodstatus';
+        }
         if (replyText) payload.reply_text = replyText;
 
         try {
@@ -510,27 +576,17 @@ onDOMReady(async function () {
                 throw new Error(err);
             }
             if (!replyText) {
-                // build messageHTML exactly as before
-                const statusClassMap = {
-                    preparing: 'preparing-color',
-                    ready: 'ready-color',
-                    delivered: 'delivered-color',
-                    cancelled: 'cancelled-color'
-                };
-                const statusKey = data?.status || 'unknown';
-                const statusClass = statusClassMap[statusKey] || 'unknown-color';
-                const messageHTML = `
-                    <div class="response-title">${data.alias_name || "Unknown"}</div>
-                    <div class="status">Status:
-                        <span class="${statusClass}">${data.status || "Unknown"}</span>
-                    </div>
-                    <div class="info-badges">
-                        <div class="badge">Counter No: ${data.counter_no || ""}</div>
-                        <div class="badge">Token No: ${data.token_no || ""}</div>
-                    </div>`;
-
-                appendMessage(messageHTML, 'server', null, 'foodstatus', data.token_no);
-                await saveChat(data, 'server', 'foodstatus', data.token_no);
+                const messageHTML = ChatTemplateService.build({
+                    type: type,
+                    text: data
+                });
+                if (type === 'flightstatus') {
+                    appendMessage(messageHTML, 'server', null, type, data.sequence_code);
+                    await saveChat(data, 'server', type, data.sequence_code);
+                } else {
+                    appendMessage(messageHTML, 'server', null, type, data.token_no);
+                    await saveChat(data, 'server', type, data.token_no);
+                }
                 showNotificationModal(data, 'usercheck');
                 AppUtils.notifyOrderReady(data);
             }

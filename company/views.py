@@ -350,6 +350,7 @@ def create_vendor(request):
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
@@ -438,13 +439,15 @@ def update_vendor(request):
         
         # Update or create VendorConfig
         auto_delete_val = validated_data.get('auto_delete_hours')
+        business_day_start_time = validated_data.get('business_day_start_hour')
         if auto_delete_val == 0:
             auto_delete_val = None  # handle "Disable Auto Deletion"
 
         config = getattr(vendor, 'config', None)
         if config:
+            config.business_day_start_hour = business_day_start_time
             config.auto_delete_hours = auto_delete_val
-            config.save(update_fields=['auto_delete_hours'])
+            config.save(update_fields=['auto_delete_hours','business_day_start_hour'])
             logger.info("VendorConfig auto_delete_hours updated for vendor: %s", vendor.vendor_id)
         else:
             VendorConfig.objects.create(

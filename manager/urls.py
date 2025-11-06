@@ -4,6 +4,8 @@ from .import views
 urlpatterns = [
     path('api/create_order/', views.create_order_by_manager,name='create_order_by_manager'),
     path('api/get_today_orders/', views.get_today_orders, name='get_today_orders'),
+    path('api/get_passengers_list/',views.get_passengers_list,name='get_passengers_list'),
+    path('api/get_active_passengers_list/',views.get_active_passengers_list,name='get_active_passengers_list'),
     path('api/manager_order_update/', views.manager_order_update, name='manager_order_update'),
     path('api/chat_history/',views.chat_history,name='chat_history'),
     path('api/device_call/', views.device_call, name='device_call'),

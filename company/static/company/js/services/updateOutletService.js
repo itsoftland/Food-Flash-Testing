@@ -31,6 +31,7 @@ export const OutletUpdateService = (() => {
         menuFiles = [],
         deviceMapping = [],
         tvMapping = [],
+        business_day_start_hour
     }) => {
     console.log({
         vendor_id,
@@ -44,6 +45,7 @@ export const OutletUpdateService = (() => {
         menuFiles,
         deviceMapping,
         tvMapping,
+        business_day_start_hour
     });
     const formData = new FormData();
 
@@ -54,6 +56,8 @@ export const OutletUpdateService = (() => {
     if (place_id) formData.append('place_id', place_id);
     if (location_id) formData.append('location_id', location_id);
     if (auto_delete_hours !== undefined) formData.append('auto_delete_hours', auto_delete_hours);
+    if (business_day_start_hour) formData.append('business_day_start_hour', business_day_start_hour);
+
 
     if (logoFile) formData.append('logo', logoFile);
 

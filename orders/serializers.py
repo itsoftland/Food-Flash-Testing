@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from vendors.models import Vendor, Feedback
+from vendors.models import Vendor, Feedback, Order
 from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
+project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 class VendorLogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
@@ -159,7 +159,18 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
         fields = [
             "id", "browser_id", "vendor", "token_no",
             "sender", "type", "text", "timestamp",
-            "is_read", "is_send"
+            "is_read", "is_send","sequence_code"
+        ]
+class WebChatMessageSerializer(serializers.ModelSerializer):
+    vendor = serializers.CharField(write_only=True)
+    browser_id = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = WebChatMessage
+        fields = [
+            "id", "browser_id", "vendor", "token_no",
+            "sender", "type", "text", "timestamp",
+            "is_read", "is_send","sequence_code"
         ]
 
     def create(self, validated_data):
@@ -186,6 +197,16 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "browser_id": f"No subscription found for browser_id {browser_id}"
             })
+        # 🧩 Airline Flash special handling: get token_no from sequence_code
+        if project_name == "airline_flash":
+            sequence_code = validated_data.get("sequence_code")
+            if sequence_code:
+                try:
+                    order = Order.objects.get(sequence_code=sequence_code, vendor=vendor)
+                    validated_data["token_no"] = order.token_no  # ✅ store real token number
+                    validated_data["sequence_code"] = sequence_code  # keep sequence_code too
+                except Order.DoesNotExist:
+                    validated_data["token_no"] = None  # or handle gracefully
 
         # 🔹 Create WebChatMessage
         return WebChatMessage.objects.create(

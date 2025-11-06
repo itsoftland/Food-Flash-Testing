@@ -122,10 +122,21 @@ function showNotificationModal(pushData, source) {
             modalHeader.innerHTML = `
                 Your Order <strong>${pushData.token_no}</strong> for <strong>${pushData.name}</strong>
                 is now <strong>${pushData.status}</strong>. Please wait while we finish it.`;
-        } else {
+        } else if (pushData.status === 'delivered'){
             modalHeader.innerHTML = `
                 Your Order <strong>${pushData.token_no}</strong> for <strong>${pushData.name}</strong>
                 has been delivered. Thank you for choosing us!`;
+        } else if (pushData.status === 'boarding'){
+            modalHeader.innerHTML = `
+                Boarding for <strong>Flight ${pushData.flight_no}</strong> has now started. 
+                Please proceed to the boarding area with your belongings.`;
+        } else if (pushData.status === 'final_call'){
+            modalHeader.innerHTML = `
+                This is the <strong>Final Call</strong> for <strong>Flight ${pushData.flight_no}</strong>. 
+                Please proceed to the aircraft`;
+        } else{
+            modalHeader.innerHTML = `
+                You have a new update. `;
         }
     }
     const snoozeBtn = document.getElementById('disable-notifications');

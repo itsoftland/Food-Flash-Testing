@@ -7,8 +7,9 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
 
-def notify_web_push(order, vendor, payload):
+def notify_web_push(order, vendor, payload,sequence_code=None):
     logger.info(f"🔔 Web Push Notification Initiated | Token: {order.token_no}, Vendor: {vendor.name} (ID: {vendor.id})")
     logger.debug(f"Payload: {payload}")
 
@@ -30,7 +31,7 @@ def notify_web_push(order, vendor, payload):
             "endpoint": sub.endpoint,
             "keys": {"p256dh": sub.p256dh, "auth": sub.auth}
         }, payload)
-        save_server_chat_message(payload, vendor, sub)
+        save_server_chat_message(payload, vendor, sub,sequence_code)
         if not success:
             error_msg = f"❌ Push failed for endpoint {sub.endpoint}"
             logger.error(error_msg)
@@ -75,7 +76,7 @@ from django.utils.timezone import now
 from vendors.models import WebChatMessage
 
 
-def save_server_chat_message(payload, vendor,subscription):
+def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
     """
     Save a server-side chat message (order updates, manager messages, etc.)
     into the WebChatMessage table.
@@ -94,19 +95,34 @@ def save_server_chat_message(payload, vendor,subscription):
 
         # Build text as JSON (ensures consistent format)
         text = payload
-
-        message = WebChatMessage.objects.create(
-            message_id=uuid.uuid4(),
-            subscription=subscription,
-            vendor=vendor,
-            token_no=token_no,
-            sender="server",
-            type=msg_type,
-            text=text,
-            timestamp=now(),
-            is_read=False,
-            is_send=True
-        )
+        # 🧩 Airline Flash special handling: get token_no from sequence_code
+        if project_name == "airline_flash" and sequence_code:    
+            message = WebChatMessage.objects.create(
+                message_id=uuid.uuid4(),
+                subscription=subscription,
+                vendor=vendor,
+                token_no=token_no,
+                sequence_code=sequence_code,
+                sender="server",
+                type=msg_type,
+                text=text,
+                timestamp=now(),
+                is_read=False,
+                is_send=True
+            )
+        else:
+            message = WebChatMessage.objects.create(
+                message_id=uuid.uuid4(),
+                subscription=subscription,
+                vendor=vendor,
+                token_no=token_no,
+                sender="server",
+                type=msg_type,
+                text=text,
+                timestamp=now(),
+                is_read=False,
+                is_send=True
+            )
 
         return message
 

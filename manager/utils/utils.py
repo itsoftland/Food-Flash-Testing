@@ -1,8 +1,8 @@
 # Food-Flash/manager/utils/utils.py
 from collections import Counter
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 import logging
-
+import hashlib
 import pytz
 from django.db import models
 from rest_framework.exceptions import NotFound
@@ -13,9 +13,10 @@ from static.utils.functions.utils import (
     get_vendor_current_time,
 )
 
+from django.db.models import Q
+from vendors.utils import notify_web_push
+
 logger = logging.getLogger(__name__)
-
-
 
 def get_manager_vendor(user):
     logger.info("Fetching vendor for manager user: %s", user)
@@ -107,7 +108,6 @@ def get_suggestion_messages(vendor,limit):
     suggestions = [
         msg for msg, count in sorted(counter.items(), key=lambda x: (-x[1], x[0].lower()))
     ][:limit]
-    # suggestions = [msg for msg, count in sorted(counter.items(), key=lambda x: (-x[1], x[0].lower()))]
 
     return suggestions
 
@@ -134,8 +134,161 @@ def get_order_counts(orders_queryset, serialized_data):
     # Count orders with new_notifications > 0 (Unread)
     counts["unread"] = sum(1 for item in serialized_data if item.get("new_notifications", 0) > 0)
 
+    return 
+
+# ===  Airline Project Utility ===
+def get_passenger_counts(passengers_queryset, serialized_data):
+    counts = {
+        "boarding": 0,
+        "final_call": 0,
+        "arrived": 0,
+        "departed": 0,
+        "cancelled": 0,
+        "unread": 0,
+    }
+
+    for p in passengers_queryset:
+        status_name = getattr(p, 'status', '').lower()
+        if status_name in counts:
+            counts[status_name] += 1
+
+    counts["unread"] = sum(1 for item in serialized_data if item.get("new_notifications", 0) > 0)
     return counts
 
+# ===  Airline Project Utility ===
+def generate_sequence_code(flight_no: str, pnr_no: str, seat_no: str, zone:str,passenger_name: str) -> str:
+    """
+    Generates a short, unique sequence code for Airline Flash orders.
 
+    Format example:
+        AI203-7XZ-12A-RAM-84F
+    Derived from: flight_no, pnr_no, seat_no, passenger_name
+
+    """
+    # Normalize input
+    flight = (flight_no or "").strip().upper()[:4]
+    pnr = (pnr_no or "").strip().upper()[-3:]  # last 3 characters
+    seat = (seat_no or "").strip().upper()
+    zone = (zone or "").strip().upper()
+    name = (passenger_name or "").strip().title()[:3]
+    
+
+    # Build base code
+    base = f"{flight}-{pnr}-{seat}-{zone}-{name}"
+
+    # Add short hash suffix for uniqueness
+    combined = f"{flight_no}{pnr_no}{seat_no}{zone}{passenger_name}".encode("utf-8")
+    short_hash = hashlib.sha1(combined).hexdigest()[:3].upper()
+
+    sequence_code = f"{base}-{short_hash}"
+    return sequence_code
+
+# ===  Airline Project Utility ===
+def notify_related_passengers(order, vendor, payload, zone=None, chat_map=None,token_map=None):
+    """
+    Notify all passengers of the same flight (or same flight+zone)
+    in Airline Flash when an order update occurs.
+
+    Args:
+        order (Order): The current order triggering the update.
+        vendor (Vendor): The vendor associated with the order.
+        payload (dict): The push payload to send.
+        by_zone (bool): Whether to narrow notifications to same zone too.
+        chat_map (dict, optional): A mapping of sequence_code → message_id for
+                                   passengers, used to include message IDs in payloads.
+
+    Returns:
+        list[str]: List of error messages (if any) from failed notifications.
+    """
+    if not order.flight_no:
+        logger.warning("No flight number on order %s — skipping group notifications", order.id)
+        return []
+
+    filters = Q(vendor=vendor, flight_no=order.flight_no)
+    if zone :
+        filters &= Q(zone=zone)
+
+    related_orders = Order.objects.filter(filters)
+    if not related_orders.exists():
+        logger.info("No related passengers found for flight %s (zone: %s)", order.flight_no, order.zone)
+        return []
+
+    logger.info("Sending grouped notifications to %d passengers", related_orders.count())
+
+    errors = []
+    for rel_order in related_orders:
+        try:
+            payload_copy = payload.copy()
+
+            # Attach message_id from chat_map (if available)
+            if chat_map and rel_order.sequence_code in chat_map:
+                payload_copy["message_id"] = chat_map[rel_order.sequence_code]
+            if token_map and rel_order.sequence_code in token_map:
+                payload_copy["token_no"] = token_map[rel_order.sequence_code]
+
+            # Personalize payload for each passenger
+            payload_copy.update({
+                "body": f"Passenger {rel_order.sequence_code} has an update from the manager.",
+                "sequence_code": rel_order.sequence_code,
+                "pnr_no": rel_order.pnr_no,
+                "seat_no": rel_order.seat_no,
+                "passenger_name": rel_order.passenger_name,
+            })
+
+            notify_web_push(rel_order, vendor, payload_copy,rel_order.sequence_code)
+
+        except Exception as e:
+            logger.exception("Failed to notify passenger %s: %s", rel_order.sequence_code, e)
+            errors.append(str(e))
+
+    return errors
+
+
+# ===  Airline Project Utility ===
+
+def create_bulk_chat_messages(vendor, order, message_text, sender="manager", zone=None):
+    """
+    Create ChatMessage entries for all passengers in the same flight (and zone if applicable).
+
+    Args:
+        vendor (Vendor): Vendor instance.
+        order (Order): The base order whose flight/zone are used to find related passengers.
+        message_text (str): The message to broadcast.
+        sender (str): Sender label (default 'manager').
+        by_zone (bool): Whether to limit messages to same zone.
+
+    Returns:
+        list[ChatMessage]: List of created ChatMessage objects.
+    """
+    if not order.flight_no:
+        logger.warning("⚠️ No flight number for order %s. Skipping bulk chat creation.", order.id)
+        return []
+
+    filters = Q(vendor=vendor, flight_no=order.flight_no)
+    if zone:
+        filters &= Q(zone=zone)
+
+    related_orders = Order.objects.filter(filters)
+    if not related_orders.exists():
+        logger.info("No related passengers found for flight %s (zone: %s)", order.flight_no, order.zone)
+        return []
+
+    current_date = get_vendor_current_time(vendor).date()
+    chat_messages = [
+        ChatMessage(
+            vendor=vendor,
+            created_date=current_date,
+            sender=sender,
+            is_send=True,
+            message_text=message_text,
+            token_no=o.token_no,
+            sequence_code=o.sequence_code,
+        )
+        for o in related_orders
+    ]
+
+    ChatMessage.objects.bulk_create(chat_messages)
+    logger.info("💬 Created %d chat messages for flight %s (zone: %s)", len(chat_messages), order.flight_no, order.zone)
+    return chat_messages
 
 

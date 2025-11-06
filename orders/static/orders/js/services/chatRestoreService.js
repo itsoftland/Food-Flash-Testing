@@ -41,12 +41,19 @@ export const ChatRestoreService = (() => {
 
         // Always clear when switching vendors
         chatContainer.innerHTML = "";
-
+        
         // Restore messages
-        cachedMessages.forEach(msg => {
-          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
-        });
-
+        if (window.BASE && window.BASE.includes('/airline_flash/')) {
+          cachedMessages.forEach(msg => {
+            // console.log(msg)
+            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
+          });
+        } else{
+          cachedMessages.forEach(msg => {
+            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+          });
+        }
+      
         // 🟡 Always insert welcome note at the top
         WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet", chatContainer, { prepend: true });
 

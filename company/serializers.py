@@ -167,6 +167,8 @@ class VendorUpdateSerializer(serializers.Serializer):
     place_id = serializers.CharField(required=False, allow_blank=True)
     location_id = serializers.CharField(required=False, allow_blank=True)
     auto_delete_hours = serializers.IntegerField(required=False, allow_null=True)
+    business_day_start_hour = serializers.TimeField(required=False, allow_null=True)
+
 
     def validate_vendor_id(self, value):
         if not Vendor.objects.filter(vendor_id=value).exists():

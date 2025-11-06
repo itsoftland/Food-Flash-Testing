@@ -1,6 +1,7 @@
 from rest_framework import serializers
-
 from vendors.models import Order, UserProfile, ChatMessage
+from django.conf import settings
+project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 
 class OrdersSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
@@ -18,6 +19,13 @@ class OrdersSerializer(serializers.ModelSerializer):
         extra_fields = ['vendor_name', 'manager_id', 'manager_name', 'new_notifications']
 
     def get_new_notifications(self, obj):
+        if project_name == "airline_flash":
+            return ChatMessage.objects.filter(
+                vendor=obj.vendor,
+                sequence_code = obj.sequence_code,
+                sender='user',
+                is_read=False
+            ).count()
         return ChatMessage.objects.filter(
             vendor=obj.vendor,
             token_no=obj.token_no,

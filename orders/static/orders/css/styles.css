@@ -367,6 +367,23 @@ input[type="text"] {
 .cancelled-color {
     background-color: #E13C3C !important; /* muted red */
 }
+.boarding-color {
+    background-color: #ef6c00 !important; /* green */
+}
+.final-call-color {
+    background-color:#1c7c54 !important;;
+    font-weight: 600;
+    color: #eaeaea !important;
+}
+.departed-color {
+    background-color: #115087 !important; /* deep royal blue */
+}
+.arrived-color {
+    background-color: #6f42c1 !important;; /* deep royal blue */
+    font-weight: 600;
+    color: #eaeaea !important;
+}
+
 .message-content .status{
       font-size: 1rem;
       margin-bottom: 0.8rem;
@@ -399,9 +416,12 @@ input[type="text"] {
     font-size: 0.65rem;
     opacity: 0.6;
     white-space: nowrap;
-    padding-left:10px;
-    
 }
+
+.timestamp-padded {
+    padding-left: 10px !important;
+}
+
 .message-row.server .message-timestamp {
     padding-left: 200px;
 }

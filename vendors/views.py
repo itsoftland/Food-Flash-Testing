@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.utils.timezone import now, localtime
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -25,6 +26,7 @@ from vendors.services.order_service import send_order_update
 from vendors.services.get_or_create_azure_device import create_iot_credentials
 from vendors.services.send_to_iot import get_azure_devices
 logger = logging.getLogger(__name__)
+project_name = getattr(settings, 'PROJECT_NAME', 'food_flash')
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -91,10 +93,16 @@ def save_subscription(request):
 
         # If token provided, try to link with order (optional)
         if token_number:
-            order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
+            if project_name == "airline_flash":
+                order = Order.objects.filter(sequence_code=token_number, vendor=vendor).order_by('-created_at').first()
+                logger.info(f"🔍 Lookup via sequence_code for airline_flash: {token_number}")
+            else:
+                order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
+                logger.info(f"🔍 Lookup via token_no for food flash: {token_number}")
+
             if order:
                 subscription.tokens.add(order)
-                logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={order.token_no})")
+                logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
             else:
                 logger.warning(f"⚠️ No order found for token={token_number}, vendor_id={vendor_id}")
 

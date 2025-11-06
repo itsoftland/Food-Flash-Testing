@@ -31,6 +31,7 @@ export const ChatHistoryService = (() => {
             if (!response.ok) throw new Error("Failed to fetch chat messages");
 
             const data = await response.json();
+            console.log("Chat History",data)
 
             if (!data || !Array.isArray(data.messages)) {
                 console.warn("Unexpected response format:", data);
@@ -38,7 +39,9 @@ export const ChatHistoryService = (() => {
             }
 
             return data.messages.map(msg => {
+                // console.log("Raw message:", msg);
                 const rendered = ChatTemplateService.build(msg);
+                // console.log("Rendered message:", rendered);
 
                 return {
                     ...msg, // keep raw info (sender, type, token_no, etc.)
@@ -63,21 +66,31 @@ export const ChatHistoryService = (() => {
      */
     const save = async ({ vendorId, browser_id, sender, type, text, token_no }) => {
         try {
+            let payload = {
+                vendor: vendorId,
+                browser_id,
+                sender,
+                type,
+                text
+            };
+
+            // For Airline Flash → send `sequence_code`
+            if (window.BASE === "/airline_flash/") {
+                payload.sequence_code = token_no; // token_no actually holds sequence code in this context
+            } else {
+                // For Food Flash → send numeric token_no
+                payload.token_no = token_no;
+            }
+
             const response = await fetch(apiEndpoints.CREATE_CHAT, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken(),
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCSRFToken(),
                 },
-                body: JSON.stringify({
-                    vendor: vendorId,
-                    browser_id,
-                    sender,
-                    type,
-                    text,
-                    token_no
-                })
+                body: JSON.stringify(payload),
             });
+
 
             if (!response.ok) throw new Error("Failed to save chat message");
 
