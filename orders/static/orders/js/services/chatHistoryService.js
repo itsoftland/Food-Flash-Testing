@@ -31,7 +31,7 @@ export const ChatHistoryService = (() => {
             if (!response.ok) throw new Error("Failed to fetch chat messages");
 
             const data = await response.json();
-            console.log("Chat History",data)
+            // console.log("Chat History",data)
 
             if (!data || !Array.isArray(data.messages)) {
                 console.warn("Unexpected response format:", data);

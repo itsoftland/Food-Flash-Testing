@@ -164,14 +164,34 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
 class WebChatMessageSerializer(serializers.ModelSerializer):
     vendor = serializers.CharField(write_only=True)
     browser_id = serializers.CharField(write_only=True)
+    passenger_name = serializers.SerializerMethodField() 
 
     class Meta:
         model = WebChatMessage
         fields = [
             "id", "browser_id", "vendor", "token_no",
             "sender", "type", "text", "timestamp",
-            "is_read", "is_send","sequence_code"
+            "is_read", "is_send", "sequence_code",
+            "passenger_name"  
         ]
+    # 🧩 Airline Flash special handling
+    def get_passenger_name(self, obj):
+        """
+        Dynamically returns passenger_name for airline_flash only.
+        """
+        try:
+            from django.conf import settings
+            project_name = getattr(settings, "PROJECT_NAME", "").lower()
+            
+            if project_name == "airline_flash" and obj.sequence_code:
+                order = Order.objects.filter(
+                    sequence_code=obj.sequence_code, vendor=obj.vendor
+                ).first()
+                if order and hasattr(order, "passenger_name"):
+                    return order.passenger_name
+        except Exception:
+            pass
+        return None  # return null if not airline_flash or not found
 
     def create(self, validated_data):
         vendor_identifier = validated_data.pop("vendor", None)
@@ -197,16 +217,17 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "browser_id": f"No subscription found for browser_id {browser_id}"
             })
-        # 🧩 Airline Flash special handling: get token_no from sequence_code
+
+        # 🧩 Airline Flash special handling
         if project_name == "airline_flash":
             sequence_code = validated_data.get("sequence_code")
             if sequence_code:
                 try:
                     order = Order.objects.get(sequence_code=sequence_code, vendor=vendor)
-                    validated_data["token_no"] = order.token_no  # ✅ store real token number
-                    validated_data["sequence_code"] = sequence_code  # keep sequence_code too
+                    validated_data["token_no"] = order.token_no
+                    validated_data["sequence_code"] = sequence_code
                 except Order.DoesNotExist:
-                    validated_data["token_no"] = None  # or handle gracefully
+                    validated_data["token_no"] = None
 
         # 🔹 Create WebChatMessage
         return WebChatMessage.objects.create(
@@ -214,4 +235,5 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             subscription=subscription,
             **validated_data
         )
+
 
