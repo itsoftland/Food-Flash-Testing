@@ -371,21 +371,6 @@ class AdvertisementProfileMiniSerializer(serializers.ModelSerializer):
         model = AdvertisementProfile
         fields = ['id', 'name']
 
-class AdminOutletAutoDeleteSerializer(serializers.ModelSerializer):
-    auto_delete_hours = serializers.IntegerField(
-        required=False, allow_null=True, min_value=2,
-        help_text="Auto-delete order data after these many hours. Set null to disable."
-    )
-
-    class Meta:
-        model = AdminOutlet
-        fields = ['auto_delete_hours']
-    
-    def to_internal_value(self, data):
-        if 'auto_delete_hours' in data and data['auto_delete_hours'] == 'None':
-            data['auto_delete_hours'] = None 
-        return super().to_internal_value(data)
-
 class DashboardMetricsSerializer(serializers.ModelSerializer):
     keypad_devices = serializers.SerializerMethodField()
     android_tvs = serializers.SerializerMethodField()

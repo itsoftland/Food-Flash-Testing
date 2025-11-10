@@ -37,7 +37,6 @@ from .serializers import (VendorSerializer,
                           AdvertisementProfileSerializer,
                           AdvertisementProfileAssignmentSerializer,
                           AdvertisementProfileMiniSerializer,
-                          AdminOutletAutoDeleteSerializer,
                           DashboardMetricsSerializer,
                           DeviceSerializer,AndroidDeviceSerializer,
                           OrderSerializer,UserProfileCreateSerializer,
@@ -919,28 +918,6 @@ def assigned_profiles(request):
             'error': 'Something went wrong while fetching assigned profiles.',
             'details': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def config(request):
-    admin_outlet = request.user.admin_outlet
-
-    if request.method == 'GET':
-        serializer = AdminOutletAutoDeleteSerializer(admin_outlet)
-        return Response(serializer.data)
-
-    if request.method == 'POST':
-        serializer = AdminOutletAutoDeleteSerializer(admin_outlet, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Auto-delete setting updated successfully.',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response({
-            'error': 'Validation failed.',
-            'details': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
