@@ -40,8 +40,7 @@
   /* Metric Icon Colors */
   --outlets: #e09f3e;
   --mapped-keypad-devices: #10b981;
-  --unmapped-keypad-devices: #ef4444;
   --mapped-android-tvs: #0ea5e9;
-  --unmapped-android-tvs: #ef4444;
+  --airport: #fb8b24; /* warm golden-orange accent for airline flavour */
 }
 

@@ -150,7 +150,10 @@ SIMPLE_JWT = {
 
 
 # === LOGGING ===
-LOG_DIR = BASE_DIR / 'foodflash_logs'
+if PROJECT_NAME == 'airline_flash':
+    LOG_DIR = BASE_DIR / 'airline_flash_logs'
+else:
+    LOG_DIR = BASE_DIR / 'foodflash_logs'
 os.makedirs(LOG_DIR, exist_ok=True)
 
 LOGGING = {

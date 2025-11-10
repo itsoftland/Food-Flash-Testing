@@ -48,16 +48,12 @@
   background-color: var(--mapped-keypad-devices);
 }
 
-.icon-circle.unmapped-keypad-devices {
-  background-color: var(--unmapped-keypad-devices);
-}
-
 .icon-circle.android-tvs {
   background-color: var(--mapped-android-tvs);
 }
 
-.icon-circle.unmapped-android-tvs {
-  background-color: var(--unmapped-android-tvs);
+.icon-circle.airport {
+  background-color: var(--airport);
 }
 
 /* Metric label text */

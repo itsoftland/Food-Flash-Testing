@@ -18,6 +18,8 @@ DEFAULT = {
         "create_outlet": "Create Outlet",
         "outlet_list": "Outlet List",
         "order_update": "Order Update",
+        "total_orders":"Total Orders",
+        "order_details":"Orders Details"
     },
     "dashboard": {
         "title": "Dashboard",
@@ -53,6 +55,8 @@ FOOD_FLASH = {
         "create_outlet": "Create Outlet",
         "outlet_list": "Outlet List",
         "order_update": "Order Update",
+        "total_orders":"Total Orders",
+        "order_details":"Orders Details"
     },
     "dashboard": {
         "title": "Food Flash Dashboard",
@@ -92,6 +96,8 @@ AIRLINE_FLASH = {
         "create_outlet": "Add Airport",
         "outlet_list": "Airport List",
         "order_update": "Flight Update",
+        "total_orders":"Total Passengers",
+        "order_details":"Passenger Details"
     },
     "dashboard": {
         "title": "Airline Flash Dashboard",

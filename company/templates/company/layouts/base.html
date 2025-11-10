@@ -78,7 +78,7 @@
             <li class="nav-item">
               <a href="{% url 'company:outlets' %}" class="nav-link {% if request.resolver_match.url_name == 'outlets' %}active{% endif %}">
                 <i class="nav-icon fas fa-store"></i>
-                <p>Outlet List</p>
+                <p>{{ LABELS.sidebar.outlet_list }}</p>
               </a>
             </li>
         
@@ -176,13 +176,13 @@
                 <li class="nav-item">
                   <a href="{% url 'company:total_orders' %}" class="nav-link {% if request.resolver_match.url_name == 'total_orders' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
-                    <p>Total Orders</p>
+                    <p>{{ LABELS.sidebar.total_orders }}</p>
                   </a>
                 </li>
                 <li class="nav-item">
                   <a href="{% url 'company:order_details' %}" class="nav-link {% if request.resolver_match.url_name == 'order_details' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
-                    <p>Order Details</p>
+                    <p>{{ LABELS.sidebar.order_details }}</p>
                   </a>
                 </li>
               </ul>
