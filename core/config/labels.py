@@ -17,12 +17,25 @@ DEFAULT = {
         "company_list": "Company List",
         "create_outlet": "Create Outlet",
         "outlet_list": "Outlet List",
+        "outlet_update":"Outlet Update",
         "order_update": "Order Update",
         "total_orders":"Total Orders",
         "order_details":"Orders Details"
     },
     "dashboard": {
         "title": "Dashboard",
+        "body": "You can manage companies and view analytics from here.",
+    },
+    "company_dashboard": {
+        "title": "Dashboard",
+    },
+    "outlet_list":{
+        "title":"You can manage companies from here."
+    },
+    "outlet_update": {
+        "outlet_name": "Outlet Name",
+        "outlet_alias_name": "Outlet Alias Name",
+        "button":"Update Outlet Data"
     },
     "registration": {
         "title": "Company Registration",
@@ -54,12 +67,25 @@ FOOD_FLASH = {
         "company_list": "Restaurant List",
         "create_outlet": "Create Outlet",
         "outlet_list": "Outlet List",
+        "outlet_update":"Update Outlet Data",
         "order_update": "Order Update",
         "total_orders":"Total Orders",
         "order_details":"Orders Details"
     },
     "dashboard": {
         "title": "Food Flash Dashboard",
+        "body": "You can manage companies and view analytics from here.",
+    },
+    "company_dashboard": {
+        "title": "Company Dashboard",
+    },
+    "outlet_list":{
+        "title":"You can manage outlets from here."
+    },
+    "outlet_update": {
+        "outlet_name": "Outlet Name",
+        "outlet_alias_name": "Outlet Alias Name",
+        "button":"Update Outlet Data"
     },
     "registration": {
         "title": "Restaurant Registration",
@@ -95,12 +121,25 @@ AIRLINE_FLASH = {
         "company_list": "Airline List",
         "create_outlet": "Add Airport",
         "outlet_list": "Airport List",
+        "outlet_update":"Update Airport Data",
         "order_update": "Flight Update",
         "total_orders":"Total Passengers",
         "order_details":"Passenger Details"
     },
     "dashboard": {
         "title": "Airline Flash Dashboard",
+        "body": "You can manage Airports and view analytics from here.",
+    },
+    "company_dashboard": {
+        "title": "Airline Dashboard",
+    },
+    "outlet_list":{
+        "title":"You can manage airports from here."
+    },
+    "outlet_update": {
+        "outlet_name": "Airport Name",
+        "outlet_alias_name": "Airport Alias Name",
+        "button":"Update Airport Data"
     },
     "registration": {
         "title": "Airline Registration",

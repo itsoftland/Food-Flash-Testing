@@ -84,13 +84,14 @@
               <p>{{ LABELS.sidebar.outlet_list }}</p>
             </a>
           </li>
-
+          {% if PROJECT_NAME != "airline_flash" %}
           <li class="nav-item">
             <a href="{% url 'companyadmin:order_update' %}" class="nav-link {% if request.resolver_match.url_name == 'order_update' %}active{% endif %}">
               <i class="nav-icon fa-solid fa-pen-to-square"></i>
               <p>{{ LABELS.sidebar.order_update }}</p>
             </a>
           </li>
+          {% endif %}
         </ul>
       </nav>
     </div>

@@ -114,11 +114,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const placeIdVal = placeIdInput.value.trim();
     const logoFile = logoInput?.files?.[0] || null;
     const menuFiles = Array.from(menuFilesInput?.files || []);
-    const rawAutoDelete = autoDeleteSelect.value;
-    const autoDeleteHours = parseInt(rawAutoDelete, 10);
-    const businessHourVal = businessHourInput?.value?.trim() || "";
-    // console.log("Captured business hour before submit:", businessHourVal);
-    
+
+    // Detect project name
+    const projectName = window.PROJECT_NAME || '';  // should be set globally from Django
+
+    // Prepare optional fields
+    let autoDeleteHours = parseInt(autoDeleteSelect?.value || '0', 10);
+    let businessHourVal = businessHourInput?.value?.trim() || "";
+    let modalShowContent = "Outlet Data Updated Successfully"
+
+    // If airline_flash, override both with empty/null
+    if (projectName === "airline_flash") {
+      autoDeleteHours = "";
+      businessHourVal = "";
+      modalShowContent = "Airport Data Updated Successfully"
+    }
+
     const formData = OutletUpdateService.buildFormData({
       vendor_id: vendorId,
       name: nameVal,
@@ -139,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const result = await OutletUpdateService.updateOutlet(formData,fetchWithAutoRefresh,API_ENDPOINTS);
       if (result.success) {
-        ModalService.showSuccess("Outlet Updated Successfully", () => {
+        ModalService.showSuccess(modalShowContent, () => {
           outletForm.reset();
           window.location.href = WEB_ENDPOINTS.OUTLETS;
         });

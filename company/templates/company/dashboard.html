@@ -3,14 +3,14 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'company/css/dashboard.css' %}">
 {% endblock%}
-{% block title %}Company Dashboard{% endblock %}
+{% block title %} {{ LABELS.company_dashboard.title }} {% endblock %}
 
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Company Dashboard</h1>
+        <h1 class="page-title">{{ LABELS.company_dashboard.title }}</h1>
       </div>
       <div id="welcome-info" class="col-sm-6 text-sm-end d-none d-md-block">
         <!-- Welcome Message Injected by JS -->

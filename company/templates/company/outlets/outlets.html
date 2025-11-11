@@ -3,14 +3,14 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'company/css/outlets.css' %}">
 {% endblock%}
-{% block title %}View Outlets{% endblock %}
+{% block title %}{{ LABELS.sidebar.outlet_list }}{% endblock %}
 
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Outlets List</h1>
+        <h1 class="page-title">{{ LABELS.sidebar.outlet_list }}</h1>
       </div>
     </div>
   </div>
@@ -21,7 +21,7 @@
     <div class="card shadow-sm border-0">
       <!-- Vendors List -->
       <div class="card-body">
-        <p class="mb-2">You can manage companies from here.</p>
+        <p class="mb-2">{{ LABELS.outlet_list.title }}</p>
         <div class="row" id="vendor-list">
           <!-- Vendor Cards will be injected here -->
         </div>

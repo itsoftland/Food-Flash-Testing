@@ -74,7 +74,6 @@ function buildAirlineManagerMessage(payload) {
   `;
 }
 
-
 function buildFlightStatusMessage(payload) {
   const statusKey = payload?.status?.toLowerCase() || 'unknown';
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
@@ -101,7 +100,7 @@ function buildFlightStatusMessage(payload) {
         <div class="passenger-name">${payload.passenger_name || "-"}</div>
       </div>
 
-      <!-- Sequence Code below Passenger Name (Separate line) -->
+      <!-- Sequence Code -->
       <div class="sequence-code-row">
         <span class="sequence-code-label">Sequence Code:</span>
         <div class="sequence-code-display d-flex align-items-center">
@@ -111,7 +110,7 @@ function buildFlightStatusMessage(payload) {
           </span>
           <button class="btn btn-outline-primary ms-2 secure-copy-btn" 
                   data-code="${encodedRealCode}">
-            <i class="fas fa-copy"></i> Copy
+            <i class="fas fa-copy"></i>
           </button>
         </div>
       </div>
@@ -131,15 +130,24 @@ function buildFlightStatusMessage(payload) {
         </div>
       </div>
 
-      <!-- PNR Row -->
-      <div class="pnr-row">
-        <span class="pnr-icon" aria-hidden="true">🎫</span>
-        <span class="flight-label">PNR</span>
-        <span class="flight-badge pnr-badge">${payload.pnr_no || "-"}</span>
+      <!-- PNR + Zone Row -->
+      <div class="pnr-zone-row">
+        <div class="pnr-item">
+          <span class="pnr-icon" aria-hidden="true">🎫</span>
+          <span class="flight-label">PNR</span>
+          <span class="flight-badge pnr-badge">${payload.pnr_no || "-"}</span>
+        </div>
+
+        <div class="zone-item">
+          <span class="zone-icon" aria-hidden="true">🛫</span>
+          <span class="flight-label">Zone</span>
+          <span class="flight-badge zone-badge">${payload.zone || "-"}</span>
+        </div>
       </div>
     </div>
   `;
 }
+
 
 export const ChatTemplateService = {
   build(message) {

@@ -136,6 +136,7 @@ def check_status(request):
             'flight_no': order.flight_no,
             'pnr_no': order.pnr_no,
             'seat_no': order.seat_no,
+            'zone':order.zone,
             'passenger_name': order.passenger_name,
             'sequence_code': order.sequence_code,
         }

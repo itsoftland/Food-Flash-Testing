@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+  const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
 
   const currentPath = window.location.pathname;
 
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (currentPath.includes('/dashboard')) {
     setupOutletGreeting();
   }
-  await getDashboardMetrics(fetchWithAutoRefresh,API_ENDPOINTS);
+  await getDashboardMetrics(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS);
 });
 
 function setupOutletGreeting() {
@@ -22,52 +23,8 @@ function setupOutletGreeting() {
   const outletName = localStorage.getItem('customer_name') || 'Admin';
   welcomeInfoContainer.innerHTML = `<span class="text-golden fw-bold">Welcome, ${outletName}</span>`;
 }
-// async function getDashboardMetrics(fetchWithAutoRefresh,API_ENDPOINTS) {
-//   const metricsContainer = document.getElementById("dashboard-metrics");
 
-//   try {
-//     const response = await fetchWithAutoRefresh(API_ENDPOINTS.DASHBOARD_METRICS, {
-//       method: 'GET',
-//     });
-
-//     const data = await response.json();
-
-//     const iconMap = {
-//       keypad_devices: "mobile-retro",
-//       android_tvs: "tv",
-//       outlets: "store",
-//     };
-
-//     Object.entries(data).forEach(([key, value]) => {
-//       const card = document.createElement("div");
-//       card.className = "col-6 col-md-3";
-
-//       const className = `icon-circle ${key.replaceAll('_', '-')}`;
-//       const formattedKey = key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-//       console.log(iconMap[key], key, value);
-
-//       card.innerHTML = `
-//         <div class="metric-card shadow-sm h-100">
-//           <div class="${className}">
-//             <i class="fas fa-${iconMap[key] || 'chart-bar'}"></i>
-//           </div>
-//           <div class="metric-label">${formattedKey}</div>
-//           <div class="metric-value">${value}</div>
-//         </div>
-//       `;
-
-
-//       metricsContainer.appendChild(card);
-//     });
-
-
-//   } catch (error) {
-//     console.error("Error fetching metrics:", error);
-//     metricsContainer.innerHTML = `<div class="col-12 text-danger">Failed to load metrics</div>`;
-//   }
-// }
-
-async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS) {
+async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPOINTS) {
   const metricsContainer = document.getElementById("dashboard-metrics");
 
   try {
@@ -86,6 +43,12 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS) {
     };
 
     Object.entries(data).forEach(([key, value]) => {
+
+      // Skip android_tvs and keypad_devices for airline_flash
+      if (projectName === "airline_flash" && (key === "android_tvs" || key === "keypad_devices")) {
+        return;
+      }
+
       const card = document.createElement("div");
       card.className = "col-6 col-md-3";
 
@@ -99,16 +62,30 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS) {
       const formattedKey = displayKey
         .replace(/_/g, " ")
         .replace(/\b\w/g, c => c.toUpperCase());
+      console.log(displayKey)
 
+      // Define target URLs per metric
+      const pageLinks = {
+        outlets: WEB_ENDPOINTS.OUTLETS,
+        keypad_devices: WEB_ENDPOINTS.DEVICE_LIST,
+        android_tvs: WEB_ENDPOINTS.ANDROID_TV_LIST,
+        airport: WEB_ENDPOINTS.OUTLETS,
+      };
+
+      const targetUrl = pageLinks[displayKey] || "#";
+      // Wrap the card in an anchor link
       card.innerHTML = `
-        <div class="metric-card shadow-sm h-100">
-          <div class="${className}">
-            <i class="fas fa-${iconMap[displayKey] || 'chart-bar'}"></i>
+        <a href="${targetUrl}" class="text-decoration-none">
+          <div class="metric-card shadow-sm h-100 hover-scale">
+            <div class="${className}">
+              <i class="fas fa-${iconMap[displayKey] || 'chart-bar'}"></i>
+            </div>
+            <div class="metric-label">${formattedKey}</div>
+            <div class="metric-value">${value}</div>
           </div>
-          <div class="metric-label">${formattedKey}</div>
-          <div class="metric-value">${value}</div>
-        </div>
+        </a>
       `;
+
       metricsContainer.appendChild(card);
     });
 

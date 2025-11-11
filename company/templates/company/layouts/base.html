@@ -77,11 +77,11 @@
 
             <li class="nav-item">
               <a href="{% url 'company:outlets' %}" class="nav-link {% if request.resolver_match.url_name == 'outlets' %}active{% endif %}">
-                <i class="nav-icon fas fa-store"></i>
+                <i class="nav-icon {{ ICONS.sidebar.outlet_list }}"></i>
                 <p>{{ LABELS.sidebar.outlet_list }}</p>
               </a>
             </li>
-        
+            
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'create_users' or request.resolver_match.url_name == 'create_users' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                 <i class="nav-icon fas fa-users"></i>
@@ -111,6 +111,7 @@
                 <p>Manager Devices(Dev)</p>
               </a>
             </li>
+            {% if PROJECT_NAME != "airline_flash" %}
             <li class="nav-item">
               <a href="{% url 'company:keypad_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'keypad_devices' %}active{% endif %}">
                 <i class="nav-icon fas fa-mobile-retro"></i>
@@ -123,6 +124,7 @@
                 <p>Android TV's</p>
               </a>
             </li>
+            {% endif %}
             <li class="nav-item">
               <a href="{% url 'company:banners' %}" class="nav-link {% if request.resolver_match.url_name == 'banners' %}active{% endif %}">
                 <i class="nav-icon fas fa-ad"></i>

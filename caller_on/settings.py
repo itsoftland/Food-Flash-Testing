@@ -104,6 +104,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'vendors.context_processors.project_info',
                 'core.context_processors.project_labels',
+                'core.context_processors.project_icons',
             ]
         },
     },
@@ -149,11 +150,22 @@ SIMPLE_JWT = {
 }
 
 
-# === LOGGING ===
+
+from datetime import datetime
+# === LOGGING BASE STRUCTURE ===
 if PROJECT_NAME == 'airline_flash':
-    LOG_DIR = BASE_DIR / 'airline_flash_logs'
+    BASE_LOG_DIR = BASE_DIR / 'airline_flash_logs'
 else:
-    LOG_DIR = BASE_DIR / 'foodflash_logs'
+    BASE_LOG_DIR = BASE_DIR / 'foodflash_logs'
+
+# Create nested folders: year/month/day
+today = datetime.now()
+year_folder = str(today.year)
+month_folder = today.strftime("%B")  
+day_folder = f"{today.day:02d}"
+
+LOG_DIR = BASE_LOG_DIR / year_folder / month_folder / day_folder
+os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 LOGGING = {

@@ -124,7 +124,7 @@ class VendorConfig(models.Model):
         ],
         default="All"
     )
-    business_day_start_hour = models.TimeField(default="00:00:00")
+    business_day_start_hour = models.TimeField(null=True, blank=True,default="00:00:00")
     timezone = models.CharField(
         max_length=50,
         choices=[(tz, tz) for tz in pytz.all_timezones], 

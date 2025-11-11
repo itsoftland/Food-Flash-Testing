@@ -1,7 +1,23 @@
-/* Flight card (namespace: .flight-card) */
+/* ============================================================
+   Flight Card Stylesheet
+   Namespace: .flight-card
+   Purpose:
+     Defines the layout and visual design of flight status cards
+     displayed in chat-style interfaces for the Airline Flash flavour.
+   Structure:
+     - Base Container (.flight-card)
+     - Passenger Header (.flight-card-header)
+     - Flight Details Rows (Flight, Seat, PNR, Zone)
+     - Sequence Code Section
+     - Responsive Behaviour
+   ============================================================ */
+
+/* -----------------------------
+   Base Card Container
+   ----------------------------- */
 .flight-card {
-  max-width: 320px;          /* chat bubble max width; adjust to match chat */
-  background: #fff9f0;       /* keep similar warm tone used elsewhere */
+  max-width: 320px;          /* Chat bubble max width */
+  background: #fff9f0;       /* Soft warm tone for brand consistency */
   border-radius: 12px;
   padding: 12px 14px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
@@ -10,12 +26,13 @@
   margin: 6px 0;
 }
 
-/* Header: passenger line */
+/* -----------------------------
+   Passenger Header Section
+   ----------------------------- */
 .flight-card-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
 }
 
 .passenger-icon {
@@ -33,38 +50,41 @@
 }
 
 .passenger-name {
-  font-weight: 700;
-  font-size: 15px;
+  max-width: calc(100% - 40px);
+  font-weight: bold;
+  font-size: 16px;
   color: #1f2937;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Body */
+/* -----------------------------
+   Card Body Layout
+   ----------------------------- */
 .flight-card-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Row with Flight & Seat */
+/* -----------------------------
+   Flight & Seat Row
+   ----------------------------- */
 .flight-row {
   display: flex;
-  gap: 8px;
+  gap: 18px;
   align-items: center;
 }
 
-/* Each item groups icon,label,badge */
 .flight-item {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   flex: 1 1 auto;
-  min-width: 0; /* allow ellipsis in narrow widths */
+  min-width: 0; /* Allow text ellipsis in narrow views */
 }
 
-/* label text (Flight / Seat / PNR) */
 .flight-label {
   font-size: 13px;
   color: #374151;
@@ -83,7 +103,6 @@
   font-size: 13px;
   white-space: nowrap;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  /* margin-left: auto; */
 }
 
 /* Slightly smaller badge for seat to balance visual weight */
@@ -92,14 +111,27 @@
   font-size: 12.5px;
 }
 
-/* PNR row — PNR gets its own full-width line */
-.pnr-row {
-  /* display: flex; */
-  gap: 8px;
+/* -----------------------------
+   PNR + Zone Row (New Section)
+   Combines PNR and Zone into one aligned row
+   ----------------------------- */
+.pnr-zone-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-/* PNR badge should be visually prominent and take more width */
+/* Individual item groups */
+.pnr-item,
+.zone-item {
+  display: flex;
+  align-items: center;
+  gap:6px;
+  flex: 1 1 50%;
+}
+
+/* PNR Badge */
 .pnr-badge {
   display: inline-block;
   padding: 6px 12px;
@@ -108,10 +140,22 @@
   margin-left: 8px;
 }
 
-/* small icons spacing and size */
+/* Zone Badge (inherits brand colour, slightly lighter for balance) */
+.zone-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 999px;
+  color: #2a2c41;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Small icons for all mini sections */
 .flight-icon,
 .seat-icon,
-.pnr-icon {
+.pnr-icon,
+.zone-icon {
   font-size: 14px;
   display: inline-flex;
   align-items: center;
@@ -120,56 +164,16 @@
   color: #334155;
 }
 
-/* Responsive behavior */
-@media (max-width: 320px) {
-  .flight-card {
-    padding: 10px 12px;
-    max-width: 260px;
-  }
-  .passenger-name {
-    font-size: 14px;
-  }
-  .flight-label {
-    font-size: 12px;
-  }
-  .flight-badge {
-    font-size: 12px;
-    padding: 5px 8px;
-  }
-  .pnr-badge {
-    font-size: 12px;
-    padding: 5px 8px;
-  }
-}
-
-/* If passenger name is very long, keep it to one line and ellipsize */
-.flight-card .passenger-name {
-  max-width: calc(100% - 40px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-
-
-
-.flight-card-header {
-  margin-bottom: 10px; /* Ensures spacing between name and sequence code */
-}
-
-.passenger-name {
-  font-weight: bold;
-  font-size: 16px;
-}
-
+/* -----------------------------
+   Sequence Code Section
+   ----------------------------- */
 .sequence-code-row {
-  margin-top: 10px; /* Adds space between passenger name and sequence code */
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .sequence-code-label {
-  font-weight: bold;
   margin-right: 10px;
+  font-size: 14px;
 }
 
 .sequence-code-display {
@@ -185,9 +189,12 @@
 }
 
 .btn-outline-primary {
-  font-size: 14px;
+  font-size: 12px;
 }
 
+/* -----------------------------
+   Passenger Info Block (Optional)
+   ----------------------------- */
 .passenger-info {
   background-color: #f4f4f8;
   padding: 6px 10px;
@@ -202,7 +209,27 @@
   font-size: 0.65rem;
   opacity: 0.6;
   white-space: nowrap;
-  padding-left:10px;
+  padding-left: 10px;
 }
 
-
+/* -----------------------------
+   Responsive Behaviour
+   ----------------------------- */
+@media (max-width: 320px) {
+  .flight-card {
+    padding: 10px 12px;
+    max-width: 260px;
+  }
+  .passenger-name {
+    font-size: 14px;
+  }
+  .flight-label {
+    font-size: 12px;
+  }
+  .flight-badge,
+  .pnr-badge,
+  .zone-badge {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+}

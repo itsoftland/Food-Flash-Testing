@@ -439,21 +439,29 @@ def update_vendor(request):
         # Update or create VendorConfig
         auto_delete_val = validated_data.get('auto_delete_hours')
         business_day_start_time = validated_data.get('business_day_start_hour')
+
+        # Handle airline_flash safely
+        if settings.PROJECT_NAME == "airline_flash":
+            auto_delete_val = None
+            business_day_start_time = None
+
+        # Handle disable case
         if auto_delete_val == 0:
-            auto_delete_val = None  # handle "Disable Auto Deletion"
+            auto_delete_val = None
 
         config = getattr(vendor, 'config', None)
         if config:
             config.business_day_start_hour = business_day_start_time
             config.auto_delete_hours = auto_delete_val
-            config.save(update_fields=['auto_delete_hours','business_day_start_hour'])
-            logger.info("VendorConfig auto_delete_hours updated for vendor: %s", vendor.vendor_id)
+            config.save(update_fields=['auto_delete_hours', 'business_day_start_hour'])
+            logger.info("VendorConfig updated for vendor: %s", vendor.vendor_id)
         else:
             VendorConfig.objects.create(
                 vendor=vendor,
-                auto_delete_hours=auto_delete_val
+                auto_delete_hours=auto_delete_val,
+                business_day_start_hour=business_day_start_time
             )
-            logger.info("VendorConfig created with auto_delete_hours for vendor: %s", vendor.vendor_id)         
+            logger.info("VendorConfig created for vendor: %s", vendor.vendor_id)
 
         return Response({
             'message': 'Vendor updated successfully.',

@@ -14,7 +14,7 @@
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Outlet Update </h1>
+        <h1 class="page-title">{{ LABELS.sidebar.outlet_update }}</h1>
       </div>
     </div>
   </div>
@@ -30,11 +30,11 @@
           <!-- Row 1 -->
           <div class="row">
             <div class="form-group col-md-6">
-              <label for="name">Outlet Name</label>
+              <label for="name">{{ LABELS.outlet_update.outlet_name }}</label>
               <input type="text" id="name" name="name" class="form-control form-control-sm" required />
             </div>
             <div class="form-group col-md-6">
-              <label for="alias_name">Outlet Alias Name</label>
+              <label for="alias_name">{{ LABELS.outlet_update.outlet_alias_name }}</label>
               <input type="text" id="alias_name" name="alias_name" class="form-control form-control-sm" required />
             </div>
           </div>
@@ -64,7 +64,7 @@
                 <i class="fas fa-info-circle text-secondary ml-1"
                   data-toggle="tooltip"
                   data-placement="right"
-                  title="Enter your business's Google Place ID. To find it: 1. Go to https://developers.google.com/maps/documentation/places/web-service/place-id 2. Search for your business 3. Click the correct location 4. Copy the Place ID">
+                  title="Click the 'Find Place ID' button, search for your business in the map section on that page, then copy the generated Place ID and paste it here.">
                 </i>
                 <a href="https://developers.google.com/maps/documentation/places/web-service/place-id"
                   target="_blank"
@@ -80,6 +80,7 @@
               <select name="location" id="location" class="form-control form-control-sm" required></select>
             </div>
           </div>
+          {% if PROJECT_NAME != "airline_flash" %}
           <!-- Row 5 -->
           <div class="row">
             <div class="form-group col-md-6">
@@ -111,10 +112,10 @@
               </select>
             </div>
           </div>
-
+          {% endif %}
           <!-- Submit -->
           <div class="text-center mt-1">
-            <button type="submit" class="btn btn-golden shadow-sm px-4 py-1">Update Outlet</button>
+            <button type="submit" class="btn btn-golden shadow-sm px-4 py-1">{{ LABELS.outlet_update.button }}</button>
           </div>
         </form>
       </div>

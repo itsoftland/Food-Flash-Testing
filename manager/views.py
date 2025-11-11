@@ -615,6 +615,7 @@ def manager_order_update(request):
             payload["flight_no"] = order.flight_no
             payload["pnr_no"] = order.pnr_no
             payload["seat_no"] = order.seat_no
+            payload["seat_no"]= order.zone,
             payload["passenger_name"] = order.passenger_name
 
         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
