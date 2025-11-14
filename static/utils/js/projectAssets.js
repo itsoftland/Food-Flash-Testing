@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fullLogo: `${base}company/images/airlineflashlogo.webp`,
             miniLogo: `${base}company/images/af_logo.webp`,
             favicon: `${base}orders/images/airline-flash-logo.ico`,
-            apple: `${base}company/images/af_logo.webp`,
+            apple: `${base}utils/Images/airlineflash-mini-logo.webp`,
         },
         service_flash: {
             fullLogo: `${base}company/images/serviceflashlogo.webp`,

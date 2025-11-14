@@ -40,7 +40,15 @@ def get_vendor_business_day_range(vendor):
     Returns:
         tuple: (start_datetime_utc, end_datetime_utc)
     """
-    start_time = vendor.config.business_day_start_hour  
+    # Gracefully handle null business_day_start_hour
+    start_time = vendor.config.business_day_start_hour
+    if start_time is None:
+        logger.info(
+            f"[get_vendor_business_day_range] business_day_start_hour is None for vendor_id={vendor.id}. "
+            "Defaulting to 00:00:00 (24/7 mode)."
+        )
+        start_time = datetime.strptime("00:00:00", "%H:%M:%S").time()
+  
     vendor_tz = vendor.config.timezone or 'UTC'
 
     try:

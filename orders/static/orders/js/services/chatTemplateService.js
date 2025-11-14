@@ -1,22 +1,31 @@
+
 const statusClassMap = {
   preparing: 'preparing-color',
   ready: 'ready-color',
   delivered: 'delivered-color',
+  checked_in: 'checked-in-color',
+  boarding_shortly: 'boarding-shortly-color',
+  boarding_announced: 'boarding-announced-color',
+  gate_change: 'gate-change-color',
+  rescheduled: 'rescheduled-color',
   cancelled: 'cancelled-color',
-  boarding: 'boarding-color',
-  final_call: 'final-call-color',
-  departed: 'departed-color',
-  arrived: 'arrived-color',
 };
 
+
 const payloadStatusMap = {
-  final_call:'Proceed to Aircraft',
-  boarding:'Boarding'
-}
+  checked_in: 'Checked-In',
+  boarding_shortly: 'Boarding Shortly',
+  boarding_announced: 'Boarding Announced',
+  gate_change: 'Gate Change',
+  rescheduled: 'Rescheduled',
+  cancelled: 'Cancelled',
+};
 
 function buildStatusMessage(payload) {
+  console.log("payload status:",payload.status)
   const statusKey = payload?.status || 'unknown';
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
+  console.log("status key:",statusKey)
 
   return `
     <div class="response-title">${payload.alias_name || "Unknown"}</div>
@@ -87,9 +96,9 @@ function buildFlightStatusMessage(payload) {
     </div>
 
     <div class="status">
-        Flight Status:
+        Status:
         <span class="${statusClass}">
-            ${payloadStatus || "Waiting"}
+            ${payloadStatus || "Unknown"}
         </span>
     </div>
 

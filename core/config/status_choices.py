@@ -4,28 +4,43 @@ core/config/status_choices.py
 Centralized status configuration for multi-flavour projects.
 
 Overview:
-    This file defines distinct order or process status choices for each
-    project flavour (e.g., Food Flash, Airline Flash). It allows a single
-    codebase to handle multiple business domains while presenting
-    appropriate terminology in both the backend and UI.
+    This module provides a unified configuration for order or process
+    status definitions across different project flavours such as
+    Food Flash and Airline Flash. Each project flavour has its own
+    terminology and logical flow, but all are managed from this
+    single file to ensure consistent access and maintainability.
 
 Purpose:
     - Keeps all status definitions centralized and flavour-specific.
     - Enables Django models to dynamically load their status choices
-      based on the `PROJECT_NAME` value from settings.
-    - Ensures readability and maintainability across flavours.
+      based on the `PROJECT_NAME` setting value.
+    - Promotes clarity and maintainability by reducing hardcoded
+      status duplication in models and views.
+    - Provides a scalable structure for adding future project flavours.
 
-Usage:
-    In models, import and assign dynamically:
+Usage in Models:
+    In any model where a status field is needed, dynamically assign
+    choices as follows:
+
+        from django.conf import settings
         from core.config.status_choices import STATUS_CHOICES_MAP
-        STATUS_CHOICES = STATUS_CHOICES_MAP.get(settings.PROJECT_NAME.lower(), [])
 
-    Example:
-        For PROJECT_NAME = "food_flash":
-            → ('preparing', 'Preparing')
+        class Order(models.Model):
+            STATUS_CHOICES = STATUS_CHOICES_MAP.get(
+                getattr(settings, "PROJECT_NAME").lower(), []
+            )
+            status = models.CharField(
+                max_length=20,
+                choices=STATUS_CHOICES,
+                default='preparing'
+            )
 
-        For PROJECT_NAME = "airline_flash":
-            → ('boarding', 'Boarding')
+Example:
+    For PROJECT_NAME = "food_flash":
+        → ('preparing', 'Preparing')
+
+    For PROJECT_NAME = "airline_flash":
+        → ('boarding_announced', 'Boarding Announced')
 
 Structure:
     STATUS_CHOICES_MAP = {
@@ -35,26 +50,43 @@ Structure:
         ]
     }
 
-Example in Model:
-    class Order(models.Model):
-        STATUS_CHOICES = STATUS_CHOICES_MAP.get(getattr(settings, "PROJECT_NAME").lower(), [])
-        status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+Notes:
+    - The left element (<machine_value>) represents the internal code stored in the database.
+    - The right element (<human_readable_label>) represents the display text shown in the UI.
+    - Add new flavours as new dictionary keys following the same structure.
+
 """
 
+# -------------------------------------------------------------------
+# Centralized Status Definitions for Multi-Flavour Projects
+# -------------------------------------------------------------------
+
 STATUS_CHOICES_MAP = {
+    # ---------------------------------------------------------------
+    # 🍔 FOOD FLASH
+    # ---------------------------------------------------------------
     "food_flash": [
-        ('created', 'Created'),
-        ('preparing', 'Preparing'),
-        ('ready', 'Ready'),
-        ('delivered', 'Delivered'),
-        ('cancelled', 'Cancelled'),
+        ('created', 'Created'),       # Order created, waiting to start
+        ('preparing', 'Preparing'),   # Kitchen is preparing the order
+        ('ready', 'Ready'),           # Order is ready for pickup/delivery
+        ('delivered', 'Delivered'),   # Customer received the order
+        ('cancelled', 'Cancelled'),   # Order cancelled by vendor or user
     ],
+
+    # ---------------------------------------------------------------
+    # ✈️ AIRLINE FLASH
+    # ---------------------------------------------------------------
     "airline_flash": [
-        ('waiting', 'Waiting'),
-        ('boarding', 'Boarding'),
-        ('final_call', 'Proceed to Aircraft'),
-        ('departed', 'Departed'),
-        ('arrived', 'Arrived'),
-        ('cancelled', 'Cancelled'),
+        ('bp_issued', 'B.Pass Issued'),   # Boarding pass generated for passenger
+        ('checked_in', 'Checked-In'),            # Passenger has completed check-in
+        ('boarding_shortly', 'Boarding Shortly'),# Boarding expected soon
+        ('boarding_announced', 'Boarding Announced'), # Boarding officially announced
+        ('gate_change', 'Gate Change'),          # Gate updated for the flight
+        ('rescheduled', 'Rescheduled'),          # Flight time changed
+        ('flightcancel', 'Cancelled'),              # Flight cancelled
     ],
 }
+
+# -------------------------------------------------------------------
+# End of File
+# -------------------------------------------------------------------

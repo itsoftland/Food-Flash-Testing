@@ -135,8 +135,6 @@ class VendorConfig(models.Model):
         help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-
 
 class Device(models.Model):
     serial_no = models.CharField(max_length=255)
@@ -247,8 +245,27 @@ class PushSubscription(models.Model):
     p256dh = models.TextField()
     auth = models.TextField()
     tokens = models.ManyToManyField(Order, blank=True)  # Many-to-Many with orders
+    last_push_status = models.CharField(
+        max_length=20,
+        choices=[('success','Success'),('failed','Failed'),('stale','Stale'),('pending','Pending')],
+        default='pending'
+    )
+    last_push_response = models.TextField(blank=True, null=True)
+    last_checked_at = models.DateTimeField(auto_now=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def mark_as_stale(self, response_text=None):
+        """Mark subscription as stale but keep record for analysis."""
+        self.last_push_status = 'stale'
+        self.last_push_response = response_text or 'Stale subscription detected (404/410).'
+        self.save(update_fields=['last_push_status', 'last_push_response', 'updated_at'])
+
+    def mark_as_success(self):
+        self.last_push_status = 'success'
+        self.last_push_response = None
+        self.save(update_fields=['last_push_status', 'last_push_response', 'updated_at'])
 
     def __str__(self):
         return f"Subscription for {self.browser_id}"

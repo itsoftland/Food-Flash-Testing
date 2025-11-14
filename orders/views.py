@@ -78,8 +78,10 @@ def check_status(request):
             identifier_field: identifier_value,
             "vendor__vendor_id": vendor_id,
         }
-        status_check_name = "waiting"
-        status_to_update = "boarding"
+        status_check_name = "bp_issued"
+        status_to_update = "checked_in"
+        title = "Passenger Status Check"
+        body = f"Passenger {identifier_value} is checking their flight status."
     else:
         identifier_field = "token_no"
         identifier_value = request.data.get("token_no")
@@ -90,6 +92,8 @@ def check_status(request):
         }
         status_check_name = "created"
         status_to_update = "preparing"
+        title = "Status Check"
+        body = f"Customer {identifier_value} is checking their order status."
 
     if not identifier_value:
         return Response({'error': f'{identifier_field} is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -108,6 +112,12 @@ def check_status(request):
         order = Order.objects.get(**order_filter)
 
         if order.status == status_check_name:
+            if project_name == "airline_flash":
+                title = "Passenger Connected to Your Flight"
+                body = f"Passenger {identifier_value} is now connected."
+            else:
+                title = "Customer Connected"
+                body = f"Customer {identifier_value} has opened the order status page."
             order.status = status_to_update
             order.updated_by = 'customer'
             order.save()
@@ -164,8 +174,14 @@ def check_status(request):
                 )
             except Exception as e:
                 logger.exception("Failed to store user chat message")
+            if project_name == "airline_flash":
+                title = "Passenger Message Received"
+                body = f"Passenger {order.sequence_code} has sent a new message."
+            else:
+                title = "Customer Message Received"
+                body = f"Customer {order.token_no} has sent a new message."
 
-        send_to_managers(order.vendor, data)
+        send_to_managers(order.vendor, data,title,body)
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:
@@ -216,7 +232,14 @@ def check_status(request):
                     'message': 'Order created with status preparing.',
                     'reply_status': ''
                 }
-                send_to_managers(vendor, data)
+                if project_name == "airline_flash":
+                    title = "Passenger Connected to Your Flight"
+                    body = f"Passenger {identifier_value} is now connected."
+                else:
+                    title = "Customer Connected"
+                    body = f"Customer {identifier_value} has opened the order status page."
+
+                send_to_managers(vendor, data,title,body)
 
                 return Response(data, status=status.HTTP_201_CREATED)
             else:

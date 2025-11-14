@@ -366,22 +366,39 @@ input[type="text"] {
 
 .cancelled-color {
     background-color: #E13C3C !important; /* muted red */
-}
-.boarding-color {
-    background-color: #ef6c00 !important; /* green */
-}
-.final-call-color {
-    background-color:#1c7c54 !important;;
+    color: #ffffff !important;
     font-weight: 600;
-    color: #eaeaea !important;
 }
-.departed-color {
-    background-color: #115087 !important; /* deep royal blue */
-}
-.arrived-color {
-    background-color: #6f42c1 !important;; /* deep royal blue */
+
+
+.checked-in-color {
+    background-color: #ef6c00 !important;
+    color: #ffffff !important;
     font-weight: 600;
-    color: #eaeaea !important;
+}
+
+.boarding-shortly-color {
+    background-color: #115087 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.boarding-announced-color {
+    background-color: #1c7c54 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.gate-change-color {
+    background-color: #6f42c1 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.rescheduled-color {
+    background-color: #1976d2 !important;
+    color: #ffffff !important;
+    font-weight: 600;
 }
 
 .message-content .status{
@@ -395,7 +412,7 @@ input[type="text"] {
     color: #ffffff;
     padding: 0.25rem 0.75rem;
     border-radius: 0.8rem;
-    font-size: 0.85rem;
+    font-size: 0.70rem;
     font-weight: 600;
     text-transform:capitalize;
     letter-spacing: 1.5px;

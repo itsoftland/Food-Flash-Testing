@@ -146,17 +146,17 @@ window.AppUtils = {
     },
 
     setCookie(name, value, days = 365) {
-    const expires = new Date(Date.now() + days * 864e5).toUTCString();
-    document.cookie = `${name}=${encodeURIComponent(value)}; path=/; expires=${expires}; SameSite=Lax`;
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; path=/; expires=${expires}; SameSite=Lax`;
     },
 
     getCookie(name) {
-    const cookieStr = `; ${document.cookie}`;
-    const parts = cookieStr.split(`; ${name}=`);
-    if (parts.length >= 2) {
-        return decodeURIComponent(parts.pop().split(';')[0]);
-    }
-    return null;
+        const cookieStr = `; ${document.cookie}`;
+        const parts = cookieStr.split(`; ${name}=`);
+        if (parts.length >= 2) {
+            return decodeURIComponent(parts.pop().split(';')[0]);
+        }
+        return null;
     },
 
     // ─────────────────────────────────────
@@ -169,7 +169,6 @@ window.AppUtils = {
     setSelectedOutletName: function (name) {
         localStorage.setItem('selectedOutletName', name);
     },
-
     getSelectedOutletName: function () {
         const outletName = localStorage.getItem('selectedOutletName');
         return outletName ? outletName : null;
@@ -485,29 +484,96 @@ window.AppUtils = {
         try {
             console.log(`[TTS] Speaking order ready message: Order ${pushData.token_no} - Counter ${pushData.counter_no}`);
             const synth = window.speechSynthesis;
+
+            // --- ✈️ Helper: Make flight numbers sound natural ---
+            function formatFlightNoForSpeech(flightNo) {
+                if (!flightNo) return '';
+
+                const numberWords = {
+                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three',
+                    '4': 'four', '5': 'five', '6': 'six', '7': 'seven',
+                    '8': 'eight', '9': 'nine'
+                };
+
+                return flightNo
+                    .replace(/[-_]/g, ' ') // treat hyphen/underscore as pause
+                    .split('')
+                    .map(ch => {
+                        if (/[0-9]/.test(ch)) {
+                            return numberWords[ch];
+                        } else if (/[A-Za-z]/.test(ch)) {
+                            return ch.toUpperCase();
+                        } else if (/\s/.test(ch)) {
+                            return ', '; // gentle pause
+                        } else {
+                            return ch;
+                        }
+                    })
+                    .join(' ')
+                    .replace(/\s+,/g, ',') // clean spacing
+                    .trim();
+            }
+
+            /**
+             * Text-to-Speech (TTS) voice messages for each order or flight status.
+             *
+             * The logic below ensures voice announcements are consistent with
+             * notification modal messages defined in `statusMessages.js`.
+             *
+             * Supports both Food Flash (order-based) and Airline Flash (flight-based) projects.
+             */
             let message;
+
             if (pushData.status === 'ready') {
-                message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
+            // 🍴 Food Flash
+            message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
+
             } else if (pushData.status === 'cancelled') {
-                message = `Unfortunately, your order number ${pushData.token_no} has been cancelled.`;
+            message = `Unfortunately, your order number ${pushData.token_no} has been cancelled. Please contact the staff for assistance.`;
+
             } else if (pushData.status === 'delivered') {
-                message = `Your order number ${pushData.token_no} has been delivered. Thank you for choosing us.`;
+            message = `Your order number ${pushData.token_no} has been delivered. Thank you for choosing us.`;
+
             } else if (pushData.status === 'preparing') {
-                message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
-            } else if (pushData.status === 'boarding') {
-                message = `Boarding has started for flight ${pushData.flight_no}. Please proceed to gate with your boarding pass ready.`;
-            } else if (pushData.status == 'final_call'){
-                message = `Final call for flight ${pushData.flight_no}. Please proceed to the aircraft`
-            } else if (projectName == 'airline_flash' && pushData.type == 'manager') {
-                message = `You have a new message. Please check the app for details.`;
+            message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
+
+            } else if (pushData.status === 'checked_in') {
+            // ✈️ Airline Flash
+            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+            message = `You have successfully checked in for flight ${flightSpeech}.`;
+
+            } else if (pushData.status === 'boarding_shortly') {
+            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+            message = `Your flight ${flightSpeech} will be ready for boarding shortly. Kindly wait for the next announcement.`;
+
+            } else if (pushData.status === 'boarding_announced') {
+            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+            message = `Flight ${flightSpeech} is ready for boarding. Kindly proceed through the boarding gate.`;
+
+            } else if (pushData.status === 'rescheduled') {
+            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+            message = `Flight ${flightSpeech} has been rescheduled. Please contact the airline staff for updated information.`;
+
+            } else if (pushData.status === 'gate_change') {
+            message = `Attention passenger. The gate number has changed. The revised gate number will be announced shortly.`;
+
+            } else if (pushData.status === 'flightcancel') {
+            message = `Attention passenger. Please contact the airline staff for assistance.`;
+
+            } else if (projectName === 'airline_flash' && pushData.type === 'airline_manager') {
+            // 📩 Manager broadcast messages
+            message = `You have a new message. Please check the app for details.`;
+
+            } else {
+            // 🧾 Default fallback
+            message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
             }
-            else {
-                message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
-            }
+
 
             console.log(`[TTS] Message to speak: ${message}`);
             const utterance = new SpeechSynthesisUtterance(message);
 
+            // --- 🔊 Voice setup ---
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const iosPreferredNames = ["Samantha", "Karen", "Moira"];
             const androidPreferredNames = ["Google US English", "English (United States)"];
@@ -540,7 +606,6 @@ window.AppUtils = {
             console.error("[TTS] Failed to notify order readiness:", e);
         }
     },
-    // ─────────────────────────────────────,
 
     /**
          * Convert a base64 VAPID public key to a Uint8Array

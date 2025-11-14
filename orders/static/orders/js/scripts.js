@@ -49,6 +49,8 @@ onDOMReady(async function () {
     const pageWrapper = document.querySelector(".page-wrapper");
     const isOpenedFromPush = urlParams.get('from_push');
 
+    console.log("Sequence code:",tokenFromQR);
+    console.log("Passenger Name :",passengerName)
     let isAdVisible = true;
     let storedName = null;
 
@@ -80,7 +82,7 @@ onDOMReady(async function () {
         await AppUtils.setToken(tokenFromQR);
     }
     if (tokenFromQR && passengerName) {
-        savePassengerInfo(tokenFromQR, passengerName);
+        await savePassengerInfo(tokenFromQR, passengerName);
     }
     // Initialize the ad slider visibility 
     toggleBtn.addEventListener("click", function () {
@@ -366,7 +368,7 @@ onDOMReady(async function () {
                 let displayToken = tokenFromQR;
                 // Apply masking only for airline_flash
                 if (window.BASE && window.BASE.includes('/airline_flash/')) {
-                    storedName = getPassengerName(tokenFromQR);
+                    storedName = await getPassengerName(tokenFromQR);
                     // console.log("Passenger:", storedName);
                     // Append masked token in chat for Airline Flash
                     displayToken = maskSequenceCode(displayToken);
@@ -521,7 +523,7 @@ onDOMReady(async function () {
                 console.warn("Selected message has no token number.");
             }
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
-                storedName = getPassengerName(tokenNo);
+                storedName = await getPassengerName(tokenNo);
                 appendMessage(message, 'user', "","chat",tokenNo,storedName);
             }else{
                 appendMessage(message, 'user', null);
@@ -531,7 +533,7 @@ onDOMReady(async function () {
         } else {
             // No message selected → assume user typed token number directly
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
-                storedName = getPassengerName(message);
+                storedName = await getPassengerName(message);
                 appendMessage(message, 'user', "","chat",message,storedName);
             } else {
                 appendMessage(message, 'user', null);

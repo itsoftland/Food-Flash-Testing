@@ -37,7 +37,7 @@ export const WelcomeMessageService = {
             ],
             airline_flash: [
                 "Hi, Good Day! Welcome to {outletName}.",
-                "Enter your Flight Number to stay updated on your boarding schedule and gate announcements."
+                "Enter your Sequence Code to stay updated on your boarding schedule and gate announcements."
             ]
         };
 

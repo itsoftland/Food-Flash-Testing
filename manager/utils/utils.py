@@ -6,6 +6,7 @@ import hashlib
 import pytz
 from django.db import models
 from rest_framework.exceptions import NotFound
+from django.utils import timezone
 
 from vendors.models import ArchivedOrder, ChatMessage, Order
 from static.utils.functions.utils import (
@@ -69,6 +70,14 @@ def get_vendor_business_day_range_for_date(vendor, date_local):
 
     start_hour = vendor.config.business_day_start_hour
     tz = pytz.timezone(vendor.config.timezone or "UTC")
+
+    # ✅ Graceful handling if business_day_start_hour is None
+    if start_hour is None:
+        logger.info(
+            f"[get_vendor_business_day_range_for_date] business_day_start_hour is None for vendor_id={vendor.id}. "
+            "Defaulting to 00:00:00 (24/7 mode)."
+        )
+        start_hour = datetime.strptime("00:00:00", "%H:%M:%S").time()
 
     start_local = tz.localize(datetime.combine(date_local, start_hour))
     end_local = start_local + timedelta(days=1)
@@ -184,13 +193,13 @@ def generate_sequence_code(flight_no: str, pnr_no: str, seat_no: str, zone:str,p
     return sequence_code
 
 # ===  Airline Project Utility ===
-def notify_related_passengers(order, vendor, payload, zone=None, chat_map=None,token_map=None):
+def notify_related_passengers(passenger, vendor, payload, zone=None, chat_map=None,token_map=None):
     """
     Notify all passengers of the same flight (or same flight+zone)
-    in Airline Flash when an order update occurs.
+    in Airline Flash when a passenger update occurs.
 
     Args:
-        order (Order): The current order triggering the update.
+        passenger (Order): The current passenger triggering the update.
         vendor (Vendor): The vendor associated with the order.
         payload (dict): The push payload to send.
         by_zone (bool): Whether to narrow notifications to same zone too.
@@ -200,17 +209,17 @@ def notify_related_passengers(order, vendor, payload, zone=None, chat_map=None,t
     Returns:
         list[str]: List of error messages (if any) from failed notifications.
     """
-    if not order.flight_no:
-        logger.warning("No flight number on order %s — skipping group notifications", order.id)
+    if not passenger.flight_no:
+        logger.warning("No flight number on passenger %s — skipping group notifications", passenger.id)
         return []
 
-    filters = Q(vendor=vendor, flight_no=order.flight_no)
+    filters = Q(vendor=vendor, flight_no=passenger.flight_no)
     if zone :
         filters &= Q(zone=zone)
 
     related_orders = Order.objects.filter(filters)
     if not related_orders.exists():
-        logger.info("No related passengers found for flight %s (zone: %s)", order.flight_no, order.zone)
+        logger.info("No related passengers found for flight %s (zone: %s)", passenger.flight_no, passenger.zone)
         return []
 
     logger.info("Sending grouped notifications to %d passengers", related_orders.count())
@@ -236,6 +245,9 @@ def notify_related_passengers(order, vendor, payload, zone=None, chat_map=None,t
             })
 
             notify_web_push(rel_order, vendor, payload_copy,rel_order.sequence_code)
+            rel_order.refresh_from_db()  # ✅ ensures latest status from DB
+            rel_order.notified_at = timezone.now()
+            rel_order.save(update_fields=["notified_at"])
 
         except Exception as e:
             logger.exception("Failed to notify passenger %s: %s", rel_order.sequence_code, e)
@@ -246,13 +258,13 @@ def notify_related_passengers(order, vendor, payload, zone=None, chat_map=None,t
 
 # ===  Airline Project Utility ===
 
-def create_bulk_chat_messages(vendor, order, message_text, sender="manager", zone=None):
+def create_bulk_chat_messages(vendor, passenger, message_text, sender="manager", zone=None):
     """
     Create ChatMessage entries for all passengers in the same flight (and zone if applicable).
 
     Args:
         vendor (Vendor): Vendor instance.
-        order (Order): The base order whose flight/zone are used to find related passengers.
+        passenger (Order): The base passenger whose flight/zone are used to find related passengers.
         message_text (str): The message to broadcast.
         sender (str): Sender label (default 'manager').
         by_zone (bool): Whether to limit messages to same zone.
@@ -260,17 +272,17 @@ def create_bulk_chat_messages(vendor, order, message_text, sender="manager", zon
     Returns:
         list[ChatMessage]: List of created ChatMessage objects.
     """
-    if not order.flight_no:
-        logger.warning("⚠️ No flight number for order %s. Skipping bulk chat creation.", order.id)
+    if not passenger.flight_no:
+        logger.warning("⚠️ No flight number for passenger %s. Skipping bulk chat creation.", passenger.id)
         return []
 
-    filters = Q(vendor=vendor, flight_no=order.flight_no)
+    filters = Q(vendor=vendor, flight_no=passenger.flight_no)
     if zone:
         filters &= Q(zone=zone)
 
     related_orders = Order.objects.filter(filters)
     if not related_orders.exists():
-        logger.info("No related passengers found for flight %s (zone: %s)", order.flight_no, order.zone)
+        logger.info("No related passengers found for flight %s (zone: %s)", passenger.flight_no, passenger.zone)
         return []
 
     current_date = get_vendor_current_time(vendor).date()
@@ -288,7 +300,7 @@ def create_bulk_chat_messages(vendor, order, message_text, sender="manager", zon
     ]
 
     ChatMessage.objects.bulk_create(chat_messages)
-    logger.info("💬 Created %d chat messages for flight %s (zone: %s)", len(chat_messages), order.flight_no, order.zone)
+    logger.info("💬 Created %d chat messages for flight %s (zone: %s)", len(chat_messages), passenger.flight_no, passenger.zone)
     return chat_messages
 
 
