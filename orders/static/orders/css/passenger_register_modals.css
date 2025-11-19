@@ -1,0 +1,88 @@
+/* ========================================
+   REGISTER MODAL CONTAINER STYLING
+======================================== */
+.register-modal .modal-dialog {
+    max-width: 500px !important;
+}
+
+.register-modal .modal-content {
+    border-radius: 22px !important;
+    padding: 30px !important;
+    border: none !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25) !important;
+    background: #ffffff;
+    position: relative;
+}
+
+/* Modal Header */
+.register-modal .modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #115087;
+    font-family: "Poppins", sans-serif;
+    margin-bottom: 15px;
+    text-align: center;
+}
+/* Optional: Highlight passenger name */
+.register-modal #duplicate-details strong,
+.register-modal #success-details strong {
+    font-size: 17px;
+    color: #115087;
+}
+
+/* Details Box */
+.register-modal #duplicate-details,
+.register-modal #success-details {
+    font-size: 16px;
+    color: #333;
+    line-height: 1.6;
+    font-family: "Poppins", sans-serif;
+    padding: 15px;
+    border-radius: 12px;
+    background: #f4f4f8;
+    border: 1px solid #e0e0e0;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+/* Button Container */
+.register-modal .modal-footer,
+.register-modal .modal-content .d-flex,
+.register-modal .modal-content .text-end {
+    margin-top: 15px;
+}
+
+/* Cancel Button */
+.register-modal .btn-secondary {
+    background: #f4f4f8 !important;
+    color: #333 !important;
+    border-radius: 12px !important;
+    border: 1px solid #d3d3d3 !important;
+    font-weight: 500 !important;
+    padding: 12px 20px !important;
+    font-family: "Poppins", sans-serif;
+    transition: 0.25s ease !important;
+}
+
+.register-modal .btn-secondary:hover {
+    background: #e7e7ec !important;
+}
+
+/* Primary Redirect Buttons */
+.register-modal .btn-primary {
+    background: #fb8b24 !important;
+    border: none !important;
+    color: white !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    padding: 12px 20px !important;
+    font-family: "Poppins", sans-serif;
+    box-shadow: 0 4px 15px rgba(251, 139, 36, 0.35) !important;
+    transition: all 0.25s ease !important;
+}
+
+.register-modal .btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(251, 139, 36, 0.45) !important;
+}
+

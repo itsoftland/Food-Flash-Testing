@@ -25,28 +25,29 @@
       <form method="POST" id= "loginForm">
         {% csrf_token %}
         <div class="input-group mb-3">
-          <input type="text" id ="username" name="username" class="form-control" placeholder="Username" autocomplete="username" required>
-          <div class="input-group-append">
+          <div class="input-group-prepend">
             <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
+          <input type="text" id="username" name="username" class="form-control" placeholder="Username" autocomplete="username" required>
         </div>
+
         <div class="input-group mb-3">
-          <input type="password" id = "password" name="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
-          <div class="input-group-append">
+          <div class="input-group-prepend">
             <div class="input-group-text"><span class="fas fa-lock"></span></div>
           </div>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
         </div>
+
         <div class="row">
-          <div class="col-8">
-            {% comment %} <div class="icheck-primary">
-              <input type="checkbox" id="remember">
-              <label for="remember">Remember Me</label>
-            </div> {% endcomment %}
+          <div class="col-6">
+              <!-- Remember Me (currently commented) -->
           </div>
-          <div class="col-4">
-            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+          <div class="col-6">
+              <button type="submit" class="btn btn-primary btn-block">Sign In</button>
           </div>
         </div>
+
+
       </form>
 
       {% if form.errors %}

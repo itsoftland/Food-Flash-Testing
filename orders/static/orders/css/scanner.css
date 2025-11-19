@@ -1,0 +1,89 @@
+/* ========= Scanner Modal Styling ========= */
+.scanner-modal .modal-dialog {
+    max-width: 100%;
+    margin: 0;
+}
+
+.scanner-modal .modal-content {
+    border-radius: 0;
+    background: #0b1220;
+    color: #fff;
+    min-height: 100vh;
+}
+
+.scanner-header {
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(4px);
+    color: #fff;
+}
+
+.scanner-title {
+    font-weight: 600;
+    color: #fbfbfb;
+    font-family: "Poppins", sans-serif;
+}
+
+.scanner-body {
+    padding: 16px;
+    width: 100%;
+}
+
+.scanner-frame {
+    position: relative;
+    width: 92vw;
+    max-width: 720px;
+    aspect-ratio: 4/3;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* FIXED — no mirroring, no broken comments */
+#scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: none !important;
+}
+
+/* overlay with transparent center */
+.scanner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.scan-guide {
+    position: absolute;
+    width: 78%;
+    height: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+    border-radius: 12px;
+    outline: 2px dashed rgba(255,255,255,0.25);
+    box-sizing: border-box;
+}
+
+#scanner-status {
+    color: rgba(255,255,255,0.85);
+}
+
+.scanner-actions .btn {
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* responsive */
+@media (max-width: 480px) {
+    .scanner-frame {
+        width: 96vw;
+        aspect-ratio: 3/4;
+    }
+}

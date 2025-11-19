@@ -102,7 +102,9 @@ export const API_ENDPOINTS = {
   FEEDBACK : `${BASE}api/submit_feedback/`,
   MENU : `${BASE}api/menus/`,
   SAVE_SUBSCRIPTION : `${BASE}vendors/api/save-subscription/`,
-  VENDOR_LOGOS : `${BASE}api/get_vendor_logos/`
+  VENDOR_LOGOS : `${BASE}api/get_vendor_logos/`,
+  //Airline Flash Specific
+  CREATE_PASSENGER :`${BASE}api/public_create_passenger/`
 };
 
 // =======================

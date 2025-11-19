@@ -106,6 +106,7 @@ TEMPLATES = [
                 'vendors.context_processors.project_info',
                 'core.context_processors.project_labels',
                 'core.context_processors.project_icons',
+                'core.context_processors.project_roles',
             ]
         },
     },

@@ -1,0 +1,133 @@
+/* ------------------------------
+   CONTAINER / CARD STYLING
+------------------------------ */
+html, body {
+    overflow: hidden !important;
+    height: 100%;
+}
+
+.public-register-container {
+    max-width: 500px;
+    margin-top: 0px;
+    padding-top: 60px;        /* Reduced from 40px for tighter layout */
+}
+
+/* Ensures no unnecessary space below vendor info */
+.vendor-branding {
+    margin-bottom: 30px !important;
+}
+
+/* ------------------------------
+   Add left/right padding to the form
+------------------------------ */
+.registration-card-container {
+    margin-top: 0 !important;
+    padding: 0 10px !important;   /* left/right padding */
+}
+
+.registration-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 20px;
+}
+
+/* Vendor Logo */
+.vendor-logo {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #ddd;
+}
+
+/* ------------------------------
+   INPUT STYLING
+------------------------------ */
+.premium-input {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #d8d8d8;
+    padding: 7px 12px;
+    font-size: 16px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.premium-input:focus {
+    border-color: #fb8b24;
+    box-shadow: 0 0 0 2px rgba(251,139,36,0.25);
+}
+
+/* Button row spacing */
+.button-row {
+    margin-bottom: 60px;
+}
+
+/* ------------------------------
+   BUTTONS (Final Color Mapping)
+   Scan = Deep Blue (#115087)
+   Register = Orange (#fb8b24)
+------------------------------ */
+
+/* Scan Boarding Pass Button */
+#scan-btn {
+    background: #115087 !important;
+    border: none !important;
+    color: #ffffff !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    border-radius: 30px !important;
+    width: 100%;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1) !important;
+    transition: 0.2s ease-in-out !important;
+}
+
+#scan-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 14px rgba(0,0,0,0.15) !important;
+}
+
+/* Register Button */
+#register-btn {
+    background: #fb8b24 !important;
+    border: none !important;
+    color: #ffffff !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    border-radius: 30px !important;
+    width: 100%;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1) !important;
+    transition: 0.2s ease-in-out !important;
+}
+
+#register-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 14px rgba(0,0,0,0.15) !important;
+}
+
+/* Disabled "Coming Soon" Scan Button */
+#scan-btn.disabled-feature {
+    background: #8fa8c2 !important;          /* softer bluish-gray */
+    color: #ffffff !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+}
+
+#scan-btn.disabled-feature::after {
+    content: " (Coming Soon)";
+    font-weight: 500;
+}
+/* ------------------------------
+   FORM SECTION TITLE
+------------------------------ */
+.form-section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #115087;       /* premium deep blue */
+    font-family: 'Poppins', sans-serif;
+}
+

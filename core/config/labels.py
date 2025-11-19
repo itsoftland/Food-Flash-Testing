@@ -37,6 +37,10 @@ DEFAULT = {
         "outlet_alias_name": "Outlet Alias Name",
         "button":"Update Outlet Data"
     },
+    "create_user":{
+        "outlet":"Outlet",
+        "select_outlet":"Select Outlet"
+    },
     "registration": {
         "title": "Company Registration",
         "company_name": "Company Name",
@@ -86,6 +90,10 @@ FOOD_FLASH = {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
         "button":"Update Outlet Data"
+    },
+    "create_user":{
+        "outlet":"Outlet",
+        "select_outlet":"Select Outlet"
     },
     "registration": {
         "title": "Restaurant Registration",
@@ -140,6 +148,10 @@ AIRLINE_FLASH = {
         "outlet_name": "Airport Name",
         "outlet_alias_name": "Airport Alias Name",
         "button":"Update Airport Data"
+    },
+    "create_user":{
+        "outlet":"Airport",
+        "select_outlet":"Select Airport"
     },
     "registration": {
         "title": "Airline Registration",

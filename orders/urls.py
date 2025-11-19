@@ -28,4 +28,8 @@ urlpatterns = [
     path('api/webchat-messages-create/', views.webchat_message_create, name='webchat_message_create'),  # New endpoint to create message
     path('api/mark-messages-read/<int:vendor_id>/', views.mark_webchat_messages_read, name='mark_webchat_messages_read'),  # New endpoint to mark messages as read
     path("manifest.json", views.manifest, name="manifest"),
+    # Airline-specific-urls
+    path('public_register/',views.public_register,name='public_register'),
+    path('api/public_create_passenger/',views.public_create_passenger,name='public_create_passenger'),
+    path('api/decode_boarding_pass/', views.decode_boarding_pass, name='decode_boarding_pass'),
 ]

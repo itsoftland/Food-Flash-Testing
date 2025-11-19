@@ -1,0 +1,159 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/public_register.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/passenger_register_modals.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/scanner.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container public-register-container">
+
+    <!-- Vendor Branding -->
+    <div class="vendor-branding text-center mt-3">
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="" alt="Vendor Logo">
+        <h2 id="vendor-name" class="vendor-name"></h2>
+    </div>
+
+    <!-- Page Title -->
+    <h4 class="form-section-title text-center mb-3">Passenger Registration</h4>
+
+    <!-- Passenger Registration Card -->
+    <div class="registration-card-container">
+
+      <!-- Row 1 -->
+      <div class="row g-2 mb-1">
+          <div class="col-6">
+              <label class="form-label">Flight Number</label>
+              <input type="text" id="flight_no" class="form-control premium-input"
+                     placeholder="Eg: 6E203">
+          </div>
+          <div class="col-6">
+              <label class="form-label">Seat Number</label>
+              <input type="text" id="seat_no" class="form-control premium-input"
+                     placeholder="Eg: 12A">
+          </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="row g-2 mb-2">
+          <div class="col-6">
+              <label class="form-label">PNR</label>
+              <input type="text" id="pnr_no" class="form-control premium-input"
+                     placeholder="Eg: XY7123">
+          </div>
+          <div class="col-6">
+              <label class="form-label">Zone</label>
+              <input type="text" id="zone" class="form-control premium-input"
+                     placeholder="Eg: B">
+          </div>
+      </div>
+
+      <!-- Row 3 -->
+      <div class="row g-2 mb-4">
+          <div class="col-12">
+              <label class="form-label">Passenger Name</label>
+              <input type="text" id="passenger_name" class="form-control premium-input"
+                     placeholder="Full Name as per boarding pass">
+          </div>
+      </div>
+
+      <!-- Buttons Section -->
+      <div class="row g-3 justify-content-between button-row">
+          <div class="col-6 pe-1">
+              <button class="btn premium-secondary-btn w-100" id="scan-btn">
+                <i class="fas fa-qrcode me-2"></i> Scan
+              </button>
+          </div>
+          <div class="col-6 ps-1">
+              <button class="btn premium-primary-btn w-100" id="register-btn">
+                <i class="fas fa-user-plus me-2"></i> Register
+              </button>
+          </div>
+      </div>
+
+    </div>
+
+</div>
+
+<!-- Duplicate Passenger Modal -->
+<div class="modal fade register-modal" id="duplicateModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3">
+      <h5 class="modal-title">Passenger Already Exists</h5>
+      <div id="duplicate-details" class="mt-2 mb-3"></div>
+      <div class="d-flex justify-content-between">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button id="duplicate-redirect-btn" class="btn btn-primary">Go to Tracking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade register-modal" id="successModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3">
+      <h5 class="modal-title">Passenger Added Successfully</h5>
+      <div id="success-details" class="mt-2 mb-3"></div>
+      <div class="text-end">
+        <button id="success-redirect-btn" class="btn btn-primary">Go to Tracking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scanner Modal -->
+<div class="modal fade scanner-modal" id="scannerModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content p-0">
+      <div class="scanner-header d-flex align-items-center justify-content-between p-2">
+        <div class="px-2">
+          <button id="scanner-close-btn" class="btn btn-light btn-sm"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="scanner-title text-center flex-grow-1">Scan Boarding Pass</div>
+        <div class="px-2">
+          <button id="scanner-toggle-torch" class="btn btn-light btn-sm" style="display:none;">
+            <i class="fas fa-bolt"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="scanner-body d-flex flex-column align-items-center justify-content-center">
+        <div class="scanner-frame">
+          <video id="scanner-video" autoplay muted playsinline></video>
+          <div class="scanner-overlay">
+            <div class="scan-guide"></div>
+          </div>
+        </div>
+
+        <div class="scanner-hint mt-3 text-center">
+          <small>Position the barcode / QR inside the frame. Scanning will happen automatically.</small>
+        </div>
+
+        <div class="scanner-actions mt-3 d-flex gap-2">
+          <button id="scanner-retry-btn" class="btn btn-outline-light btn-sm">Retry</button>
+          <button id="scanner-manual-btn" class="btn btn-outline-light btn-sm">Enter Manually</button>
+        </div>
+
+        <div id="scanner-status" class="mt-2 text-muted small"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="{% static 'orders/js/public_register.js' %}"></script>
+<script src="{% static 'orders/js/scanner.js' %}"></script>
+{% endblock %}

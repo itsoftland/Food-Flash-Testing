@@ -3,6 +3,7 @@
 from django.conf import settings
 from .config.labels import LABELS as _LABELS
 from .config.icons import ICONS as _ICONS
+from .config.roles import ROLES as _ROLES
 
 def project_labels(request):
     """
@@ -87,3 +88,21 @@ def project_icons(request):
     icons = _ICONS.get(project_key, _ICONS.get("default", {}))
     return {"ICONS": icons}
 
+def project_roles(request):
+    """
+    Inject flavour-specific role mappings into templates.
+
+    Provides:
+        ROLES (dict):
+            Example:
+            {
+                "admin_manager": "Admin Manager",
+                "outlet_manager": "Outlet Manager",
+            }
+    """
+    project_name = getattr(settings, "PROJECT_NAME", "default") or "default"
+    project_key = project_name.lower()
+
+    roles = _ROLES.get(project_key, {})
+
+    return {"ROLES": roles}

@@ -27,8 +27,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await response.json();
 
         if (data.vendors && Array.isArray(data.vendors)) {
-            outletSelect.innerHTML = '<option value="">Select Outlet</option>';
-
             data.vendors.forEach(vendor => {
                 const option = document.createElement('option');
                 option.value = vendor.id; // or vendor.vendor_id as per backend expectation
