@@ -157,6 +157,8 @@ from datetime import datetime
 # === LOGGING BASE STRUCTURE ===
 if PROJECT_NAME == 'airline_flash':
     BASE_LOG_DIR = BASE_DIR / 'airline_flash_logs'
+elif PROJECT_NAME == 'dine_flash':
+    BASE_LOG_DIR = BASE_DIR / 'dine_flash_logs'
 else:
     BASE_LOG_DIR = BASE_DIR / 'foodflash_logs'
 

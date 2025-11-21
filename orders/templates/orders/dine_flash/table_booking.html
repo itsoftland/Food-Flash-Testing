@@ -1,0 +1,85 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/passenger_register_modals.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container public-register-container">
+
+    <!-- Vendor Branding -->
+    <div class="vendor-branding text-center mt-3">
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="" alt="Vendor Logo">
+        <h2 id="vendor-name" class="vendor-name"></h2>
+    </div>
+
+    <!-- Page Title -->
+    <h4 class="form-section-title text-center mb-3">Table Booking</h4>
+
+    <!-- Table Booking Card -->
+    <div class="registration-card-container">
+
+      <!-- Customer Name -->
+      <div class="row g-2 mb-3">
+          <div class="col-12">
+              <label class="form-label">Customer Name</label>
+              <input type="text" id="customer_name" class="form-control premium-input"
+                     placeholder="Enter customer full name">
+          </div>
+      </div>
+
+      <!-- Number of Packs (Persons) -->
+      <div class="row g-2 mb-3">
+          <div class="col-12">
+              <label class="form-label">Number of Packs (Persons)</label>
+              <input type="number" id="no_of_packs" class="form-control premium-input"
+                     placeholder="Eg: 4">
+          </div>
+      </div>
+
+      <!-- Remarks / Instructions -->
+      <div class="row g-2 mb-4">
+          <div class="col-12">
+              <label class="form-label">Remarks / Instructions</label>
+              <textarea id="remarks" rows="3" class="form-control premium-input"
+                        placeholder="Any special instructions"></textarea>
+          </div>
+      </div>
+
+      <!-- Buttons Section -->
+      <div class="row g-3 justify-content-between button-row">
+          <div class="col-12 ps-1">
+              <button class="btn premium-primary-btn w-100" id="register-btn">
+                  <img src="{% static 'orders/icons/book-table.png' %}" alt="Book Table" class="btn-icon">
+                  Book Table
+              </button>
+          </div>
+      </div>
+
+    </div>
+
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade register-modal" id="successModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3">
+      <h5 class="modal-title">Table Booking Pending</h5>
+      <div id="success-details" class="mt-2 mb-3"></div>
+      <div class="text-end">
+        <button id="success-redirect-btn" class="btn btn-primary">Go to Tracking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'orders/js/dineflash/table_booking.js' %}"></script>
+{% endblock %}

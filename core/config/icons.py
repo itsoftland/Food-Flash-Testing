@@ -33,6 +33,16 @@ AIRLINE_FLASH = {
     }
 }
 
+
+# ----------------------------
+# DINE Flash Icon Configuration
+# ----------------------------
+DINE_FLASH = {
+    "sidebar": {
+        "outlet_list": "fas fa-store",
+    }
+}
+
 # ----------------------------
 # Mapping of Project Key → Icon Sets
 # ----------------------------
@@ -40,4 +50,5 @@ ICONS = {
     "default": DEFAULT,
     "food_flash": FOOD_FLASH,
     "airline_flash": AIRLINE_FLASH,
+    "dine_flash":DINE_FLASH
 }

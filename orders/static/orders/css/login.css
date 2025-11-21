@@ -56,6 +56,16 @@ body.login-page::before {
   border-color: #fb8b24;
   color: #2a2c41;
 }
+.btn-primary:active,
+.btn-primary:focus,
+.btn-primary.active,
+.show > .btn-primary.dropdown-toggle {
+    background-color: #fb8b24 !important;
+    border-color: #fb8b24 !important;
+    color: #2a2c41 !important;
+    box-shadow: none !important;
+}
+
 
 .icheck-primary input[type="checkbox"] + label::before {
   border-radius: 0.25rem;

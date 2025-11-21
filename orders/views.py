@@ -63,15 +63,23 @@ def public_register(request):
 
     vendor_id = request.GET.get("vendor_id")
 
-    # Optional: enforce vendor info presence
-    if  not vendor_id:
-        return HttpResponseBadRequest("Missing vendor details.")
-
     context = {
         "vendor_id": vendor_id
     }
 
     return render(request, 'orders/public_register.html', context)
+
+def table_booking(request):
+    if request.method != "GET":
+        return HttpResponseBadRequest("Invalid request method.")
+
+    vendor_id = request.GET.get("vendor_id")
+
+    context = {
+        "vendor_id": vendor_id
+    }
+
+    return render(request, 'orders/dine_flash/table_booking.html', context)
 
 
 # def token_display(request):

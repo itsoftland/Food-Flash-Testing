@@ -201,6 +201,11 @@ class Order(models.Model):
     zone = models.CharField(max_length=10, blank=True, null=True)
     passenger_name = models.CharField(max_length=100, blank=True, null=True)
 
+    # ---- Dine Flash–specific fields ----
+    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    no_of_packs = models.PositiveIntegerField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
     def __str__(self):
         return f"Token {self.token_no} ({self.vendor.name})"
 
@@ -232,6 +237,12 @@ class OrderStatusHistory(models.Model):
         max_length=20,
         choices=Order.USER_CHOICES,
         default='manager'
+    )
+    # How long the order stayed in previous_status (in seconds)
+    processing_time_seconds = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Duration spent in previous status before this update."
     )
     changed_at = models.DateTimeField(auto_now_add=True)
 
@@ -444,6 +455,11 @@ class ArchivedOrder(models.Model):
     updated_at = models.DateTimeField()
     archived_at = models.DateTimeField(auto_now_add=True)
     created_date = models.DateField(auto_now_add=True)
+
+    # -------- Dine Flash Specific Fields --------
+    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    no_of_packs = models.PositiveIntegerField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Archived Token {self.token_no}"

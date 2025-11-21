@@ -27,13 +27,20 @@
         </ol>
       </div> {% endcomment %}
       <div class="modal-body">
-        <img 
-          src="{% static 'orders/images/ios-install-guide.webp' %}" 
-          alt="How to add to home screen on iPhone" 
-          class="img-fluid rounded shadow ios-guide-img" 
-        >
+        {% if PROJECT_NAME|lower == "airline_flash"|lower %}
+            <img 
+              src="{% static 'orders/images/airline-flash-ios-install-guide.webp' %}"
+              alt="How to add to home screen on iPhone"
+              class="img-fluid rounded shadow ios-guide-img"
+            >
+        {% else %}
+            <img 
+              src="{% static 'orders/images/ios-install-guide.webp' %}"
+              alt="How to add to home screen on iPhone"
+              class="img-fluid rounded shadow ios-guide-img"
+            >
+        {% endif %}
       </div>
-
 
       <div class="modal-footer d-flex flex-row justify-content-between">
         <button type="button" class="btn btn-outline-primary flex-fill me-2" id="ios-a2hs-agree">I’ll Add It</button>

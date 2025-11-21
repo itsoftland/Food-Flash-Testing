@@ -36,7 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const backgroundImages = {
             food_flash: `${base}static/utils/Images/foodflash-login-bg.webp`,
             airline_flash: `${base}static/utils/Images/airlineflash-login-bg.webp`,
-            service_flash: `${base}static/utils/Images/serviceflash-login-bg.webp`
+            service_flash: `${base}static/utils/Images/serviceflash-login-bg.webp`,
+            dine_flash: `${base}static/utils/Images/dineflash-login-bg.webp`
         };
 
         const body = document.querySelector("body.login-page");
@@ -61,7 +62,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const loginLogos = {
                 food_flash: `${base}static/company/images/foodflashlogo.webp`,
                 airline_flash: `${base}static/company/images/airlineflashlogo.webp`,
-                service_flash: `${base}static/company/images/serviceflashlogo.webp`
+                service_flash: `${base}static/company/images/serviceflashlogo.webp`,
+                dine_flash: `${base}static/company/images/dineflashlogo.webp`
             };
             loginLogoImg.src = loginLogos[projectName];
         }
@@ -78,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             'food_flash': 'food-flash-logo.ico',
             'airline_flash': 'airline-flash-logo.ico',
             'service_flash': 'service-flash-logo.ico',
+            'dine_flash':'dine-flash-logo.ico'
         };
 
         const iconFile = faviconMap[projectName] || 'default-logo.ico';

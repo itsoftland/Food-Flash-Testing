@@ -17,4 +17,7 @@ ROLES = {
         "airport_manager": "Airport Manager",
         # "web_user": "Airline Web Manager",
     },
+    "dine_flash": {
+        "outlet_manager": "Outlet Manager",
+    },
 }
