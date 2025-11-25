@@ -31,7 +31,10 @@ urlpatterns = [
     # AirlineFlash-specific-urls
     path('public_register/',views.public_register,name='public_register'),
     path('api/public_create_passenger/',views.public_create_passenger,name='public_create_passenger'),
-    path('api/decode_boarding_pass/', views.decode_boarding_pass, name='decode_boarding_pass'),
+    # path('api/decode_boarding_pass/', views.decode_boarding_pass, name='decode_boarding_pass'),
     # DineFlash-specific-urls
     path('table_booking/',views.table_booking,name='table_booking'),
+    path('api/book_table/',views.book_table,name='book_table'),
+    path('api/utility_list/',views.utility_list,name='utility_list'),
+    
 ]

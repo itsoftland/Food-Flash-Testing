@@ -7,7 +7,7 @@ import uuid
 import pytz
 from django.db.models.signals import post_save
 from static.utils.functions.utils import get_vendor_current_time
-from django.conf import settings
+from django.conf import settings     
 from core.config.status_choices import STATUS_CHOICES_MAP
 
 class CustomManager(models.Manager):
@@ -133,8 +133,63 @@ class VendorConfig(models.Model):
     auto_delete_hours = models.PositiveIntegerField(
         null=True, blank=True,
         help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
+    use_utilities = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+class Utility(models.Model):
+
+    TOKEN_MODE_CONTINUOUS = "continuous"
+    TOKEN_MODE_UTILITY_SPECIFIC = "utility_specific"
+
+    TOKEN_MODE_CHOICES = [
+        (TOKEN_MODE_CONTINUOUS, "Continuous"),
+        (TOKEN_MODE_UTILITY_SPECIFIC, "Utility Specific"),
+    ]
+
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name="utilities"
+    )
+
+    utility_name = models.CharField(
+        max_length=100,
+        help_text="Display name shown to system"
+    )
+
+    display_name = models.CharField(
+        max_length=100,
+        help_text="Display name shown to customers"
+    )
+
+    display_code = models.CharField(
+        max_length=10,
+        help_text="Short code used for UI display (e.g., AC, GD, VIP)"
+    )
+
+    token_mode = models.CharField(
+        max_length=20,
+        choices=TOKEN_MODE_CHOICES,
+        default=TOKEN_MODE_CONTINUOUS,
+        help_text="Controls token numbering behaviour"
+    )
+
+    prefix = models.CharField(
+        max_length=3,
+        blank=True,
+        null=True,
+        help_text="3-character prefix (e.g., ROM, VIP, OUT)"
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.display_name} ({self.vendor.name})"
+
 
 class Device(models.Model):
     serial_no = models.CharField(max_length=255)
@@ -189,9 +244,9 @@ class Order(models.Model):
     shown_on_tv = models.BooleanField(default=False)
     notified_at = models.DateTimeField(null=True, blank=True, default=None)
     updated_by = models.CharField(max_length=20, choices=USER_CHOICES, default='keypad_device')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True,db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-    created_date = models.DateField(auto_now_add=True) 
+    created_date = models.DateField(auto_now_add=True,db_index=True) 
 
     # ---- Airline Flash–specific fields ----
     sequence_code = models.CharField(max_length=200, blank=True, null=True, unique=True)
@@ -206,6 +261,9 @@ class Order(models.Model):
     no_of_packs = models.PositiveIntegerField(blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
 
+    # ---- Airline Flash && Dine Flash –specific fields ----
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
     def __str__(self):
         return f"Token {self.token_no} ({self.vendor.name})"
 
@@ -215,6 +273,9 @@ class Order(models.Model):
             models.Index(fields=['vendor', 'token_no']),
             models.Index(fields=['sequence_code']),
             models.Index(fields=['flight_no', 'pnr_no']),
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['vendor', '-created_at']),
+            models.Index(fields=['vendor', 'created_date']),
         ]
     
 class OrderStatusHistory(models.Model):
@@ -309,6 +370,13 @@ class AndroidDevice(models.Model):
     mac_address = models.CharField(max_length=255, blank=True, null=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL,null=True, blank=True,related_name='android_devices')
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE,related_name='android_device')
+    tv_config = models.ForeignKey(
+        "TVDeviceConfig",     # forward reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="devices"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -326,6 +394,70 @@ class AndroidAPK(models.Model):
     
     class Meta:
         unique_together = ('mac_address', 'user_profile')
+
+class TVDeviceConfig(models.Model):
+
+    ORIENTATION_CHOICES = [
+        ("portrait", "Portrait"),
+        ("landscape", "Landscape"),
+    ]
+
+    QR_ALIGN_CHOICES = [
+        ("left", "Left"),
+        ("right", "Right"),
+    ]
+
+    UTILITY_DISPLAY_KEY_CHOICES = [
+        ("name", "Utility Name"),
+        ("display_name", "Display Name"),
+        ("display_code", "Display Code"),
+    ]
+
+    admin_outlet = models.ForeignKey(
+        AdminOutlet,
+        on_delete=models.CASCADE,
+        related_name="tv_device_configs",
+        db_index=True
+    )
+
+    # 1. QR display settings
+    show_qr = models.BooleanField(default=False)
+    qr_alignment = models.CharField(max_length=10, choices=QR_ALIGN_CHOICES, default="left")
+
+    # 2. How many bookings to show (1–3)
+    items_to_show = models.PositiveSmallIntegerField(default=1)
+
+    # 3. Fields to show inside booking card (multiselect)
+    booking_fields = models.JSONField(default=list) 
+    # Example: ["name", "phoneno", "packs", "datetime", "token"]
+
+    # 4. Utility name mode (single select)
+    utility_name_mode = models.CharField(max_length=20, choices=UTILITY_DISPLAY_KEY_CHOICES)
+
+    # 5. Orientation
+    screen_orientation = models.CharField(
+        max_length=20,
+        choices=ORIENTATION_CHOICES,
+        default="landscape"
+    )
+
+    # 6. Selected utilities (multiselect)
+    utilities = models.ManyToManyField(
+        Utility,
+        related_name="tv_configs",
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True,db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"TV Config #{self.id} — {self.admin_outlet.customer_name}"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["admin_outlet", "-created_at"]),
+        ]
 
 class SiteConfig(models.Model):
     maintenance_mode = models.BooleanField(default=False)

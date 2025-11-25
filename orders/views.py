@@ -16,7 +16,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from vendors.models import (Order, Vendor, AdminOutlet,
                             AdvertisementProfileAssignment,
-                            UserProfile,ChatMessage)
+                            UserProfile,ChatMessage,
+                            Utility)
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
@@ -73,13 +74,22 @@ def table_booking(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
 
-    vendor_id = request.GET.get("vendor_id")
+    vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
+
+    utilities_enabled = False  # default fallback
+
+    if vendor_id:
+        vendor = Vendor.objects.filter(vendor_id=vendor_id).first()
+        if vendor and hasattr(vendor, "config"):
+            utilities_enabled = vendor.config.use_utilities
 
     context = {
-        "vendor_id": vendor_id
+        "vendor_id": vendor_id,
+        "UTILITIES_ENABLED": utilities_enabled
     }
 
     return render(request, 'orders/dine_flash/table_booking.html', context)
+
 
 
 # def token_display(request):
@@ -885,115 +895,283 @@ def public_create_passenger(request):
         logger.warning("[public_create_passenger] Serializer validation failed | %s", serializer.errors)
         return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-# orders/views.py
-import io
-from PIL import Image
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework import status
+# DineFlash-specific-views
 
-# pdf417decoder API
-from pdf417decoder import PDF417Decoder
-
-# helper parse
-import re
-
-def parse_bcbp(raw):
-    """
-    Parse minimal BCBP fields from raw decode string.
-    Returns dict with passenger_name, pnr_no, flight_no, seat_no, zone (if any), raw.
-    This mirrors your JS parser rules (PNR fix: drop leading 'E' on 7-char).
-    """
-    if not raw:
-        return {}
-    # normalize
-    s = str(raw).replace('\r', ' ').replace('\n', ' ').strip()
-    res = {"raw": s, "pnr_no": None, "seat_no": None, "flight_no": None, "passenger_name": None, "zone": None}
-
-    def fix_pnr(pnr):
-        if not pnr: return pnr
-        if len(pnr) == 6: return pnr
-        if len(pnr) == 7 and pnr.startswith("E"):
-            return pnr[1:]
-        return pnr
-
-    # name (standard BCBP starts with M + legs + name 20 chars)
-    name_match = re.match(r'^\s*M\d?([A-Z\/\-\s]+?)\s{2,}', s)
-    if name_match:
-        name_raw = name_match.group(1).strip()
-        if "/" in name_raw:
-            last, first = name_raw.split("/", 1)
-            res["passenger_name"] = f"{first.strip()} {last.strip()}"
-        else:
-            res["passenger_name"] = name_raw
-
-    # after-name remainder
-    after_name = re.sub(r'^\s*M\d?[A-Z\/\-\s]+\s{2,}', '', s)
-
-    # PNR: first 5-7 alnum token
-    pnr_m = re.search(r'\b([A-Z0-9]{5,7})\b', after_name)
-    if pnr_m:
-        res["pnr_no"] = fix_pnr(pnr_m.group(1))
-
-    # Seat: match 1-2 digits + letter; strip non-alnum trailing
-    seat_m = re.search(r'([0-9]{1,2}[A-Z])[^A-Z0-9]?', s, flags=re.IGNORECASE)
-    if seat_m:
-        res["seat_no"] = re.sub(r'[^0-9A-Z]', '', seat_m.group(1).upper())
-
-    # Flight: airline code (1-3 letters) + optional space + 3-4 digits (handles AI 0658 / AI658 / AI0658)
-    flight_m = re.search(r'\b([A-Z]{1,3})\s?0?(\d{3,4})\b', s, flags=re.IGNORECASE)
-    if flight_m:
-        res["flight_no"] = f"{flight_m.group(1).upper()}{flight_m.group(2)}"
-
-    # Zone (optional)
-    zone_m = re.search(r'\bZONE[:\s]*([A-Z0-9])\b', s, flags=re.IGNORECASE)
-    if zone_m:
-        res["zone"] = zone_m.group(1).upper()
-
-    return res
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def decode_boarding_pass(request):
-    """
-    Accepts a multipart/form-data POST with field 'image' (camera photo).
-    Decodes PDF417 using pdf417decoder and parses BCBP fields.
-    Returns JSON with parsed values.
-    """
-    img_file = request.FILES.get('image')
-    if not img_file:
-        return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+def book_table(request):
+   
+    logger.info("[book_table] Started | remote_addr=%s", request.META.get("REMOTE_ADDR"))
+
+    # --- Input extraction & validation ---
+    data = request.data or {}
+    vendor_id = data.get("vendor_id")
+    utility_id = data.get("utility_id")
+    no_of_guests = data.get("no_of_guests")
+    special_notes = data.get("special_notes")
+    customer_name = data.get("customer_name")
+
+    required = {
+        "vendor_id": vendor_id,
+        "utility_id": utility_id,
+        "no_of_guests": no_of_guests,
+        "customer_name": customer_name,
+    }
+
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        logger.warning("[book_table] Missing required fields: %s", missing)
+        return Response(
+            {"error": f"Missing required fields: {', '.join(missing)}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Ensure vendor_id is an integer (vendor.vendor_id)
+    try:
+        vendor_id_int = int(vendor_id)
+    except (ValueError, TypeError):
+        return Response({"error": "Invalid vendor_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # --- Resolve vendor ---
+    vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
+    if not vendor:
+        logger.warning("[book_table] Vendor not found | vendor_id=%s ", vendor_id)
+        return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    logger.info("[book_table] Vendor resolved | vendor_id=%s ", vendor.vendor_id)
+
+    base_url = request.build_absolute_uri('/')
+
+    # Build tracking_url pattern (same as manager)
+
+    tracking_url = f"{base_url}{project_name}/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}"
+
+    # --- Prepare new booking data ---
+    # Auto-generate token_no same as manager flow (last token + 1)
+    last_booking = Order.objects.filter(vendor=vendor).order_by("-token_no").first()
+    token_no = (last_booking.token_no + 1) if last_booking else 1
+
+    new_passenger_data = {
+        'vendor': vendor.id,
+        'token_no': token_no,
+        'counter_no': 1,
+        'updated_by': 'customer',
+        'status': 'checked_in',  # per your instruction
+        'type': 'flightstatus',
+        'name': vendor.name,
+        'location_id': vendor.location_id,
+        'device': None,
+        # Airline-specific fields
+        "utility_id": utility_id,
+        "no_of_guests": no_of_guests,
+        "customer_name": customer_name,
+    }
+
+    logger.debug("[book_table] Created new passenger data | %s", new_passenger_data)
+
+    serializer = OrdersSerializer(data=new_passenger_data)
+    if serializer.is_valid():
+        serializer.save()
+        resp_data = serializer.data
+        resp_data["tracking_url"] = tracking_url
+        resp_data["manager_id"] = None
+        resp_data["message"] = "Passenger created successfully."
+        logger.info("[book_table] Passenger created | vendor=%s ", vendor.vendor_id)
+        return Response(resp_data, status=status.HTTP_201_CREATED)
+    else:
+        logger.warning("[book_table] Serializer validation failed | %s", serializer.errors)
+        return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def utility_list(request):
+    vendor_id = request.GET.get('vendor_id')
+
+    if not vendor_id:
+        logger.warning("utility_list: vendor_id missing in request.")
+        return Response(
+            {"error": "vendor_id is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
-        # Read into PIL Image
-        img_bytes = img_file.read()
-        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        vendor = Vendor.objects.filter(vendor_id=vendor_id).first()
+        if not vendor:
+            logger.warning(f"utility_list: Invalid vendor_id '{vendor_id}'.")
+            return Response(
+                {"error": "Invalid vendor_id."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        # pdf417decoder expects PIL Image (or numpy array) — usage depends on version
-        decoder = PDF417Decoder(image)
-        print(decoder)
-        results = decoder.decode()  # returns list of decoded payloads or a single string depending on lib
-        print(results)
+        utilities = Utility.objects.filter(
+            vendor=vendor,
+            is_active=True
+        ).order_by("id")
 
-        # Normalize results: could be single string or list
-        if results is None:
-            return Response({"error": "No barcode detected."}, status=status.HTTP_200_OK)
+        data = [
+            {
+                "id": util.id,
+                "utility_name": util.utility_name,
+                "display_name": util.display_name,
+                "display_code": util.display_code,
+                "token_mode": util.token_mode,
+                "prefix": util.prefix,
+            }
+            for util in utilities
+        ]
 
-        # pdf417decoder often returns a list of rows (or a string). Normalize:
-        if isinstance(results, list):
-            # join multiple decoded blocks with space
-            raw_text = " ".join([str(r) for r in results if r])
-        else:
-            raw_text = str(results)
+        logger.info(
+            f"utility_list: Returned {len(data)} utilities for vendor_id {vendor_id}."
+        )
 
-        parsed = parse_bcbp(raw_text)
+        return Response(
+            {
+                "utilities": data,
+                "count": len(data),
+            },
+            status=status.HTTP_200_OK
+        )
 
-        # Return parsed fields
-        return Response(parsed, status=status.HTTP_200_OK)
+    except Vendor.DoesNotExist as e:
+        logger.error(f"utility_list: Vendor.DoesNotExist -> {str(e)}")
+        return Response(
+            {"error": "Vendor not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    except Utility.DoesNotExist as e:
+        logger.error(f"utility_list: Utility.DoesNotExist -> {str(e)}")
+        return Response(
+            {"error": "Utility records not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    except ValueError as e:
+        logger.error(f"utility_list: ValueError -> {str(e)}")
+        return Response(
+            {"error": "Invalid parameter."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     except Exception as e:
-        # Log the error server-side; return helpful message to client
-        import traceback, logging
-        logging.exception("decode_boarding_pass failed")
-        return Response({"error": "Decoding failed", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.exception("utility_list: Unexpected server error.")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+
+
+# # orders/views.py
+# import io
+# from PIL import Image
+# from rest_framework.decorators import api_view, permission_classes
+# from rest_framework.permissions import AllowAny
+# from rest_framework.response import Response
+# from rest_framework import status
+
+# # pdf417decoder API
+# from pdf417decoder import PDF417Decoder
+
+# # helper parse
+# import re
+
+# def parse_bcbp(raw):
+#     """
+#     Parse minimal BCBP fields from raw decode string.
+#     Returns dict with passenger_name, pnr_no, flight_no, seat_no, zone (if any), raw.
+#     This mirrors your JS parser rules (PNR fix: drop leading 'E' on 7-char).
+#     """
+#     if not raw:
+#         return {}
+#     # normalize
+#     s = str(raw).replace('\r', ' ').replace('\n', ' ').strip()
+#     res = {"raw": s, "pnr_no": None, "seat_no": None, "flight_no": None, "passenger_name": None, "zone": None}
+
+#     def fix_pnr(pnr):
+#         if not pnr: return pnr
+#         if len(pnr) == 6: return pnr
+#         if len(pnr) == 7 and pnr.startswith("E"):
+#             return pnr[1:]
+#         return pnr
+
+#     # name (standard BCBP starts with M + legs + name 20 chars)
+#     name_match = re.match(r'^\s*M\d?([A-Z\/\-\s]+?)\s{2,}', s)
+#     if name_match:
+#         name_raw = name_match.group(1).strip()
+#         if "/" in name_raw:
+#             last, first = name_raw.split("/", 1)
+#             res["passenger_name"] = f"{first.strip()} {last.strip()}"
+#         else:
+#             res["passenger_name"] = name_raw
+
+#     # after-name remainder
+#     after_name = re.sub(r'^\s*M\d?[A-Z\/\-\s]+\s{2,}', '', s)
+
+#     # PNR: first 5-7 alnum token
+#     pnr_m = re.search(r'\b([A-Z0-9]{5,7})\b', after_name)
+#     if pnr_m:
+#         res["pnr_no"] = fix_pnr(pnr_m.group(1))
+
+#     # Seat: match 1-2 digits + letter; strip non-alnum trailing
+#     seat_m = re.search(r'([0-9]{1,2}[A-Z])[^A-Z0-9]?', s, flags=re.IGNORECASE)
+#     if seat_m:
+#         res["seat_no"] = re.sub(r'[^0-9A-Z]', '', seat_m.group(1).upper())
+
+#     # Flight: airline code (1-3 letters) + optional space + 3-4 digits (handles AI 0658 / AI658 / AI0658)
+#     flight_m = re.search(r'\b([A-Z]{1,3})\s?0?(\d{3,4})\b', s, flags=re.IGNORECASE)
+#     if flight_m:
+#         res["flight_no"] = f"{flight_m.group(1).upper()}{flight_m.group(2)}"
+
+#     # Zone (optional)
+#     zone_m = re.search(r'\bZONE[:\s]*([A-Z0-9])\b', s, flags=re.IGNORECASE)
+#     if zone_m:
+#         res["zone"] = zone_m.group(1).upper()
+
+#     return res
+
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def decode_boarding_pass(request):
+#     """
+#     Accepts a multipart/form-data POST with field 'image' (camera photo).
+#     Decodes PDF417 using pdf417decoder and parses BCBP fields.
+#     Returns JSON with parsed values.
+#     """
+#     img_file = request.FILES.get('image')
+#     if not img_file:
+#         return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+#     try:
+#         # Read into PIL Image
+#         img_bytes = img_file.read()
+#         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+#         # pdf417decoder expects PIL Image (or numpy array) — usage depends on version
+#         decoder = PDF417Decoder(image)
+#         print(decoder)
+#         results = decoder.decode()  # returns list of decoded payloads or a single string depending on lib
+#         print(results)
+
+#         # Normalize results: could be single string or list
+#         if results is None:
+#             return Response({"error": "No barcode detected."}, status=status.HTTP_200_OK)
+
+#         # pdf417decoder often returns a list of rows (or a string). Normalize:
+#         if isinstance(results, list):
+#             # join multiple decoded blocks with space
+#             raw_text = " ".join([str(r) for r in results if r])
+#         else:
+#             raw_text = str(results)
+
+#         parsed = parse_bcbp(raw_text)
+
+#         # Return parsed fields
+#         return Response(parsed, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         # Log the error server-side; return helpful message to client
+#         import traceback, logging
+#         logging.exception("decode_boarding_pass failed")
+#         return Response({"error": "Decoding failed", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

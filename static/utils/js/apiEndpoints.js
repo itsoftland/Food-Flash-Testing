@@ -104,7 +104,9 @@ export const API_ENDPOINTS = {
   SAVE_SUBSCRIPTION : `${BASE}vendors/api/save-subscription/`,
   VENDOR_LOGOS : `${BASE}api/get_vendor_logos/`,
   //Airline Flash Specific
-  CREATE_PASSENGER :`${BASE}api/public_create_passenger/`
+  CREATE_PASSENGER :`${BASE}api/public_create_passenger/`,
+  //DINE FLASH SPECIFIC
+  UTILITY_LIST:`${BASE}api/utility_list`
 };
 
 // =======================

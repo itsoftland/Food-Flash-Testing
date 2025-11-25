@@ -24,7 +24,8 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AdvertisementProfile,Order,
                             ArchivedOrder,UserProfile,
                             AndroidAPK,VendorConfig,
-                            OrderStatusHistory,ArchivedOrderStatusHistory)
+                            OrderStatusHistory,ArchivedOrderStatusHistory,
+                            Utility,TVDeviceConfig)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -41,7 +42,7 @@ from .serializers import (VendorSerializer,
                           DeviceSerializer,AndroidDeviceSerializer,
                           OrderSerializer,UserProfileCreateSerializer,
                           UserListDetailSerializer,ManagerDeviceSerializer,
-                          OrderStatusHistorySerializer
+                          OrderStatusHistorySerializer,TVDeviceConfigSerializer
                           )
 
 logger = logging.getLogger(__name__)
@@ -1257,20 +1258,6 @@ def order_status_timeline(request, order_id):
     serializer = OrderStatusHistorySerializer(combined_history, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def order_status_timeline(request, order_id):
-#     """
-#     Returns the complete status history (timeline) for a given order.
-#     """
-#     try:
-#         history_qs = OrderStatusHistory.objects.filter(order_id=order_id).order_by('changed_at')
-#     except OrderStatusHistory.DoesNotExist:
-#         return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#     serializer = OrderStatusHistorySerializer(history_qs, many=True)
-#     return Response(serializer.data, status=status.HTTP_200_OK)
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def license_check(request):
@@ -1299,4 +1286,348 @@ def license_check(request):
         "message": "License Expired"
     }, status=status.HTTP_200_OK)
 
+# DINEFLASH SPECIFIC API: Create Utility
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_utility(request):
+    """
+    Creates a Utility entry for a Vendor.
+    """
 
+    logger.info("[UtilityCreate] Incoming request to create utility")
+
+    try:
+        vendor_id = request.data.get("vendor_id")
+        utility_name = request.data.get("utility_name")
+        display_name = request.data.get("display_name")
+        display_code = request.data.get("display_code")
+        token_mode = request.data.get("token_mode")
+        prefix = request.data.get("prefix", "")
+
+        logger.debug(
+            f"[UtilityCreate] Payload received: vendor_id={vendor_id}, "
+            f"utility_name={utility_name}, display_name={display_name}, "
+            f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}"
+        )
+
+        # ---- Basic Field Validations ----
+        if not vendor_id:
+            logger.warning("[UtilityCreate] vendor_id missing")
+            return Response({"error": "vendor_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not utility_name:
+            logger.warning("[UtilityCreate] utility_name missing")
+            return Response({"error": "utility_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not display_name:
+            logger.warning("[UtilityCreate] display_name missing")
+            return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not display_code:
+            logger.warning("[UtilityCreate] display_code missing")
+            return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not token_mode:
+            logger.warning("[UtilityCreate] token_mode missing")
+            return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not prefix:
+            logger.warning("[UtilityCreate] prefix missing")
+            return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(prefix) > 3:
+            logger.warning(f"[UtilityCreate] Prefix too long: {prefix}")
+            return Response({"error": "prefix must be max 3 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if token_mode not in ["continuous", "utility_specific"]:
+            logger.warning(f"[UtilityCreate] Invalid token_mode: {token_mode}")
+            return Response({"error": "Invalid token_mode"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ---- Vendor Validation ----
+        try:
+            vendor = Vendor.objects.get(vendor_id=vendor_id)
+            logger.debug(f"[UtilityCreate] Vendor found: {vendor_id}")
+        except Vendor.DoesNotExist:
+            logger.error(f"[UtilityCreate] Vendor not found: {vendor_id}")
+            return Response({"error": "Vendor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # ---- Utility Feature Check ----
+        config = getattr(vendor, 'config', None)
+        if config.use_utilities is False:
+            logger.warning(f"[UtilityCreate] Vendor {vendor_id} has utilities disabled")
+            return Response(
+                {"error": "Utilities feature is disabled for this vendor"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ---- Prefix Uniqueness Check ----
+        if Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exists():
+            logger.warning(f"[UtilityCreate] Duplicate prefix '{prefix}' for vendor {vendor_id}")
+            return Response(
+                {"error": "prefix must be unique for each vendor"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ---- Create Utility ----
+        utility = Utility.objects.create(
+            vendor=vendor,
+            utility_name=utility_name,
+            display_name=display_name,
+            display_code=display_code,
+            token_mode=token_mode,
+            prefix=prefix
+        )
+
+        logger.info(f"[UtilityCreate] Utility created successfully | ID={utility.id}")
+
+        return Response(
+            {
+                "message": "Utility created successfully",
+                "utility": {
+                    "id": utility.id,
+                    "utility_name": utility.utility_name,
+                    "display_name": utility.display_name,
+                    "display_code": utility.display_code,
+                    "token_mode": utility.token_mode,
+                    "prefix": utility.prefix,
+                },
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    except Exception as e:
+        # 🔥 500 ERROR LOGGING
+        logger.error(
+            f"[UtilityCreate] Internal server error: {str(e)}",
+            exc_info=True
+        )
+
+        return Response(
+            {"error": "Internal server error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+# -------------------------
+# Create TV Configuration
+# -------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def tv_config_create(request):
+    try:
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+
+        if not admin_outlet:
+            return Response(
+                {"error": "User is not associated with any admin outlet."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        data = request.data.copy()
+        data["admin_outlet"] = admin_outlet.id
+
+        # Extract fields for duplicate check
+        show_qr = data.get("show_qr")
+        qr_alignment = data.get("qr_alignment")
+        booking_display_count = data.get("items_to_show")
+        booking_fields = data.get("booking_fields") or []
+        utility_name_mode = data.get("utility_name_mode")
+        screen_orientation = data.get("screen_orientation")
+        utility_ids = data.get("utilities") or []
+        # ------------------------------------------------------
+        #                 DUPLICATE CHECK
+        # ------------------------------------------------------
+        existing_configs = TVDeviceConfig.objects.filter(
+            admin_outlet=admin_outlet,
+            show_qr=show_qr,
+            qr_alignment=qr_alignment,
+            items_to_show=booking_display_count,
+            utility_name_mode=utility_name_mode,
+            screen_orientation=screen_orientation,
+        )
+
+        for config in existing_configs:
+            # Compare booking fields list
+            if sorted(config.booking_fields) != sorted(booking_fields):
+                continue
+
+            # Compare utilities list
+            existing_util_ids = list(config.utilities.values_list("id", flat=True))
+            if sorted(existing_util_ids) != sorted(utility_ids):
+                continue
+
+            # All params matched → duplicate
+            return Response(
+                {"message": "A configuration with the same settings already exists."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------------------------------
+        #                    CREATE NEW CONFIG
+        # ------------------------------------------------------
+        serializer = TVDeviceConfigSerializer(data=data)
+        if serializer.is_valid():
+            config = serializer.save()
+            return Response(
+                {
+                    "message": "TV configuration created successfully.",
+                    "config": TVDeviceConfigSerializer(config).data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception:
+        logger.exception("tv_config_create: Unexpected server error.")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# -------------------------
+# List TV Configurations
+# -------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tv_config_list(request):
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+
+    if not admin_outlet:
+        return Response(
+            {"error": "User is not associated with any admin outlet."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        configs = (
+            admin_outlet.tv_device_configs
+                .select_related("admin_outlet")
+                .prefetch_related("utilities")
+                .order_by("-created_at")
+        )
+        serializer = TVDeviceConfigSerializer(configs, many=True)
+
+        logger.info(
+            f"tv_config_list: Returned {len(serializer.data)} configs for admin_outlet {admin_outlet.id}."
+        )
+
+        return Response(
+            {"configs": serializer.data, "count": len(serializer.data)},
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.exception("tv_config_list: Unexpected server error.")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+# -------------------------
+# Detail GET
+# GET /tv-config/detail/<int:config_id>/
+# -------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tv_config_detail(request, config_id):
+    try:
+        config = get_object_or_404(TVDeviceConfig, pk=config_id)
+        serializer = TVDeviceConfigSerializer(config)
+        logger.info(f"tv_config_detail: Returned config id={config_id}.")
+        return Response({"config": serializer.data}, status=status.HTTP_200_OK)
+    except Exception:
+        logger.exception("tv_config_detail: Unexpected server error.")
+        return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -------------------------
+# Update config
+# POST /tv-config/update/<int:config_id>/
+# -------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def tv_config_update(request, config_id):
+    try:
+        config = get_object_or_404(TVDeviceConfig, pk=config_id)
+        serializer = TVDeviceConfigSerializer(config, data=request.data, partial=True)
+        if serializer.is_valid():
+            config = serializer.save()
+            logger.info(f"tv_config_update: Updated config id={config_id}.")
+            return Response({"message": "Configuration updated.", "config": TVDeviceConfigSerializer(config).data}, status=status.HTTP_200_OK)
+
+        logger.warning(f"tv_config_update: Validation failed for config id={config_id}. Errors: {serializer.errors}")
+        return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception:
+        logger.exception("tv_config_update: Unexpected server error.")
+        return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -------------------------
+# Assign config to device
+# POST /tv-config/assign/
+# payload: { "device_id": <int>, "config_id": <int> }
+# -------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def tv_config_assign(request):
+    try:
+        device_id = request.data.get("device_id")
+        config_id = request.data.get("config_id")
+
+        if not device_id or not config_id:
+            logger.warning("tv_config_assign: device_id or config_id missing in request.")
+            return Response({"error": "device_id and config_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        device = AndroidDevice.objects.filter(id=device_id).first()
+        if not device:
+            logger.warning(f"tv_config_assign: Invalid device_id '{device_id}'.")
+            return Response({"error": "Invalid device_id."}, status=status.HTTP_404_NOT_FOUND)
+
+        config = TVDeviceConfig.objects.filter(id=config_id).first()
+        if not config:
+            logger.warning(f"tv_config_assign: Invalid config_id '{config_id}'.")
+            return Response({"error": "Invalid config_id."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Ensure config belongs to the same admin_outlet as device (optional safeguard)
+        if device.admin_outlet_id != config.admin_outlet_id:
+            logger.warning(f"tv_config_assign: Mismatched admin_outlet for device {device_id} and config {config_id}.")
+            return Response({"error": "Config does not belong to the same admin outlet as device."}, status=status.HTTP_400_BAD_REQUEST)
+
+        device.tv_config = config
+        device.save(update_fields=["tv_config", "updated_at"])
+        logger.info(f"tv_config_assign: Assigned config id={config_id} to device id={device_id}.")
+        return Response({"message": "Configuration assigned to device.", "device_id": device_id, "config_id": config_id}, status=status.HTTP_200_OK)
+
+    except Exception:
+        logger.exception("tv_config_assign: Unexpected server error.")
+        return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -------------------------
+# Clear config from device
+# POST /tv-config/clear/
+# payload: { "device_id": <int> }
+# -------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def tv_config_clear(request):
+    try:
+        device_id = request.data.get("device_id")
+        if not device_id:
+            logger.warning("tv_config_clear: device_id missing in request.")
+            return Response({"error": "device_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        device = AndroidDevice.objects.filter(id=device_id).first()
+        if not device:
+            logger.warning(f"tv_config_clear: Invalid device_id '{device_id}'.")
+            return Response({"error": "Invalid device_id."}, status=status.HTTP_404_NOT_FOUND)
+
+        device.tv_config = None
+        device.save(update_fields=["tv_config", "updated_at"])
+        logger.info(f"tv_config_clear: Cleared config for device id={device_id}.")
+        return Response({"message": "Configuration cleared from device.", "device_id": device_id}, status=status.HTTP_200_OK)
+
+    except Exception:
+        logger.exception("tv_config_clear: Unexpected server error.")
+        return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

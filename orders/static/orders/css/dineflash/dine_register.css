@@ -1,17 +1,23 @@
 /* ------------------------------
-   LAYOUT / CONTAINER
+   GLOBAL HELPERS
 ------------------------------ */
 .hidden {
   display: none !important;
 }
 
+/* ------------------------------
+   LAYOUT / CONTAINER
+------------------------------ */
 .public-register-container {
     max-width: 500px;
     margin-top: 0px;
     padding-top: 60px;
+    padding-bottom:90px;
 }
 
-/* Vendor Branding */
+/* ------------------------------
+   VENDOR BRANDING
+------------------------------ */
 .vendor-branding {
     margin-bottom: 30px !important;
 }
@@ -29,7 +35,8 @@
 ------------------------------ */
 .registration-card-container {
     margin-top: 0 !important;
-    padding: 0 10px !important;  /* left/right padding */
+    padding: 0 10px !important;
+   
 }
 
 .registration-card {
@@ -40,37 +47,36 @@
 }
 
 /* ------------------------------
-   INPUTS
+   INPUTS (Premium BLUE theme)
 ------------------------------ */
 .premium-input {
     background: #fff;
     border-radius: 14px;
-    border: 1px solid #d8d8d8;
+    border: 1px solid #b6cde0; /* soft light-blue-grey */
     padding: 7px 12px;
     font-size: 16px;
     font-family: 'Poppins', sans-serif;
 }
 
 .premium-input:focus {
-    border-color: #fb8b24;
-    box-shadow: 0 0 0 2px rgba(251,139,36,0.25);
+    box-shadow: 0 0 0 2px rgba(17,80,135,0.25);
 }
 
-/* Textarea for remarks */
+/* Textarea */
 textarea.premium-input {
     resize: none;
 }
 
 /* Space before footer */
 .button-row {
-    margin-bottom: 60px;
+    margin-bottom: 10px;
 }
 
 /* ------------------------------
-   BUTTON (Book Table)
+   BUTTON (Book Table) â€” BLUE THEME
 ------------------------------ */
 #register-btn {
-    background: #fb8b24 !important;
+    background: #115087 !important;  /* Main blue */
     border: none !important;
     color: #ffffff !important;
     padding: 12px !important;
@@ -83,8 +89,24 @@ textarea.premium-input {
 }
 
 #register-btn:hover {
+    background: #0d3a63 !important; /* darker tone of your blue */
     transform: translateY(-2px) !important;
     box-shadow: 0 5px 14px rgba(0,0,0,0.15) !important;
+}
+
+/* ------------------------------
+   PNG ICON (Tint to #115087)
+------------------------------ */
+.btn-icon {
+    width: 25px;
+    height: 25px;
+    margin-right: 8px;
+    vertical-align: middle;
+    /* Book Table Icon â€” Gold (#F5C26B) */
+    filter: brightness(0) saturate(100%)
+            invert(85%) sepia(28%) saturate(850%)
+            hue-rotate(338deg) brightness(103%) contrast(96%);
+
 }
 
 /* ------------------------------
@@ -95,4 +117,48 @@ textarea.premium-input {
     font-weight: 600;
     color: #115087;
     font-family: 'Poppins', sans-serif;
+}
+
+/* ------------------------------
+   Two Column Grid Layout
+------------------------------ */
+.utility-grid-2col {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+/* ------------------------------
+   Premium Utility Card
+------------------------------ */
+.premium-utility-card {
+    padding: 14px 10px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid rgba(17, 80, 135, 0.12); /* matches your blue */
+}
+
+/* Hover */
+.premium-utility-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(17, 80, 135, 0.18);
+}
+
+/* Selected */
+.premium-utility-card.selected {
+    border-color: #115087;
+    background: #f0f7ff;
+    box-shadow: 0 4px 14px rgba(17, 80, 135, 0.25);
+}
+.utility-display {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #115087;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }

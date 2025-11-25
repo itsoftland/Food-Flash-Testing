@@ -57,6 +57,7 @@
    ==========================================================
 */
 document.addEventListener("DOMContentLoaded", async () => {
+    // console.log("UTILITY ENABLED:",window.UTILITIES_ENABLED);
     const base = window.BASE || "/caller_on/";
 
     let apiEndpoints, ModalService, vendorId;
@@ -147,6 +148,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // --------------------------
+    // Load utilities (utility_list API)
+    // --------------------------
+    async function loadUtilities() {
+        if (!vendorId || !apiEndpoints || !apiEndpoints.UTILITY_LIST) {
+            console.warn("Missing vendorId or UTILITY_LIST endpoint.");
+            return;
+        }
+
+        try {
+            const url = `${apiEndpoints.UTILITY_LIST}?vendor_id=${encodeURIComponent(vendorId)}`;
+
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                ModalService.showError(data.error || "Unable to load utilities.");
+                return;
+            }
+            // console.log("Utility Data:",data)
+
+            renderUtilities(data.utilities || []);
+        } 
+        catch (err) {
+            console.error("Error loading utilities:", err);
+            ModalService.showError("Network error while loading utilities.");
+        }
+    }
+
+    /* --------------------------------------------------
+    Render Utility List (Premium Two-Column Blocks)
+    -------------------------------------------------- */
+    function renderUtilities(utilities) {
+        const container = document.getElementById("utility-grid");
+        if (!container) return;
+
+        container.innerHTML = ""; // clear previous
+
+        container.classList.add("utility-grid-2col");
+
+        utilities.forEach(util => {
+            const item = document.createElement("div");
+            item.className = "utility-item premium-utility-card";
+            item.dataset.id = util.id;
+
+            item.innerHTML = `
+                <div class="utility-display">
+                    ${escapeHtml(util.display_name)}
+                </div>
+            `;
+
+            // Single-select logic
+            item.addEventListener("click", () => {
+                document
+                    .querySelectorAll(".utility-item.selected")
+                    .forEach(el => el.classList.remove("selected"));
+
+                item.classList.add("selected");
+            });
+
+            container.appendChild(item);
+        });
+    }
+
+    // --------------------------
     // Modal helpers
     // --------------------------
     function getModal(id) {
@@ -162,33 +231,108 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     function buildPayload() {
         const customerNameEl = document.getElementById("customer_name");
-        const guestsEl = document.getElementById("no_of_guests");
-        const notesEl = document.getElementById("special_notes");
+        const guestsEl = document.getElementById("no_of_packs");
+        const notesEl = document.getElementById("remarks");
+        const selectedItem = document.querySelector(".utility-item.selected");
+
+        let utilityId = null;
+
+        if (window.UTILITIES_ENABLED == "true" && selectedItem) {
+
+            utilityId = selectedItem.dataset.id;
+        }
 
         const payload = {
             vendor_id: vendorId,
             customer_name: customerNameEl ? customerNameEl.value.trim() : "",
             no_of_guests: guestsEl ? parseInt(guestsEl.value, 10) || 0 : 0,
-            special_notes: notesEl ? notesEl.value.trim() : ""
+            special_notes: notesEl ? notesEl.value.trim() : "",
+            utility_id: utilityId,
         };
-
+        // console.log(payload)
         return payload;
     }
 
+    function cleanAndFormatName(name) {
+        if (!name) return "";
+
+        // Remove leading/trailing spaces + collapse multiple spaces to one
+        name = name.trim().replace(/\s+/g, " ");
+
+        // Auto-capitalize each word: john doe → John Doe
+        name = name.split(" ")
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(" ");
+
+        return name;
+    }
+
     // --------------------------
-    // Simple client-side validation
+    // client-side validation
     // --------------------------
     function validatePayload(payload) {
+
+        // ------------------------------
+        // 1. Customer Name Validations
+        // ------------------------------
+
+        // Clean & auto-format the name BEFORE validation
+        payload.customer_name = cleanAndFormatName(payload.customer_name);
+
         if (!payload.customer_name) {
             ModalService.showError("Customer name is required.");
             return false;
         }
+        if (payload.customer_name.length < 2) {
+            ModalService.showError("Name is too short.");
+            return false;
+        }
+        if (payload.customer_name.length > 40) {
+            ModalService.showError("Name cannot exceed 40 characters.");
+            return false;
+        }
+
+        // ❌ Only alphabets + spaces allowed (fine-dine standard)
+        const namePattern = /^[A-Za-z ]+$/;
+        if (!namePattern.test(payload.customer_name)) {
+            ModalService.showError("Name can contain only letters and spaces.");
+            return false;
+        }
+
+        // ------------------------------
+        // 2. Guests Count Validations
+        // ------------------------------
         if (!payload.no_of_guests || payload.no_of_guests <= 0) {
             ModalService.showError("Please enter a valid number of guests.");
             return false;
         }
+        if (payload.no_of_guests > 20) {
+            ModalService.showError("Maximum 20 guests can be booked online.");
+            return false;
+        }
+
+        // ------------------------------
+        // 3. Utility Area Selection
+        // ------------------------------
+        if (window.UTILITIES_ENABLED === true || window.UTILITIES_ENABLED === "true") {
+            if (!payload.utility_id) {
+                ModalService.showError("Please select your preferred area.");
+                return false;
+            }
+        }
+
+        // ------------------------------
+        // 4. Special Notes Limit (Optional)
+        // ------------------------------
+        if (payload.special_notes && payload.special_notes.length > 200) {
+            ModalService.showError("Special instructions cannot exceed 200 characters.");
+            return false;
+        }
+
         return true;
     }
+
+
 
     // --------------------------
     // Submit booking
@@ -204,6 +348,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         try {
             const payload = buildPayload();
+            // console.log("Payload:",payload)
 
             if (!validatePayload(payload)) {
                 return;
@@ -300,4 +445,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Initialize page
     // --------------------------
     await loadVendorInfo();
+    await loadUtilities();
 });

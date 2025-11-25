@@ -52,6 +52,10 @@ urlpatterns = [
     path('api/filtered_orders/', views.filtered_orders, name='get_orders'),
     path('api/order_status_timeline/<int:order_id>/', views.order_status_timeline, name='order_status_timeline'),
     path('api/dashboard_metrics/', views.dashboard_metrics, name='dashboard_metrics'),  
-    path('api/license_check/',views.license_check,name='license_check')
+    path('api/license_check/',views.license_check,name='license_check'),
+    # DINEFLASH SPECIFIC URLS
+    path('api/create_utility/',views.create_utility,name='create_utility'),
+    path('api/tv_config_create/',views.tv_config_create, name="tv_config_create"),
+    path('api/tv_config_list/',views.tv_config_list, name="tv_config_list"),
 ]
  

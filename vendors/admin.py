@@ -3,15 +3,15 @@ from django.utils.html import format_html
 from django.utils.timezone import localtime
 
 from .models import (
-    AdminOutlet,
-    Vendor,
+    AdminOutlet,TVDeviceConfig,
+    Vendor,ArchivedOrderStatusHistory,
     VendorConfig,
     MqttServerConfig,
     Device,
     AndroidDevice,
     AndroidAPK,
     UserProfile,
-    Order,
+    Order,AdvertisementSlot,
     PushSubscription,
     Feedback,
     AdvertisementImage,
@@ -21,6 +21,7 @@ from .models import (
     ChatMessage,
     WebChatMessage,
     IoTDeviceCredential,
+    Utility,OrderStatusHistory
 )
 
 #
@@ -190,3 +191,116 @@ class IoTDeviceCredentialAdmin(admin.ModelAdmin):
     search_fields = ('device_id',)
     list_filter = ('vendor',)
     readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(Utility)
+class UtilityAdmin(admin.ModelAdmin):
+    list_display = (
+        'utility_name',
+        'display_name',
+        'display_code',
+        'vendor',
+        'token_mode',
+        'prefix',
+        'is_active',
+        'created_at',
+    )
+
+    list_filter = (
+        'vendor',
+        'token_mode',
+        'is_active',
+    )
+
+    search_fields = (
+        'utility_name',
+        'display_name',
+        'display_code',
+        'vendor__name',
+    )
+
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+    )
+
+    list_display_links = ('utility_name',)
+
+    ordering = ('-created_at',)
+
+@admin.register(OrderStatusHistory)
+class OrderStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        'order',
+        'previous_status',
+        'new_status',
+        'changed_by',
+        'processing_time_seconds',
+        'changed_at',
+    )
+
+    list_filter = (
+        'new_status',
+        'changed_by',
+        'previous_status',
+        'order__vendor',
+    )
+
+    search_fields = (
+        'order__token_no',
+        'previous_status',
+        'new_status',
+    )
+
+    readonly_fields = (
+        'changed_at',
+    )
+
+    ordering = ('-changed_at',)
+
+@admin.register(TVDeviceConfig)
+class TVDeviceConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'admin_outlet',
+        'show_qr',
+        'qr_alignment',
+        'items_to_show',
+        'utility_name_mode',
+        'screen_orientation',
+        'created_at',
+    )
+
+    list_filter = (
+        'show_qr',
+        'qr_alignment',
+        'utility_name_mode',
+        'screen_orientation',
+        'admin_outlet',
+    )
+
+    search_fields = (
+        'admin_outlet__customer_name',
+        'id',
+    )
+
+    filter_horizontal = ('utilities',)
+
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+    )
+
+    ordering = ('-created_at',)
+
+@admin.register(AdvertisementSlot)
+class AdvertisementSlotAdmin(admin.ModelAdmin):
+    list_display = ("profile", "start_time", "end_time")
+    list_filter = ("profile",)
+    search_fields = ("profile__name",)
+
+@admin.register(ArchivedOrderStatusHistory)
+class ArchivedOrderStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ("archived_order", "previous_status", "new_status", "changed_by", "changed_at")
+    list_filter = ("new_status", "changed_by")
+    search_fields = ("archived_order__id", "previous_status", "new_status", "changed_by")
+    ordering = ("-changed_at",)

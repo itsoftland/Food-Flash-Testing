@@ -6,12 +6,13 @@ from vendors.models import (Vendor,AndroidDevice,
                             AdminOutlet,UserProfile,
                             AndroidAPK,MqttServerConfig,
                             VendorConfig,OrderStatusHistory,
-                            AdvertisementSlot)
+                            AdvertisementSlot,TVDeviceConfig,Utility)
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
 import datetime
 from django.conf import settings
+from django.db import transaction
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
 class VendorSerializer(serializers.ModelSerializer):
@@ -589,3 +590,77 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderStatusHistory
         fields = ['previous_status', 'new_status', 'changed_by', 'changed_at']
+
+
+ALLOWED_BOOKING_FIELDS = {"name", "phone", "guest_count", "datetime", "token"}
+
+class TVDeviceConfigSerializer(serializers.ModelSerializer):
+    admin_outlet = serializers.PrimaryKeyRelatedField(queryset=AdminOutlet.objects.all(), required=True)
+    utilities = serializers.PrimaryKeyRelatedField(many=True, queryset=Utility.objects.all(), required=False, allow_empty=True)
+
+    class Meta:
+        model = TVDeviceConfig
+        fields = [
+            "id",
+            "admin_outlet",
+            "show_qr",
+            "qr_alignment",
+            "items_to_show",
+            "booking_fields",
+            "utility_name_mode",
+            "screen_orientation",
+            "utilities",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ("created_at", "updated_at", "id")
+
+    def validate_items_to_show(self, value):
+        if value < 1 or value > 3:
+            raise serializers.ValidationError("items_to_show must be between 1 and 3.")
+        return value
+
+    def validate_booking_fields(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("booking_fields must be a list.")
+        if len(value) == 0:
+            raise serializers.ValidationError("At least one booking field must be selected.")
+        invalid = [v for v in value if v not in ALLOWED_BOOKING_FIELDS]
+        if invalid:
+            raise serializers.ValidationError(f"Invalid booking_fields: {invalid}. Allowed values: {sorted(ALLOWED_BOOKING_FIELDS)}")
+        return value
+
+    def validate(self, attrs):
+        show_qr = attrs.get("show_qr", getattr(self.instance, "show_qr", False))
+        qr_alignment = attrs.get("qr_alignment", getattr(self.instance, "qr_alignment", None))
+        if show_qr and not qr_alignment:
+            raise serializers.ValidationError({"qr_alignment": "qr_alignment is required when show_qr is true."})
+
+        # utilities -- ensure they belong to the same admin_outlet when provided
+        utilities = attrs.get("utilities", None)
+        admin_outlet = attrs.get("admin_outlet") or getattr(self.instance, "admin_outlet", None)
+        if utilities and admin_outlet:
+            bad = [u.id for u in utilities if u.vendor is None or u.vendor.admin_outlet != admin_outlet]
+            # note: Utility has vendor relation; ensure vendor matches admin_outlet.vendor
+            if bad:
+                raise serializers.ValidationError({"utilities": f"Utilities {bad} do not belong to the same vendor as admin_outlet."})
+
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        utilities = validated_data.pop("utilities", [])
+        config = TVDeviceConfig.objects.create(**validated_data)
+        if utilities:
+            config.utilities.set(utilities)
+        return config
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        utilities = validated_data.pop("utilities", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if utilities is not None:
+            instance.utilities.set(utilities)
+        return instance
