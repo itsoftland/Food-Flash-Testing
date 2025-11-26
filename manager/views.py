@@ -471,289 +471,6 @@ def get_suggestions(request):
         )
         return Response({"error": "Internal server error"}, status=500)
 
-# @api_view(['PATCH'])
-# @permission_classes([IsAuthenticated])
-# def manager_order_update(request):
-#     """
-#     API endpoint: Allows a manager to update an order status or send a custom message.
-#     Actions supported:
-#         - "ready": Marks order ready, updates DB, notifies Android TV & web push.
-#         - "delivered": Marks order delivered, updates DB & sends web push.
-#         - "cancelled": Cancels order, updates DB & sends web push.
-#         - "message": Sends a custom manager message to customer via web push.
-#     """
-#     try:
-#         logger.debug("Request data: %s", request.data)
-
-#         data = request.data
-
-#         # === Step 0: Handle field requirements dynamically ===
-#         if project_name == "airline_flash":
-#             required_fields = ["status", "action"]
-#             optional_fields = ["sequence_code","flight_no", "zone"]
-#         else:
-#             required_fields = ["token_no", "status", "action"]
-#             optional_fields = []
-
-#         # Check for missing required fields
-#         missing = [f for f in required_fields if f not in data or data[f] in [None, ""]]
-
-#         if missing:
-#             logger.warning("⛔ Missing fields: %s", ', '.join(missing))
-#             return Response(
-#                 {"message": f"Missing fields: {', '.join(missing)}"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # === Step 1: Identify target ===
-#         if project_name == "airline_flash":
-#             identifier_field = "sequence_code"
-#             identifier_value = data["sequence_code"]
-#             flight_no = data.get("flight_no") or None
-#             zone = data.get("zone") or None
-#             action_list = ["boarding_shortly", "message", "boarding_announced","gate_change","rescheduled","cancelled"]
-#         else:
-#             identifier_field = "token_no"
-#             identifier_value = int(data["token_no"])
-#             flight_no = None
-#             zone = None
-#             action_list = ["ready", "message", "delivered", "cancelled"]
-
-#         logger.info(
-#             "📨 Request context | Project: %s | Identifier: %s=%s | Flight: %s | Zone: %s",
-#             project_name, identifier_field, identifier_value, flight_no, zone
-#         )
-
-#         status_to_update = data['status']
-#         action = data.get("action", "").lower()
-#         if action not in action_list:
-#             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
-#         action_type = action
-
-#         # === Step 3: Validate manager & vendor ===
-#         manager = getattr(request.user, 'profile_roles', None)
-#         if not manager or not manager.exists():
-#             logger.warning("⚠️ No manager profile found for user=%s", request.user.username)
-#             return Response({"message": "User is not a manager."}, status=status.HTTP_403_FORBIDDEN)
-#         manager = manager.first()
-#         if not manager.vendor:
-#             logger.warning("⚠️ Manager %s has no vendor", manager.name)
-#             return Response({"message": "Manager does not have an associated vendor."}, status=status.HTTP_403_FORBIDDEN)
-
-#         vendor = manager.vendor
-#         logger.info("🔧 Manager: %s | Vendor: %s (%s)", manager.name, vendor.name, vendor.vendor_id)
-
-#         # === Step 4: Get today's business day range ===
-#         if project_name == "airline_flash":
-#             if identifier_value:
-#                 filters = {
-#                     identifier_field: identifier_value,
-#                     "vendor": vendor,
-#                 }
-#             else:
-#                 # No sequence_code: this must be a message broadcast (flight or zone)
-#                 if not (flight_no or zone) :
-#                     return Response({"message": "Either sequence_code or flight_no or zone must be provided."}, status=status.HTTP_400_BAD_REQUEST)
-
-#                 # Build filters for flight/zone broadcasts (no sequence_code)
-#                 if flight_no:
-#                     filters = {"vendor": vendor, "flight_no": flight_no}
-#                 if zone:
-#                     filters["zone"] = zone
-#         else:
-#             start_dt, end_dt = get_vendor_business_day_range(vendor)
-#             if not start_dt or not end_dt:
-#                 logger.warning("Invalid date range for vendor_id=%s", vendor.id)
-#                 return Response({"error": "Invalid date range"}, status=400)
-
-#             filters = {
-#                 identifier_field: identifier_value,
-#                 "vendor": vendor,
-#                 "created_at__range": (start_dt, end_dt)
-#             }
-#         order = Order.objects.filter(**filters).first()
-#         if not order and project_name == "airline_flash":
-#             logger.warning("❌ No data found for sequence_code %s today.", identifier_value)
-#             return Response({"message": f"Data with sequence_code {identifier_value} not found."}, status=status.HTTP_404_NOT_FOUND)
-#         else:
-#             if not order:
-#                 logger.warning("❌ No order found for token_no %s today.", identifier_value)
-#                 return Response({"message": f"Order with token_no {identifier_value} not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#         # === Step 5: Serialize vendor logo ===
-#         vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
-#         logo_url = vendor_serializer.data.get("logo_url", "")
-#         if not logo_url:
-#             logger.warning("⚠️ No logo URL for vendor %s", vendor.name)
-#             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#         # === Step 6: Prepare push payload ===
-#         message_type = (
-#             "manager" if action_type == "message" and project_name == 'food_flash'
-#             else "airline_manager" if action_type == "message" and project_name == 'airline_flash'
-#             else "foodstatus" if project_name == "food_flash" and action_type in action_list
-#             else "flightstatus" if project_name == "airline_flash" and action_type in action_list
-#             else None
-#         )
-
-#         payload = {
-#             "title": "Order Update by Manager",
-#             "body": f"Your order {identifier_value} status: {status_to_update.capitalize()}" if action_type == "ready"
-#                     else f"Your order {identifier_value} has an update from the manager." if action_type == "message"
-#                     else f"Your order {identifier_value} has been delivered." if action_type == "delivered"
-#                     else "Proceed to Aircraft, your journey awaits!" if action_type == "final_call"
-#                     else f"Your order {identifier_value} has an update." ,
-#             "status": status_to_update.lower(),
-#             "counter_no": order.counter_no,
-#             "name": vendor.name,
-#             'alias_name': vendor.alias_name,
-#             "vendor_id": vendor.vendor_id,
-#             "location_id": vendor.location_id,
-#             "logo_url": logo_url,
-#             "type": message_type,
-#             "message_id": None,
-#             "token_no": order.token_no,
-#         }
-#         if project_name == "airline_flash":
-#             payload["sequence_code"] = order.sequence_code
-#             payload["flight_no"] = order.flight_no
-#             payload["pnr_no"] = order.pnr_no
-#             payload["seat_no"] = order.seat_no
-#             payload["zone"]= order.zone
-#             payload["passenger_name"] = order.passenger_name
-
-#         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
-
-#         # === Step 7: Handle different action types ===
-#         if action_type in ['ready']:
-#             # FCM push notifications if TV communication mode is not MQTT
-#             if vendor.config.tv_communication_mode == "Firebase":
-#                 # 1. Notify Android TV
-#                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
-#                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
-
-#             # 2. Update order in DB 
-#             if project_name == "airline_flash":
-#                 data_status = update_existing_status_by_airlinemanager(identifier_value, vendor, None, action_type, manager)
-#             else:
-#                 data_status = update_existing_order_by_manager(identifier_value, vendor, None, action_type, manager)
-#             if not data_status:
-#                 logger.warning("❌ Failed to update status %s", identifier_value)
-#                 return Response({"message": "Status update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#             logger.info("✅ Status %s updated to %s", identifier_value, status_to_update)
-#             if vendor.config.tv_communication_mode == "AZURE_IOT":
-#                 logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
-#                 azure_iot = get_azure_devices(vendor)
-#                 logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
-#             if vendor.config.tv_communication_mode == "MQTT":
-#                 # 3. Send MQTT update
-#                 logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with {identifier_field} {identifier_value}")
-#                 if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
-#                     logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
-#                     return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
-
-#                 mqtt_success = send_order_update(vendor)
-#                 if mqtt_success:
-#                     logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
-#                 else:
-#                     logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
-#                     return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#             # 4. Send Web Push (only if cooldown passed)
-#             cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
-#             if not order.notified_at or (timezone.now() - order.notified_at) > timedelta(seconds=cooldown):
-#                 logger.info("📤 Sending web push...")
-#                 push_errors = notify_web_push(order, vendor, payload)
-#                 order.refresh_from_db()  # ✅ ensures latest status from DB
-#                 order.notified_at = timezone.now()
-#                 order.save(update_fields=["notified_at"])
-#             else:
-#                 logger.info("⏳ Cooldown active. Skipping web push for %s", identifier_value)
-
-#         elif action_type in ["boarding_shortly","delivered", "cancelled","arrived","departed"]:
-#             logger.info("🔔 %s order %s by manager %s", action_type.capitalize(), identifier_value, manager.name)
-#             if project_name == "airline_flash":
-#                 data_status = update_existing_status_by_airlinemanager(identifier_value, vendor, None, action_type, manager)
-#             else:
-#                 data_status = update_existing_order_by_manager(identifier_value, vendor, None, action_type, manager)
-#             if data_status:
-#                 payload["title"] = f"Order {action_type.capitalize()}" if project_name == "food_flash" else f"Status {action_type.capitalize()}"
-#                 push_errors = notify_web_push(order, vendor, payload)
-#                 order.refresh_from_db()  # ✅ ensures latest status from DB
-#                 order.notified_at = timezone.now()
-#                 order.save(update_fields=["notified_at"])
-#                 logger.info("🕒 Status %s marked as notified at %s", identifier_value, order.notified_at)
-
-#         else:  # action_type == "message"
-#             MAX_MESSAGE_LENGTH = 200
-#             if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
-#                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
-
-#             logger.info("ℹ️ Sending manager message via web push")
-#             payload["status"] = status_to_update
-
-#             if project_name == "airline_flash" and (flight_no or zone):
-#                 # Bulk create chat messages for all passengers
-#                 chat_messages = create_bulk_chat_messages(vendor, order, status_to_update, sender="manager", zone=zone)
-#                 chat_map = {cm.sequence_code: cm.id for cm in chat_messages}
-#                 token_map = {cm.sequence_code: cm.token_no for cm in chat_messages}
-#                 # Send notifications
-#                 push_errors = notify_related_passengers(order, vendor, payload, zone=zone, chat_map=chat_map,token_map=token_map)
-
-#                 # Handle push errors (update chat records if failed)
-#                 if push_errors:
-#                     logger.warning("❌ Some web pushes failed for flight %s | Errors: %s", order.flight_no, push_errors)
-#                     # Example: if push_errors contain sequence_codes or we handle all failures generally
-#                     failed_chat_ids = [chat_map.get(seq) for seq in chat_map.keys()]
-#                     ChatMessage.objects.filter(id__in=failed_chat_ids).update(is_send=False)
-#                 else:
-#                     logger.info("📤 Group web push sent successfully for flight %s", order.flight_no)
-
-#             else:
-#                 # Normal single message for Food Flash
-#                 chat_kwargs = {
-#                     "vendor": vendor,
-#                     "created_date": get_vendor_current_time(vendor).date(),
-#                     "sender": "manager",
-#                     "is_send": True,
-#                     "message_text": status_to_update,
-#                     "token_no": order.token_no
-#                 }
-
-#                 chat_message = ChatMessage.objects.create(**chat_kwargs)
-#                 payload["message_id"] = chat_message.id
-#                 if identifier_field == "sequence_code":
-#                     payload['sequence_code'] = order.sequence_code
-
-#                 push_errors = notify_web_push(order, vendor, payload)
-
-#                 if push_errors:
-#                     logger.warning("❌ Failed web push for %s | Errors: %s", identifier_value, push_errors)
-#                     chat_message.is_send = False
-#                     chat_message.save(update_fields=["is_send"])
-#                 else:
-#                     logger.info("📤 Web push sent successfully for %s", identifier_value)
-
-#         # === Step 8: Return final response ===  
-#         response_payload = {
-#             "success": True,
-#             "message": f"Order {'updated and ' if action_type == 'ready' else ''}notified successfully.",
-#             "token_no":None if project_name == "airline_flash" else order.token_no ,
-#             "android_tv": android_tv_success,
-#             "android_tv_info": android_tv_info,
-#             "web_push": not push_errors,
-#             "web_push_info": push_errors,
-#             "mqtt":mqtt_success if action_type == "ready" else None
-#         }      
-#         if project_name == 'airline_flash':
-#             response_payload['sequence_code'] = order.sequence_code
-#         return Response(response_payload, status=status.HTTP_200_OK)
-
-#     except Exception as e:
-#         logger.exception("🔥 Unhandled exception in manager_order_update | user=%s", request.user.username)
-#         return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def manager_order_update(request):
@@ -765,22 +482,15 @@ def manager_order_update(request):
         - "cancelled": Cancels order, updates DB & sends web push.
         - "message": Sends a custom manager message to customer via web push.
     """
+
     try:
         logger.debug("Request data: %s", request.data)
 
         data = request.data
-
-        # === Step 0: Handle field requirements dynamically ===
-        if project_name == "airline_flash":
-            required_fields = ["status", "action"]
-            optional_fields = ["sequence_code","flight_no", "zone"]
-        else:
-            required_fields = ["token_no", "status", "action"]
-            optional_fields = []
-
-        # Check for missing required fields
+        required_fields = ['token_no', 'status', 'action']
         missing = [f for f in required_fields if f not in data or data[f] in [None, ""]]
 
+        # === Step 1: Validate required fields ===
         if missing:
             logger.warning("⛔ Missing fields: %s", ', '.join(missing))
             return Response(
@@ -788,28 +498,16 @@ def manager_order_update(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # === Step 1: Identify target ===
-        if project_name == "airline_flash":
-            identifier_field = "sequence_code"
-            identifier_value = data["sequence_code"]
-            flight_no = data.get("flight_no") or None
-            zone = data.get("zone") or None
-            action_list = ["boarding_shortly", "message", "boarding_announced","gate_change","rescheduled","cancelled"]
-        else:
-            identifier_field = "token_no"
-            identifier_value = int(data["token_no"])
-            flight_no = None
-            zone = None
-            action_list = ["ready", "message", "delivered", "cancelled"]
-
-        logger.info(
-            "📨 Request context | Project: %s | Identifier: %s=%s | Flight: %s | Zone: %s",
-            project_name, identifier_field, identifier_value, flight_no, zone
-        )
+        # === Step 2: Validate token_no ===
+        try:
+            token_no = int(data['token_no'])
+        except (TypeError, ValueError):
+            logger.warning("❌ token_no must be a valid integer | value=%s", data['token_no'])
+            return Response({"message": "token_no must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
 
         status_to_update = data['status']
-        action = data.get("action", "").lower()
-        if action not in action_list:
+        action = request.data.get("action", "").lower()
+        if action not in ["ready", "message", "delivered", "cancelled"]:
             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
         action_type = action
 
@@ -827,41 +525,15 @@ def manager_order_update(request):
         logger.info("🔧 Manager: %s | Vendor: %s (%s)", manager.name, vendor.name, vendor.vendor_id)
 
         # === Step 4: Get today's business day range ===
-        if project_name == "airline_flash":
-            if identifier_value:
-                filters = {
-                    identifier_field: identifier_value,
-                    "vendor": vendor,
-                }
-            else:
-                # No sequence_code: this must be a message broadcast (flight or zone)
-                if not (flight_no or zone) :
-                    return Response({"message": "Either sequence_code or flight_no or zone must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        if not start_dt or not end_dt:
+            logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+            return Response({"error": "Invalid date range"}, status=400)
 
-                # Build filters for flight/zone broadcasts (no sequence_code)
-                if flight_no:
-                    filters = {"vendor": vendor, "flight_no": flight_no}
-                if zone:
-                    filters["zone"] = zone
-        else:
-            start_dt, end_dt = get_vendor_business_day_range(vendor)
-            if not start_dt or not end_dt:
-                logger.warning("Invalid date range for vendor_id=%s", vendor.id)
-                return Response({"error": "Invalid date range"}, status=400)
-
-            filters = {
-                identifier_field: identifier_value,
-                "vendor": vendor,
-                "created_at__range": (start_dt, end_dt)
-            }
-        order = Order.objects.filter(**filters).first()
-        if not order and project_name == "airline_flash":
-            logger.warning("❌ No data found for sequence_code %s today.", identifier_value)
-            return Response({"message": f"Data with sequence_code {identifier_value} not found."}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            if not order:
-                logger.warning("❌ No order found for token_no %s today.", identifier_value)
-                return Response({"message": f"Order with token_no {identifier_value} not found."}, status=status.HTTP_404_NOT_FOUND)
+        order = Order.objects.filter(token_no=token_no, vendor=vendor, created_at__range=(start_dt, end_dt)).first()
+        if not order:
+            logger.warning("❌ No order found for token_no %s today.", token_no)
+            return Response({"message": f"Order with token_no {token_no} not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 5: Serialize vendor logo ===
         vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
@@ -871,21 +543,13 @@ def manager_order_update(request):
             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 6: Prepare push payload ===
-        message_type = (
-            "manager" if action_type == "message" and project_name == 'food_flash'
-            else "airline_manager" if action_type == "message" and project_name == 'airline_flash'
-            else "foodstatus" if project_name == "food_flash" and action_type in action_list
-            else "flightstatus" if project_name == "airline_flash" and action_type in action_list
-            else None
-        )
-
         payload = {
             "title": "Order Update by Manager",
-            "body": f"Your order {identifier_value} status: {status_to_update.capitalize()}" if action_type == "ready"
-                    else f"Your order {identifier_value} has an update from the manager." if action_type == "message"
-                    else f"Your order {identifier_value} has been delivered." if action_type == "delivered"
-                    else "Proceed to Aircraft, your journey awaits!" if action_type == "final_call"
-                    else f"Your order {identifier_value} has an update." ,
+            "body": f"Your order {token_no} status: {status_to_update.capitalize()}" if action_type == "ready"
+                    else f"Your order {token_no} has an update from the manager." if action_type == "message"
+                    else f"Your order {token_no} has been delivered." if action_type == "delivered"
+                    else f"Your order {token_no} has been cancelled.",
+            "token_no": token_no,
             "status": status_to_update.lower(),
             "counter_no": order.counter_no,
             "name": vendor.name,
@@ -893,44 +557,35 @@ def manager_order_update(request):
             "vendor_id": vendor.vendor_id,
             "location_id": vendor.location_id,
             "logo_url": logo_url,
-            "type": message_type,
+            "type": "foodstatus" if action_type in ["ready", "delivered", "cancelled"] else "manager",
             "message_id": None,
-            "token_no": order.token_no,
+            "vibration_pattern":vendor.config.vibration_pattern,
+            "vibration_duration":vendor.config.vibration_duration
         }
-        if project_name == "airline_flash":
-            payload["sequence_code"] = order.sequence_code
-            payload["flight_no"] = order.flight_no
-            payload["pnr_no"] = order.pnr_no
-            payload["seat_no"] = order.seat_no
-            payload["zone"]= order.zone
-            payload["passenger_name"] = order.passenger_name
 
         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
 
         # === Step 7: Handle different action types ===
-        if action_type in ['ready']:
+        if action_type == "ready":
             # FCM push notifications if TV communication mode is not MQTT
             if vendor.config.tv_communication_mode == "Firebase":
                 # 1. Notify Android TV
                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
 
-            # 2. Update order in DB 
-            if project_name == "airline_flash":
-                data_status = update_existing_status_by_airlinemanager(identifier_value, vendor, None, action_type, manager)
-            else:
-                data_status = update_existing_order_by_manager(identifier_value, vendor, None, action_type, manager)
-            if not data_status:
-                logger.warning("❌ Failed to update status %s", identifier_value)
-                return Response({"message": "Status update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            logger.info("✅ Status %s updated to %s", identifier_value, status_to_update)
+            # 2. Update order in DB
+            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            if not updated_order:
+                logger.warning("❌ Failed to update order %s", token_no)
+                return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.info("✅ Order %s updated to %s", updated_order.token_no, status_to_update)
             if vendor.config.tv_communication_mode == "AZURE_IOT":
                 logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
                 azure_iot = get_azure_devices(vendor)
                 logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
             if vendor.config.tv_communication_mode == "MQTT":
                 # 3. Send MQTT update
-                logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with {identifier_field} {identifier_value}")
+                logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
                 if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
                     logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
                     return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
@@ -942,96 +597,64 @@ def manager_order_update(request):
                     logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
                     return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        elif action_type in ["boarding_shortly","delivered", "cancelled","arrived","departed"]:
-            logger.info("🔔 %s order %s by manager %s", action_type.capitalize(), identifier_value, manager.name)
-            if project_name == "airline_flash":
-                data_status = update_existing_status_by_airlinemanager(identifier_value, vendor, None, action_type, manager)
+            # 4. Send Web Push (only if cooldown passed)
+            cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
+            if not order.notified_at or (timezone.now() - order.notified_at) > timedelta(seconds=cooldown):
+                logger.info("📤 Sending web push...")
+                push_errors = notify_web_push(order, vendor, payload)
+                order.refresh_from_db()  # ✅ ensures latest status from DB
+                order.notified_at = timezone.now()
+                order.save(update_fields=["notified_at"])
+                logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
             else:
-                data_status = update_existing_order_by_manager(identifier_value, vendor, None, action_type, manager)
+                logger.info("⏳ Cooldown active. Skipping web push for %s", token_no)
+
+        elif action_type in ["delivered", "cancelled"]:
+            logger.info("🔔 %s order %s by manager %s", action_type.capitalize(), token_no, manager.name)
+            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            if updated_order:
+                payload["title"] = f"Order {action_type.capitalize()}"
+                push_errors = notify_web_push(order, vendor, payload)
+                order.refresh_from_db()  # ✅ ensures latest status from DB
+                order.notified_at = timezone.now()
+                order.save(update_fields=["notified_at"])
+                logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
+
         else:  # action_type == "message"
             MAX_MESSAGE_LENGTH = 200
             if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
 
             logger.info("ℹ️ Sending manager message via web push")
-
-            payload["status"] = status_to_update
-        if action_type in["message"]:
-            display_value = status_to_update
-        else:
-            # ✅ Get display label from STATUS_CHOICES_MAP
-            status_choices = dict(STATUS_CHOICES_MAP.get(project_name, []))
-            display_value = status_choices.get(status_to_update, status_to_update)
-        if project_name == "airline_flash" and (flight_no or zone):
-            # Bulk create chat messages for all passengers
-            chat_messages = create_bulk_chat_messages(vendor, order, display_value, sender="manager", zone=zone)
-            chat_map = {cm.sequence_code: cm.id for cm in chat_messages}
-            token_map = {cm.sequence_code: cm.token_no for cm in chat_messages}
-            # Send notifications
-            push_errors = notify_related_passengers(order, vendor, payload, zone=zone, chat_map=chat_map,token_map=token_map)
-
-            # Handle push errors (update chat records if failed)
-            if push_errors:
-                logger.warning("❌ Some web pushes failed for flight %s | Errors: %s", order.flight_no, push_errors)
-                # Example: if push_errors contain sequence_codes or we handle all failures generally
-                failed_chat_ids = [chat_map.get(seq) for seq in chat_map.keys()]
-                ChatMessage.objects.filter(id__in=failed_chat_ids).update(is_send=False)
-            else:
-                logger.info("📤 Group web push sent successfully for flight %s", order.flight_no)
-
-        else:
-            # Normal single message 
-            if project_name == "airline_flash":
-                chat_kwargs = {
-                "vendor": vendor,
-                "created_date": get_vendor_current_time(vendor).date(),
-                "sender": "manager",
-                "is_send": True,
-                "message_text": status_to_update,
-                "token_no": order.token_no,
-                "sequence_code":order.sequence_code
-            }
-            else:
-                chat_kwargs = {
-                    "vendor": vendor,
-                    "created_date": get_vendor_current_time(vendor).date(),
-                    "sender": "manager",
-                    "is_send": True,
-                    "message_text": status_to_update,
-                    "token_no": order.token_no
-                }
-
-            chat_message = ChatMessage.objects.create(**chat_kwargs)
+            chat_message = ChatMessage.objects.create(
+                vendor=vendor,
+                token_no=token_no,
+                created_date=get_vendor_current_time(vendor).date(),
+                sender='manager',
+                is_send=True,
+                message_text=status_to_update
+            )
             payload["message_id"] = chat_message.id
-            if identifier_field == "sequence_code":
-                payload['sequence_code'] = order.sequence_code
-
+            payload["status"] = status_to_update
             push_errors = notify_web_push(order, vendor, payload)
-            order.refresh_from_db()  # ✅ ensures latest status from DB
-            order.notified_at = timezone.now()
-            order.save(update_fields=["notified_at"])
-
             if push_errors:
-                logger.warning("❌ Failed web push for %s | Errors: %s", identifier_value, push_errors)
+                logger.warning("❌ Failed web push for %s | Errors: %s", token_no, push_errors)
                 chat_message.is_send = False
                 chat_message.save(update_fields=["is_send"])
             else:
-                logger.info("📤 Web push sent successfully for %s", identifier_value)
+                logger.info("📤 Web push sent successfully for %s", token_no)
 
-        # === Step 8: Return final response ===  
-        response_payload = {
+        # === Step 8: Return final response ===
+        return Response({
             "success": True,
             "message": f"Order {'updated and ' if action_type == 'ready' else ''}notified successfully.",
-            "token_no":None if project_name == "airline_flash" else order.token_no ,
+            "token_no": token_no,
             "android_tv": android_tv_success,
             "android_tv_info": android_tv_info,
             "web_push": not push_errors,
             "web_push_info": push_errors,
             "mqtt":mqtt_success if action_type == "ready" else None
-        }      
-        if project_name == 'airline_flash':
-            response_payload['sequence_code'] = order.sequence_code
-        return Response(response_payload, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.exception("🔥 Unhandled exception in manager_order_update | user=%s", request.user.username)
@@ -1368,7 +991,9 @@ def device_call(request):
             "location_id": vendor.location_id,
             "logo_url": logo_url,
             "type": "foodstatus",
-            "message_id":None
+            "message_id":None,
+            "vibration_pattern":vendor.config.vibration_pattern,
+            "vibration_duration":vendor.config.vibration_duration
         }
 
         android_tv_success = False

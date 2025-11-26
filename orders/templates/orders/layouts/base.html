@@ -69,13 +69,20 @@
         window.PROJECT_DISPLAY_NAME = "{{ PROJECT_DISPLAY_NAME }}";
         window.APP_VERSION = "{{ APP_VERSION }}"
     </script>
-    <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}" ></script>
-    <script src="{% static 'utils/js/projectAssets.js' %}" ></script>
+
+    <!-- Global Utilities -->
+    <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}"></script>
+    <script src="{% static 'utils/js/projectAssets.js' %}"></script>
+
+    <!-- Load Vibration Controller BEFORE utils.js -->
+    <script src="{% static 'orders/js/config/vibrationController.js' %}"></script>
+
     <script type="module" src="{% static 'orders/js/utils.js' %}"></script>
+
+    <!-- External libraries -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
     <!-- Page-specific JS -->
     {% block extra_js %}{% endblock %}
 </body>

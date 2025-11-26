@@ -30,6 +30,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
+from .serializer.vendor_config import VendorVibrationConfigSerializer
 from .serializers import (VendorSerializer,
                           VendorDetailSerializer,
                           UnmappedVendorDetailSerializer,
@@ -1631,3 +1632,70 @@ def tv_config_clear(request):
     except Exception:
         logger.exception("tv_config_clear: Unexpected server error.")
         return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_outlet_settings(request):
+    data = request.data
+
+    vendor_id = data.get("vendor_id")
+    logger.info(f"[OutletSettings] Update received | vendor_id={vendor_id} | user={request.user}")
+
+    # -----------------------------------
+    # Check only missing vendor_id
+    # -----------------------------------
+    if not vendor_id:
+        return Response({
+            "status": False,
+            "message": "vendor_id is required"
+        }, status=400)
+
+    try:
+        vendor = Vendor.objects.filter(id=vendor_id).first()
+        print(vendor)
+
+        if not vendor:
+            logger.warning(f"[OutletSettings] Vendor not found | vendor_id={vendor_id}")
+            return Response({
+                "status": False,
+                "message": "Vendor not found"
+            }, status=404)
+
+        config = vendor.config
+
+        serializer = VendorVibrationConfigSerializer(
+            config,
+            data=data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            logger.info(f"[OutletSettings] Settings updated | vendor_id={vendor_id}")
+
+            return Response({
+                "status": True,
+                "message": "Outlet settings updated successfully",
+                "data": serializer.data
+            }, status=200)
+
+        # Serializer handles all other validation errors
+        logger.error(
+            f"[OutletSettings] Validation failed | vendor_id={vendor_id} | errors={serializer.errors}"
+        )
+
+        return Response({
+            "status": False,
+            "message": "Invalid outlet configuration data",
+            "errors": serializer.errors
+        }, status=400)
+
+    except Exception as e:
+        logger.exception(f"[OutletSettings] Unexpected error | vendor_id={vendor_id}")
+
+        return Response({
+            "status": False,
+            "message": "Unexpected error while updating outlet settings",
+            "error": str(e)
+        }, status=500)
+

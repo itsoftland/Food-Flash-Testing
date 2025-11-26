@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path('home/', views.home, name='home'),
+    path('vibration_test/', views.vibration_test, name='vibration_test'),
     # path('token_display/',views.token_display,name='token_display'),
     # path('api/get_recent_orders/',views.get_recent_ready_orders,name='get_recent_orders'),
     path('', views.outlet_selection, name="outlet_selection"),

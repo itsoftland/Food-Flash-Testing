@@ -1,0 +1,42 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+{% block extra_css %}
+
+<link rel="stylesheet" href="{% static 'orders/css/vibration_test.css' %}">
+
+{% endblock %}
+
+{% block content %}
+
+<div class="container ">
+
+    <div class="card shadow-lg rounded-4 p-4">
+        <h3 class="mb-0">
+            Vibration Tester
+        </h3>
+
+        <!-- Notes section -->
+        <div class="notes">
+            <strong>Note:</strong> Vibrations are only supported on <strong>Android devices</strong>. 
+            iOS devices have limitations for web apps and cannot trigger vibrations reliably. 
+            Thank you for understanding.
+        </div>
+
+        <p class="text-muted mt-2">
+            Tap any pattern below to test how it will feel on your phone.
+        </p>
+
+        <!-- Pattern buttons will be injected here by JS -->
+        <div id="patternList" class="d-grid gap-3"></div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Your vibration tester JS -->
+<script type="module" src="{% static 'orders/js/config/vibrationTester.js' %}"></script>
+
+{% endblock %}

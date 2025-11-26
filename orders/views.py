@@ -58,6 +58,19 @@ def home(request):
     cache.clear()
     return render(request, 'orders/index.html')
 
+def vibration_test(request):
+    if request.method != "GET":
+        return HttpResponseBadRequest("Invalid request method.")
+
+    vendor_id = request.GET.get("vendor_id")
+
+    context = {
+        "vendor_id": vendor_id
+    }
+
+    return render(request, 'orders/vibration_test.html', context)
+
+
 def public_register(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
@@ -178,6 +191,8 @@ def check_status(request):
             'updated_by': order.updated_by,
             'message': 'Order retrieved successfully.',
             'reply_status': '',
+            "vibration_pattern":order.vendor.config.vibration_pattern,
+            "vibration_duration":order.vendor.config.vibration_duration,
             'flight_no': order.flight_no,
             'pnr_no': order.pnr_no,
             'seat_no': order.seat_no,
@@ -242,7 +257,7 @@ def check_status(request):
                 'device': None,
                 'status': 'preparing',
                 'updated_by': 'customer',
-                'type': 'foodstatus',
+                'type': 'foodstatus'
             }
             serializer = OrdersSerializer(data=new_order_data)
             if serializer.is_valid():
@@ -265,7 +280,9 @@ def check_status(request):
                     'type': 'foodstatus',
                     'updated_by': 'customer',
                     'message': 'Order created with status preparing.',
-                    'reply_status': ''
+                    'reply_status': '',
+                    "vibration_pattern":vendor.config.vibration_pattern,
+                    "vibration_duration":vendor.config.vibration_duration
                 }
                 if project_name == "airline_flash":
                     title = "Passenger Connected to Your Flight"

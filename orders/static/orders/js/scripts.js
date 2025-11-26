@@ -49,8 +49,8 @@ onDOMReady(async function () {
     const pageWrapper = document.querySelector(".page-wrapper");
     const isOpenedFromPush = urlParams.get('from_push');
 
-    console.log("Sequence code:",tokenFromQR);
-    console.log("Passenger Name :",passengerName)
+    // console.log("Sequence code:",tokenFromQR);
+    // console.log("Passenger Name :",passengerName)
     let isAdVisible = true;
     let storedName = null;
 
@@ -210,6 +210,7 @@ onDOMReady(async function () {
             }
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
+                console.log("Payload Recieved:",pushData)
                 // ✅ Send ACK back to Service Worker confirming receipt
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
@@ -237,7 +238,7 @@ onDOMReady(async function () {
                 // Handle different message types
                 switch (messageType) {
                     case 'offers':
-                        AppUtils.playNotificationSound();
+                        AppUtils.playNotificationSound(pushData.vibration_pattern,pushData.vibration_duration);
                         appendMessage(messageHTML, 'server', null, 'offers', '', pushData.message_id);
                         break;
 

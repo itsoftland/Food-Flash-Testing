@@ -16,6 +16,18 @@ let clearTimers = {};  // Store timers to clear token after 1 hour
 function initNotificationModal(modalInstance) {
     notificationModal = modalInstance;
 
+    // -----------------------------------------
+    // 🔵 FIX: Remove button focus when modal closes
+    // -----------------------------------------
+    notificationModal._element.addEventListener('hidden.bs.modal', () => {
+        const okBtn = document.getElementById('ok-notification');
+        const snoozeBtn = document.getElementById('disable-notifications');
+
+        if (okBtn) okBtn.blur();
+        if (snoozeBtn) snoozeBtn.blur();
+    });
+    // -----------------------------------------
+
     // ✅ OK Button → acknowledge notification
     document.getElementById('ok-notification').addEventListener('click', async () => {
         if (activeNotificationToken && orderStates[activeNotificationToken]) {
@@ -24,6 +36,7 @@ function initNotificationModal(modalInstance) {
         }
         activeNotificationToken = null;
         notificationModal.hide();
+        VibrationManager.stop();
     });
 
     // 🔕 Disable / Snooze Notifications Button
@@ -76,6 +89,7 @@ function initNotificationModal(modalInstance) {
         }
     }
 }
+
 
 /**
  * Displays the notification modal with dynamic content based on order/flight status.
@@ -130,7 +144,7 @@ function showNotificationModal(pushData, source) {
     notificationModal.show();
 
     // 🔔 Sound + Chat Update
-    AppUtils.playNotificationSound();
+    AppUtils.playNotificationSound(pushData.vibration_pattern,pushData.vibration_duration);
     const { vendor_id, logo_url, name } = pushData;
     updateChatOnPush(vendor_id, logo_url, name);
 

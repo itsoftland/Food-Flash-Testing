@@ -134,6 +134,24 @@ class VendorConfig(models.Model):
         null=True, blank=True,
         help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
     use_utilities = models.BooleanField(default=False)
+    # -----------------------------
+    # 🔔 VIBRATION CONFIGURATION
+    # -----------------------------
+    vibration_enabled = models.BooleanField(
+        default=True,
+        help_text="Enable or disable vibration for customer notifications"
+    )
+
+    vibration_pattern = models.CharField(
+        max_length=50,
+        default="alert_strong",
+        help_text="Vibration pattern key for customer notification alerts"
+    )
+
+    vibration_duration = models.PositiveIntegerField(
+        default=5,
+        help_text="Vibration duration in seconds"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

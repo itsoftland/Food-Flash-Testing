@@ -648,7 +648,9 @@ def update_order(request):
                 "vendor_id": vendor.vendor_id,
                 "location_id": vendor.location_id,
                 "logo_url": vendor_serializer.data.get("logo_url", ""),
-                "type": "foodstatus"
+                "type": "foodstatus",
+                "vibration_pattern":vendor.config.vibration_pattern,
+                "vibration_duration":vendor.config.vibration_duration
             }
             title="Keypad Device Alert"
             body=f"Order {token_no} is now ready to be served"

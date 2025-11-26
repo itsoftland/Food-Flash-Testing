@@ -390,7 +390,7 @@ window.AppUtils = {
 
 
     // Use this in your existing method
-    playNotificationSound : function (volume = 1.0) {
+    playNotificationSound : function (pattern,duration,volume = 1.0) {
         if (unlockedNotificationAudio) {
             unlockedNotificationAudio.volume = Math.max(0, Math.min(volume, 1));
             unlockedNotificationAudio.currentTime = 0;
@@ -400,12 +400,8 @@ window.AppUtils = {
         } else {
             console.warn('🔕 Notification sound is not unlocked yet.');
         }
-
-        // Vibration if supported
-        if (navigator.vibrate) {
-            console.log('🔔 Vibration triggered.');
-            navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
-        }
+        // Start vibration using reusable controller
+        VibrationManager.start(pattern,duration);
     },
     playWelcomeMessage :function(){
         const welcome = new SpeechSynthesisUtterance('Hi, Welcome. Please enter your token number to track your order.');
