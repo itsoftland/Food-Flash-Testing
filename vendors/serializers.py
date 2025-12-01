@@ -18,6 +18,40 @@ class OrdersSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_fields = ['vendor_name', 'manager_id', 'manager_name', 'new_notifications']
 
+    def get_fields(self):
+        fields = super().get_fields()
+
+        # -----------------------------
+        # ✔ Hide Airline fields
+        # -----------------------------
+        airline_fields = [
+            "sequence_code",
+            "flight_no",
+            "pnr_no",
+            "seat_no",
+            "zone",
+            "passenger_name"
+        ]
+
+        if project_name != "airline_flash":
+            for f in airline_fields:
+                fields.pop(f, None)
+
+        # -----------------------------
+        # ✔ Hide Dine Flash fields
+        # -----------------------------
+        dine_fields = [
+            "customer_name",
+            "no_of_packs",
+            "remarks",
+            "table_booking_no",
+        ]
+
+        if project_name != "dine_flash":
+            for f in dine_fields:
+                fields.pop(f, None)
+
+        return fields
     def get_new_notifications(self, obj):
         if project_name == "airline_flash":
             return ChatMessage.objects.filter(

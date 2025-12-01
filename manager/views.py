@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
+from django.db import transaction
+from django.urls import reverse
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,7 +15,7 @@ from rest_framework.response import Response
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
-from vendors.models import ChatMessage, Order
+from vendors.models import ChatMessage, Order,Utility
 from vendors.serializers import OrdersSerializer
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
@@ -26,11 +28,10 @@ from .serializers import ChatMessageSerializer
 from .utils.utils import (get_manager_vendor, get_suggestion_messages,
                           get_order_counts, generate_sequence_code,
                           get_passenger_counts,notify_related_passengers,
-                          create_bulk_chat_messages)
+                          create_bulk_chat_messages,reset_counters_if_new_business_day)
 
 from static.utils.functions.notifications import notify_android_tv
 from static.utils.functions.queries import (update_existing_order_by_manager,
-                                            update_existing_status_by_airlinemanager,
                                             update_existing_status_by_airlinemanager_bulk,
                                             )
 
@@ -187,6 +188,161 @@ def create_order_by_manager(request):
     else:
         logger.warning("[create_order_by_manager] Serializer validation failed | %s", serializer.errors)
         return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def book_table(request):
+    logger.info("[book_table] Started | remote_addr=%s", request.META.get("REMOTE_ADDR"))
+
+    data = request.data or {}
+    utility_id = data.get("utility_id")
+    no_of_guests = data.get("no_of_guests")
+    special_notes = data.get("special_notes")
+    phone_number = data.get("phone_number") or None
+    customer_name = data.get("customer_name")
+
+    # ------------------------------
+    # 1. Basic validation
+    # ------------------------------
+    required_base = {
+        "no_of_guests": no_of_guests,
+        "customer_name": customer_name,
+    }
+    missing = [k for k, v in required_base.items() if not v]
+    if missing:
+        logger.warning("[book_table] Missing required fields: %s", missing)
+        return Response(
+            {"error": f"Missing required fields: {', '.join(missing)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # ------------------------------
+    # 2. Vendor resolution (prefetch config)
+    # ------------------------------
+    vendor = get_manager_vendor(request.user)  # existing helper
+    # Ensure vendor has config prefetched if possible (get_manager_vendor should ideally do this)
+    vendor_config = getattr(vendor, "config", None)
+    if vendor_config is None:
+        logger.warning("[book_table] VendorConfig missing | vendor_id=%s", getattr(vendor, "vendor_id", None))
+        return Response({"error": "Vendor configuration missing."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # ------------------------------
+    # 3. Utility requirement
+    # ------------------------------
+    if vendor_config.use_utilities and not utility_id:
+        return Response(
+            {"error": "utility_id is required because utilities are enabled."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Resolve utility if provided (no update yet)
+    utility = None
+    if vendor_config.use_utilities and utility_id:
+        utility = Utility.objects.filter(id=utility_id, vendor=vendor).first()
+        if not utility:
+            logger.warning("[book_table] Utility not found | utility_id=%s", utility_id)
+            return Response({"error": "Utility not found for this vendor."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ------------------------------
+    # 4. Atomic section with row-level locking
+    #    - Lock vendor row (serializes token allocation)
+    #    - Lock utility row if we will update its counter
+    # ------------------------------
+    try:
+        with transaction.atomic():
+            # Re-fetch vendor with select_for_update to serialize concurrent manager bookings
+            vendor_locked = type(vendor).objects.select_for_update().select_related("config").get(pk=vendor.pk)
+
+            # Token number (vendor-wide) — compute safely after locking vendor
+            last_booking = (
+                Order.objects.filter(vendor=vendor_locked).select_for_update(nowait=False).order_by("-token_no").first()
+            )
+            token_no = (last_booking.token_no + 1) if last_booking else 1
+
+            # Booking number / counter handling
+            if vendor_config.use_utilities and utility and getattr(utility, "prefix", None):
+                # If we'll update utility counters, lock the utility
+                # Re-fetch utility with select_for_update if we need to bump its counter
+                if utility.token_mode == Utility.TOKEN_MODE_CONTINUOUS:
+                    # continuous = vendor-level booking counter in vendor_config
+                    # Lock vendor_config row implicitly by locking vendor (assumes config is FK on vendor)
+                    vendor_config.continuous_booking_counter = (vendor_config.continuous_booking_counter or 0) + 1
+                    vendor_config.save(update_fields=["continuous_booking_counter"])
+                    booking_counter = vendor_config.continuous_booking_counter
+                else:
+                    locked_utility = type(utility).objects.select_for_update().get(pk=utility.pk)
+                    locked_utility.utility_booking_counter = (locked_utility.utility_booking_counter or 0) + 1
+                    locked_utility.save(update_fields=["utility_booking_counter"])
+                    booking_counter = locked_utility.utility_booking_counter
+
+                booking_no = f"{utility.prefix}-{booking_counter}"
+            else:
+                # Utilities disabled or missing prefix -> fallback to token_no
+                booking_no = str(token_no)
+
+            # Build tracking URL via reverse to avoid hardcoded paths
+            try:
+                # Attempt to use a named URL; fallback to previous pattern if reverse fails
+                tracking_path = reverse("orders:home")  # adjust name to your URLconf
+                tracking_url = request.build_absolute_uri(f"{tracking_path}?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&booking_no={booking_no}")
+            except Exception:
+                # Fallback to original style using project_name variable
+                tracking_url = request.build_absolute_uri(
+                    f"/{project_name}/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&booking_no={booking_no}"
+                )
+
+            # Manager ID extraction (single DB hit)
+            manager_id = (
+                request.user.profile_roles.order_by("id").values_list("id", flat=True).first()
+                if hasattr(request.user, "profile_roles")
+                else None
+            )
+
+            # New booking payload
+            new_booking_data = {
+                "vendor": vendor.id,
+                "token_no": token_no,
+                "table_booking_no": booking_no,
+                "counter_no": 1,
+                "updated_by": "manager",
+                "status": "created",
+                "type": "dinestatus",
+                "name": vendor.name,
+                "location_id": vendor.location_id,
+                "device": None,
+                "no_of_packs": no_of_guests,
+                "customer_name": customer_name,
+                "remarks": special_notes,
+                "phone_number": phone_number,
+                "utility": utility.id if utility else None,
+                "manager_id": manager_id,
+            }
+
+            serializer = OrdersSerializer(data=new_booking_data)
+            if serializer.is_valid():
+                serializer.save()
+
+                resp_data = serializer.data
+                resp_data["tracking_url"] = tracking_url
+                resp_data["message"] = "Booking created successfully."
+
+                logger.info(
+                    "[book_table] Booking created | vendor=%s, token_no=%s, booking_no=%s, manager_id=%s",
+                    vendor.vendor_id,
+                    token_no,
+                    booking_no,
+                    manager_id,
+                )
+                return Response(resp_data, status=status.HTTP_201_CREATED)
+
+            # Serializer invalid
+            logger.warning("[book_table] Serializer validation failed | %s", serializer.errors)
+            return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as exc:
+        logger.exception("[book_table] Exception while creating booking: %s", exc)
+        return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

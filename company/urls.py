@@ -54,6 +54,7 @@ urlpatterns = [
     path('api/dashboard_metrics/', views.dashboard_metrics, name='dashboard_metrics'),  
     path('api/license_check/',views.license_check,name='license_check'),
     path('api/update_outlet_settings/',views.update_outlet_settings,name='update_outlet_settings'),
+    path('api/tv_config_assign/',views.tv_config_assign,name="tv_config_assign"),
     # DINEFLASH SPECIFIC URLS
     path('api/create_utility/',views.create_utility,name='create_utility'),
     path('api/tv_config_create/',views.tv_config_create, name="tv_config_create"),

@@ -92,147 +92,6 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
     logger.info(f"📬 Push complete: {sub_count - len(errors)} success, {len(errors)} failed.")
     return errors
 
-#integrated sendpush also inside this
-# def notify_web_push(order, vendor, payload, sequence_code=None):
-#     """
-#     Sends web push notifications sequentially (no internal ThreadPool).
-#     Concurrency is now handled by outer layer (manager_order_update).
-#     Returns an empty list on full success, or a list of error messages on failure.
-#     """
-#     logger.info(
-#         f"🔔 Web Push Initiated | Token: {order.token_no}, Vendor: {vendor.name} (ID: {vendor.id})"
-#     )
-#     logger.debug(f"Payload: {payload}")
-
-#     subscriptions = list(
-#         PushSubscription.objects.filter(
-#             tokens__token_no=order.token_no,
-#             tokens__vendor=vendor
-#         ).distinct()
-#     )
-#     sub_count = len(subscriptions)
-#     logger.info(f"📦 Found {sub_count} subscription(s) for token_no={order.token_no}")
-
-#     if sub_count == 0:
-#         msg = f"No push subscriptions found for token_no={order.token_no}, vendor_id={vendor.id}"
-#         logger.warning(msg)
-#         return [msg]
-
-#     errors = []
-
-#     for sub in subscriptions:
-#         try:
-#             # ---- Send push ----
-#             webpush(
-#                 subscription_info={
-#                     "endpoint": sub.endpoint,
-#                     "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
-#                 },
-#                 data=json.dumps(payload),
-#                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
-#                 vapid_claims={
-#                     "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}",
-#                 },
-#                 ttl=60,
-#             )
-#             # ---- Save chat copy if required ----
-#             try:
-#                 save_server_chat_message(payload, vendor, sub, sequence_code)
-#             except Exception as chat_err:
-#                 logger.warning(f"💬 Chat save failed: {chat_err}")
-
-#         except WebPushException as ex:
-#             msg = f"❌ Push failed for endpoint={sub.endpoint}: {str(ex)}"
-#             logger.error(msg)
-#             errors.append(msg)
-#         except Exception as e:
-#             msg = f"❌ Unexpected error sending push: {e}"
-#             logger.exception(msg)
-#             errors.append(msg)
-
-#     logger.info(f"📬 Push complete: {sub_count - len(errors)} success, {len(errors)} failed.")
-#     return errors
-#old one
-# def notify_web_push(order, vendor, payload, sequence_code=None):
-#     logger.info(
-#         f"🔔 Web Push Notification Initiated | Token: {order.token_no}, Vendor: {vendor.name} (ID: {vendor.id})"
-#     )
-#     logger.debug(f"Payload: {payload}")
-
-#     subscriptions = list(
-#         PushSubscription.objects.filter(
-#             tokens__token_no=order.token_no,
-#             tokens__vendor=vendor
-#         ).distinct()
-#     )
-#     subscription_count = len(subscriptions)
-#     logger.info(
-#         f"📦 Found {subscription_count} subscription(s) for token_no={order.token_no} and vendor_id={vendor.id}"
-#     )
-
-#     if subscription_count == 0:
-#         msg = f"No push subscriptions found for token_no={order.token_no} and vendor_id={vendor.id}"
-#         logger.warning(f"⚠️ {msg}")
-#         return [msg]
-
-#     errors = []
-
-#     # --- 🔹 Parallel push sending ---
-#     def push_one(sub):
-#         success = send_push_notification(
-#             {"endpoint": sub.endpoint,
-#              "keys": {"p256dh": sub.p256dh, "auth": sub.auth}},
-#             payload
-#         )
-#         save_server_chat_message(payload, vendor, sub, sequence_code)
-#         return (sub.endpoint, success)
-
-#     # Run up to 20 concurrent sends; adjust if server has more capacity
-#     with ThreadPoolExecutor(max_workers=20) as executor:
-#         futures = [executor.submit(push_one, s) for s in subscriptions]
-
-#         for future in as_completed(futures):
-#             endpoint, success = future.result()
-#             if not success:
-#                 error_msg = f"❌ Push failed for endpoint {endpoint}"
-#                 logger.error(error_msg)
-#                 errors.append(error_msg)
-
-#     logger.info(f"📬 Notification completed with {len(errors)} error(s).")
-#     return errors
-
-# def notify_web_push(order, vendor, payload,sequence_code=None):
-#     logger.info(f"🔔 Web Push Notification Initiated | Token: {order.token_no}, Vendor: {vendor.name} (ID: {vendor.id})")
-#     logger.debug(f"Payload: {payload}")
-
-#     subscriptions = PushSubscription.objects.filter(tokens__token_no=order.token_no, tokens__vendor=vendor).distinct()
-#     subscription_count = subscriptions.count()
-#     logger.info(f"📦 Found {subscription_count} subscription(s) for token_no={order.token_no} and vendor_id={vendor.id}")
-
-#     errors = []
-
-#     # 🔹 If no subscriptions found, return early with reason
-#     if subscription_count == 0:
-#         msg = f"No push subscriptions found for token_no={order.token_no} and vendor_id={vendor.id}"
-#         logger.warning(f"⚠️ {msg}")
-#         return [msg]  # ✅ Return None instead of a message inside a list
-
-#     for sub in subscriptions:
-#         logger.debug(f"Sending push to endpoint: {sub.endpoint}")
-#         success = send_push_notification({
-#             "endpoint": sub.endpoint,
-#             "keys": {"p256dh": sub.p256dh, "auth": sub.auth}
-#         }, payload)
-#         save_server_chat_message(payload, vendor, sub,sequence_code)
-#         if not success:
-#             error_msg = f"❌ Push failed for endpoint {sub.endpoint}"
-#             logger.error(error_msg)
-#             errors.append(error_msg)
-
-#     logger.info(f"📬 Notification completed with {len(errors)} error(s).")
-#     return errors
-
-
 def send_push_notification(subscription_info, payload):
     try:
         logger.info("Attempting to send web push notification.")
@@ -369,3 +228,36 @@ def archive_order(order):
 
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
+
+def build_tv_config_payload(tv_config):
+    """
+    Builds a standardized payload for TVDeviceConfig,
+    dynamically resolving utility label based on utility_name_mode.
+    """
+    if not tv_config:
+        return None
+
+    mode = tv_config.utility_name_mode  # utility_name / display_name / display_code
+
+    # Build utilities list based on mode
+    utilities_data = []
+    for u in tv_config.utilities.filter(is_active=True):
+        label_value = getattr(u, mode, None)  # dynamically pick field
+        utilities_data.append({
+            "id": u.id,
+            "label": label_value,
+        })
+
+    return {
+        "show_qr": tv_config.show_qr,
+        "qr_alignment": tv_config.qr_alignment if tv_config.show_qr else None,
+        "items_to_show": tv_config.items_to_show,
+        "booking_fields": tv_config.booking_fields,
+        "utility_name_mode": tv_config.utility_name_mode,
+        "screen_orientation": tv_config.screen_orientation,
+        "utilities": utilities_data,
+        "created_at": tv_config.created_at,
+        "updated_at": tv_config.updated_at,
+    }
+
+

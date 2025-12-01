@@ -37,5 +37,4 @@ urlpatterns = [
     path('table_booking/',views.table_booking,name='table_booking'),
     path('api/book_table/',views.book_table,name='book_table'),
     path('api/utility_list/',views.utility_list,name='utility_list'),
-    
 ]

@@ -17,7 +17,7 @@ from .models import (Order, Vendor, Device,
 
 from .serializers import OrdersSerializer
 from orders.serializers import VendorLogoSerializer
-from .utils import send_push_notification, notify_web_push
+from .utils import send_push_notification, notify_web_push, build_tv_config_payload 
 from static.utils.functions.queries import get_order
 from firebase_admin import messaging
 from .mqtt_client import get_mqtt_config_for_vendor
@@ -233,6 +233,127 @@ def register_device(request):
         logger.error("Customer not found: %s", customer_id)
         return Response({"error": "Customer not found."}, status=404)
 
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def register_android_device(request):
+#     data = request.data
+#     token = data.get('token')
+#     customer_id = data.get('customer_id')
+#     mac_address = data.get('mac_address')
+
+#     logger.info("Android Device Registration")
+#     logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
+
+#     # Validate required fields
+#     required_fields = ['customer_id', 'token', 'mac_address',]
+#     missing = [f for f in required_fields if not data.get(f)]
+#     if missing:
+#         logger.warning(f"Missing required fields:{', '.join(missing)}",)
+#         return Response(
+#             {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
+#             status=status.HTTP_400_BAD_REQUEST
+#         )
+#     try:
+#         customer = AdminOutlet.objects.get(customer_id=customer_id)
+#         logger.info("Customer found: customer_id=%s (AdminOutlet ID: %s)", customer_id, customer.id)
+#     except AdminOutlet.DoesNotExist:
+#         logger.error("Customer not found: customer_id=%s", customer_id)
+#         return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#     # Register or update device
+#     try:
+#         device, created = AndroidDevice.objects.get_or_create(
+#             mac_address=mac_address,
+#             admin_outlet=customer,
+#             defaults={'token': token}
+#         )
+#         if not created:
+#             logger.info("Device found for mac_address=%s. Updating token.", mac_address)
+#             device.token = token
+#             device.save()
+#         else:
+#             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
+#     except Exception as e:
+#         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
+#         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#     # Check vendor mapping
+#     if hasattr(device, 'vendor') and device.vendor:
+#         if hasattr(device.vendor, 'config') :
+#             if not device.vendor.config.tv_communication_mode:
+#                 logger.warning(f"Vendor {device.vendor.vendor_id} has no communication configuration")
+#                 return Response(
+#                     {"error": "Vendor has no communication configuration."}, 
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+#             elif device.vendor.config.tv_communication_mode == "MQTT":
+#                 mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
+#                 logger.info(
+#                     "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
+#                     device.vendor.name,
+#                     device.vendor.vendor_id,
+#                     json.dumps(mqtt_config)
+#                 )
+#                 logger.info(
+#                         "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+#                         device.vendor.name,
+#                         device.vendor.vendor_id,
+#                         json.dumps(mqtt_config)
+#                     )
+#             elif device.vendor.config.tv_communication_mode == "AZURE_IOT":
+#                 if hasattr(device,'iot_credentials') and device.iot_credentials:
+#                     mqtt_config = create_iot_credentials(device)
+#                     logger.info(
+#                         "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+#                         device.vendor.name,
+#                         device.vendor.vendor_id,
+#                         mqtt_config
+#                     )
+#                 else:
+#                     logger.warning(f"Vendor {device.vendor.vendor_id} has no Azure IoT credentials")
+#                     logger.info("Generating new IoT credentials for device")
+#                     mqtt_config = create_iot_credentials(device)
+#                     logger.info(
+#                         "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
+#                         device.vendor.name,
+#                         device.vendor.vendor_id,
+#                         json.dumps(mqtt_config)
+#                     )
+#             else:
+#                 logger.warning("Vendor configuration is Firebase") 
+#             # Fetch TV configuration assigned to this device
+#             tv_config_data = build_tv_config_payload(device.tv_config)
+
+
+#         else:
+#             logger.warning("Vendor has no configuration") 
+#             mqtt_config = None              
+#         return Response({
+#             "status": "Device is mapped to vendor.",
+#             "mapped": True,
+#             "vendor_id": device.vendor.vendor_id,
+#             "vendor_name": device.vendor.name,
+#             "mqtt_config": mqtt_config,
+#             "tv_config_data":tv_config_data
+#         }, status=status.HTTP_200_OK)
+#     logger.info("Device registered but not mapped to any vendor.")
+#     return Response({
+#         "status": "Device is registered but not yet mapped to a vendor.",
+#         "mapped": False,
+#         "vendor_id": None,
+#         "vendor_name": None,
+#         "mqtt_config": None
+#     }, status=status.HTTP_200_OK)
+
+from django.db import transaction
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+
+# helpers you already have
+# from .helpers import get_mqtt_config_for_vendor, create_iot_credentials
+# from .utils.tv_config_utils import build_tv_config_payload
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_android_device(request):
@@ -245,14 +366,16 @@ def register_android_device(request):
     logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
 
     # Validate required fields
-    required_fields = ['customer_id', 'token', 'mac_address',]
+    required_fields = ['customer_id', 'token', 'mac_address']
     missing = [f for f in required_fields if not data.get(f)]
     if missing:
-        logger.warning(f"Missing required fields:{', '.join(missing)}",)
+        logger.warning("Missing required fields: %s", ", ".join(missing))
         return Response(
             {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    # Fetch customer (AdminOutlet) – make sure customer_id is indexed in model
     try:
         customer = AdminOutlet.objects.get(customer_id=customer_id)
         logger.info("Customer found: customer_id=%s (AdminOutlet ID: %s)", customer_id, customer.id)
@@ -260,84 +383,104 @@ def register_android_device(request):
         logger.error("Customer not found: customer_id=%s", customer_id)
         return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # Register or update device
     try:
-        device, created = AndroidDevice.objects.get_or_create(
-            mac_address=mac_address,
-            admin_outlet=customer,
-            defaults={'token': token}
-        )
-        if not created:
-            logger.info("Device found for mac_address=%s. Updating token.", mac_address)
-            device.token = token
-            device.save()
+        # Try to find existing device with related vendor/config and tv_config in one go
+        device = AndroidDevice.objects.select_related('vendor__config', 'tv_config') \
+            .filter(mac_address=mac_address, admin_outlet=customer).first()
+
+        if device:
+            # Only update token if changed
+            if device.token != token:
+                logger.info("Device found for mac_address=%s. Updating token.", mac_address)
+                device.token = token
+                device.save(update_fields=['token', 'updated_at'])
+            else:
+                logger.debug("Device found and token unchanged for mac_address=%s", mac_address)
+            created = False
         else:
+            # create inside atomic block
+            with transaction.atomic():
+                device = AndroidDevice.objects.create(
+                    token=token,
+                    mac_address=mac_address,
+                    admin_outlet=customer
+                )
             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
+            # fetch again with related objects to have vendor/config/tv_config available
+            device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').get(pk=device.pk)
+            created = True
+
     except Exception as e:
         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    # Check vendor mapping
-    if hasattr(device, 'vendor') and device.vendor:
-        if hasattr(device.vendor, 'config') :
-            if not device.vendor.config.tv_communication_mode:
-                logger.warning(f"Vendor {device.vendor.vendor_id} has no communication configuration")
-                return Response(
-                    {"error": "Vendor has no communication configuration."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            elif device.vendor.config.tv_communication_mode == "MQTT":
-                mqtt_config = get_mqtt_config_for_vendor(device.vendor, device)
-                logger.info(
-                    "Device mapped to vendor: %s (ID: %s) | MQTT Config: %s",
-                    device.vendor.name,
-                    device.vendor.vendor_id,
-                    json.dumps(mqtt_config)
-                )
-                logger.info(
-                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
-                        device.vendor.name,
-                        device.vendor.vendor_id,
-                        json.dumps(mqtt_config)
-                    )
-            elif device.vendor.config.tv_communication_mode == "AZURE_IOT":
-                if hasattr(device,'iot_credentials') and device.iot_credentials:
-                    mqtt_config = create_iot_credentials(device)
-                    logger.info(
-                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
-                        device.vendor.name,
-                        device.vendor.vendor_id,
-                        mqtt_config
-                    )
-                else:
-                    logger.warning(f"Vendor {device.vendor.vendor_id} has no Azure IoT credentials")
-                    logger.info("Generating new IoT credentials for device")
-                    mqtt_config = create_iot_credentials(device)
-                    logger.info(
-                        "Device mapped to vendor: %s (ID: %s) | Azure IoT Config: %s",
-                        device.vendor.name,
-                        device.vendor.vendor_id,
-                        json.dumps(mqtt_config)
-                    )
+
+    # Default response pieces
+    mapped = False
+    mqtt_config = None
+    tv_config_data = None
+    vendor_id = None
+    vendor_name = None
+
+    # If device is mapped to a vendor, prepare configs
+    vendor = getattr(device, 'vendor', None)
+    if vendor:
+        mapped = True
+        vendor_id = vendor.vendor_id
+        vendor_name = vendor.name
+        config = getattr(vendor, 'config', None)
+
+        # If vendor config missing or has no communication mode, fail fast with user-friendly message
+        if not config or not getattr(config, 'tv_communication_mode', None):
+            logger.warning("Vendor %s has no communication configuration", vendor.vendor_id if vendor else "unknown")
+            return Response({"error": "Vendor has no communication configuration."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Communication mode branches
+        mode = config.tv_communication_mode
+        if mode == "MQTT":
+            mqtt_config = get_mqtt_config_for_vendor(vendor, device)
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Device mapped to vendor: %s (ID: %s) | MQTT Config available", vendor.name, vendor.vendor_id)
+        elif mode == "AZURE_IOT":
+            # create or fetch IoT credentials only when needed
+            if hasattr(device, 'iot_credentials') and device.iot_credentials:
+                mqtt_config = create_iot_credentials(device)
             else:
-                logger.warning("Vendor configuration is Firebase") 
+                logger.info("Generating new IoT credentials for device: mac=%s", mac_address)
+                mqtt_config = create_iot_credentials(device)
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Device mapped to vendor: %s (ID: %s) | Azure IoT Config available", vendor.name, vendor.vendor_id)
         else:
-            logger.warning("Vendor has no configuration") 
-            mqtt_config = None              
+            # Firebase or other
+            logger.warning("Vendor configuration is Firebase (or unsupported): %s", mode)
+            mqtt_config = None
+
+        # Build tv_config payload (use the reusable helper)
+        try:
+            tv_config_data = build_tv_config_payload(getattr(device, 'tv_config', None))
+        except Exception as e:
+            logger.error("Failed to build TV config payload: %s", str(e), exc_info=True)
+            tv_config_data = None
+
         return Response({
             "status": "Device is mapped to vendor.",
             "mapped": True,
-            "vendor_id": device.vendor.vendor_id,
-            "vendor_name": device.vendor.name,
-            "mqtt_config": mqtt_config
+            "vendor_id": vendor_id,
+            "vendor_name": vendor_name,
+            "mqtt_config": mqtt_config,
+            "tv_config": tv_config_data
         }, status=status.HTTP_200_OK)
+
+    # Device created/updated but not mapped to any vendor
     logger.info("Device registered but not mapped to any vendor.")
     return Response({
         "status": "Device is registered but not yet mapped to a vendor.",
         "mapped": False,
         "vendor_id": None,
         "vendor_name": None,
-        "mqtt_config": None
+        "mqtt_config": None,
+        "tv_config": None
     }, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

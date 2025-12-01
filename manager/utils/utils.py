@@ -304,3 +304,34 @@ def create_bulk_chat_messages(vendor, passenger, message_text, sender="manager",
     return chat_messages
 
 
+def reset_counters_if_new_business_day(vendor, utility=None):
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+
+    # ---------------------------------------------------
+    # 1️⃣ Check vendor-level first order of the business day
+    # ---------------------------------------------------
+    vendor_last_order = Order.objects.filter(
+        vendor=vendor,
+        created_at__range=(start_dt, end_dt)
+    ).order_by("-id").first()
+
+    if vendor_last_order is None:
+        # Reset vendor-level counter
+        vendor.config.continuous_booking_counter = 0
+        vendor.config.save(update_fields=["continuous_booking_counter"])
+
+    # ---------------------------------------------------
+    # 2️⃣ Check utility-level first order of the business day
+    # ---------------------------------------------------
+    if utility:
+        utility_last_order = Order.objects.filter(
+            vendor=vendor,
+            utility=utility,
+            created_at__range=(start_dt, end_dt)
+        ).order_by("-id").first()
+
+        if utility_last_order is None:
+            # Reset utility-level counter only for this utility
+            utility.utility_booking_counter = 0
+            utility.save(update_fields=["utility_booking_counter"])
+

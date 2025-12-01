@@ -1360,6 +1360,29 @@ def create_utility(request):
                 {"error": "Utilities feature is disabled for this vendor"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        # ---- Utility Name Uniqueness Check ----
+        if Utility.objects.filter(vendor=vendor, utility_name__iexact=utility_name).exists():
+            logger.warning(f"[UtilityCreate] Duplicate utility_name '{utility_name}' for vendor {vendor_id}")
+            return Response(
+                {"error": "Utility name already exists for this vendor"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ---- Display Name Uniqueness Check ----
+        if Utility.objects.filter(vendor=vendor, display_name__iexact=display_name).exists():
+            logger.warning(f"[UtilityCreate] Duplicate display_name '{display_name}' for vendor {vendor_id}")
+            return Response(
+                {"error": "Display name already exists for this vendor"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ---- Display Code Uniqueness Check ----
+        if Utility.objects.filter(vendor=vendor, display_code__iexact=display_code).exists():
+            logger.warning(f"[UtilityCreate] Duplicate display_code '{display_code}' for vendor {vendor_id}")
+            return Response(
+                {"error": "Display code already exists for this vendor"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # ---- Prefix Uniqueness Check ----
         if Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exists():

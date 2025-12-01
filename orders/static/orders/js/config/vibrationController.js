@@ -30,6 +30,7 @@ const VibrationManager = (function () {
         stop(); // Clear any previous running vibration
 
         if (!isSupported()) {
+            AppUtils.showToast("Vibration not supported");
             console.warn("Vibration API not supported on this device.");
             return;
         }

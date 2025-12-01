@@ -40,7 +40,7 @@ class AdminOutlet(models.Model):
     )
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     gst_number = models.CharField(max_length=100, blank=True, null=True)
-    customer_name = models.CharField(max_length=255, blank=True, null=True)
+    customer_name = models.CharField(max_length=255, blank=True, null=True,db_index=True)
     customer_contact_person = models.CharField(max_length=255, blank=True, null=True)
     customer_address = models.TextField(blank=True, null=True)
     customer_address2 = models.TextField(blank=True, null=True)
@@ -152,6 +152,8 @@ class VendorConfig(models.Model):
         default=5,
         help_text="Vibration duration in seconds"
     )
+    continuous_booking_counter = models.PositiveIntegerField(default=0)
+    phone_number_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -200,10 +202,28 @@ class Utility(models.Model):
         help_text="3-character prefix (e.g., ROM, VIP, OUT)"
     )
 
+    utility_booking_counter = models.PositiveIntegerField(default=0)
+
     is_active = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vendor", "utility_name"],
+                name="unique_utility_name_per_vendor"
+            ),
+            models.UniqueConstraint(
+                fields=["vendor", "display_name"],
+                name="unique_display_name_per_vendor"
+            ),
+            models.UniqueConstraint(
+                fields=["vendor", "display_code"],
+                name="unique_display_code_per_vendor"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.display_name} ({self.vendor.name})"
@@ -278,7 +298,14 @@ class Order(models.Model):
     customer_name = models.CharField(max_length=100, blank=True, null=True)
     no_of_packs = models.PositiveIntegerField(blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
-
+    table_booking_no = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    utility = models.ForeignKey(
+        Utility,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders"
+    )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
@@ -294,6 +321,7 @@ class Order(models.Model):
             models.Index(fields=['-created_at']),
             models.Index(fields=['vendor', '-created_at']),
             models.Index(fields=['vendor', 'created_date']),
+            models.Index(fields=['table_booking_no']),
         ]
     
 class OrderStatusHistory(models.Model):
@@ -400,6 +428,17 @@ class AndroidDevice(models.Model):
     
     class Meta:
         unique_together = ('mac_address', 'admin_outlet')
+
+        indexes = [
+            # Speeds up queries where you search by mac + outlet
+            models.Index(fields=['mac_address', 'admin_outlet']),
+
+            # Optional: Index admin_outlet alone (commonly filtered)
+            models.Index(fields=['admin_outlet']),
+
+            # Optional: Index mac_address alone (helps fallback lookups)
+            models.Index(fields=['mac_address']),
+        ]
 
 class AndroidAPK(models.Model):
     token = models.CharField(max_length=255, unique=True)

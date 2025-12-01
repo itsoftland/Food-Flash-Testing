@@ -62,6 +62,18 @@
             </div>
             {% endif %}
 
+            {% if PHONE_NUMBER_ENABLED %}
+            <!-- Phone Number -->
+            <div class="row g-2 mb-3">
+                <div class="col-12">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" id="phone_number"
+                           class="form-control premium-input"
+                           placeholder="Enter phone number">
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Remarks / Instructions -->
             <div class="row g-2 mb-4">
                 <div class="col-12">
@@ -100,7 +112,7 @@
      data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content p-3">
-            <h5 class="modal-title">Table Booking Pending</h5>
+            <h5 class="modal-title">Table Booking Successful</h5>
             <div id="success-details" class="mt-2 mb-3"></div>
             <div class="text-end">
                 <button id="success-redirect-btn" class="btn btn-primary">
