@@ -96,6 +96,9 @@ def save_subscription(request):
             if project_name == "airline_flash":
                 order = Order.objects.filter(sequence_code=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via sequence_code for airline_flash: {token_number}")
+            elif project_name == "dine_flash":
+                order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
+                logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
             else:
                 order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via token_no for food flash: {token_number}")

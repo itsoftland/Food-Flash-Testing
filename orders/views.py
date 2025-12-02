@@ -120,6 +120,8 @@ def check_status(request):
     vendor_id = request.data.get('vendor_id')
     reply_text = request.data.get('reply_text')  # Optional reply message from user
 
+    logger.debug(f"Check status request data: {request.data}")
+
     # ───── Validations ─────
     if not vendor_id:
         return Response({'error': 'Vendor ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -133,19 +135,23 @@ def check_status(request):
         }
         status_check_name = "bp_issued"
         status_to_update = "checked_in"
-        title = "Passenger Status Check"
+        title = "Flight Status Check"
         body = f"Passenger {identifier_value} is checking their flight status."
+        status_type = 'flightstatus'
+        message = 'Passenger details retrieved successfully.'
     elif project_name == "dine_flash":
-        identifier_field = "sequence_code"
-        identifier_value = request.data.get("sequence_code")
+        identifier_field = "id"
+        identifier_value = request.data.get("booking_id")
         order_filter = {
             identifier_field: identifier_value,
             "vendor__vendor_id": vendor_id,
         }
-        status_check_name = "bp_issued"
-        status_to_update = "checked_in"
-        title = "Passenger Status Check"
-        body = f"Passenger {identifier_value} is checking their flight status."
+        status_check_name = "created"
+        status_to_update = "waiting"
+        title = "Booking Status Check"
+        body = f"Customer {identifier_value} is checking their booking status."
+        status_type = 'dinestatus'
+        message = 'Booking details retrieved successfully.'
     else:
         identifier_field = "token_no"
         identifier_value = request.data.get("token_no")
@@ -158,6 +164,8 @@ def check_status(request):
         status_to_update = "preparing"
         title = "Status Check"
         body = f"Customer {identifier_value} is checking their order status."
+        status_type = 'foodstatus'
+        message = 'Order retrieved successfully.'
 
     if not identifier_value:
         return Response({'error': f'{identifier_field} is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -178,7 +186,10 @@ def check_status(request):
         if order.status == status_check_name:
             if project_name == "airline_flash":
                 title = "Passenger Connected to Your Flight"
-                body = f"Passenger {identifier_value} is now connected."
+                body = f"Passenger {identifier_value} has opened the status checking page."
+            elif project_name == "dine_flash":
+                title = "Customer Connected"
+                body = f"Customer {order.table_booking_no} has opened the booking status page."
             else:
                 title = "Customer Connected"
                 body = f"Customer {identifier_value} has opened the order status page."
@@ -203,19 +214,29 @@ def check_status(request):
             'vendor_id': order.vendor.vendor_id,
             'location_id': order.vendor.location_id,
             'logo_url': logo_url,
-            'type': 'foodstatus' if project_name != "airline_flash" else 'flightstatus',
+            'type': status_type,
             'updated_by': order.updated_by,
-            'message': 'Order retrieved successfully.',
+            'message': message,
             'reply_status': '',
             "vibration_pattern":order.vendor.config.vibration_pattern,
             "vibration_duration":order.vendor.config.vibration_duration,
-            'flight_no': order.flight_no,
-            'pnr_no': order.pnr_no,
-            'seat_no': order.seat_no,
-            'zone':order.zone,
-            'passenger_name': order.passenger_name,
-            'sequence_code': order.sequence_code,
         }
+        if project_name == "airline_flash":
+            data['sequence_code'] = order.sequence_code
+            data['passenger_name'] = order.passenger_name
+            data['pnr_no'] = order.pnr_no
+            data['seat_no'] = order.seat_no
+            data['zone'] = order.zone
+            data['flight_no'] = order.flight_no
+        elif project_name == "dine_flash":
+            data['booking_no'] = order.table_booking_no
+            data['booking_id'] = order.id
+            data['customer_name'] = order.customer_name
+            data['no_of_packs'] = order.no_of_packs
+            data['remarks'] = order.remarks
+            data['utility_name'] = order.utility.display_name if order.utility else None
+            data['phone_number'] = order.phone_number
+
 
         if reply_text:
             data['message'] = "Reply message sent to managers."
@@ -254,6 +275,11 @@ def check_status(request):
         if project_name == 'airline_flash':
             return Response(
                 {'error': 'Invalid passenger details. Please verify and try again.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if project_name == 'dine_flash':
+            return Response(
+                {'error': 'Invalid booking details. Please verify and try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1050,7 +1076,6 @@ def book_table(request):
             'counter_no': 1,
             'updated_by': 'customer',
             'status': 'waiting',
-            'type': 'dinestatus',
             'name': vendor.name,
             'location_id': vendor.location_id,
             'device': None,
@@ -1080,6 +1105,7 @@ def book_table(request):
             resp_data = serializer.data
             resp_data["tracking_url"] = tracking_url
             resp_data["manager_id"] = None
+            resp_data['type'] = 'dinestatus'
             resp_data["message"] = "Booking created successfully."
 
             logger.info(

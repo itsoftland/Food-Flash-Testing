@@ -150,17 +150,17 @@ class AdminOutletSerializer(serializers.ModelSerializer):
 from rest_framework import serializers
 from vendors.models import WebChatMessage, Vendor, PushSubscription
 
-class WebChatMessageSerializer(serializers.ModelSerializer):
-    vendor = serializers.CharField(write_only=True)  # accept vendor_id (not PK)
-    browser_id = serializers.CharField(write_only=True)  # accept browser_id instead of full subscription object
+# class WebChatMessageSerializer(serializers.ModelSerializer):
+#     vendor = serializers.CharField(write_only=True)  # accept vendor_id (not PK)
+#     browser_id = serializers.CharField(write_only=True)  # accept browser_id instead of full subscription object
 
-    class Meta:
-        model = WebChatMessage
-        fields = [
-            "id", "browser_id", "vendor", "token_no",
-            "sender", "type", "text", "timestamp",
-            "is_read", "is_send","sequence_code"
-        ]
+#     class Meta:
+#         model = WebChatMessage
+#         fields = [
+#             "id", "browser_id", "vendor", "token_no",
+#             "sender", "type", "text", "timestamp",
+#             "is_read", "is_send","sequence_code"
+#         ]
 class WebChatMessageSerializer(serializers.ModelSerializer):
     vendor = serializers.CharField(write_only=True)
     browser_id = serializers.CharField(write_only=True)
@@ -172,7 +172,7 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
             "id", "browser_id", "vendor", "token_no",
             "sender", "type", "text", "timestamp",
             "is_read", "is_send", "sequence_code",
-            "passenger_name"  
+            "passenger_name","booking_id","booking_no"  
         ]
     # 🧩 Airline Flash special handling
     def get_passenger_name(self, obj):
@@ -226,6 +226,19 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
                     order = Order.objects.get(sequence_code=sequence_code, vendor=vendor)
                     validated_data["token_no"] = order.token_no
                     validated_data["sequence_code"] = sequence_code
+                except Order.DoesNotExist:
+                    validated_data["token_no"] = None
+        if project_name == "dine_flash":
+            print("Dine Flash booking_id handling")
+            booking_id = validated_data.get("booking_id")
+            print("Booking ID:", booking_id)
+            if booking_id:
+                try:
+                    booking = Order.objects.get(id=booking_id, vendor=vendor)
+                    print("Found Booking:", booking)
+                    validated_data["token_no"] = booking.token_no
+                    validated_data["booking_no"] = booking.table_booking_no
+                    validated_data['booking_id'] = booking_id
                 except Order.DoesNotExist:
                     validated_data["token_no"] = None
 

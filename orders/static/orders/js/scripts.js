@@ -12,6 +12,9 @@ import { ChatRestoreService } from "./services/chatRestoreService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
+import BookingMappingService from "./dineflash/services/bookingMappingService.js";
+
+
 window.maskSequenceCode = maskSequenceCode
 
 function onDOMReady(callback) {
@@ -43,7 +46,8 @@ onDOMReady(async function () {
     const urlParams = new URLSearchParams(window.location.search);
     let locationId = urlParams.get("location_id");
     const vendorFromQR = urlParams.get('vendor_id');
-    const tokenFromQR = urlParams.get('token_no') || urlParams.get('sequence_code');
+    const tokenFromQR = urlParams.get('token_no') || urlParams.get('sequence_code') || urlParams.get('booking_no');
+    const bookingIdfromQR = urlParams.get('booking_id');
     const passengerName = urlParams.get('passenger_name');
     const toggleBtn = document.getElementById("toggleArrowBtn");
     const pageWrapper = document.querySelector(".page-wrapper");
@@ -53,6 +57,7 @@ onDOMReady(async function () {
     // console.log("Passenger Name :",passengerName)
     let isAdVisible = true;
     let storedName = null;
+    let bookingId = null;
 
     // 1️⃣ Check URL param first
     if (locationId) {
@@ -69,7 +74,6 @@ onDOMReady(async function () {
             throw new Error("Missing location ID");
         }
     }
-
     if (vendorFromQR) {
         await AppUtils.setCurrentVendors(vendorFromQR);
         // Optional: Clean the URL
@@ -84,6 +88,11 @@ onDOMReady(async function () {
     if (tokenFromQR && passengerName) {
         await savePassengerInfo(tokenFromQR, passengerName);
     }
+    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+        console.log("Initializing Booking Mapping Service for Dine Flash...");
+        BookingMappingService.processBookingFromQR(tokenFromQR,bookingIdfromQR);
+    }
+    
     // Initialize the ad slider visibility 
     toggleBtn.addEventListener("click", function () {
         const sliderWrapper = document.getElementById('ad-slider-wrapper');
@@ -398,7 +407,12 @@ onDOMReady(async function () {
 
                 // ✅ Step 2: Subscribe for push notifications
                 try {
-                    await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                        bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
+                        await PushSubscriptionService.subscribe(bookingId, vendorId);
+                    }else{
+                        await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                    }
                     // console.log("✅ Push subscription successful");
                 } catch (subErr) {
                     console.error("❌ Push subscription failed:", subErr);
@@ -410,7 +424,11 @@ onDOMReady(async function () {
 
                 // ✅ Step 3: Save chat log
                 try {
-                    await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
+                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                        await saveChat(tokenFromQR, 'user', 'chat', bookingIdfromQR);
+                    }else{
+                        await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
+                    }
                     // console.log("💾 Chat saved successfully");
                 } catch (chatErr) {
                     console.error("❌ Chat saving failed:", chatErr);
@@ -555,7 +573,13 @@ onDOMReady(async function () {
         if (window.BASE && window.BASE.includes('/airline_flash/')) {
             payload = { sequence_code: token, vendor_id: activeVendor };
             type = 'flightstatus';
-        } else {
+        }
+        else if (window.BASE && window.BASE.includes('/dine_flash/')) {
+            bookingId = BookingMappingService.getBookingId(token.split("-")[1]);
+            payload = { booking_id: bookingId, vendor_id: activeVendor };
+            type = 'dinestatus';
+        } 
+        else {
             payload = { token_no: token, vendor_id: activeVendor };
             type = 'foodstatus';
         }
@@ -593,9 +617,16 @@ onDOMReady(async function () {
                 showNotificationModal(data, 'usercheck');
                 AppUtils.notifyOrderReady(data);
             }
-
-            await PushSubscriptionService.subscribe(token, data.vendor_id);
-            PushHealthMonitorService.startMonitor(token, data.vendor_id);
+            if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
+                await PushSubscriptionService.subscribe(bookingId, vendorId);
+                PushHealthMonitorService.startMonitor(bookingId, data.vendor_id);
+            }
+            else {
+                await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                PushHealthMonitorService.startMonitor(token, data.vendor_id);
+            }
+            
 
             return data;  // << important: return the fetched data
         } catch (err) {

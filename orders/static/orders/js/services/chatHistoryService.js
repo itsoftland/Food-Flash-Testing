@@ -77,7 +77,12 @@ export const ChatHistoryService = (() => {
             // For Airline Flash → send `sequence_code`
             if (window.BASE === "/airline_flash/") {
                 payload.sequence_code = token_no; // token_no actually holds sequence code in this context
-            } else {
+            }
+            else if (window.BASE === "/dine_flash/") {
+                // For Dine Flash → send booking_no
+                payload.booking_id = token_no;
+            } 
+            else {
                 // For Food Flash → send numeric token_no
                 payload.token_no = token_no;
             }

@@ -679,6 +679,8 @@ class ChatMessage(models.Model):
 
     # 👇 Order context
     token_no = models.IntegerField()
+    booking_id = models.IntegerField(null=True, blank=True)
+    booking_no = models.CharField(max_length=50, blank=True, null=True)
     sequence_code = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateField()
 
@@ -726,6 +728,8 @@ class WebChatMessage(models.Model):
     )
     token_no = models.IntegerField(null=True, blank=True)
     sequence_code = models.CharField(max_length=100, blank=True, null=True)
+    booking_no = models.CharField(max_length=50, blank=True, null=True)
+    booking_id = models.IntegerField(null=True, blank=True)
     sender = models.CharField(max_length=20)   
     type = models.CharField(max_length=20, default='chat')
     text = models.JSONField(blank=True, null=True)
