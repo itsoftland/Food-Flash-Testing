@@ -343,6 +343,69 @@ def book_table(request):
         logger.exception("[book_table] Exception while creating booking: %s", exc)
         return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# === Dine Flash API ===
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def manager_utility_list(request):
+    """
+    Returns active utilities for the vendor associated with the logged-in manager.
+    """
+
+    try:
+        # --------------------------------------------------------
+        # 1. Resolve vendor from manager profile
+        # --------------------------------------------------------
+        vendor = get_manager_vendor(request.user)
+
+        if not vendor:
+            logger.warning("[manager_utility_list] Vendor not found for manager.")
+            return Response(
+                {"error": "Vendor not associated with this manager."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------------------------------
+        # 2. Fetch utilities
+        # --------------------------------------------------------
+        utilities = Utility.objects.filter(
+            vendor=vendor,
+            is_active=True
+        ).order_by("id")
+
+        data = [
+            {
+                "id": util.id,
+                "utility_name": util.utility_name,
+                "display_name": util.display_name,
+                "display_code": util.display_code,
+                "token_mode": util.token_mode,
+                "prefix": util.prefix,
+            }
+            for util in utilities
+        ]
+
+        logger.info(
+            "[manager_utility_list] Returned %s utilities for vendor_id=%s",
+            len(data), vendor.vendor_id
+        )
+
+        # --------------------------------------------------------
+        # 3. Success response
+        # --------------------------------------------------------
+        return Response(
+            {
+                "utilities": data,
+                "count": len(data),
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.exception("[manager_utility_list] Unexpected error.")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -492,6 +555,88 @@ def get_passengers_list(request):
             request.user.username, str(e)
         )
         return Response({"error": "Internal server error"}, status=500)
+
+from django.utils import timezone
+from datetime import timedelta
+
+
+from .serializer.booking_serializer import BookingSerializer
+from .utils.booking_counts import get_booking_status_counts
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_booking_list(request):
+    logger.info("🔵 get_booking_list: API called.")
+
+    try:
+        # 1. Identify vendor linked to manager
+        vendor = get_manager_vendor(request.user)
+        logger.info(f"get_booking_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
+
+        # 2. BUSINESS DAY FILTER
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        if not start_dt or not end_dt:
+            logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+            return Response({"error": "Invalid date range"}, status=400)
+
+        logger.info(f"get_booking_list: Business day range → Start: {start_dt}, End: {end_dt}")
+
+        # 3. Query bookings
+        bookings_qs = (
+            Order.objects
+            .filter(vendor=vendor, created_at__range=(start_dt, end_dt))
+            .select_related("utility")
+            .order_by("utility__display_name", "created_at")
+        )
+
+        total_count = bookings_qs.count()
+        logger.info(f"get_booking_list: Retrieved {total_count} bookings")
+
+        # 4. Serialize bookings
+        serialized = BookingSerializer(bookings_qs, many=True).data
+
+        # 5. Group by Utility (using queryset values, not serializer)
+        grouped = {}
+
+        for i, item in enumerate(serialized):
+            utility = bookings_qs[i].utility
+            code = utility.display_code
+
+            if code not in grouped:
+                grouped[code] = {
+                    "unread": 0,
+                    "bookings": []
+                }
+
+            grouped[code]["bookings"].append(item)
+
+            if item.get("new_notifications", 0) > 0:
+                grouped[code]["unread"] += 1
+
+
+        # 6. Status counts
+        status_counts = get_booking_status_counts(bookings_qs)
+
+        logger.info("get_booking_list: Returning success response.")
+
+        return Response(
+            {
+                "message": "Bookings retrieved successfully.",
+                "count": total_count,
+                "detail": grouped,
+                "status_counts": status_counts,
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.exception("get_booking_list: Unexpected error")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 
 # === Airline Flash Api ===
 @api_view(['GET'])

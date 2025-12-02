@@ -295,7 +295,7 @@ class Order(models.Model):
     passenger_name = models.CharField(max_length=100, blank=True, null=True)
 
     # ---- Dine Flash–specific fields ----
-    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    customer_name = models.CharField(max_length=30, blank=True, null=True)
     no_of_packs = models.PositiveIntegerField(blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
     table_booking_no = models.CharField(max_length=50, blank=True, null=True, db_index=True)

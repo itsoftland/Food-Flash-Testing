@@ -354,7 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            const resp = await fetch(apiEndpoints.CREATE_TABLE_BOOKING, {
+            const resp = await fetch(apiEndpoints.TABLE_BOOKING, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

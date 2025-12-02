@@ -135,6 +135,17 @@ def check_status(request):
         status_to_update = "checked_in"
         title = "Passenger Status Check"
         body = f"Passenger {identifier_value} is checking their flight status."
+    elif project_name == "dine_flash":
+        identifier_field = "sequence_code"
+        identifier_value = request.data.get("sequence_code")
+        order_filter = {
+            identifier_field: identifier_value,
+            "vendor__vendor_id": vendor_id,
+        }
+        status_check_name = "bp_issued"
+        status_to_update = "checked_in"
+        title = "Passenger Status Check"
+        body = f"Passenger {identifier_value} is checking their flight status."
     else:
         identifier_field = "token_no"
         identifier_value = request.data.get("token_no")
@@ -1030,16 +1041,6 @@ def book_table(request):
             booking_no = str(token_no)
 
         # -------------------------------
-        # Tracking URL
-        # -------------------------------
-        tracking_url = (
-            f"{base_url}{project_name}/home/"
-            f"?location_id={vendor.location_id}"
-            f"&vendor_id={vendor.vendor_id}"
-            f"&booking_no={booking_no}"
-        )
-
-        # -------------------------------
         # New booking payload
         # -------------------------------
         new_booking_data = {
@@ -1061,8 +1062,20 @@ def book_table(request):
         }
 
         serializer = OrdersSerializer(data=new_booking_data)
+
         if serializer.is_valid():
-            serializer.save()
+            booking_obj = serializer.save()  
+
+            # -------------------------------
+            # Tracking URL (after save)
+            # -------------------------------
+            tracking_url = (
+                f"{base_url}{project_name}/home/"
+                f"?location_id={vendor.location_id}"
+                f"&vendor_id={vendor.vendor_id}"
+                f"&booking_no={booking_no}"
+                f"&booking_id={booking_obj.id}"
+            )
 
             resp_data = serializer.data
             resp_data["tracking_url"] = tracking_url
@@ -1074,6 +1087,7 @@ def book_table(request):
                 vendor.vendor_id, token_no, booking_no
             )
             return Response(resp_data, status=status.HTTP_201_CREATED)
+
 
         logger.warning("[book_table] Serializer validation failed | %s", serializer.errors)
         return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

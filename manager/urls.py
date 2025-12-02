@@ -12,5 +12,8 @@ urlpatterns = [
     path('api/device_call/', views.device_call, name='device_call'),
     path('api/get_suggestions/', views.get_suggestions, name='get_suggestion_messages'),
     path('api/get_recent_tokens/', views.get_recent_tokens, name='get_recent_tokens'),
+    ## DineFlash-specific-urls
     path('api/book_table/',views.book_table,name='book_table'),
+    path('api/utility_list/',views.manager_utility_list,name='utility_list'),
+    path('api/get_booking_list/',views.get_booking_list,name='get_booking_list'),
 ]
