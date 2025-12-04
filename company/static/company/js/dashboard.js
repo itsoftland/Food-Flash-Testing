@@ -48,6 +48,10 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
       if (projectName === "airline_flash" && (key === "android_tvs" || key === "keypad_devices")) {
         return;
       }
+      // Skip keypad_devices for dine_flash
+      if (projectName === "dine_flash" && key === "keypad_devices") {
+        return;
+      }
 
       const card = document.createElement("div");
       card.className = "col-6 col-md-3";

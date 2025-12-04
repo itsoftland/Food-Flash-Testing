@@ -33,7 +33,10 @@ function buildStatusMessage(payload) {
   // console.log("status key:",statusKey)
 
   return `
-    <div class="response-title">${payload.alias_name || "Unknown"}</div>
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
+    </div>
     <div class="status">
         Status: 
         <span class="${statusClass}">
@@ -49,7 +52,10 @@ function buildStatusMessage(payload) {
 
 function buildOfferMessage(payload) {
   return `
-    <div class="response-title">${payload.alias_name || "Outlet"}</div>
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
+    </div>
     <div class="response-title">🔥 ${payload.title || ""}</div>
     <div style="color: #333; font-size: 15px;">
         ${payload.body || "Delicious deals await. Come grab your favorite combo now!"}
@@ -59,7 +65,11 @@ function buildOfferMessage(payload) {
 
 function buildManagerMessage(payload) {
   return `
-    <div class="response-title">📩 ${payload.alias_name || "Outlet"}</div>
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
+    </div>
+
     <div class="manager-message-body">
         <div class="manager-badge">Manager Notification</div>
         <div class="custom-manager-message">
@@ -72,8 +82,10 @@ function buildManagerMessage(payload) {
 function buildAirlineManagerMessage(payload) {
   return `
     <div class="response-title">
-      📩 ${payload.alias_name || "Airline Outlet"}
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Airline Outlet"}</span>
     </div>
+
     <div class="manager-message-body">
       <div class="manager-badge">Notification</div>
 
@@ -97,7 +109,8 @@ function buildFlightStatusMessage(payload) {
 
   return `
     <div class="response-title">
-        ✈️ ${payload.alias_name || "Airline Service"}
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Airline Service"}</span>
     </div>
 
     <div class="status">
@@ -163,14 +176,14 @@ function buildFlightStatusMessage(payload) {
 }
 
 function buildBookingStatusMessage(payload) {
-  const statusKey = payload?.status?.toLowerCase() || 'unknown';
-  const statusClass = statusClassMap[statusKey] || 'unknown-color';
+  const statusKey = payload?.status?.toLowerCase() || "unknown";
+  const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = dineInPayloadStatusMap[statusKey];
-  
 
   return `
     <div class="response-title">
-      🍽️${payload.alias_name || "Airline Service"}
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Dine Service"}</span>
     </div>
 
     <div class="status">
@@ -180,40 +193,40 @@ function buildBookingStatusMessage(payload) {
         </span>
     </div>
 
-    <div class="flight-card-body">
-      <!-- Passenger Name -->
-      <div class="flight-card-header">
-        <span class="passenger-icon" aria-hidden="true">👤</span>
-        <div class="passenger-name">${payload.customer_name || "-"}</div>
+    <div class="dine-body">
+
+      <div class="dine-card-header">
+         <span class="customer-icon" aria-hidden="true">👤</span>
+         <div class="customer-name">${payload.customer_name || "-"}</div>
       </div>
 
-      <!-- Booking No + Guest Count -->
-      <div class="flight-row">
-        <div class="flight-item">
-          <span class="flight-icon" aria-hidden="true">🏷️</span>
-          <span class="flight-label">Booking No</span>
-          <span class="flight-badge">${payload.booking_no || "-"}</span>
-        </div>
-
-        <div class="flight-item">
-          <span class="seat-icon" aria-hidden="true">👥</span>
-          <span class="flight-label">Guest</span>
-          <span class="flight-badge seat-badge">${payload.no_of_packs || "-"}</span>
-        </div>
+      <div class="dine-row">
+          <div class="dine-label">
+              <span class="dine-icon">🏷️</span>
+              Booking No
+          </div>
+          <div class="dine-value">${payload.booking_no || "-"}</div>
       </div>
 
-      <!-- Utility Row -->
-      <div class="pnr-zone-row">
-        <div class="pnr-item">
-          <span class="pnr-icon" aria-hidden="true">🪑</span>
-          <span class="flight-label">Allocated Place</span>
-          <span class="flight-badge pnr-badge">${payload.utility_name || "-"}</span>
-        </div>
+      <div class="dine-row">
+          <div class="dine-label">
+              <span class="dine-icon">👥</span>
+              Guest
+          </div>
+          <div class="dine-value">${payload.no_of_packs || "-"}</div>
       </div>
+
+      <div class="dine-row">
+          <div class="dine-label">
+              <span class="dine-icon">🪑</span>
+              Area
+          </div>
+          <div class="dine-value dine-badge">${payload.utility_name || "-"}</div>
+      </div>
+
     </div>
   `;
 }
-
 
 export const ChatTemplateService = {
   build(message) {

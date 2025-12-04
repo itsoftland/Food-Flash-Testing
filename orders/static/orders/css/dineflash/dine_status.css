@@ -1,0 +1,140 @@
+/* =====================================================
+   Premium Dine Card Styles (Option A)
+   Two-column aligned layout + ICONS in labels
+   ===================================================== */
+
+/* Main card */
+.dine-card {
+  max-width: 320px;
+  background: #fff9f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  color: #2a2c41;
+  font-family: 'Poppins', sans-serif;
+  margin: 6px 0;
+}
+
+/* -----------------------------
+   Customer Header Section
+   ----------------------------- */
+.dine-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customer-icon {
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  color: #334155;
+}
+
+.customer-name {
+  max-width: calc(100% - 40px);
+  font-weight: bold;
+  font-size: 16px;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Title */
+.dine-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #1f2937;
+}
+
+/* Status row */
+.dine-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff3e4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.dine-status-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.dine-status-value {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Body Wrapper */
+.dine-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Each aligned item row */
+.dine-row {
+  display: grid;
+  grid-template-columns: 115px 1fr;  /* space for icon + label */
+  align-items: center;
+}
+
+/* Label container (icon + text) */
+.dine-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Label Icons */
+.dine-icon {
+  font-size: 15px;
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+}
+
+/* Value */
+.dine-value {
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  white-space: nowrap;
+}
+
+/* Badge (Allocated Place) */
+.dine-badge {
+  background: #fdbf50;
+  color: #2a2c41;
+  font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 320px) {
+  .dine-row {
+    grid-template-columns: 110px 1fr;
+  }
+}

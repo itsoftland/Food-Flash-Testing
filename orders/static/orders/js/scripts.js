@@ -567,8 +567,12 @@ onDOMReady(async function () {
             } 
             else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 let bookingNo = BookingMappingService.getBookingNo(message);
-                // console.log("Booking No for display:", bookingNo);
-                // ❗ If multiple booking numbers → STOP execution
+                if (!bookingNo) {
+                    appendMessage(`Invalid Booking Number. Please check and try again.`, 'server', null);
+                    return; // Stop further processing
+                }
+                console.log("Booking No for display:", bookingNo);
+                // ❗ If multiple booking numbers → show selection UI instead
                 if (Array.isArray(bookingNo)) {
                     appendChoiceOptions(bookingNo);
                     return;  // << STOP HERE
@@ -628,52 +632,6 @@ onDOMReady(async function () {
 
         const optionsContainer = bubble.querySelector(".choice-options");
 
-        // bookingList.forEach(item => {
-
-        //     const trimmed = item.booking_no.split("-")[1];
-
-        //     const btn = document.createElement("button");
-        //     btn.className = "choice-option-btn";
-
-        //     btn.dataset.bookingId = item.booking_id;
-        //     btn.dataset.trimmedNo = trimmed;
-
-        //     btn.innerHTML = `
-        //         <div class="opt-main">Booking No: <strong>${item.booking_no}</strong></div>
-        //         <button class="choice-option-btn slide-reveal">
-        //             Tap to View Status
-        //         </button>
-        //     `;
-
-        //     // Handling the button selection
-        //     btn.addEventListener("click", async () => {
-
-        //         // Visually mark selected (premium effect)
-        //         document.querySelectorAll(".choice-option-btn")
-        //             .forEach(el => el.classList.remove("selected"));
-        //         btn.classList.add("selected");
-        //         bubble.classList.add("selected-choice");
-
-        //         // Append user's selected booking as a chat message
-        //         appendMessage(
-        //             item.booking_no,            // text for display
-        //             'user',
-        //             null,
-        //             "chat",
-        //             item.booking_id
-        //         );
-
-        //         // Save the user's selection
-        //         await saveChat(item.booking_no, 'user', 'chat', item.booking_id);
-
-        //         // Trigger your main status fetch pipeline
-        //         await fetchOrderStatusOnce(trimmed, null, item.booking_id);
-        //         messageRow.innerHTML = ""; // Clear options after selection
-        //         // chatInput.value = '';
-        //     });
-
-        //     optionsContainer.appendChild(btn);
-        // });
         bookingList.forEach(item => {
 
             const trimmed = item.booking_no.split("-")[1];

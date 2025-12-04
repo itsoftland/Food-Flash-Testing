@@ -38,6 +38,10 @@ export const WelcomeMessageService = {
             airline_flash: [
                 "Hi, Good Day! Welcome to {outletName}.",
                 "Enter your Sequence Code to stay updated on your boarding schedule and gate announcements."
+            ],
+            dine_flash: [
+                "Hi, Welcome to {outletName}!",
+                "Kindly enter your booking number to check your table allocation status."
             ]
         };
 
@@ -46,6 +50,8 @@ export const WelcomeMessageService = {
         // -------------------------------------------------------------
         const projectKey = (window.PROJECT_NAME || "default").toLowerCase();
         const selectedMessages = WELCOME_MESSAGES[projectKey] || WELCOME_MESSAGES.default;
+        console.log("WelcomeMessageService: Using messages for project:", projectKey);
+        console.log("Selected welcome messages:", selectedMessages);
 
         // Replace {outletName} placeholder dynamically
         const messages = selectedMessages.map(msg =>

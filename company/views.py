@@ -1675,7 +1675,6 @@ def update_outlet_settings(request):
 
     try:
         vendor = Vendor.objects.filter(id=vendor_id).first()
-        print(vendor)
 
         if not vendor:
             logger.warning(f"[OutletSettings] Vendor not found | vendor_id={vendor_id}")

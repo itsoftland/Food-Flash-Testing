@@ -112,12 +112,15 @@
               </a>
             </li>
             {% if PROJECT_NAME != "airline_flash" %}
+            {% if PROJECT_NAME != "dine_flash" %}
+
             <li class="nav-item">
               <a href="{% url 'company:keypad_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'keypad_devices' %}active{% endif %}">
                 <i class="nav-icon fas fa-mobile-retro"></i>
                 <p>Keypad Devices</p>
               </a>
             </li>
+            {% endif %}
             <li class="nav-item">
               <a href="{% url 'company:android_tvs' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv"></i>

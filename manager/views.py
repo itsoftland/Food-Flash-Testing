@@ -25,10 +25,12 @@ from vendors.services.send_to_iot import get_azure_devices
 from core.config.status_choices import STATUS_CHOICES_MAP
 
 from .serializers import ChatMessageSerializer
+from .serializer.booking_serializer import BookingSerializer
 from .utils.utils import (get_manager_vendor, get_suggestion_messages,
                           get_order_counts, generate_sequence_code,
                           get_passenger_counts,notify_related_passengers,
-                          create_bulk_chat_messages,reset_counters_if_new_business_day)
+                          create_bulk_chat_messages)
+from .utils.booking_counts import get_booking_status_counts
 
 from static.utils.functions.notifications import notify_android_tv
 from static.utils.functions.queries import (update_existing_order_by_manager,
@@ -40,6 +42,12 @@ from static.utils.functions.utils import (
     get_vendor_current_date,
     get_vendor_current_time,
 )
+from django.utils import timezone
+from datetime import timedelta
+
+
+
+
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
@@ -378,7 +386,7 @@ def manager_utility_list(request):
             vendor=vendor,
             is_active=True
         ).order_by("id")
-
+        
         data = [
             {
                 "id": util.id,
@@ -563,14 +571,6 @@ def get_passengers_list(request):
         )
         return Response({"error": "Internal server error"}, status=500)
 
-from django.utils import timezone
-from datetime import timedelta
-
-
-from .serializer.booking_serializer import BookingSerializer
-from .utils.booking_counts import get_booking_status_counts
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_booking_list(request):
@@ -601,7 +601,7 @@ def get_booking_list(request):
         logger.info(f"get_booking_list: Retrieved {total_count} bookings")
 
         # 4. Serialize bookings
-        serialized = BookingSerializer(bookings_qs, many=True).data
+        serialized = BookingSerializer(bookings_qs, many=True, context={"request": request}).data
 
         # 5. Group by Utility (using queryset values, not serializer)
         grouped = {}

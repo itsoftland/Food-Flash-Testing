@@ -35,13 +35,13 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
     const messageBubble = document.createElement('div');
     messageBubble.classList.add('message-bubble', sender);
     
-    if (sender === 'server') {
-        const activeLogo = localStorage.getItem("activeVendorLogo");
-        const logoImg = document.createElement('img');
-        logoImg.src = activeLogo;
-        logoImg.alt = 'Vendor Logo';
-        logoImg.className = 'server-logo';
-        messageRow.appendChild(logoImg);
+    if (sender === 'server'){
+        // const activeLogo = localStorage.getItem("activeVendorLogo");
+        // const logoImg = document.createElement('img');
+        // logoImg.src = activeLogo;
+        // logoImg.alt = 'Vendor Logo';
+        // logoImg.className = 'server-logo';
+        // messageRow.appendChild(logoImg);
 
         messageBubble.innerHTML = `
             <div class="message-content">

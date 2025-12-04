@@ -8,11 +8,12 @@
 <link rel="stylesheet" href="{% static 'orders/css/outlet_selection.css' %}">
 <link rel="stylesheet" href="{% static 'orders/css/food_status.css' %}">
 
-{% if PROJECT_NAME == 'airline_flash' or PROJECT_NAME == 'dine_flash'%}
+{% if PROJECT_NAME == 'airline_flash' %}
   <link rel="stylesheet" href="{% static 'orders/css/flight_status.css' %}">
 {% endif %}
 {% if PROJECT_NAME == 'dine_flash'%}
   <link rel="stylesheet" href="{% static 'orders/css/dineflash/booking_choice.css' %}">
+  <link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}">
 {% endif %}
 
 {% endblock %}

@@ -403,9 +403,69 @@ window.AppUtils = {
         // Start vibration using reusable controller
         VibrationManager.start(pattern,duration);
     },
-    playWelcomeMessage :function(){
-        const welcome = new SpeechSynthesisUtterance('Hi, Welcome. Please enter your token number to track your order.');
-        speechSynthesis.speak(welcome);
+    /**
+     * Plays a flavour-specific welcome message using Text-to-Speech (TTS).
+     *
+     * Logic:
+     * 1. Defines message sets for each project flavour.
+     * 2. Detects current PROJECT_NAME and selects appropriate messages.
+     * 3. Combines messages into a single TTS utterance.
+     * 4. Ensures a clean, natural voice output across browsers.
+     */
+    playWelcomeMessage: function () {
+
+        // -------------------------------------------------------------
+        // 1️⃣ Define all welcome messages (flavour-based)
+        // -------------------------------------------------------------
+        const WELCOME_MESSAGES = {
+            default: [
+                "Hi, Good Day! Welcome.",
+                "Kindly enter the Bill Number and Send so that we can track your order."
+            ],
+
+            food_flash: [
+                "Hi, Good Day! Welcome to our outlet.",
+                "Kindly enter the Bill Number and Send so that we can track your order."
+            ],
+
+            airline_flash: [
+                "Hi, Good Day! Welcome to our airlines.",
+                "Enter your Sequence Code to stay updated on your boarding schedule and gate announcements."
+            ],
+
+            dine_flash: [
+                "Hi, Good Day! Welcome to our restaurant.",
+                "Kindly enter your booking number to check your table allocation status."
+            ]
+        };
+
+        // -------------------------------------------------------------
+        // 2️⃣ Detect active flavour
+        // -------------------------------------------------------------
+        const projectKey = (window.PROJECT_NAME || "default").toLowerCase();
+        const selectedMessages = WELCOME_MESSAGES[projectKey] || WELCOME_MESSAGES.default;
+
+        // console.log("WelcomeMessageService: Project:", projectKey);
+        // console.log("Selected TTS welcome messages:", selectedMessages);
+
+        // -------------------------------------------------------------
+        // 3️⃣ Prepare Text-to-Speech output
+        // -------------------------------------------------------------
+        const fullMessage = selectedMessages.join(" ");
+
+        const utterance = new SpeechSynthesisUtterance(fullMessage);
+        utterance.pitch = 1;
+        utterance.rate = 1;
+        utterance.volume = 1;
+
+        // Cancel any previous TTS before speaking
+        const synth = window.speechSynthesis;
+        synth.cancel();
+
+        // -------------------------------------------------------------
+        // 4️⃣ Speak welcome message
+        // -------------------------------------------------------------
+        synth.speak(utterance);
     },
     // ─────────────────────────────────────
     // Viewport Utility
