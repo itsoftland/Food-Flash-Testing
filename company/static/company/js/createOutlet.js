@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('tv_mapping[]', option.value);
       });
 
-      console.log(formData)
+      // console.log(formData)
   
       try {
         const response = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_VENDOR, {

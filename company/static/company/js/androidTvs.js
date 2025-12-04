@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const macAddress = btn.dataset.mac_address;
         const outletName = btn.dataset.outlet_name;
         const isMapped = btn.dataset.mapped === 'true';
-        console.log(API_ENDPOINTS.UNMAP_DEVICE);
+        // console.log(API_ENDPOINTS.UNMAP_DEVICE);
 
         if (isMapped) {
           const confirmed = await ConfirmModalService.show(`Are you sure you want to unlink device ${macAddress} from ${outletName}?`);

@@ -45,12 +45,12 @@ export const ChatRestoreService = (() => {
         // Restore messages
         if (window.BASE && window.BASE.includes('/airline_flash/')) {
           cachedMessages.forEach(msg => {
-            // console.log(msg)
-            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
+          // console.log(msg)
+          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
           });
         } else{
           cachedMessages.forEach(msg => {
-            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
           });
         }
       

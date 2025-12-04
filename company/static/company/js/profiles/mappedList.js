@@ -32,7 +32,7 @@ async function loadAssignedProfiles(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPO
         const outlets = data.profiles;
 
         if (!outlets.length) {
-        console.log("success");
+        // console.log("success");
         accordion.innerHTML = `<p class="text-muted text-center">No profiles assigned yet.</p>`;
         return;
         }
@@ -116,7 +116,7 @@ async function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
         button.addEventListener('click', async (e) => {
             e.stopPropagation();
             const vendorId = button.dataset.vendor;
-            console.log(vendorId);
+            // console.log(vendorId);
             await openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
         });
     });
@@ -209,7 +209,7 @@ async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_E
           vendor_ids: [vendorId]
         });
 
-        console.log("Request Body:", requestBody);
+        // console.log("Request Body:", requestBody);
 
         const res = await fetchWithAutoRefresh(API_ENDPOINTS.ASSIGN_AD_PROFILE, {
           method: 'POST',
@@ -218,7 +218,7 @@ async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_E
         });
 
         const result = await res.json();
-        console.log(result);
+        // console.log(result);
 
         // Get current modal instance (Assign Modal)
         const modalElement = document.querySelector('.modal.show');

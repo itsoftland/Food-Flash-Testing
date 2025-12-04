@@ -20,12 +20,17 @@ const payloadStatusMap = {
   rescheduled: 'Rescheduled',
   cancelled: 'Cancelled',
 };
+const dineInPayloadStatusMap = {
+  waiting:'Allocation Pending',
+  allocated :'Table Allocated',
+  booking_cancelled:'Booking Cancelled',
+};
 
 function buildStatusMessage(payload) {
-  console.log("payload status:",payload.status)
+  // console.log("payload status:",payload.status)
   const statusKey = payload?.status || 'unknown';
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
-  console.log("status key:",statusKey)
+  // console.log("status key:",statusKey)
 
   return `
     <div class="response-title">${payload.alias_name || "Unknown"}</div>
@@ -157,6 +162,58 @@ function buildFlightStatusMessage(payload) {
   `;
 }
 
+function buildBookingStatusMessage(payload) {
+  const statusKey = payload?.status?.toLowerCase() || 'unknown';
+  const statusClass = statusClassMap[statusKey] || 'unknown-color';
+  const payloadStatus = dineInPayloadStatusMap[statusKey];
+  
+
+  return `
+    <div class="response-title">
+      🍽️${payload.alias_name || "Airline Service"}
+    </div>
+
+    <div class="status">
+        Status:
+        <span class="${statusClass}">
+            ${payloadStatus || "Unknown"}
+        </span>
+    </div>
+
+    <div class="flight-card-body">
+      <!-- Passenger Name -->
+      <div class="flight-card-header">
+        <span class="passenger-icon" aria-hidden="true">👤</span>
+        <div class="passenger-name">${payload.customer_name || "-"}</div>
+      </div>
+
+      <!-- Booking No + Guest Count -->
+      <div class="flight-row">
+        <div class="flight-item">
+          <span class="flight-icon" aria-hidden="true">🏷️</span>
+          <span class="flight-label">Booking No</span>
+          <span class="flight-badge">${payload.booking_no || "-"}</span>
+        </div>
+
+        <div class="flight-item">
+          <span class="seat-icon" aria-hidden="true">👥</span>
+          <span class="flight-label">Guest</span>
+          <span class="flight-badge seat-badge">${payload.no_of_packs || "-"}</span>
+        </div>
+      </div>
+
+      <!-- Utility Row -->
+      <div class="pnr-zone-row">
+        <div class="pnr-item">
+          <span class="pnr-icon" aria-hidden="true">🪑</span>
+          <span class="flight-label">Allocated Place</span>
+          <span class="flight-badge pnr-badge">${payload.utility_name || "-"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 
 export const ChatTemplateService = {
   build(message) {
@@ -176,6 +233,8 @@ export const ChatTemplateService = {
         return buildAirlineManagerMessage(payload);
       case "flightstatus":
         return buildFlightStatusMessage(payload);
+      case "dinestatus":
+        return buildBookingStatusMessage(payload);
       case "chat":
         // user-typed messages → extract content
         return typeof payload === "object" && payload.content

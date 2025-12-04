@@ -10,7 +10,7 @@ const VibrationManager = (function () {
     import(`./vibrationPatterns.js`)
         .then(module => {
             VIBRATION_PATTERNS = module.VIBRATION_PATTERNS;
-            console.log("Vibration patterns loaded:", VIBRATION_PATTERNS);
+            // console.log("Vibration patterns loaded:", VIBRATION_PATTERNS);
         })
         .catch(err => console.error("Failed to load vibration patterns:", err));
 

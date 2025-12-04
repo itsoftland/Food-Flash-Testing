@@ -1,0 +1,327 @@
+/* ===========================================
+   BASE PREMIUM STYLE
+   =========================================== */
+.choice-bubble {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.12);
+    max-width: 80%;
+    position: relative;
+    animation: fadeInUp 0.25s ease-out;
+    transition: 0.3s ease;
+}
+
+.choice-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e1e1e;
+    margin-bottom: 4px;
+}
+
+.choice-subtitle {
+    font-size: 14px;
+    color: #6b6b6b;
+    margin-bottom: 14px;
+}
+
+.choice-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ===========================================
+   WRAPPER BUTTON
+   =========================================== */
+.choice-option-btn {
+    width: 100%;
+    padding: 14px 16px;
+    background: #f4f4f8;
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    transition: all 0.25s ease;
+    box-shadow: 0px 3px 9px rgba(0, 0, 0, 0.06);
+    position: relative;
+    overflow: hidden;
+}
+
+.choice-option-btn.selected {
+    background: #fb8b24;
+    color: #fff;
+    border-color: #fb8b24;
+    box-shadow: 0px 6px 18px rgba(251, 139, 36, 0.35);
+    transform: translateY(-2px);
+}
+
+.choice-bubble.selected-choice {
+    border: 2px solid #fb8b24;
+    box-shadow: 0px 4px 20px rgba(251, 139, 36, 0.22);
+}
+
+/* Fade-in animation */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* load animation */
+.animate-on-load {
+    animation: optionEntry 0.6s ease-out forwards;
+}
+
+@keyframes optionEntry {
+    0% { transform: translateY(15px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================
+   INNER “Tap to View Status” button + pulse
+   ============================================ */
+.slide-reveal {
+    margin-top: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1.4px solid #e0e0e0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fb8b24;
+    text-align: center;
+    display: block;
+    position: relative;
+    overflow: hidden;
+    transition: 0.25s ease;
+
+    /* ★ Pulse guaranteed */
+    animation: strongPulse 1.8s ease-in-out infinite;
+}
+
+/* stop animation when clicked/selected */
+.slide-reveal.selected,
+.slide-reveal.clicked {
+    background: #fb8b24;
+    color: #fff;
+    border-color: #fb8b24;
+    animation: none !important;
+}
+
+/* Strong pulse keyframes */
+@keyframes strongPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0px 3px 8px rgba(251, 139, 36, 0.18);
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow: 0px 6px 16px rgba(251, 139, 36, 0.28);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0px 3px 8px rgba(251, 139, 36, 0.18);
+    }
+}
+
+/* ============================================
+   Shine Animation
+   ============================================ */
+.slide-reveal::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform: skewX(-20deg);
+    animation: sheen 1.3s ease-out 0.2s forwards;
+}
+
+@keyframes sheen {
+    0% { left: -120%; }
+    100% { left: 140%; }
+}
+/* ===========================================
+   BASE PREMIUM STYLE (Common to all options)
+   =========================================== */
+.choice-bubble {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.12);
+    max-width: 80%;
+    position: relative;
+    animation: fadeInUp 0.25s ease-out;
+    transition: 0.3s ease;
+}
+
+.choice-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e1e1e;
+    margin-bottom: 4px;
+}
+
+.choice-subtitle {
+    font-size: 14px;
+    color: #6b6b6b;
+    margin-bottom: 14px;
+}
+
+.choice-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ===========================================
+   PREMIUM OPTION BLOCK (Wrapper)
+   =========================================== */
+.choice-option-btn {
+    width: 100%;
+    padding: 14px 16px;
+    background: #f4f4f8;
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    transition: all 0.25s ease;
+    box-shadow: 0px 3px 9px rgba(0, 0, 0, 0.06);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Selected state */
+.choice-option-btn.selected {
+    background: #fb8b24;
+    color: #fff;
+    border-color: #fb8b24;
+    box-shadow: 0px 6px 18px rgba(251, 139, 36, 0.35);
+    transform: translateY(-2px);
+}
+
+/* Highlight entire bubble when selected */
+.choice-bubble.selected-choice {
+    border: 2px solid #fb8b24;
+    box-shadow: 0px 4px 20px rgba(251, 139, 36, 0.22);
+}
+
+/* ========================
+   Fade-in bubble animation
+   ======================== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0px); }
+}
+
+/* ============================================
+   OPTION ENTRY ON LOAD
+   ============================================ */
+.animate-on-load {
+    animation: optionEntry 0.6s ease-out forwards;
+}
+
+@keyframes optionEntry {
+    0% { transform: translateY(15px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ==================================================
+   INNER TAP BUTTON — WITH STRONG PULSE
+   ================================================== */
+.view-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1.4px solid #e0e0e0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fb8b24;
+    text-align: center;
+    display: block;
+    position: relative;
+    overflow: hidden;
+    transition: 0.25s ease;
+
+    /* ★ Strong pulse loop */
+    animation: strongPulse 1.7s ease-in-out infinite;
+}
+
+/* Stop pulse when selected */
+.view-btn.selected,
+.view-btn.clicked {
+    background: #fb8b24;
+    color: #fff;
+    border-color: #fb8b24;
+    animation: none !important;
+}
+
+/* Strong Pulse Keyframes */
+@keyframes strongPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0px 3px 9px rgba(251,139,36,0.12);
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow: 0px 6px 18px rgba(251,139,36,0.35);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0px 3px 9px rgba(251,139,36,0.12);
+    }
+}
+
+/* ============================================
+   SLIDE REVEAL + SLIDE INTRO SIMULTANEOUSLY
+   ============================================ */
+.slide-reveal {
+    position: relative;
+
+    /* ★ Run both animations together */
+    animation:
+        strongPulse 1.7s ease-in-out infinite,
+        slideIntro 0.9s ease-out forwards;
+}
+
+/* Slide-in intro — makes entry more visible on mobile */
+@keyframes slideIntro {
+    0% { opacity: 0; transform: translateX(-22px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Shine swipe highlight */
+.slide-reveal::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -130%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    transform: skewX(-20deg);
+    animation: sheen 1.3s ease-out 0.3s forwards;
+}
+
+@keyframes sheen {
+    0% { left: -130%; }
+    100% { left: 130%; }
+}
+
+/* Optional continuous loop version */
+.loop-sheen::after {
+    animation: sheen-loop 1s ease-out infinite !important;
+}
+
+@keyframes sheen-loop {
+    0% { left: -130%; }
+    60% { left: 130%; }
+    100% { left: 130%; }
+}

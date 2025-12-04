@@ -103,7 +103,7 @@ function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS) {
     btn.addEventListener('click', () => {
       const images = JSON.parse(btn.dataset.images || '[]');
       const container = document.getElementById('modal-image-container');
-      console.log(container)
+      // console.log(container)
       container.innerHTML = '';
 
       images.forEach(img => {
@@ -120,7 +120,7 @@ function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS) {
   document.querySelectorAll('.icon-edit').forEach(btn => {
     btn.addEventListener('click', () => {
       const profileId = btn.dataset.id;
-      console.log('Edit profile:', profileId);
+      // console.log('Edit profile:', profileId);
       // TODO: Open modal and load data for editing
     });
   });
@@ -128,7 +128,7 @@ function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS) {
   document.querySelectorAll('.icon-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
       const profileId = btn.dataset.id;
-      console.log('Delete profile:', profileId);
+      // console.log('Delete profile:', profileId);
       const confirmed = await ConfirmModalService.show("Do you want to discard this Ad Profile?");
       if (!confirmed) return;
       try {

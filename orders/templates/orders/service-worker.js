@@ -12,12 +12,12 @@ const BASE_URL_CACHE = "sw-base-url-store";
 // 🧱 Install & Activate
 // ============================================================================
 self.addEventListener("install", (event) => {
-  console.log("[Service Worker] ✅ Installed");
+  // console.log("[Service Worker] ✅ Installed");
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  console.log("[Service Worker] 🚀 Activated — Scope:", self.registration.scope);
+  // console.log("[Service Worker] 🚀 Activated — Scope:", self.registration.scope);
   event.waitUntil(self.clients.claim());
 });
 
@@ -30,13 +30,13 @@ self.addEventListener("message", (event) => {
   // 🔹 Persist BASE_URL
   if (data.type === "SET_BASE_URL") {
     BASE_URL = data.baseUrl;
-    console.log("[Service Worker] 🌐 Base URL set to:", BASE_URL);
+    // console.log("[Service Worker] 🌐 Base URL set to:", BASE_URL);
 
     event.waitUntil((async () => {
       try {
         const cache = await caches.open(BASE_URL_CACHE);
         await cache.put("base_url", new Response(BASE_URL));
-        console.log("[Service Worker] 💾 Base URL saved persistently");
+        // console.log("[Service Worker] 💾 Base URL saved persistently");
       } catch (err) {
         console.warn("[Service Worker] ⚠️ Failed to store BASE_URL:", err);
       }
@@ -46,12 +46,12 @@ self.addEventListener("message", (event) => {
   // 🔹 Track last visited page
   if (data.type === "UPDATE_LAST_PAGE") {
     lastVisitedPage = data.url;
-    console.log("[Service Worker] 🔄 Last visited page updated:", lastVisitedPage);
+    // console.log("[Service Worker] 🔄 Last visited page updated:", lastVisitedPage);
   }
 
   // 🔹 Acknowledgment from client
   if (data.type === "PUSH_STATUS_ACK") {
-    console.log(`[Service Worker] ✅ ACK received from client: ${data.clientId}`);
+    // console.log(`[Service Worker] ✅ ACK received from client: ${data.clientId}`);
   }
 });
 
@@ -78,7 +78,7 @@ self.addEventListener("push", (event) => {
       try {
         const cache = await caches.open(CACHE_NAME);
         await cache.put(new Request(key), new Response(JSON.stringify(payload)));
-        console.log("[Service Worker] 💾 Push data cached:", key);
+        // console.log("[Service Worker] 💾 Push data cached:", key);
       } catch (err) {
         console.error("[Service Worker] ❌ Caching failed:", err);
       }
@@ -106,7 +106,7 @@ self.addEventListener("push", (event) => {
         const customBody = payload.body || "You have a new update.";
         const icon = payload.icon;
 
-        console.log("[Service Worker] 🔔 Showing system notification");
+        // console.log("[Service Worker] 🔔 Showing system notification");
 
         await self.registration.showNotification(customTitle, {
           body: customBody,
@@ -144,7 +144,7 @@ self.addEventListener("notificationclick", (event) => {
         if (response) {
           pushData = await response.json();
           await cache.delete(new Request(key));
-          console.log("[Service Worker] ✅ Retrieved cached push:", key);
+          // console.log("[Service Worker] ✅ Retrieved cached push:", key);
         }
       } catch (err) {
         console.warn("[Service Worker] ⚠️ Failed to retrieve cached push:", err);
@@ -156,11 +156,11 @@ self.addEventListener("notificationclick", (event) => {
         const client = allClients[0];
         client.focus();
         client.postMessage({ type: "OPEN_CHAT", payload: pushData });
-        console.log("[Service Worker] 📨 Sent OPEN_CHAT to client");
+        // console.log("[Service Worker] 📨 Sent OPEN_CHAT to client");
 
         try {
           const ack = await waitForAck(client.id, 2000);
-          console.log(`[Service Worker] ✅ ACK received from client: ${ack}`);
+          // console.log(`[Service Worker] ✅ ACK received from client: ${ack}`);
         } catch {
           console.warn(`[Service Worker] ⚠️ No ACK received from client: ${client.id}`);
         }
@@ -172,7 +172,7 @@ self.addEventListener("notificationclick", (event) => {
             const response = await cache.match("base_url");
             if (response) {
               BASE_URL = await response.text();
-              console.log("[Service Worker] 🔁 Restored BASE_URL from cache:", BASE_URL);
+              // console.log("[Service Worker] 🔁 Restored BASE_URL from cache:", BASE_URL);
             }
           } catch (err) {
             console.warn("[Service Worker] ⚠️ Could not restore BASE_URL:", err);
@@ -180,7 +180,7 @@ self.addEventListener("notificationclick", (event) => {
         }
 
         const targetUrl = `${BASE_URL || self.registration.scope}?from_push=true`;
-        console.log("[Service Worker] 🌐 Opening page from push:", targetUrl);
+        // console.log("[Service Worker] 🌐 Opening page from push:", targetUrl);
 
         const openedClient = await self.clients.openWindow(targetUrl);
         if (openedClient) {

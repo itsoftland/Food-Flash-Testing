@@ -5,17 +5,17 @@ export const PermissionService = (() => {
         const modalElement = document.getElementById("permissionModal");
 
         if (modalElement && (forceShow || !localStorage.getItem("permissionStatus"))) {
-            console.log("🟢 [PermissionService] Showing permission modal (force:", forceShow, ")");
+            // console.log("🟢 [PermissionService] Showing permission modal (force:", forceShow, ")");
             const bsModal = new bootstrap.Modal(modalElement, {
             backdrop: 'static',
             keyboard: false
             });
             bsModal.show();
         } else {
-            console.log("⚪ [PermissionService] Modal not shown. Condition:", {
-            modalExists: !!modalElement,
-            hasPermissionStatus: !!localStorage.getItem("permissionStatus")
-            });
+            // console.log("⚪ [PermissionService] Modal not shown. Condition:", {
+            // modalExists: !!modalElement,
+            // hasPermissionStatus: !!localStorage.getItem("permissionStatus")
+            // });
         }
     };
 
@@ -33,13 +33,13 @@ export const PermissionService = (() => {
 
     const requestPermissions = async () => {
         const current = Notification.permission;
-        console.log(`🔔 [PermissionService] Current permission: ${current}`);
+        // console.log(`🔔 [PermissionService] Current permission: ${current}`);
 
         if (current === "granted") return true;
 
         if (current === "default") {
             const permission = await Notification.requestPermission();
-            console.log("🔔 [PermissionService] User response:", permission);
+            // console.log("🔔 [PermissionService] User response:", permission);
             return permission === "granted";
         }
 
@@ -52,7 +52,7 @@ export const PermissionService = (() => {
     const showDeniedModal = () => {
         const helpModal = document.getElementById("notificationHelpModal");
         if (helpModal) {
-            console.log("🚫 [PermissionService] Showing denied modal");
+            // console.log("🚫 [PermissionService] Showing denied modal");
             const bsHelpModal = new bootstrap.Modal(helpModal, {
                 backdrop: 'static',
                 keyboard: true
@@ -67,15 +67,15 @@ export const PermissionService = (() => {
 
     const setDeferredCallback = (callback) => {
         deferredCallback = callback;
-        console.log("🧩 [PermissionService] Deferred callback set.");
+        // console.log("🧩 [PermissionService] Deferred callback set.");
     };
 
     const handleAgree = async () => {
-        console.log("👍 [PermissionService] User agreed to enable notifications.");
+        // console.log("👍 [PermissionService] User agreed to enable notifications.");
         localStorage.setItem("permissionStatus", "granted");
 
         await AppUtils.unlockNotificationSound();
-        console.log("🔊 [PermissionService] Notification sound unlocked.");
+        // console.log("🔊 [PermissionService] Notification sound unlocked.");
 
         const modal = bootstrap.Modal.getInstance(document.getElementById("permissionModal"));
         modal?.hide();
@@ -87,7 +87,7 @@ export const PermissionService = (() => {
 
         if (granted) {
             AppUtils.showToast("Notifications enabled");
-            console.log("✅ [PermissionService] Permission granted, executing deferred callback...");
+            // console.log("✅ [PermissionService] Permission granted, executing deferred callback...");
             if (typeof deferredCallback === "function") {
                 await deferredCallback();
                 deferredCallback = null;
@@ -98,7 +98,7 @@ export const PermissionService = (() => {
     };
 
     const handleDeny = () => {
-        console.log("❌ [PermissionService] User denied permission.");
+        // console.log("❌ [PermissionService] User denied permission.");
         localStorage.setItem("permissionStatus", "denied");
         const modal = bootstrap.Modal.getInstance(document.getElementById("permissionModal"));
         modal?.hide();
@@ -107,7 +107,7 @@ export const PermissionService = (() => {
     };
 
     const bindEvents = () => {
-        console.log("⚙️ [PermissionService] Binding button events...");
+        // console.log("⚙️ [PermissionService] Binding button events...");
         document.getElementById("grant-permission")?.addEventListener("click", handleAgree);
         document.getElementById("deny-permission")?.addEventListener("click", handleDeny);
     };

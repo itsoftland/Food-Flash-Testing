@@ -382,7 +382,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           const raw = (result.getText && result.getText()) || result.text || String(result);
 
           // ----- DEBUG RAW OUTPUT (exact string with spaces) -----
-          console.log("\n<start>\n" + JSON.stringify(raw) + "\n</end>\n");
+          // console.log("\n<start>\n" + JSON.stringify(raw) + "\n</end>\n");
 
           // voting aggregator
           if (!candidateCounts[raw]) { candidateCounts[raw] = 0; candidateFirstSeen[raw] = Date.now(); }

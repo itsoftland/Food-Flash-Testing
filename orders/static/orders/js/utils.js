@@ -119,7 +119,7 @@ window.AppUtils = {
         await new Promise(resolve => setTimeout(resolve, 200));
         locationId = this.getCookie(this.key);
         if (locationId) {
-          console.log("[LocationStore] Loaded from Cookie:", locationId);
+        //   console.log("[LocationStore] Loaded from Cookie:", locationId);
           localStorage.setItem(this.key, locationId); // Rehydrate
           try { await idbSet(this.key, locationId); } catch {}
           return locationId;
@@ -216,7 +216,7 @@ window.AppUtils = {
         try {
             vendorId = await idbGet('activeVendor');
             if (vendorId) {
-                console.log("[VendorStore] Loaded from IndexedDB:", vendorId);
+                // console.log("[VendorStore] Loaded from IndexedDB:", vendorId);
                 localStorage.setItem('activeVendor', vendorId);
                 return parseInt(vendorId, 10);
             }
@@ -227,7 +227,7 @@ window.AppUtils = {
         await new Promise(resolve => setTimeout(resolve, 200));
         vendorId = this.getCookie('activeVendor');
         if (vendorId) {
-            console.log("[VendorStore] Loaded from Cookie:", vendorId);
+            // console.log("[VendorStore] Loaded from Cookie:", vendorId);
             localStorage.setItem('activeVendor', vendorId);
             try { await idbSet('activeVendor', vendorId); } catch {}
             return parseInt(vendorId, 10);
@@ -261,14 +261,14 @@ window.AppUtils = {
     getToken: async function () {
         let token = localStorage.getItem('token');
         if (token) {
-            console.log("[TokenStore] Loaded from localStorage:", token);
+            // console.log("[TokenStore] Loaded from localStorage:", token);
             return token;
         }
 
         try {
             token = await idbGet('token');
             if (token) {
-                console.log("[TokenStore] Loaded from IndexedDB:", token);
+                // console.log("[TokenStore] Loaded from IndexedDB:", token);
                 localStorage.setItem('token', token);
                 return token;
             }
@@ -279,7 +279,7 @@ window.AppUtils = {
         await new Promise(resolve => setTimeout(resolve, 200));
         token = this.getCookie('token');
         if (token) {
-            console.log("[TokenStore] Loaded from Cookie:", token);
+            // console.log("[TokenStore] Loaded from Cookie:", token);
             localStorage.setItem('token', token);
             try { await idbSet('token', token); } catch {}
             return token;
@@ -291,7 +291,7 @@ window.AppUtils = {
 
     setToken: async function (token) {
         if (!token) return;
-        console.log("[TokenStore] Setting token:", token);
+        // console.log("[TokenStore] Setting token:", token);
 
         localStorage.setItem('token', token);
         try { await idbSet('token', token); } catch (e) {
@@ -306,7 +306,7 @@ window.AppUtils = {
     // Unlock Notification Sound + Preferred Voice (iOS + Android)
     // ============================================
     unlockNotificationSound: async function () {
-        console.log("[Unlock] Unlocking notification sound and TTS...");
+        // console.log("[Unlock] Unlocking notification sound and TTS...");
 
         // 🔊 Unlock notification sound
         unlockedNotificationAudio = new Audio(`${BASE}static/orders/audio/0112.mp3`);
@@ -317,7 +317,7 @@ window.AppUtils = {
         unlockedNotificationAudio.play().then(() => {
             unlockedNotificationAudio.pause();
             unlockedNotificationAudio.currentTime = 0;
-            console.log('🔓 Notification sound unlocked.');
+            // console.log('🔓 Notification sound unlocked.');
         }).catch(err => {
             console.warn('🔇 Sound unlock failed:', err);
         });
@@ -334,12 +334,12 @@ window.AppUtils = {
 
             // ✅ Wait for voices to load only on Android if none yet
             if (isAndroid && voices.length === 0) {
-                console.log("[TTS] Waiting for voices to load on Android...");
+                // console.log("[TTS] Waiting for voices to load on Android...");
                 voices = await new Promise(resolve => {
                     window.speechSynthesis.onvoiceschanged = () => {
                         const loadedVoices = window.speechSynthesis.getVoices();
                         if (loadedVoices.length) {
-                            console.log(`[TTS] Voices loaded: ${loadedVoices.length}`);
+                            // console.log(`[TTS] Voices loaded: ${loadedVoices.length}`);
                             resolve(loadedVoices);
                         }
                     };
@@ -374,7 +374,7 @@ window.AppUtils = {
                 preferredVoice = voices[0];
             }
 
-            console.log(`[TTS] Unlocking with preferred voice: ${preferredVoice?.name || "default"}`);
+            // console.log(`[TTS] Unlocking with preferred voice: ${preferredVoice?.name || "default"}`);
 
             // Unlock utterance (silent but valid speech)
             const unlockUtterance = new SpeechSynthesisUtterance("Voice ready");
@@ -382,7 +382,7 @@ window.AppUtils = {
             unlockUtterance.volume = 0; // Silent but still counts
             window.speechSynthesis.speak(unlockUtterance);
 
-            console.log("🔓 Speech synthesis unlocked and preferred voice preloaded.");
+            // console.log("🔓 Speech synthesis unlocked and preferred voice preloaded.");
         } catch (e) {
             console.warn("🔇 Speech synthesis unlock failed:", e);
         }
@@ -478,7 +478,7 @@ window.AppUtils = {
     // ============================================
     notifyOrderReady: function(pushData) {
         try {
-            console.log(`[TTS] Speaking order ready message: Order ${pushData.token_no} - Counter ${pushData.counter_no}`);
+            // console.log(`[TTS] Speaking order ready message: Order ${pushData.token_no} - Counter ${pushData.counter_no}`);
             const synth = window.speechSynthesis;
 
             // --- ✈️ Helper: Make flight numbers sound natural ---
@@ -522,51 +522,64 @@ window.AppUtils = {
 
             if (pushData.status === 'ready') {
             // 🍴 Food Flash
-            message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
+                message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
 
             } else if (pushData.status === 'cancelled') {
-            message = `Unfortunately, your order number ${pushData.token_no} has been cancelled. Please contact the staff for assistance.`;
+                message = `Unfortunately, your order number ${pushData.token_no} has been cancelled. Please contact the staff for assistance.`;
 
             } else if (pushData.status === 'delivered') {
-            message = `Your order number ${pushData.token_no} has been delivered. Thank you for choosing us.`;
+                message = `Your order number ${pushData.token_no} has been delivered. Thank you for choosing us.`;
 
             } else if (pushData.status === 'preparing') {
-            message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
+                message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
 
             } else if (pushData.status === 'checked_in') {
             // ✈️ Airline Flash
-            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
-            message = `You have successfully checked in for flight ${flightSpeech}.`;
+                const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+                message = `You have successfully checked in for flight ${flightSpeech}.`;
 
             } else if (pushData.status === 'boarding_shortly') {
-            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
-            message = `Your flight ${flightSpeech} will be ready for boarding shortly. Kindly wait for the next announcement.`;
+                const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+                message = `Your flight ${flightSpeech} will be ready for boarding shortly. Kindly wait for the next announcement.`;
 
             } else if (pushData.status === 'boarding_announced') {
-            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
-            message = `Flight ${flightSpeech} is ready for boarding. Kindly proceed through the boarding gate.`;
+                const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+                message = `Flight ${flightSpeech} is ready for boarding. Kindly proceed through the boarding gate.`;
 
             } else if (pushData.status === 'rescheduled') {
-            const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
-            message = `Flight ${flightSpeech} has been rescheduled. Please contact the airline staff for updated information.`;
+                const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
+                message = `Flight ${flightSpeech} has been rescheduled. Please contact the airline staff for updated information.`;
 
             } else if (pushData.status === 'gate_change') {
-            message = `Attention passenger. The gate number has changed. The revised gate number will be announced shortly.`;
+                message = `Attention passenger. The gate number has changed. The revised gate number will be announced shortly.`;
 
             } else if (pushData.status === 'flightcancel') {
-            message = `Attention passenger. Please contact the airline staff for assistance.`;
+                message = `Attention passenger. Please contact the airline staff for assistance.`;
 
             } else if (projectName === 'airline_flash' && pushData.type === 'airline_manager') {
             // 📩 Manager broadcast messages
-            message = `You have a new message. Please check the app for details.`;
+                message = `You have a new message. Please check the app for details.`;
+            }
+            // 🍽️ Dine Flash
+            else if (pushData.status === 'waiting') {
+                const DineSpeech = formatFlightNoForSpeech(pushData.booking_no);
+                message = `Your booking ${DineSpeech} is waiting for table allocation. Please wait while we assign your table.`;
+
+            } else if (pushData.status === 'allocated') {
+                const DineSpeech = formatFlightNoForSpeech(pushData.booking_no);
+                message = `Your booking ${DineSpeech} has been allocated a table. Please proceed to your assigned table.`;
+
+            } else if (pushData.status === 'booking_cancelled') {
+                const DineSpeech = formatFlightNoForSpeech(pushData.booking_no);
+                message = `Unfortunately, your booking ${DineSpeech} has been cancelled. Please contact the restaurant staff for assistance.`;
 
             } else {
             // 🧾 Default fallback
-            message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
+                message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
             }
 
 
-            console.log(`[TTS] Message to speak: ${message}`);
+            // console.log(`[TTS] Message to speak: ${message}`);
             const utterance = new SpeechSynthesisUtterance(message);
 
             // --- 🔊 Voice setup ---
@@ -575,7 +588,7 @@ window.AppUtils = {
             const androidPreferredNames = ["Google US English", "English (United States)"];
 
             const voices = synth.getVoices();
-            console.log(`[TTS] Voices available: ${voices.length}`);
+            // console.log(`[TTS] Voices available: ${voices.length}`);
 
             const preferredVoice = voices.find(v =>
                 v.lang.startsWith("en") &&
@@ -586,9 +599,9 @@ window.AppUtils = {
 
             if (preferredVoice) {
                 utterance.voice = preferredVoice;
-                console.log(`[TTS] Using preferred voice: ${preferredVoice.name}`);
+                // console.log(`[TTS] Using preferred voice: ${preferredVoice.name}`);
             } else {
-                console.log("[TTS] Using default system voice.");
+                // console.log("[TTS] Using default system voice.");
             }
 
             utterance.pitch = 1;
@@ -682,7 +695,7 @@ window.AppUtils = {
             deviceName = 'Windows';
         }
 
-        console.log('Device Name:', deviceName);
+        // console.log('Device Name:', deviceName);
         return deviceName;
     },
     getNotificationHelpPath: function () {

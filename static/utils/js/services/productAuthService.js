@@ -37,7 +37,7 @@ export async function callProductAuthAPI() {
             const licenceData = await licence.json();
 
             if (licenceData.status === 'success') {
-                console.log('✅ Internal license check passed.');
+                // console.log('✅ Internal license check passed.');
                 expiryDays = calculateDaysLeft(licenceData.data);
                 return { status: true, expiryDays };
             } else {
@@ -49,7 +49,7 @@ export async function callProductAuthAPI() {
         const result = await response.json();
         expiryDays = calculateDaysLeft(result.ProductToDate);
 
-        console.log('✅ Product Auth Response:', result, `License expires in ${expiryDays} days`);
+        // console.log('✅ Product Auth Response:', result, `License expires in ${expiryDays} days`);
 
         if (result.Authenticationstatus === 'Your licence is expired. Please contact Admin !!!') {
             await updateCompanyInfo(result, fetchWithAutoRefresh, API_ENDPOINTS.COMPANY_UPDATE_URL, customerId);

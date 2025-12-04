@@ -35,7 +35,7 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
     const outletsRes = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
     const outletsData = await outletsRes.json();
     const outlets = outletsData.vendors || [];
-    console.log("outlet data",outlets)
+    // console.log("outlet data",outlets)
 
     const outletSelect = document.getElementById('outlet-select');
     outletSelect.innerHTML = outlets.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
@@ -74,10 +74,10 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
       }
 
       try {
-        console.log("request body",JSON.stringify({ 
-          profile_ids: profileIds, 
-          vendor_ids: outletIds
-        }));
+        // console.log("request body",JSON.stringify({ 
+        //   profile_ids: profileIds, 
+        //   vendor_ids: outletIds
+        // }));
         const res = await fetchWithAutoRefresh(API_ENDPOINTS.ASSIGN_AD_PROFILE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,7 +88,7 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
         });
 
         const result = await res.json();
-        console.log(result)
+        // console.log(result)
         if (res.ok) {
           const msg = `${result.summary}\n${result.duplicates_skipped} duplicate mappings were skipped.`;
           ModalService.showSuccess(msg, () => {

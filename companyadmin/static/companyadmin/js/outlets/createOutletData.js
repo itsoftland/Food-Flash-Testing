@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const data = await resp.json();
         const companies = data.results || data;
-        console.log("companies", companies);
+        // console.log("companies", companies);
 
         if (company) {
             company.innerHTML = '<option value="">Select Company</option>';
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
                 const data = await response.json();
-                console.log("Outlet Creation Data:", data);
+                // console.log("Outlet Creation Data:", data);
                 const { locations, android_tvs, keypad_devices, tv_communication_modes, timezones } = data;
 
                 // Populate Location

@@ -82,7 +82,7 @@ function handleOrderButtonClick(tokenNumber, orderStatus, vendors_id) {
         return response.json();  // Already parsed as JSON
     })
     .then(data => {
-        console.log(data.message);
+        // console.log(data.message);
         fetchReadyOrders(); // Refresh orders after update/delete
     })
     .catch(error => console.error('Error:', error));

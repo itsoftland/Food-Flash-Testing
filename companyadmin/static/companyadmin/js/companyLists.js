@@ -32,8 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // alert('Company data not available.');
         return;
       }
-      console.log("company Details",company)
-      console.log("Starting license flow for company ID:", company.id);
+      // console.log("company Details",company)
+      // console.log("Starting license flow for company ID:", company.id);
 
       // 1) Register product
       try {

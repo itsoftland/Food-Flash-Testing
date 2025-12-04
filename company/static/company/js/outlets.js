@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Parse the JSON response
     const data = await response.json();
     const vendors = data.vendors || [];
-    console.log(vendors); // Log for debugging purposes
+    // console.log(vendors); // Log for debugging purposes
 
     // ================================
     // 2. Handle Empty Vendor List

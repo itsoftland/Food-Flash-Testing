@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadFilteredOrders() {
     const query = buildQueryParams();
-    console.log("Query Params:", query); // Debugging line
+    // console.log("Query Params:", query); // Debugging line
     const url = `${API_ENDPOINTS.FILTERED_ORDERS}?${query}`;
 
     try {

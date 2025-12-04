@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 🔗 Utility to update or create <link> tags
     // ==========================================================
     function setLink(rel, href, type = null) {
-        console.log(href);
+        // console.log(href);
         let link = document.querySelector(`link[rel="${rel}"]`);
         if (!link) {
             link = document.createElement('link');

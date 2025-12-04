@@ -33,20 +33,20 @@ export const OutletUpdateService = (() => {
         tvMapping = [],
         business_day_start_hour
     }) => {
-    console.log({
-        vendor_id,
-        name,
-        alias_name,
-        location,
-        place_id,
-        location_id,
-        auto_delete_hours,
-        logoFile,
-        menuFiles,
-        deviceMapping,
-        tvMapping,
-        business_day_start_hour
-    });
+    // console.log({
+    //     vendor_id,
+    //     name,
+    //     alias_name,
+    //     location,
+    //     place_id,
+    //     location_id,
+    //     auto_delete_hours,
+    //     logoFile,
+    //     menuFiles,
+    //     deviceMapping,
+    //     tvMapping,
+    //     business_day_start_hour
+    // });
     const formData = new FormData();
 
     formData.append('vendor_id', vendor_id);

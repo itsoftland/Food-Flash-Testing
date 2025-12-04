@@ -280,17 +280,6 @@ def book_table(request):
                 # Utilities disabled or missing prefix -> fallback to token_no
                 booking_no = str(token_no)
 
-            # Build tracking URL via reverse to avoid hardcoded paths
-            try:
-                # Attempt to use a named URL; fallback to previous pattern if reverse fails
-                tracking_path = reverse("orders:home")  # adjust name to your URLconf
-                tracking_url = request.build_absolute_uri(f"{tracking_path}?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&booking_no={booking_no}")
-            except Exception:
-                # Fallback to original style using project_name variable
-                tracking_url = request.build_absolute_uri(
-                    f"/{project_name}/home/?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}&booking_no={booking_no}"
-                )
-
             # Manager ID extraction (single DB hit)
             manager_id = (
                 request.user.profile_roles.order_by("id").values_list("id", flat=True).first()
@@ -320,11 +309,29 @@ def book_table(request):
 
             serializer = OrdersSerializer(data=new_booking_data)
             if serializer.is_valid():
-                serializer.save()
+                booking_obj = serializer.save()
 
-                resp_data = serializer.data
-                resp_data["tracking_url"] = tracking_url
-                resp_data["message"] = "Booking created successfully."
+                # Build tracking URL via reverse to avoid hardcoded paths
+
+                try:
+                    tracking_path = reverse("orders:home")
+                    tracking_url = request.build_absolute_uri(
+                        f"{tracking_path}?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}"
+                        f"&booking_no={booking_no}&booking_id={booking_obj.id}"
+                    )
+                except Exception:
+                    tracking_url = request.build_absolute_uri(
+                        f"/{project_name}/home/?location_id={vendor.location_id}"
+                        f"&vendor_id={vendor.vendor_id}&booking_no={booking_no}&booking_id={booking_obj.id}"
+                    )
+
+                resp_data = {
+                    "id": booking_obj.id,
+                    "token_no": booking_obj.token_no,
+                    "table_booking_no": booking_obj.table_booking_no,
+                    "tracking_url": tracking_url,
+                    "message": "Booking created successfully.",
+                }
 
                 logger.info(
                     "[book_table] Booking created | vendor=%s, token_no=%s, booking_no=%s, manager_id=%s",
@@ -334,7 +341,7 @@ def book_table(request):
                     manager_id,
                 )
                 return Response(resp_data, status=status.HTTP_201_CREATED)
-
+            
             # Serializer invalid
             logger.warning("[book_table] Serializer validation failed | %s", serializer.errors)
             return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

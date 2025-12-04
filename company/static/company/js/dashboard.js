@@ -62,7 +62,7 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
       const formattedKey = displayKey
         .replace(/_/g, " ")
         .replace(/\b\w/g, c => c.toUpperCase());
-      console.log(displayKey)
+      // console.log(displayKey)
 
       // Define target URLs per metric
       const pageLinks = {

@@ -58,6 +58,8 @@ onDOMReady(async function () {
     let isAdVisible = true;
     let storedName = null;
     let bookingId = null;
+    let bookingNo = null;
+    let check_status = null;
 
     // 1️⃣ Check URL param first
     if (locationId) {
@@ -89,7 +91,7 @@ onDOMReady(async function () {
         await savePassengerInfo(tokenFromQR, passengerName);
     }
     if (window.BASE && window.BASE.includes('/dine_flash/')) {
-        console.log("Initializing Booking Mapping Service for Dine Flash...");
+        // console.log("Initializing Booking Mapping Service for Dine Flash...");
         BookingMappingService.processBookingFromQR(tokenFromQR,bookingIdfromQR);
     }
     
@@ -360,7 +362,10 @@ onDOMReady(async function () {
             // console.log(base)
             if (base == '/airline_flash/'){
                 chatInput.placeholder = "Enter your Sequence Code..."; 
-            }else{
+            }else if (base == '/dine_flash/'){
+                chatInput.placeholder = "Enter your Booking No...";
+            }
+            else{
                 chatInput.placeholder = "Enter your Order No...";
             } 
         }
@@ -408,8 +413,9 @@ onDOMReady(async function () {
                 // ✅ Step 2: Subscribe for push notifications
                 try {
                     if (window.BASE && window.BASE.includes('/dine_flash/')) {
-                        bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
-                        await PushSubscriptionService.subscribe(bookingId, vendorId);
+                        // bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
+                        await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
+                        // await PushSubscriptionService.subscribe(bookingId, vendorId);
                     }else{
                         await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     }
@@ -465,7 +471,11 @@ onDOMReady(async function () {
                 // ✅ Step 4: Fetch order status
                 try {
                     // console.log("📡 Fetching order status...");
-                    const check_status = await fetchOrderStatusOnce(tokenFromQR);
+                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                        check_status = await fetchOrderStatusOnce(tokenFromQR,null,bookingIdfromQR);
+                    }else{
+                        check_status = await fetchOrderStatusOnce(tokenFromQR);
+                    }
 
                     if (!check_status) {
                         console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
@@ -554,19 +564,168 @@ onDOMReady(async function () {
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
                 storedName = await getPassengerName(message);
                 appendMessage(message, 'user', "","chat",message,storedName);
-            } else {
+            } 
+            else if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                let bookingNo = BookingMappingService.getBookingNo(message);
+                // console.log("Booking No for display:", bookingNo);
+                // ❗ If multiple booking numbers → STOP execution
+                if (Array.isArray(bookingNo)) {
+                    appendChoiceOptions(bookingNo);
+                    return;  // << STOP HERE
+                }
+
+                // Otherwise continue normally
+                appendMessage(bookingNo, 'user', null, "chat", bookingNo);
+            }
+
+            else {
                 appendMessage(message, 'user', null);
             }
-            await saveChat(message, 'user', 'chat',message);
-            await fetchOrderStatusOnce(message); // Use message as tokenNo   
+            if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                bookingId = BookingMappingService.getBookingId(message); 
+                await saveChat(bookingNo, 'user', 'chat',bookingId);
+                await fetchOrderStatusOnce(bookingNo); // Use bookingNo as tokenNo
+            }else{
+                await saveChat(message, 'user', 'chat',message);
+                await fetchOrderStatusOnce(message); // Use message as tokenNo  
+            }
+             
         }
 
         // ✅ Clear input
         chatInput.value = '';
         clearReplyMode(); 
     });
-    
-    async function fetchOrderStatusOnce(token, replyText = null) {
+
+    function appendChoiceOptions(bookingList) {
+        const chatContainer = document.getElementById("chat-container");
+
+        // Row wrapper exactly like appendMessage()
+        const messageRow = document.createElement("div");
+        messageRow.classList.add("message-row", "server");
+
+        // Server logo
+        const activeLogo = localStorage.getItem("activeVendorLogo");
+        const logoImg = document.createElement("img");
+        logoImg.src = activeLogo;
+        logoImg.alt = "Vendor Logo";
+        logoImg.className = "server-logo";
+        messageRow.appendChild(logoImg);
+        
+        // Clear input
+        chatInput.value = '';
+        // Chat bubble
+        const bubble = document.createElement("div");
+        bubble.classList.add("message-bubble", "server", "choice-bubble");
+
+        bubble.innerHTML = `
+            <div class="message-content">
+                <div class="choice-title">Multiple bookings found</div>
+                <div class="choice-subtitle">Please select the correct booking</div>
+                <div class="choice-options"></div>
+            </div>
+        `;
+
+        const optionsContainer = bubble.querySelector(".choice-options");
+
+        // bookingList.forEach(item => {
+
+        //     const trimmed = item.booking_no.split("-")[1];
+
+        //     const btn = document.createElement("button");
+        //     btn.className = "choice-option-btn";
+
+        //     btn.dataset.bookingId = item.booking_id;
+        //     btn.dataset.trimmedNo = trimmed;
+
+        //     btn.innerHTML = `
+        //         <div class="opt-main">Booking No: <strong>${item.booking_no}</strong></div>
+        //         <button class="choice-option-btn slide-reveal">
+        //             Tap to View Status
+        //         </button>
+        //     `;
+
+        //     // Handling the button selection
+        //     btn.addEventListener("click", async () => {
+
+        //         // Visually mark selected (premium effect)
+        //         document.querySelectorAll(".choice-option-btn")
+        //             .forEach(el => el.classList.remove("selected"));
+        //         btn.classList.add("selected");
+        //         bubble.classList.add("selected-choice");
+
+        //         // Append user's selected booking as a chat message
+        //         appendMessage(
+        //             item.booking_no,            // text for display
+        //             'user',
+        //             null,
+        //             "chat",
+        //             item.booking_id
+        //         );
+
+        //         // Save the user's selection
+        //         await saveChat(item.booking_no, 'user', 'chat', item.booking_id);
+
+        //         // Trigger your main status fetch pipeline
+        //         await fetchOrderStatusOnce(trimmed, null, item.booking_id);
+        //         messageRow.innerHTML = ""; // Clear options after selection
+        //         // chatInput.value = '';
+        //     });
+
+        //     optionsContainer.appendChild(btn);
+        // });
+        bookingList.forEach(item => {
+
+            const trimmed = item.booking_no.split("-")[1];
+
+            // Outer container (no more button-inside-button issue)
+            const wrapper = document.createElement("div");
+            wrapper.className = "choice-option-btn";  
+            wrapper.dataset.bookingId = item.booking_id;
+            wrapper.dataset.trimmedNo = trimmed;
+
+            wrapper.innerHTML = `
+                <div class="opt-main">Booking No: <strong>${item.booking_no}</strong></div>
+                <button class="view-btn slide-reveal loop-sheen">
+                    Tap to View Status
+                </button>
+            `;
+
+            // Selecting only the actual click button
+            const actionBtn = wrapper.querySelector(".view-btn");
+
+            actionBtn.addEventListener("click", async () => {
+
+                // Stop animation after click
+                actionBtn.classList.remove("loop-sheen");
+                actionBtn.classList.add("clicked");
+
+                // Visual highlighting
+                document.querySelectorAll(".view-btn").forEach(el => el.classList.remove("selected"));
+                actionBtn.classList.add("selected");
+                bubble.classList.add("selected-choice");
+
+                // Add message to chat
+                appendMessage(item.booking_no, 'user', null, "chat", item.booking_id);
+                await saveChat(item.booking_no, 'user', 'chat', item.booking_id);
+
+                // Trigger API call
+                await fetchOrderStatusOnce(trimmed, null, item.booking_id);
+
+                messageRow.innerHTML = "";
+            });
+
+            optionsContainer.appendChild(wrapper);
+        });
+
+
+        messageRow.appendChild(bubble);
+        chatContainer.appendChild(messageRow);
+
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function fetchOrderStatusOnce(token, replyText = null, bookingId = null) {
         const activeVendor = await AppUtils.getActiveVendor();
         let payload = {};
         let type = '';
@@ -575,7 +734,17 @@ onDOMReady(async function () {
             type = 'flightstatus';
         }
         else if (window.BASE && window.BASE.includes('/dine_flash/')) {
-            bookingId = BookingMappingService.getBookingId(token.split("-")[1]);
+            if (!bookingId) {
+                bookingId = BookingMappingService.getBookingId(token.split("-")[1]);
+                if (Array.isArray(bookingId)) {
+                    // console.log("Multiple bookings found for token:", token, "→", bookingId);
+                    console.warn("⚠️ Multiple bookings found for token:", token);
+                    // Multiple bookings → show list to user
+                    // showBookingSelectionUI(bookingData);
+                    return; // stop here until user selects
+                }
+            }
+            // console.log("Fetching booking ID for token:", token, "→", bookingId);
             payload = { booking_id: bookingId, vendor_id: activeVendor };
             type = 'dinestatus';
         } 
@@ -596,6 +765,7 @@ onDOMReady(async function () {
             });
 
             const data = await resp.json();
+            // console.log("Status response data:", data);
 
             if (!resp.ok) {
                 const err = data.error || "Unknown server error";
@@ -607,10 +777,16 @@ onDOMReady(async function () {
                     type: type,
                     text: data
                 });
+                // console.log("Built message HTML:", messageHTML);
                 if (type === 'flightstatus') {
                     appendMessage(messageHTML, 'server', null, type, data.sequence_code);
                     await saveChat(data, 'server', type, data.sequence_code);
-                } else {
+                }
+                else if (type === 'dinestatus') {
+                    appendMessage(messageHTML, 'server', null, type, bookingId);
+                    await saveChat(data, 'server', type, bookingId);
+                } 
+                else {
                     appendMessage(messageHTML, 'server', null, type, data.token_no);
                     await saveChat(data, 'server', type, data.token_no);
                 }
@@ -618,16 +794,13 @@ onDOMReady(async function () {
                 AppUtils.notifyOrderReady(data);
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
-                bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
-                await PushSubscriptionService.subscribe(bookingId, vendorId);
+                await PushSubscriptionService.subscribe(bookingId, data.vendor_id);
                 PushHealthMonitorService.startMonitor(bookingId, data.vendor_id);
             }
             else {
-                await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
+                await PushSubscriptionService.subscribe(tokenFromQR, data.vendor_id);
                 PushHealthMonitorService.startMonitor(token, data.vendor_id);
             }
-            
-
             return data;  // << important: return the fetched data
         } catch (err) {
             console.error("Error fetching order status:", err);
