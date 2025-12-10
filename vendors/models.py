@@ -306,6 +306,13 @@ class Order(models.Model):
         blank=True,
         related_name="orders"
     )
+    current_utility = models.ForeignKey(
+        Utility,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="current_orders"
+    )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
@@ -339,6 +346,21 @@ class OrderStatusHistory(models.Model):
     new_status = models.CharField(
         max_length=20,
         choices=Order.STATUS_CHOICES
+    )
+    previous_utility = models.ForeignKey(
+        Utility,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history_old_utility"
+    )
+
+    new_utility = models.ForeignKey(
+        Utility,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history_new_utility"
     )
     changed_by = models.CharField(
         max_length=20,

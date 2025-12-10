@@ -8,6 +8,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 def validate_required_fields(data, required_fields):
+    """
+    Validates required fields in the given data.
+
+    Args:
+        data (dict): Data to validate.
+        required_fields (list): List of required fields.
+
+    Returns:
+        tuple: (bool, Response) where bool is True if all required fields are present, and Response is None.
+            If any required field is missing, bool is False, and Response is a 400 Bad Request response with a message listing the missing fields.
+    """
     missing_fields = [field for field in required_fields if not data.get(field)]
     if missing_fields:
         logger.warning(f"Missing required fields: {missing_fields}")

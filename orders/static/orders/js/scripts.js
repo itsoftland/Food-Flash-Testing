@@ -274,6 +274,11 @@ onDOMReady(async function () {
                         showNotificationModal(pushData, 'push');
                         appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
                         break;
+                    case 'dinestatus':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        break;
 
                     default:
                         console.warn("Unhandled push message type:", messageType);
@@ -566,7 +571,7 @@ onDOMReady(async function () {
                 appendMessage(message, 'user', "","chat",message,storedName);
             } 
             else if (window.BASE && window.BASE.includes('/dine_flash/')) {
-                let bookingNo = BookingMappingService.getBookingNo(message);
+                bookingNo = BookingMappingService.getBookingNo(message);
                 if (!bookingNo) {
                     appendMessage(`Invalid Booking Number. Please check and try again.`, 'server', null);
                     return; // Stop further processing
@@ -675,7 +680,6 @@ onDOMReady(async function () {
 
             optionsContainer.appendChild(wrapper);
         });
-
 
         messageRow.appendChild(bubble);
         chatContainer.appendChild(messageRow);

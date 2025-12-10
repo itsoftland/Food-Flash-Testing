@@ -35,6 +35,7 @@ from .utils.booking_counts import get_booking_status_counts
 from static.utils.functions.notifications import notify_android_tv
 from static.utils.functions.queries import (update_existing_order_by_manager,
                                             update_existing_status_by_airlinemanager_bulk,
+                                            update_booking_status_by_dinemanager,
                                             )
 
 from static.utils.functions.utils import (
@@ -312,6 +313,7 @@ def book_table(request):
                 "remarks": special_notes,
                 "phone_number": phone_number,
                 "utility": utility.id if utility else None,
+                # "current_utility": utility.id if utility else None,
                 "manager_id": manager_id,
             }
 
@@ -1167,6 +1169,581 @@ def manager_passenger_update(request):
             {"success": False, "message": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+# @api_view(['PATCH'])
+# @permission_classes([IsAuthenticated])
+# def manager_booking_update(request):
+#     try:
+#         logger.debug("Request data: %s", request.data)
+
+#         data = request.data
+#         required_fields = ['booking_id', 'status', 'action','utility_id']
+#         missing = [f for f in required_fields if f not in data or data[f] in [None, ""]]
+
+#         # === Step 1: Validate required fields ===
+#         if missing:
+#             logger.warning("⛔ Missing fields: %s", ', '.join(missing))
+#             return Response(
+#                 {"message": f"Missing fields: {', '.join(missing)}"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # === Step 2: Validate token_no ===
+#         try:
+#             booking_id = int(data['booking_id'])
+#         except (TypeError, ValueError):
+#             logger.warning("❌ booking_id must be a valid integer | value=%s", data['booking_id'])
+#             return Response({"message": "booking_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         status_to_update = data['status']
+#         action = request.data.get("action", "").lower()
+#         if action not in ["allocated", "occupied", "operation_closed", "booking_cancelled", "message"]:
+#             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
+#         action_type = action
+
+#         utility_id = data['utility_id']
+#         # === Validate utility_id ===
+#         try:
+#             utility_id = int(utility_id)
+#         except (TypeError, ValueError):
+#             logger.warning("❌ utility_id must be a valid integer | value=%s", data['utility_id'])
+#             return Response({"message": "utility_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+#         utility = Utility.objects.filter(id=utility_id).first()
+#         if not utility:
+#             logger.warning("❌ No utility found for utility_id %s.", utility_id)
+#             return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#         # === Step 3: Validate manager & vendor ===
+#         manager = getattr(request.user, 'profile_roles', None)
+#         if not manager or not manager.exists():
+#             logger.warning("⚠️ No manager profile found for user=%s", request.user.username)
+#             return Response({"message": "User is not a manager."}, status=status.HTTP_403_FORBIDDEN)
+#         manager = manager.first()
+#         if not manager.vendor:
+#             logger.warning("⚠️ Manager %s has no vendor", manager.name)
+#             return Response({"message": "Manager does not have an associated vendor."}, status=status.HTTP_403_FORBIDDEN)
+
+#         vendor = manager.vendor
+#         logger.info("🔧 Manager: %s | Vendor: %s (%s)", manager.name, vendor.name, vendor.vendor_id)
+
+#         # === Step 4: Get today's business day range ===
+#         start_dt, end_dt = get_vendor_business_day_range(vendor)
+#         if not start_dt or not end_dt:
+#             logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+#             return Response({"error": "Invalid date range"}, status=400)
+#         booking = Order.objects.filter(id=booking_id,vendor=vendor,created_at__range=(start_dt, end_dt)).first()
+#         if not booking:
+#             logger.warning("❌ No booking found for booking_id=%s today.", booking_id)
+#             return Response({"message": f"Booking with booking_id {booking_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#         # === Step 5: Serialize vendor logo ===
+#         vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
+#         logo_url = vendor_serializer.data.get("logo_url", "")
+#         if not logo_url:
+#             logger.warning("⚠️ No logo URL for vendor %s", vendor.name)
+#             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#         booking_no = booking.table_booking_no
+#         # === Step 6: Prepare push payload ===
+#         payload = {
+#             "title": "Booking Update by Manager",
+#             "body": f"Your Booking {booking_no} status: {status_to_update}" if action_type == "allocated"
+#                     else f"Your Booking {booking_no} has an update from the manager." if action_type == "message"
+#                     else f"Your Booking {booking_no} has been marked occupied." if action_type == "occupied"
+#                     else f"Your Booking {booking_no} operation has been closed." if action_type == "operation_closed"
+#                     else f"Your Booking {booking_no} has been cancelled.",
+#             "token_no": booking.token_no,
+#             "status": status_to_update.lower(),
+#             "counter_no": booking.counter_no,
+#             "name": vendor.name,
+#             'alias_name': vendor.alias_name,
+#             "vendor_id": vendor.vendor_id,
+#             "location_id": vendor.location_id,
+#             "logo_url": logo_url,
+#             "type": "dinestatus" if action_type in ["allocated", "occupied", "operation_closed", "booking_cancelled"] else "manager",
+#             "message_id": None,
+#             "booking_id": booking_id,
+#             "booking_no": booking_no,
+#             "customer_name": booking.customer_name,
+#             "no_of_packs": booking.no_of_packs,
+#             "utility_name": booking.utility.display_name if booking.utility else "",
+#             "vibration_pattern":vendor.config.vibration_pattern,
+#             "vibration_duration":vendor.config.vibration_duration
+#         }
+
+#         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
+
+#         # === Step 7: Handle different action types ===
+#         if action_type == "allocated":
+#             # FCM push notifications if TV communication mode is not MQTT
+#             if vendor.config.tv_communication_mode == "Firebase":
+#                 # 1. Notify Android TV
+#                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
+#                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
+
+#             # 2. Update order in DB
+#             updated_booking = update_booking_status_by_dinemanager(booking,status_to_update,manager)
+#             if not updated_booking:
+#                 logger.warning("❌ Failed to update booking %s", booking_id)
+#                 return Response({"message": "Booking update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#             logger.info("✅ Booking %s updated to %s", updated_booking.table_booking_no, status_to_update)
+#             if vendor.config.tv_communication_mode == "AZURE_IOT":
+#                 logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
+#                 azure_iot = get_azure_devices(vendor)
+#                 logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
+#             if vendor.config.tv_communication_mode == "MQTT":
+#                 # 3. Send MQTT update
+#                 logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with booking_id {booking_id}")
+#                 if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
+#                     logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
+#                     return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
+
+#                 mqtt_success = send_order_update(vendor)
+#                 if mqtt_success:
+#                     logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
+#                 else:
+#                     logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+#                     return Response({"message": "Failed to send MQTT update."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#             # 4. Send Web Push (only if cooldown passed)
+#             cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
+#             if not booking.notified_at or (timezone.now() - booking.notified_at) > timedelta(seconds=cooldown):
+#                 logger.info("📤 Sending web push...")
+#                 push_errors = notify_web_push(booking, vendor, payload)
+#                 booking.refresh_from_db()  # ✅ ensures latest status from DB
+#                 booking.notified_at = timezone.now()
+#                 booking.save(update_fields=["notified_at"])
+#                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
+#             else:
+#                 logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
+
+#         elif action_type in ["occupied", "operation_closed", "booking_cancelled"]:
+#             logger.info("🔔 %s Booking %s by manager %s", action_type.capitalize(), booking_id, manager.name)
+#             updated_booking = update_existing_order_by_manager(booking_id, vendor, None, action_type, manager)
+#             if updated_booking:
+#                 payload["title"] = f"Order {action_type.capitalize()}"
+#                 push_errors = notify_web_push(updated_booking, vendor, payload)
+#                 updated_booking.refresh_from_db()  # ✅ ensures latest status from DB
+#                 updated_booking.notified_at = timezone.now()
+#                 updated_booking.save(update_fields=["notified_at"])
+#                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
+
+#         else:  # action_type == "message"
+#             MAX_MESSAGE_LENGTH = 200
+#             if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
+#                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
+
+#             logger.info("ℹ️ Sending manager message via web push")
+#             chat_message = ChatMessage.objects.create(
+#                 vendor=vendor,
+#                 token_no=booking.token_no,
+#                 created_date=get_vendor_current_time(vendor).date(),
+#                 sender='manager',
+#                 is_send=True,
+#                 message_text=status_to_update
+#             )
+#             payload["message_id"] = chat_message.id
+#             payload["status"] = status_to_update
+#             push_errors = notify_web_push(booking, vendor, payload)
+#             if push_errors:
+#                 logger.warning("❌ Failed web push for %s | Errors: %s", booking_id, push_errors)
+#                 chat_message.is_send = False
+#                 chat_message.save(update_fields=["is_send"])
+#             else:
+#                 logger.info("📤 Web push sent successfully for %s", booking_id)
+
+#         # === Step 8: Return final response ===
+#         return Response({
+#             "success": True,
+#             "message": f"Order {'updated and ' if action_type == 'allocated' else ''}notified successfully.",
+#             "token_no": booking.token_no,
+#             "android_tv": android_tv_success,
+#             "android_tv_info": android_tv_info,
+#             "web_push": not push_errors,
+#             "web_push_info": push_errors,
+#             "mqtt":mqtt_success if action_type == "ready" else None
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         logger.exception("🔥 Unhandled exception in manager_order_update | user=%s", request.user.username)
+#         return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# @api_view(['PATCH'])
+# @permission_classes([IsAuthenticated])
+# def manager_booking_update(request):
+#     try:
+#         logger.info("🟢 manager_booking_update API called.")
+#         data = request.data
+
+#         required_fields = ['booking_id', 'status', 'action']
+#         missing = [f for f in required_fields if f not in data]
+#         if missing:
+#             return Response(
+#                 {"success": False, "message": f"Missing fields: {', '.join(missing)}"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         booking_id = data['booking_id']
+#         new_status = data['status']
+#         action = data['action']
+
+#         # 1️⃣ Get manager's vendor
+#         vendor = get_manager_vendor(request.user)
+#         logger.info(f"Vendor resolved: {vendor.name}")
+
+#         # 2️⃣ Get booking
+#         # === Get today's business day range ===
+        
+#         try:
+#             start_dt, end_dt = get_vendor_business_day_range(vendor)
+#             if not start_dt or not end_dt:
+#                 logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+#                 return Response({"error": "Invalid date range"}, status=400)
+#             booking = Order.objects.filter(id=booking_id,vendor=vendor,created_at__range=(start_dt, end_dt)).first()
+#         except Order.DoesNotExist:
+#             return Response(
+#                 {"success": False, "message": "Booking not found for this vendor."},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         previous_status = booking.status
+#         old_utility = booking.current_utility  # May be None
+
+#         # ---------------------------------------------------------
+#         # 3️⃣ If the action is SEAT ALLOCATION or SEAT TRANSFER
+#         # ---------------------------------------------------------
+#         transition_action = None
+#         new_utility = None
+
+#         if action == "seat_update":
+#             utility_id = data.get("utility_id")
+
+#             if not utility_id:
+#                 return Response(
+#                     {"success": False, "message": "utility_id is required for seat updates."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#             try:
+#                 new_utility = Utility.objects.get(id=utility_id, vendor=vendor)
+#             except Utility.DoesNotExist:
+#                 return Response(
+#                     {"success": False, "message": "Utility not found for this vendor."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#             # Determine transition: allocated / transferred / no_change
+#             if old_utility is None:
+#                 transition_action = "allocated"
+#             elif old_utility.id != new_utility.id:
+#                 transition_action = "transferred"
+#             else:
+#                 transition_action = "no_change"
+
+#             # If same utility selected again
+#             if transition_action == "no_change":
+#                 logger.info("Seat unchanged. No transfer.")
+#                 # Do not return error — but record status change if needed
+#             else:
+#                 # Save new seat / utility
+#                 booking.current_utility = new_utility
+
+#         # ---------------------------------------------------------
+#         # 4️⃣ STATUS UPDATE
+#         # ---------------------------------------------------------
+#         if previous_status != new_status:
+#             booking.status = new_status
+
+#         booking.save()  # Save utility + status changes
+
+#         # ---------------------------------------------------------
+#         # 5️⃣ PROCESSING TIME CALCULATION
+#         # ---------------------------------------------------------
+#         latest_history = booking.status_history.order_by('-changed_at').first()
+#         processing_time_seconds = None
+
+#         if latest_history:
+#             last_time = latest_history.changed_at
+#             now = timezone.now()
+#             processing_time_seconds = int((now - last_time).total_seconds())
+
+#         # ---------------------------------------------------------
+#         # 6️⃣ INSERT HISTORY RECORD
+#         # ---------------------------------------------------------
+#         OrderStatusHistory.objects.create(
+#             order=booking,
+#             previous_status=previous_status,
+#             new_status=new_status,
+#             old_utility=old_utility,
+#             new_utility=new_utility if action == "seat_update" else None,
+#             changed_by="manager",
+#             processing_time_seconds=processing_time_seconds,
+#         )
+
+#         # ---------------------------------------------------------
+#         # 7️⃣ NOTIFICATION HANDLING
+#         # ---------------------------------------------------------
+#         if transition_action == "transferred":
+#             send_push_notification(
+#                 booking,
+#                 f"Your seat has been changed to {new_utility.name}"
+#             )
+
+#         if previous_status != new_status:
+#             send_push_notification(
+#                 booking,
+#                 f"Your status has been updated to {new_status}"
+#             )
+
+#         # ---------------------------------------------------------
+#         # 8️⃣ RESPONSE
+#         # ---------------------------------------------------------
+#         response = {
+#             "success": True,
+#             "message": (
+#                 "Booking transferred successfully"
+#                 if transition_action == "transferred"
+#                 else "Booking updated successfully"
+#             ),
+#             "booking_id": booking.id,
+#             "previous_status": previous_status,
+#             "new_status": new_status,
+#             "old_utility": old_utility.name if old_utility else None,
+#             "new_utility": new_utility.name if new_utility else None,
+#             "processing_time_seconds": processing_time_seconds
+#         }
+
+#         return Response(response, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         logger.error(f"Error in manager_booking_update: {str(e)}")
+#         return Response(
+#             {"success": False, "message": "Something went wrong.", "error": str(e)},
+#             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#         )
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def manager_booking_update(request):
+    try:
+        logger.debug("Request data: %s", request.data)
+
+        data = request.data
+        # Validate required fields
+        required_fields = ['booking_id', 'status', 'action', 'utility_id']
+        missing = [f for f in required_fields if f not in data or data[f] in [None, ""]]
+
+        # === Step 1: Validate required fields ===
+        if missing:
+            logger.warning("⛔ Missing fields: %s", ', '.join(missing))
+            return Response(
+                {"message": f"Missing fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # === Step 2: Validate booking_id ===
+        try:
+            booking_id = int(data['booking_id'])
+        except (TypeError, ValueError):
+            logger.warning("❌ booking_id must be a valid integer | value=%s", data['booking_id'])
+            return Response({"message": "booking_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        status_to_update = data['status']
+        action = request.data.get("action", "").lower()
+        utility_id = data['utility_id']
+
+        # === Validate utility_id ===
+        try:
+            utility_id = int(utility_id)
+        except (TypeError, ValueError):
+            logger.warning("❌ utility_id must be a valid integer | value=%s", data.get('utility_id'))
+            return Response({"message": "utility_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        target_utility = Utility.objects.filter(id=utility_id).first()
+        if not target_utility:
+            logger.warning("❌ No utility found for utility_id %s.", utility_id)
+            return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # === Step 3: Validate action type ===
+        allowed_actions = ["allocated", "occupied", "operation_closed", "booking_cancelled", "message",
+                           "utility_transfer"]
+        
+        if action not in allowed_actions:
+            return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        action_type = action
+
+        # === Step 4: Validate manager & vendor ===
+        manager_qs = getattr(request.user, 'profile_roles', None)
+        if not manager_qs or not manager_qs.exists():
+            logger.warning("⚠️ No manager profile found for user=%s", request.user.username)
+            return Response({"message": "User is not a manager."}, status=status.HTTP_403_FORBIDDEN)
+        manager = manager_qs.first()
+        if not manager.vendor:
+            logger.warning("⚠️ Manager %s has no vendor", manager.name)
+            return Response({"message": "Manager does not have an associated vendor."}, status=status.HTTP_403_FORBIDDEN)
+
+        vendor = manager.vendor
+        logger.info("🔧 Manager: %s | Vendor: %s (%s)", manager.name, vendor.name, vendor.vendor_id)
+
+        # === Step 5: Get today's business day range & booking ===
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        if not start_dt or not end_dt:
+            logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+            return Response({"error": "Invalid date range"}, status=400)
+
+        booking = Order.objects.filter(id=booking_id, vendor=vendor, created_at__range=(start_dt, end_dt)).first()
+        if not booking:
+            logger.warning("❌ No booking found for booking_id=%s today.", booking_id)
+            return Response({"message": f"Booking with booking_id {booking_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # === Step 5: Serialize vendor logo (unchanged) ===
+        vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
+        logo_url = vendor_serializer.data.get("logo_url", "")
+        if not logo_url:
+            logger.warning("⚠️ No logo URL for vendor %s", vendor.name)
+            return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        booking_no = booking.table_booking_no
+        # === Step 6: Prepare base push payload (unchanged) ===
+        payload = {
+            "title": "Booking Update by Manager",
+            "body": f"Your Booking {booking_no} status: {status_to_update}" if action_type == "allocated"
+                    else f"Your Booking {booking_no} has an update from the manager." if action_type == "message"
+                    else f"Your Booking {booking_no} has been marked occupied." if action_type == "occupied"
+                    else f"Your Booking {booking_no} operation has been closed." if action_type == "operation_closed"
+                    else f"Your Booking {booking_no} has been transferred." if action_type == "utility_transfer"
+                    else f"Your Booking {booking_no} has been cancelled.",
+            "token_no": booking.token_no,
+            "status": status_to_update.lower(),
+            "counter_no": booking.counter_no,
+            "name": vendor.name,
+            "alias_name": vendor.alias_name,
+            "vendor_id": vendor.vendor_id,
+            "location_id": vendor.location_id,
+            "logo_url": logo_url,
+            "type": "dinestatus" if action_type in ["allocated", "occupied", "operation_closed", "booking_cancelled"] else "manager",
+            "message_id": None,
+            "booking_id": booking_id,
+            "booking_no": booking_no,
+            "customer_name": booking.customer_name,
+            "no_of_packs": booking.no_of_packs,
+            "utility_name": booking.utility.display_name if booking.utility else "",
+            "vibration_pattern": vendor.config.vibration_pattern,
+            "vibration_duration": vendor.config.vibration_duration
+        }
+
+        android_tv_success, android_tv_info, mqtt_success, push_errors = None, None, None, []
+
+        # -------------------------
+        # === Step 7: Handle different action types ===
+        # -------------------------
+        # This will update booking.utility and run the normal notification / mqtt / tv flows.
+        # -------------------------
+        if action_type == "allocated":
+
+            booking.utility = target_utility
+            # Optionally update status if client provided a status that should apply
+            if status_to_update:
+                booking.status = status_to_update
+            booking.updated_by = 'manager'
+            booking.save()
+
+            logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
+
+            # Update payload fields for notifications
+            payload["utility_name"] = target_utility.display_name
+            payload["status"] = booking.status
+            payload["type"] = "dinestatus"
+
+            # For Android TV (Firebase) notify if configured
+            if vendor.config.tv_communication_mode == "Firebase":
+                android_tv_success, android_tv_info = notify_android_tv(vendor, data)
+                logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
+
+            # If MQTT mode, ensure vendor has mqtt config and send update
+            if vendor.config.tv_communication_mode == "MQTT":
+                logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with booking_id {booking_id}")
+                if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
+                    logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
+                    return Response({"message": "Vendor has no MQTT configuration."}, status=status.HTTP_400_BAD_REQUEST)
+
+                mqtt_success = send_order_update(vendor)
+                if mqtt_success:
+                    logger.info(f"✅ MQTT update sent successfully for vendor {vendor.vendor_id}")
+                else:
+                    logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
+                    # we continue, but report failure
+                    # (do not abort the transfer because of MQTT failure)
+
+            # For Azure IoT
+            if vendor.config.tv_communication_mode == "AZURE_IOT":
+                logger.info(f"[utility_transfer] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
+                azure_iot = get_azure_devices(vendor)
+                logger.info(f"[utility_transfer] Azure IoT messages sent: {azure_iot}")
+
+            # Web push: obey cooldown as in existing allocated flow
+            cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
+            if not booking.notified_at or (timezone.now() - booking.notified_at) > timedelta(seconds=cooldown):
+                logger.info("📤 Sending web push for utility_transfer...")
+                push_errors = notify_web_push(booking, vendor, payload)
+                booking.refresh_from_db()
+                booking.notified_at = timezone.now()
+                booking.save(update_fields=["notified_at"])
+                logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
+            else:
+                logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
+
+        elif action_type in ["occupied", "operation_closed", "booking_cancelled"]:
+            logger.info("🔔 %s Booking %s by manager %s", action_type.capitalize(), booking_id, manager.name)
+            updated_booking = update_existing_order_by_manager(booking_id, vendor, None, action_type, manager)
+            if updated_booking:
+                payload["title"] = f"Order {action_type.capitalize()}"
+                push_errors = notify_web_push(updated_booking, vendor, payload)
+                updated_booking.refresh_from_db()  # ✅ ensures latest status from DB
+                updated_booking.notified_at = timezone.now()
+                updated_booking.save(update_fields=["notified_at"])
+                logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
+
+        else:  # action_type == "message"
+            MAX_MESSAGE_LENGTH = 200
+            if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
+                return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
+
+            logger.info("ℹ️ Sending manager message via web push")
+            chat_message = ChatMessage.objects.create(
+                vendor=vendor,
+                token_no=booking.token_no,
+                created_date=get_vendor_current_time(vendor).date(),
+                sender='manager',
+                is_send=True,
+                message_text=status_to_update
+            )
+            payload["message_id"] = chat_message.id
+            payload["status"] = status_to_update
+            push_errors = notify_web_push(booking, vendor, payload)
+            if push_errors:
+                logger.warning("❌ Failed web push for %s | Errors: %s", booking_id, push_errors)
+                chat_message.is_send = False
+                chat_message.save(update_fields=["is_send"])
+            else:
+                logger.info("📤 Web push sent successfully for %s", booking_id)
+
+        # === Step 8: Return final response ===
+        return Response({
+            "success": True,
+            "message": "Booking status updated.",
+            "booking_id": booking.id,
+            "utility": target_utility.display_name,
+            "android_tv": android_tv_success,
+            "android_tv_info": android_tv_info,
+            "web_push": not push_errors,
+            "web_push_info": push_errors,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.exception("🔥 Unhandled exception in manager_order_update | user=%s", request.user.username)
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

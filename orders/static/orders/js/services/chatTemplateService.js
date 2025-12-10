@@ -2,6 +2,7 @@
 const statusClassMap = {
   preparing: 'preparing-color',
   ready: 'ready-color',
+  allocated:'ready-color',
   delivered: 'delivered-color',
   checked_in: 'checked-in-color',
   boarding_shortly: 'boarding-shortly-color',
@@ -9,6 +10,8 @@ const statusClassMap = {
   gate_change: 'gate-change-color',
   rescheduled: 'rescheduled-color',
   cancelled: 'cancelled-color',
+  booking_cancelled:'cancelled-color',
+  operation_closed:'boarding-shortly-color',
 };
 
 

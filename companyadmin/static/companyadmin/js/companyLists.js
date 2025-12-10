@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tableBody = document.querySelector('#companyTable tbody');
 
   try {
+    // load company list
     // call once on page load
     const companies = await loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS);
     let payload = {}
@@ -187,8 +188,8 @@ function buildRegistrationPayload(company) {
     DeviceModel: "Windows",
     DeviceIdentifier1: company.customer_name,
     DeviceType: 1,
-    Version: `${window.PROJECT_NAME} ${window.APP_VERSION}`,
-    ProjectName: window.PROJECT_NAME 
+    Version: `${window.APP_VERSION}`,
+    ProjectName: window.PROJECT_DISPLAY_NAME 
   };
 }
 

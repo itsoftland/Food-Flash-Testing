@@ -24,6 +24,15 @@ def get_airline_data(sequence_code, vendor):
     ).first()
     return order
 
+def get_booking(booking_id, vendor):
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    order = Order.objects.filter(
+        id=booking_id,
+        vendor=vendor,
+        created_at__range=(start_dt, end_dt)
+    ).first()
+    return order
+
 
 
 def update_existing_order_by_manager(token_no, vendor, device, status,manager):
@@ -62,6 +71,13 @@ def update_existing_status_by_airlinemanager(sequence_code, vendor, device, stat
             updated_by="manager"
         )
     return order
+
+def update_booking_status_by_dinemanager(booking,status,manager):
+    booking.status = status
+    booking.updated_by = "manager"
+    booking.user_profile = manager
+    booking.save()
+    return booking
 
 def update_existing_status_by_airlinemanager_bulk(sequence_code=None, vendor=None, device=None, status=None, manager=None, orders_queryset=None):
     """

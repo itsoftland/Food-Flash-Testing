@@ -58,23 +58,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const outletClass = isMapped ? 'name' : 'text-muted';
 
       const row = `
-      <tr>
-          <td class="text-muted text-center" data-label="ID">${Id}</td>
-          <td class="name" data-label="MAC Address">${device.mac_address}</td>
-          <td class="${outletClass}" data-label="Manager Name">${managerName}</td>
-          <td class="text-muted" data-label="Created Time">${createdTime}</td>
-          <td class="text-center" data-label="Actions">
-            <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
-                    data-toggle="tooltip"
-                    title="${iconTitle}"
-                    data-id="${device.id}"
-                    data-mac_address="${device.mac_address}"
-                    data-manager_name="${managerName}"
-                    data-mapped="${isMapped}">
-              <i class="fa-solid ${iconClass}"></i>
-            </button>
-          </td>
-      </tr>
+        <tr>
+            <td class="text-muted text-center" data-label="ID">${Id}</td>
+            <td class="name" data-label="MAC Address">${device.mac_address}</td>
+            <td class="${outletClass}" data-label="Manager Name">${managerName}</td>
+            <td class="text-muted" data-label="Created Time">${createdTime}</td>
+            <td class="text-center" data-label="Actions">
+              <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
+                      data-toggle="tooltip"
+                      title="${iconTitle}"
+                      data-id="${device.id}"
+                      data-mac_address="${device.mac_address}"
+                      data-manager_name="${managerName}"
+                      data-mapped="${isMapped}">
+                <i class="fa-solid ${iconClass}"></i>
+              </button>
+            </td>
+        </tr>
       `;
 
       tableBody.insertAdjacentHTML('beforeend', row);
