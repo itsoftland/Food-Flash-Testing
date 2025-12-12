@@ -21,6 +21,7 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
 }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
+    // console.log(token_no)
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
@@ -36,12 +37,6 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
     messageBubble.classList.add('message-bubble', sender);
     
     if (sender === 'server'){
-        // const activeLogo = localStorage.getItem("activeVendorLogo");
-        // const logoImg = document.createElement('img');
-        // logoImg.src = activeLogo;
-        // logoImg.alt = 'Vendor Logo';
-        // logoImg.className = 'server-logo';
-        // messageRow.appendChild(logoImg);
 
         messageBubble.innerHTML = `
             <div class="message-content">
@@ -87,7 +82,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
     }
 
     messageRow.appendChild(messageBubble);
-    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager')) {
+    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager') || (type === 'dinestatus')) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) {
             replyBtn.addEventListener('click', (e) => {
@@ -125,7 +120,6 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
                     }
                 }
 
-
                 // Focus input
                 const inputBox = document.getElementById("chat-input");
                 if (inputBox) inputBox.focus();
@@ -134,7 +128,13 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
                 const tokenNo = messageBubble.dataset.tokenNo;
             });
         }
-    } else {
+    } 
+    else if (type === 'thankyou') {
+        const replyBtn = messageBubble.querySelector('.reply-button');
+        if (replyBtn) replyBtn.remove();
+        messageBubble.classList.add("thankyou-message");
+    }
+    else {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) replyBtn.remove();
     }

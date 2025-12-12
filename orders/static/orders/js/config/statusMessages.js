@@ -47,9 +47,16 @@ export const STATUS_MESSAGE_MAP = {
     
   flightcancel: (data) => `
     Kindly contact the airline staff.`, 
+
+  waiting: (data) => `
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    is now <strong>waiting</strong> for allocation.`,
   
   allocated: (data) => `
     Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
     has been Allocated at <strong>${data.utility_name}</strong>.`,
+  
+  operation_closed: (data) => `
+    Thank you for choosing us today.`,
   
 };

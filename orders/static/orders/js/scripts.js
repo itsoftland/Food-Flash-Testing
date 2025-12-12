@@ -277,7 +277,13 @@ onDOMReady(async function () {
                     case 'dinestatus':
                         AppUtils.notifyOrderReady(pushData);
                         showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                        break;
+                    
+                    case 'thankyou' :
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
 
                     default:
@@ -552,7 +558,7 @@ onDOMReady(async function () {
             const tokenNo = selectedMessage.dataset.tokenNo;
             if (tokenNo) {
                 // This is a reply to a message with tokenNo
-                await fetchOrderStatusOnce(tokenNo,message); // Attach token + reply inside this function
+                await fetchOrderStatusOnce(tokenNo,message,tokenNo); // Attach token + reply inside this function
             } else {
                 console.warn("Selected message has no token number.");
             }
@@ -572,6 +578,7 @@ onDOMReady(async function () {
             } 
             else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 bookingNo = BookingMappingService.getBookingNo(message);
+                bookingId = BookingMappingService.getBookingId(message);
                 if (!bookingNo) {
                     appendMessage(`Invalid Booking Number. Please check and try again.`, 'server', null);
                     return; // Stop further processing
@@ -584,7 +591,7 @@ onDOMReady(async function () {
                 }
 
                 // Otherwise continue normally
-                appendMessage(bookingNo, 'user', null, "chat", bookingNo);
+                appendMessage(bookingNo, 'user', null, "chat", bookingId);
             }
 
             else {

@@ -107,3 +107,16 @@ def get_filtered_date_range(date_range, from_date_str=None, to_date_str=None):
             return None, None
     return None, None
 
+def get_default_closing_message():
+        from django.conf import settings
+
+        project = getattr(settings, "PROJECT_NAME", "default").lower()
+
+        defaults = {
+            "food_flash": "Thank you for visiting us. Have a great day!",
+            "airline_flash": "Thank you for choosing our service. Wish you a pleasant journey!",
+            "dine_flash": "Thank you for dining with us today.We appreciate your visit. Have a wonderful day!",
+            "default": "Thank you! Have a great day!",
+        }
+
+        return defaults.get(project, defaults["default"])

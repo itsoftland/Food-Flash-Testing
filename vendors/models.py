@@ -6,7 +6,7 @@ from django.utils import timezone
 import uuid
 import pytz
 from django.db.models.signals import post_save
-from static.utils.functions.utils import get_vendor_current_time
+from static.utils.functions.utils import get_vendor_current_time,get_default_closing_message
 from django.conf import settings     
 from core.config.status_choices import STATUS_CHOICES_MAP
 
@@ -154,6 +154,11 @@ class VendorConfig(models.Model):
     )
     continuous_booking_counter = models.PositiveIntegerField(default=0)
     phone_number_enabled = models.BooleanField(default=False)
+    closing_message = models.TextField(
+        help_text="Custom closing/thank you message",
+        default=get_default_closing_message
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

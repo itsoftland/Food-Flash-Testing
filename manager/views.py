@@ -1550,19 +1550,6 @@ def manager_booking_update(request):
 
         status_to_update = data['status']
         action = request.data.get("action", "").lower()
-        utility_id = data['utility_id']
-
-        # === Validate utility_id ===
-        try:
-            utility_id = int(utility_id)
-        except (TypeError, ValueError):
-            logger.warning("❌ utility_id must be a valid integer | value=%s", data.get('utility_id'))
-            return Response({"message": "utility_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        target_utility = Utility.objects.filter(id=utility_id).first()
-        if not target_utility:
-            logger.warning("❌ No utility found for utility_id %s.", utility_id)
-            return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 3: Validate action type ===
         allowed_actions = ["allocated", "occupied", "operation_closed", "booking_cancelled", "message",
@@ -1641,13 +1628,23 @@ def manager_booking_update(request):
         # This will update booking.utility and run the normal notification / mqtt / tv flows.
         # -------------------------
         if action_type == "allocated":
+            utility_id = data['utility_id']
+
+            # === Validate utility_id ===o
+            try:
+                utility_id = int(utility_id)
+            except (TypeError, ValueError):
+                logger.warning("❌ utility_id must be a valid integer | value=%s", data.get('utility_id'))
+                return Response({"message": "utility_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            target_utility = Utility.objects.filter(id=utility_id).first()
+            if not target_utility:
+                logger.warning("❌ No utility found for utility_id %s.", utility_id)
+                return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
             booking.utility = target_utility
             # Optionally update status if client provided a status that should apply
-            if status_to_update:
-                booking.status = status_to_update
-            booking.updated_by = 'manager'
-            booking.save()
+            updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
 
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
 
@@ -1674,7 +1671,6 @@ def manager_booking_update(request):
                 else:
                     logger.error(f"❌ Failed to send MQTT update for vendor {vendor.vendor_id}")
                     # we continue, but report failure
-                    # (do not abort the transfer because of MQTT failure)
 
             # For Azure IoT
             if vendor.config.tv_communication_mode == "AZURE_IOT":
@@ -1693,12 +1689,29 @@ def manager_booking_update(request):
                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
             else:
                 logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
+        elif action_type == "occupied":
+            logger.info("🔔 Occupied Booking %s by manager %s", booking_id, manager.name)
+            updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
 
-        elif action_type in ["occupied", "operation_closed", "booking_cancelled"]:
+        elif action_type  ==  "booking_cancelled":
             logger.info("🔔 %s Booking %s by manager %s", action_type.capitalize(), booking_id, manager.name)
-            updated_booking = update_existing_order_by_manager(booking_id, vendor, None, action_type, manager)
+            updated_booking = update_booking_status_by_dinemanager(booking, status_to_update,manager)
             if updated_booking:
                 payload["title"] = f"Order {action_type.capitalize()}"
+                push_errors = notify_web_push(updated_booking, vendor, payload)
+                updated_booking.refresh_from_db()  # ✅ ensures latest status from DB
+                updated_booking.notified_at = timezone.now()
+                updated_booking.save(update_fields=["notified_at"])
+                logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
+        
+        elif action_type == "operation_closed":
+            logger.info("🔔 Operation Closed Booking %s by manager %s", booking_id, manager.name)
+            updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
+            if updated_booking:
+                if vendor.config:
+                    payload['thank_you_note'] = vendor.config.closing_message
+                payload["title"] = f"Operation Closed"
+                payload['type'] = "thankyou"
                 push_errors = notify_web_push(updated_booking, vendor, payload)
                 updated_booking.refresh_from_db()  # ✅ ensures latest status from DB
                 updated_booking.notified_at = timezone.now()
@@ -1714,6 +1727,8 @@ def manager_booking_update(request):
             chat_message = ChatMessage.objects.create(
                 vendor=vendor,
                 token_no=booking.token_no,
+                booking_id = booking_id,
+                booking_no = booking_no,
                 created_date=get_vendor_current_time(vendor).date(),
                 sender='manager',
                 is_send=True,
@@ -1742,7 +1757,7 @@ def manager_booking_update(request):
         }, status=status.HTTP_200_OK)
 
     except Exception as e:
-        logger.exception("🔥 Unhandled exception in manager_order_update | user=%s", request.user.username)
+        logger.exception("🔥 Unhandled exception in manager_booking_update | user=%s", request.user.username)
         return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])

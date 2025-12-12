@@ -48,7 +48,13 @@ export const ChatRestoreService = (() => {
           // console.log(msg)
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
           });
-        } else{
+        } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
+          cachedMessages.forEach(msg => {
+          // console.log(msg)
+          // console.log("Chat History booking_id",msg.booking_id)
+          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.booking_id);
+          });
+        } else {
           cachedMessages.forEach(msg => {
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
           });

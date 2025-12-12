@@ -29,6 +29,27 @@ const dineInPayloadStatusMap = {
   booking_cancelled:'Booking Cancelled',
 };
 
+function buildThankYouMessage(payload) {
+  const farewellMessage =
+    payload.thank_you_note ||
+    "Thank you for dining with us today. We appreciate your visit. Have a wonderful day!";
+
+  return `
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Thank You"}</span>
+    </div>
+
+    <div class="thankyou-card">
+        <div class="thankyou-icon">✨</div>
+        <div class="thankyou-message">
+            ${farewellMessage}
+        </div>
+    </div>
+  `;
+}
+
+
 function buildStatusMessage(payload) {
   // console.log("payload status:",payload.status)
   const statusKey = payload?.status || 'unknown';
@@ -251,6 +272,9 @@ export const ChatTemplateService = {
         return buildFlightStatusMessage(payload);
       case "dinestatus":
         return buildBookingStatusMessage(payload);
+      case "thankyou":
+        return buildThankYouMessage(payload);
+
       case "chat":
         // user-typed messages → extract content
         return typeof payload === "object" && payload.content

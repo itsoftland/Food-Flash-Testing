@@ -196,7 +196,6 @@ def company_lists(request):
 @api_view(['PUT'])
 @permission_classes([AllowAny]) 
 def update_company_id(request,id):
-    customer_id = request.data.get('customer_id')
     if not id:
         return Response({"error": "customer_id is required."},
                         status=status.HTTP_400_BAD_REQUEST)

@@ -143,6 +143,8 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
     try:
         token_no = payload.get("token_no")
         msg_type = payload.get("type")
+        booking_id = payload.get("booking_id")
+        print(booking_id)
 
         # Build text as JSON (ensures consistent format)
         text = payload
@@ -161,6 +163,20 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
                 is_read=False,
                 is_send=True
             )
+        elif project_name == "dine_flash" and booking_id:
+            message = WebChatMessage.objects.create(
+                message_id=uuid.uuid4(),
+                subscription=subscription,
+                vendor=vendor,
+                token_no=token_no,
+                booking_id=booking_id,
+                sender="server",
+                type=msg_type,
+                text=text,
+                timestamp=now(),
+                is_read=False,
+                is_send=True
+        )
         else:
             message = WebChatMessage.objects.create(
                 message_id=uuid.uuid4(),

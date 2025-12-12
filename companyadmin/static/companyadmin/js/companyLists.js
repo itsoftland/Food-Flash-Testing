@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btn = e.target.closest('button.license-btn');
       if (!btn) return;
 
+      // get company ID
       const companyId = btn.dataset.companyId;
       if (!companyId) return;
 
@@ -46,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 2) Start polling authentication
         const customerId = regJson.CustomerId;
-        const saveCustomerID = await fetchWithAutoRefresh(`${API_ENDPOINTS.UPDATE_COMPANY_ID}${company.id}/`, { 
+        const saveCustomerID = await fetchWithAutoRefresh(`${API_ENDPOINTS.UPDATE_COMPANY_ID}${companyId}/`, { 
           method: 'PUT',
           headers: {
                 'Content-Type': 'application/json',
