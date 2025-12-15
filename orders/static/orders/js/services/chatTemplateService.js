@@ -268,6 +268,8 @@ export const ChatTemplateService = {
         return buildManagerMessage(payload);
       case "airline_manager":
         return buildAirlineManagerMessage(payload);
+      case "dine_manager":
+        return buildManagerMessage(payload);
       case "flightstatus":
         return buildFlightStatusMessage(payload);
       case "dinestatus":

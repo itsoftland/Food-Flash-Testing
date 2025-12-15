@@ -469,6 +469,7 @@ input[type="text"] {
     background-color: #fff;
     align-self: flex-start;
     border: 2px solid #fdbf50;
+    margin-right:8px;
 }
 
 /* === FOOTER === */

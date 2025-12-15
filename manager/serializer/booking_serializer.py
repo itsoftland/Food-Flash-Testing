@@ -1,12 +1,13 @@
 from rest_framework import serializers
 from django.urls import reverse
-from vendors.models import Order
+from vendors.models import Order, ChatMessage
 from django.conf import settings
+project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 
 
 class BookingSerializer(serializers.ModelSerializer):
     booked_time = serializers.DateTimeField(source="created_at", read_only=True)
-    new_notifications = serializers.IntegerField(default=0, read_only=True)
+    new_notifications = serializers.SerializerMethodField()
     utility_id = serializers.IntegerField(source="utility.id", read_only=True)
 
     tracking_url = serializers.SerializerMethodField()
@@ -16,7 +17,6 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "table_booking_no",
-            "token_no",
             "customer_name",
             "phone_number",
             "no_of_packs",
@@ -52,3 +52,12 @@ class BookingSerializer(serializers.ModelSerializer):
             )
 
         return url
+    
+    def get_new_notifications(self, obj):
+        return ChatMessage.objects.filter(
+            vendor=obj.vendor,
+            booking_no=obj.table_booking_no,
+            created_date=obj.created_at.date(),
+            sender='user',
+            is_read=False
+        ).count()

@@ -627,7 +627,7 @@ window.AppUtils = {
 
             } else if (pushData.status === 'allocated') {
                 const DineSpeech = formatFlightNoForSpeech(pushData.booking_no);
-                message = `Your booking ${DineSpeech} has been allocated a table. Please proceed to your assigned table.`;
+                message = `Your booking ${DineSpeech} has been allocated an available area. Please proceed to your assigned area.`;
 
             } else if (pushData.status === 'operation_closed') {
                 message = "Thank you for choosing us today. We hope you enjoyed your meal. Have a great day ahead."
@@ -636,7 +636,11 @@ window.AppUtils = {
                 const DineSpeech = formatFlightNoForSpeech(pushData.booking_no);
                 message = `Unfortunately, your booking ${DineSpeech} has been cancelled. Please contact the restaurant staff for assistance.`;
 
-            } else {
+            } else if (pushData.type === 'dine_manager') {
+            // 📩 Manager broadcast messages
+                message = `You have a new message. Please check the app for details.`;
+            }
+            else {
             // 🧾 Default fallback
                 message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
             }

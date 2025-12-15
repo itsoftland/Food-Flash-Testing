@@ -143,7 +143,7 @@ def get_order_counts(orders_queryset, serialized_data):
     # Count orders with new_notifications > 0 (Unread)
     counts["unread"] = sum(1 for item in serialized_data if item.get("new_notifications", 0) > 0)
 
-    return 
+    return counts
 
 # ===  Airline Project Utility ===
 def get_passenger_counts(passengers_queryset, serialized_data):

@@ -251,19 +251,27 @@ def check_status(request):
                 )
             
             try:
-                ChatMessage.objects.create(
+                chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
                     token_no=order.token_no,
-                    sequence_code = order.sequence_code,
+                    booking_id = order.id if project_name == "dine_flash" else None,
+                    booking_no = order.table_booking_no if project_name == "dine_flash" else None,
+                    sequence_code = order.sequence_code if project_name == "airline_flash" else None,
                     created_date=timezone.now().date(),
                     sender='user',
+                    is_send=True,
                     message_text=reply_text
                 )
             except Exception as e:
                 logger.exception("Failed to store user chat message")
+                chat_message.is_send = False
+                chat_message.save(update_fields=["is_send"])
             if project_name == "airline_flash":
                 title = "Passenger Message Received"
                 body = f"Passenger {order.sequence_code} has sent a new message."
+            elif project_name == "dine_flash":
+                title = "Customer Message Received"
+                body = f"Customer {order.table_booking_no} has sent a new message."
             else:
                 title = "Customer Message Received"
                 body = f"Customer {order.token_no} has sent a new message."

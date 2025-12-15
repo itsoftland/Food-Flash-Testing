@@ -21,7 +21,7 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
 }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
-    // console.log(token_no)
+    console.log("Booking ID from message:", token_no);
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
@@ -82,7 +82,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
     }
 
     messageRow.appendChild(messageBubble);
-    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager') || (type === 'dinestatus')) {
+    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager') || (type === 'dinestatus') || (type === 'dine_manager')) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) {
             replyBtn.addEventListener('click', (e) => {

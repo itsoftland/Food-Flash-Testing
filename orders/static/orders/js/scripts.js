@@ -221,7 +221,7 @@ onDOMReady(async function () {
             }
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
-                console.log("Payload Recieved:",pushData)
+                // console.log("Payload Recieved:",pushData)
                 // ✅ Send ACK back to Service Worker confirming receipt
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
@@ -263,7 +263,11 @@ onDOMReady(async function () {
                         showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.sequence_code, pushData.message_id);
                         break;
-
+                    case 'dine_manager':
+                        AppUtils.notifyOrderReady(pushData);
+                        showNotificationModal(pushData, 'notification');
+                        appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
+                        break;
                     case 'foodstatus':
                         AppUtils.notifyOrderReady(pushData);
                         showNotificationModal(pushData, 'push');
@@ -277,6 +281,7 @@ onDOMReady(async function () {
                     case 'dinestatus':
                         AppUtils.notifyOrderReady(pushData);
                         showNotificationModal(pushData, 'push');
+                        console.log("booking_id", pushData.booking_id);
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
                     
@@ -373,7 +378,8 @@ onDOMReady(async function () {
             // console.log(base)
             if (base == '/airline_flash/'){
                 chatInput.placeholder = "Enter your Sequence Code..."; 
-            }else if (base == '/dine_flash/'){
+            }
+            else if (base == '/dine_flash/'){
                 chatInput.placeholder = "Enter your Booking No...";
             }
             else{
@@ -554,7 +560,7 @@ onDOMReady(async function () {
         const selectedMessage = document.querySelector(".message-bubble.server.selected");
 
         if (selectedMessage) {
-            // console.log(selectedMessage.dataset.tokenNo)
+            console.log(" 💬 Selected message has token number:",selectedMessage.dataset.tokenNo)
             const tokenNo = selectedMessage.dataset.tokenNo;
             if (tokenNo) {
                 // This is a reply to a message with tokenNo
@@ -704,6 +710,7 @@ onDOMReady(async function () {
         }
         else if (window.BASE && window.BASE.includes('/dine_flash/')) {
             if (!bookingId) {
+                console.log("Fetching booking ID for token:", token);
                 bookingId = BookingMappingService.getBookingId(token.split("-")[1]);
                 if (Array.isArray(bookingId)) {
                     // console.log("Multiple bookings found for token:", token, "→", bookingId);
@@ -713,7 +720,7 @@ onDOMReady(async function () {
                     return; // stop here until user selects
                 }
             }
-            // console.log("Fetching booking ID for token:", token, "→", bookingId);
+            console.log("Fetching booking ID for token:", token, "→", bookingId);
             payload = { booking_id: bookingId, vendor_id: activeVendor };
             type = 'dinestatus';
         } 
