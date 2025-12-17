@@ -120,6 +120,17 @@ def order_details(request):
 @api_view(['GET']) 
 @permission_classes([IsAuthenticated])
 def get_vendor_details(request):
+    """
+    API endpoint to fetch details of a vendor.
+
+    Parameters:
+    - vendor_id: The ID of the vendor to fetch details for.
+
+    Returns:
+    - A JSON response containing the vendor details, unmapped vendor details, TV communication mode choices and MQTT mode choices.
+    - A 400 error response if the vendor_id parameter is not provided.
+    - A 400 error response if the vendor with the given ID is not found.
+    """
     vendor_id = request.GET.get('vendor_id')
     
     if not vendor_id:
@@ -163,6 +174,15 @@ def get_vendor_details(request):
 @api_view(['GET']) 
 @permission_classes([IsAuthenticated])
 def get_vendors(request):
+    """
+    Returns all vendors associated with the logged-in admin outlet.
+    
+    Parameters:
+    request (Request): Django's request object
+    
+    Returns:
+    Response: A response containing a list of vendors associated with the admin outlet.
+    """
     user = request.user
     try:
         admin_outlet = user.admin_outlet
@@ -181,6 +201,21 @@ def get_vendors(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_outlet_creation_data(request):
+    """
+    GET /api/get_outlet_creation_data/
+    Returns all data required to create a new vendor for a given admin outlet.
+    - locations: List of all possible locations from AdminOutlet.locations JSON field
+    - keypad_devices: List of unmapped keypad devices (serial_no)
+    - android_tvs: List of unmapped Android TVs (mac_address)
+    - tv_communication_modes: List of choices from VendorConfig.tv_communication_mode field
+    - mqtt_modes: List of choices from VendorConfig.mqtt_mode field (optional)
+
+    Parameters:
+    request (Request): Django's request object
+    
+    Returns:
+    Response: A response containing all data required to create a new vendor for a given admin outlet.
+    """
     user = request.user
     try:
         admin_outlet = user.admin_outlet
@@ -238,6 +273,13 @@ def get_outlet_creation_data(request):
     }, status=status.HTTP_200_OK)
 
 def generate_unique_vendor_id():
+    """
+    Generates a unique 6-digit vendor ID by randomly generating a number
+    between 100000 and 999999 until a unique ID is found.
+
+    Returns:
+        int: A unique 6-digit vendor ID.
+    """
     while True:
         # Generate a random 6-digit number, first digit 1-9
         vendor_id = random.randint(100000, 999999)
@@ -251,6 +293,20 @@ def generate_unique_vendor_id():
 @parser_classes([MultiPartParser, FormParser])
 @transaction.atomic
 def create_vendor(request):
+    """
+    Creates a new vendor for the given admin outlet.
+
+    Parameters:
+    request (Request): Django's request object
+
+    Returns:
+    Response: A response containing the vendor ID of the newly created vendor.
+
+    Status Codes:
+    201 Created: Vendor created successfully
+    400 Bad Request: Error during vendor creation
+    409 Conflict: Vendor with the same name already exists
+    """
     try:
         logger.info("Vendor creation initiated by user: %s", request.user)
         logger.debug("Incoming vendor creation data: %s", dict(request.data))

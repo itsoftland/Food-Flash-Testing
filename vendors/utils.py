@@ -276,4 +276,22 @@ def build_tv_config_payload(tv_config):
         "updated_at": tv_config.updated_at,
     }
 
+def build_vendor_config_payload(vendor):
+    """
+    Builds a minimal vendor configuration payload for Android APK.
+    Returns safe defaults if config is missing.
+    """
+    try:
+        config = vendor.config
+        return {
+            "phone_number_enabled": config.phone_number_enabled,
+            "utilities_enabled": config.use_utilities,
+        }
+    except Exception:
+        return {
+            "phone_number_enabled": False,
+            "utilities_enabled": False,
+        }
+
+
 

@@ -38,7 +38,10 @@ table#companyTable .badge {
   border-radius: 14px;
   font-weight: 500;
   font-size:0.9rem;
-  /* color:#0e0d0d; */
+}
+
+.badge-warning{
+  color:#0e0d0d;
 }
 
 /* License button */
@@ -119,7 +122,7 @@ table#companyTable .license-cell .btn {
   background-color: #28a745;  /* green */
   border-color: #28a745;
   color: #f5f5f5;
-/* } */
+}
 
 .license-btn.verified:hover {
   background-color: #218838;

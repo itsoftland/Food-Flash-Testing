@@ -1,36 +1,74 @@
+# Standard library
 import json
 import logging
 
-from django.utils.timezone import now, localtime
+# Django
 from django.conf import settings
+from django.db import transaction
+from django.utils.timezone import now, localtime
 
-from rest_framework import status
+# Third-party
+from rest_framework import status, serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import serializers
-
-from .models import (Order, Vendor, Device,
-                     AndroidDevice, PushSubscription,
-                     AdminOutlet, AndroidAPK, UserProfile,
-                     IoTDeviceCredential)
-
-from .serializers import OrdersSerializer
-from orders.serializers import VendorLogoSerializer
-from .utils import send_push_notification, notify_web_push, build_tv_config_payload 
-from static.utils.functions.queries import get_order
 from firebase_admin import messaging
+
+# Local app models
+from .models import (
+    Order,
+    Vendor,
+    Device,
+    AndroidDevice,
+    PushSubscription,
+    AdminOutlet,
+    AndroidAPK,
+    UserProfile,
+)
+
+# Local app serializers
+from .serializers import OrdersSerializer
+
+# Cross-app serializers
+from orders.serializers import VendorLogoSerializer
+
+# Local utilities
+from .utils import (
+    send_push_notification,
+    notify_web_push,
+    build_tv_config_payload,
+    build_vendor_config_payload
+)
 from .mqtt_client import get_mqtt_config_for_vendor
+
+# Shared utilities / queries
+from static.utils.functions.queries import get_order
+
+# Orders / vendors services
 from orders.utils import send_to_managers
 from vendors.services.order_service import send_order_update
 from vendors.services.get_or_create_azure_device import create_iot_credentials
 from vendors.services.send_to_iot import get_azure_devices
+
+# Logger
 logger = logging.getLogger(__name__)
+
+# Project name
 project_name = getattr(settings, 'PROJECT_NAME', 'food_flash')
+
+# API endpoints
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_current_time(request):
+    """
+    Returns the current time in the format: %Y-%m-%d %H:%M:%S
+
+    :param request: The HTTP request object
+    :return: A JSON response containing the current time
+    :rtype: Response
+    """
+    
     current_ist = localtime(now())
     formatted_time = current_ist.strftime('%Y-%m-%d %H:%M:%S')
     return Response({'current_time': formatted_time})
@@ -38,6 +76,13 @@ def get_current_time(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_order(request):
+    """
+    API endpoint to fetch all orders.
+
+    :param request: The HTTP request object
+    :return: A JSON response containing all orders
+    :rtype: Response
+    """
     orders = Order.objects.all()  
     serializer = OrdersSerializer(orders, many=True)
     return Response(serializer.data) 
@@ -45,6 +90,22 @@ def list_order(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def save_subscription(request):
+    """
+    Saves a push subscription to the database.
+
+    :param request: The HTTP request object
+    :return: A JSON response containing a success message or an error message
+    :rtype: Response
+
+    The request body should contain the following fields:
+    - `endpoint`: The endpoint URL of the push subscription
+    - `keys`: A dictionary containing the public key and authentication secret of the push subscription
+    - `browser_id`: The browser ID of the user
+    - `token_number`: The token number of the order (optional)
+    - `vendor_id`: The vendor ID of the vendor
+
+    If the request is successful, the response will contain a success message. If the request fails, the response will contain an error message.
+    """
     try:
         logger.info("📥 POST /save_subscription")
         logger.info(f"IP: {request.META.get('REMOTE_ADDR')}, UA: {request.META.get('HTTP_USER_AGENT')}")
@@ -120,6 +181,29 @@ def save_subscription(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def send_offers(request):
+    """
+    Send an offer to all active customers of a given vendor.
+
+    Request Body:
+    {
+        "vendor_id": integer,
+        "offer": string,
+        "title": string
+    }
+
+    Response:
+    {
+        "message": string
+    }
+
+    Status Codes:
+    - 400: Invalid request body or missing required fields.
+    - 404: Invalid vendor ID.
+    - 200: Offer sent successfully.
+
+    :param request: Request object containing the request body.
+    :return: Response object containing the response data and status code.
+    """
     vendor_id = request.data.get("vendor_id")
     offer = request.data.get("offer")
     title = request.data.get("title")
@@ -172,6 +256,22 @@ def send_offers(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_device(request):
+    """
+    Registers a new device with the given serial_no and customer_id.
+
+    Parameters:
+    request (Request): Django's request object containing the serial_no and customer_id.
+
+    Returns:
+    Response: A response containing the status of the registration attempt and additional information if applicable.
+
+    Status Codes:
+    201 Created: Device is registered but not yet mapped to a vendor.
+    200 OK: Device is already registered and mapped to a vendor or device is registered but not yet mapped to a vendor.
+    400 Bad Request: Fields 'serial_no' and 'customer_id' are required.
+    404 Not Found: Customer not found.
+    409 Conflict: Serial number already registered with another customer.
+    """
     serial_no = request.data.get('serial_no')
     customer_id = request.data.get('customer_id')
 
@@ -347,19 +447,23 @@ def register_device(request):
 #         "mqtt_config": None
 #     }, status=status.HTTP_200_OK)
 
-from django.db import transaction
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework import status
-
-# helpers you already have
-# from .helpers import get_mqtt_config_for_vendor, create_iot_credentials
-# from .utils.tv_config_utils import build_tv_config_payload
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_android_device(request):
+    
+    """
+    Registers an Android device for a given customer.
+
+    POST /api/register-android-device/
+    Payload: { "token": <string>, "customer_id": <int>, "mac_address": <string> }
+    Returns:
+    - Mapped: True if the device is mapped to a vendor; False otherwise
+    - Vendor ID: The ID of the vendor the device is mapped to
+    - Vendor Name: The name of the vendor the device is mapped to
+    - MQTT Config: The MQTT configuration for the device, if available
+    - TV Config: The TV configuration for the device, if available
+
+    """
     data = request.data
     token = data.get('token')
     customer_id = data.get('customer_id')
@@ -466,7 +570,7 @@ def register_android_device(request):
 
         return Response({
             "status": "Device is mapped to vendor.",
-            "mapped": True,
+            "mapped": mapped,
             "vendor_id": vendor_id,
             "vendor_name": vendor_name,
             "mqtt_config": mqtt_config,
@@ -477,7 +581,7 @@ def register_android_device(request):
     logger.info("Device registered but not mapped to any vendor.")
     return Response({
         "status": "Device is registered but not yet mapped to a vendor.",
-        "mapped": False,
+        "mapped": mapped,
         "vendor_id": None,
         "vendor_name": None,
         "mqtt_config": None,
@@ -562,6 +666,7 @@ def register_android_apk(request):
                         "mapped": False,
                         "manager_id": None,
                         "manager_name": None,
+                        "config": None
                     },
                     status=status.HTTP_200_OK
                 )
@@ -585,16 +690,19 @@ def register_android_apk(request):
                     "mapped":False,
                     "manager_id": None,
                     "manager_name": None,
+                    "config": None
                 }, status=status.HTTP_200_OK)
             logger.info(
                 "[register_android_apk] Device mapped to manager_id=%s (%s)",
                 device.user_profile.id, device.user_profile.name
             )
+            config_data = build_vendor_config_payload(device.user_profile.vendor)
             return Response({
                 "status": "Device is mapped to a manager.",
                 "mapped": True,
                 "manager_id": device.user_profile.id,
                 "manager_name": device.user_profile.name,
+                "config": config_data,
             }, status=status.HTTP_200_OK)
 
         logger.info("[register_android_apk] Device registered but not mapped to any manager.")
@@ -603,6 +711,7 @@ def register_android_apk(request):
             "mapped": False,
             "manager_id": None,
             "manager_name": None,
+            "config": None
         }, status=status.HTTP_200_OK)
 
     except AdminOutlet.DoesNotExist:

@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+
+  // table body element
   const tableBody = document.querySelector('#companyTable tbody');
 
   try {
@@ -34,33 +36,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         // alert('Company data not available.');
         return;
       }
-      // console.log("company Details",company)
-      // console.log("Starting license flow for company ID:", company.id);
+      let customerId = company.customer_id || null;
 
       // 1) Register product
       try {
-        const regJson = await registerProduct(company, btn, fetchWithAutoRefresh, API_ENDPOINTS);
-        if (!regJson || regJson.status !== 'Success' || !regJson.CustomerId) {
-          throw new Error('Registration did not return success or CustomerId.');
+        if (!customerId) {
+          const regJson = await registerProduct(company, btn, fetchWithAutoRefresh, API_ENDPOINTS);
+          if (!regJson || regJson.status !== 'Success' || !regJson.CustomerId) {
+            throw new Error('Registration did not return success or CustomerId.');
+          }
+          // console.log('Registration successful:', regJson);
+          customerId = regJson.CustomerId;
+          const saveCustomerID = await fetchWithAutoRefresh(`${API_ENDPOINTS.UPDATE_COMPANY_ID}${companyId}/`, { 
+            method: 'PUT',
+            headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': AppUtils.getCSRFToken()
+              },
+            credentials: 'include',
+            body: JSON.stringify({
+              customer_id: customerId,
+            })  
+          });
+          if (!saveCustomerID.ok) {
+              console.error('❌ Update failed:', result);
+          }
         }
-        // console.log('Registration successful:', regJson);
-
-        // 2) Start polling authentication
-        const customerId = regJson.CustomerId;
-        const saveCustomerID = await fetchWithAutoRefresh(`${API_ENDPOINTS.UPDATE_COMPANY_ID}${companyId}/`, { 
-          method: 'PUT',
-          headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': AppUtils.getCSRFToken()
-            },
-          credentials: 'include',
-          body: JSON.stringify({
-            customer_id: customerId,
-          })  
-        });
-        if (!saveCustomerID.ok) {
-            console.error('❌ Update failed:', result);
-        }
+        
+        // 2) Poll product-authentication
         const authData = await pollAuthentication(customerId, btn, fetchWithAutoRefresh, API_ENDPOINTS);
 
         // 3) Update UI to show verified
