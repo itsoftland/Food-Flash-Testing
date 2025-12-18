@@ -24,6 +24,7 @@ from .models import (
     AdminOutlet,
     AndroidAPK,
     UserProfile,
+    VendorConfig
 )
 
 # Local app serializers

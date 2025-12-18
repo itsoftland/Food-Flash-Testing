@@ -17,7 +17,6 @@ urlpatterns = [
     path('map_profiles/', views.map_profiles, name='map_profiles'), 
     path('mapped_list/', views.mapped_list, name='mapped_list'),
     path('banners/', views.banners, name='banners'), 
-    path('configurations/', views.configurations, name='configurations'), 
     path('total_orders/', views.total_orders, name='total_orders'),
     path('order_details/', views.order_details, name='order_details'),
     path('api/create_vendor/', views.create_vendor, name='create_vendor'),
@@ -59,5 +58,6 @@ urlpatterns = [
     path('api/create_utility/',views.create_utility,name='create_utility'),
     path('api/tv_config_create/',views.tv_config_create, name="tv_config_create"),
     path('api/tv_config_list/',views.tv_config_list, name="tv_config_list"),
+    path('api/configurations/', views.vendor_configurations, name='vendor_configurations'), 
 ]
  

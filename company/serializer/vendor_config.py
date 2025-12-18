@@ -38,3 +38,28 @@ class VendorVibrationConfigSerializer(serializers.ModelSerializer):
                 f"Invalid vibration pattern. Allowed: {ALLOWED_PATTERNS}"
             )
         return value
+
+# class VendorConfigUpdateSerializer(serializers.Serializer):
+#     vendor_ids = serializers.ListField(
+#         child=serializers.IntegerField(),
+#         allow_empty=False
+#     )
+
+#     # Optional configuration fields (ONLY those allowed to be updated)
+#     phone_number_enabled = serializers.BooleanField(required=False)
+#     use_utilities = serializers.BooleanField(required=False)
+
+#     # Future fields can be added safely without breaking API
+#     # auto_delete_hours = serializers.IntegerField(required=False, allow_null=True)
+#     # timezone = serializers.CharField(required=False)
+
+class VendorConfigUpdateSerializer(serializers.Serializer):
+    vendor_id = serializers.IntegerField()
+
+    # Optional configuration fields (ONLY those allowed to be updated)
+    phone_number_enabled = serializers.BooleanField(required=False)
+    use_utilities = serializers.BooleanField(required=False)
+
+    # Future fields can be added safely without breaking API
+    # auto_delete_hours = serializers.IntegerField(required=False, allow_null=True)
+    # timezone = serializers.CharField(required=False)

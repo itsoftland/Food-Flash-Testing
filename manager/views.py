@@ -418,7 +418,7 @@ def manager_utility_list(request):
         )
 
     except Exception as e:
-        logger.exception("[manager_utility_list] Unexpected error.")
+        logger.exception("[manager_utility_list] Unexpected error. %s", e)
         return Response(
             {"error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

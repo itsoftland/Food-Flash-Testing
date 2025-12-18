@@ -48,7 +48,7 @@ window.APP_VERSION = appVersion;
 // =======================
 export const API_ENDPOINTS = {
   LOGIN :`${BASE}api/login/`,
-  CONFIG : `${BASE}company/api/config/`,
+  CONFIG : `${BASE}company/api/configurations/`,
   DASHBOARD_METRICS : `${BASE}company/api/dashboard_metrics/`,
   CREATE_VENDOR : `${BASE}companyadmin/api/create_vendor/`,
   COMPANY_OUTLET_CREATION_DATA : `${BASE}company/api/get_outlet_creation_data/`,

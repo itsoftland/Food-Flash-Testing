@@ -12,6 +12,7 @@ icons into templates (e.g., Food Flash, Airline Flash).
 DEFAULT = {
     "sidebar": {
         "outlet_list": "fas fa-store",
+        "configurations": "fas fa-cogs",
     }
 }
 
@@ -21,6 +22,7 @@ DEFAULT = {
 FOOD_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-store",
+        "configurations": "fas fa-cogs",
     }
 }
 
@@ -30,6 +32,7 @@ FOOD_FLASH = {
 AIRLINE_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-plane-departure",
+        "configurations": "fas fa-cogs",
     }
 }
 
@@ -40,6 +43,7 @@ AIRLINE_FLASH = {
 DINE_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-store",
+        "configurations": "fas fa-cogs",
     }
 }
 

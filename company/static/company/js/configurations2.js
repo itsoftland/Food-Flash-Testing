@@ -36,9 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
      Initialize Choices (ONCE)
   ------------------------------------ */
   const outletsChoices = new Choices(outletsSelect, {
+    removeItemButton: true,
     searchEnabled: true,
     shouldSort: false,
-    placeholderValue: 'Select Outlet',
+    placeholderValue: 'Select Outlets',
     classNames: {
       containerInner: 'choices-inner-foodflash',
       item: 'choices-item-foodflash',
@@ -48,13 +49,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ------------------------------------
      Fetch vendors & populate outlets
   ------------------------------------ */
-  let result = null;
   try {
     const response = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS, {
       method: 'GET'
     });
 
-    result = await response.json();
+    const result = await response.json();
 
     if (!response.ok) {
       throw new Error(result?.message || 'Failed to fetch vendors');
@@ -77,64 +77,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Build a map of vendors returned by GET_VENDORS so we can populate the form
-  // without making an extra network request for details.
-  const vendorsMap = new Map();
-  if (Array.isArray(result.vendors)) {
-    result.vendors.forEach(v => {
-      // normalize key as string for consistent lookup
-      vendorsMap.set(String(v.id), v);
-    });
-  }
-
-  const loadVendorConfigFromMap = (vendorId) => {
-    if (!vendorId) {
-      phoneNumberEnabledEl.value = '';
-      utilitiesEnabledEl.value = '';
-      return;
-    }
-
-    const vendor = vendorsMap.get(String(vendorId)) || null;
-    const vendorConfig = vendor?.config || vendor?.vendor_config || null;
-
-    if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'phone_number_enabled')) {
-      phoneNumberEnabledEl.value = vendorConfig.phone_number_enabled === null ? '' : String(vendorConfig.phone_number_enabled);
-    } else {
-      phoneNumberEnabledEl.value = '';
-    }
-
-    if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'use_utilities')) {
-      utilitiesEnabledEl.value = vendorConfig.use_utilities === null ? '' : String(vendorConfig.use_utilities);
-    } else {
-      utilitiesEnabledEl.value = '';
-    }
-  };
-
-  // Listen for selection changes on the underlying select element
-  outletsSelect.addEventListener('change', () => {
-    const sel = outletsChoices.getValue(true);
-    const id = Array.isArray(sel) ? (sel[0] || null) : (sel || null);
-    loadVendorConfigFromMap(id);
-  });
-
-  // If a default selection exists after populating choices, load its config
-  const initialValue = outletsChoices.getValue(true);
-  const initialId = Array.isArray(initialValue) ? (initialValue[0] || null) : (initialValue || null);
-  if (initialId) {
-    loadVendorConfigFromMap(initialId);
-  }
-
   /* ------------------------------------
      Submit configuration
   ------------------------------------ */
   configForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    let selected = outletsChoices.getValue(true); // may be string or array
-    const vendorId = Array.isArray(selected) ? (selected[0] || null) : (selected || null);
+    const selectedOutlets = outletsChoices.getValue(true); // returns array of values
 
-    if (!vendorId) {
-      ModalService.showError('Please select an outlet.');
+    if (!selectedOutlets.length) {
+      ModalService.showError('Please select at least one outlet.');
       return;
     }
 
@@ -145,12 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!confirmed) return;
 
     const payload = {
-      vendor_id: vendorId,
+      vendor_ids: selectedOutlets,
       phone_number_enabled:
         phoneNumberEnabledEl.value === ''
           ? null
           : phoneNumberEnabledEl.value === 'true',
-      use_utilities:
+      utilities_enabled:
         utilitiesEnabledEl.value === ''
           ? null
           : utilitiesEnabledEl.value === 'true'

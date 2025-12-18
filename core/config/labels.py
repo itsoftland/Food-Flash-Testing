@@ -20,7 +20,8 @@ DEFAULT = {
         "outlet_update":"Outlet Update",
         "order_update": "Order Update",
         "total_orders":"Total Orders",
-        "order_details":"Orders Details"
+        "order_details":"Orders Details",
+        "configurations":"Configurations"
     },
     "dashboard": {
         "title": "Dashboard",
@@ -74,7 +75,8 @@ FOOD_FLASH = {
         "outlet_update":"Update Outlet Data",
         "order_update": "Order Update",
         "total_orders":"Total Orders",
-        "order_details":"Orders Details"
+        "order_details":"Orders Details",
+        "configurations":"Configurations"
     },
     "dashboard": {
         "title": "Food Flash Dashboard",
@@ -115,6 +117,7 @@ FOOD_FLASH = {
         "title": "Select Outlet",
         "instruction": "Please select your outlet to proceed.",
     },
+
 }
 
 
@@ -132,7 +135,8 @@ AIRLINE_FLASH = {
         "outlet_update":"Update Airport Data",
         "order_update": "Flight Update",
         "total_orders":"Total Passengers",
-        "order_details":"Passenger Details"
+        "order_details":"Passenger Details",
+        "configurations":"Configurations"
     },
     "dashboard": {
         "title": "Airline Flash Dashboard",
@@ -188,7 +192,8 @@ DINE_FLASH = {
         "outlet_update":"Update Outlet Data",
         "order_update": "Table Allot",
         "total_orders":"Total Bookings",
-        "order_details":"Booking Details"
+        "order_details":"Booking Details",
+        "configurations":"Configurations"
     },
     "dashboard": {
         "title": "Dine Flash Dashboard",

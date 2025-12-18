@@ -30,7 +30,8 @@ from vendors.models import (Vendor, Device, AdminOutlet,
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
-from .serializer.vendor_config import VendorVibrationConfigSerializer
+from .serializer.vendor_config import (VendorVibrationConfigSerializer,
+                                       VendorConfigUpdateSerializer)
 from .serializers import (VendorSerializer,
                           VendorDetailSerializer,
                           UnmappedVendorDetailSerializer,
@@ -1777,3 +1778,72 @@ def update_outlet_settings(request):
             "error": str(e)
         }, status=500)
 
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def vendor_configurations(request):
+#     serializer = VendorConfigUpdateSerializer(data=request.data)
+#     serializer.is_valid(raise_exception=True)
+
+#     vendor_ids = serializer.validated_data.pop("vendor_ids")
+#     update_fields = serializer.validated_data
+
+#     if not update_fields:
+#         return Response(
+#             {"message": "No configuration values provided"},
+#             status=status.HTTP_400_BAD_REQUEST
+#         )
+
+#     updated_vendors = []
+
+#     with transaction.atomic():
+#         for vendor_id in vendor_ids:
+#             config, _ = VendorConfig.objects.get_or_create(
+#                 vendor_id=vendor_id
+#             )
+
+#             for field, value in update_fields.items():
+#                 setattr(config, field, value)
+
+#             config.save(update_fields=list(update_fields.keys()))
+#             updated_vendors.append(vendor_id)
+
+#     return Response(
+#         {
+#             "message": "Vendor configurations updated successfully",
+#             "updated_vendors": updated_vendors
+#         },
+#         status=status.HTTP_200_OK
+#     )
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def vendor_configurations(request):
+    serializer = VendorConfigUpdateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    vendor_id = serializer.validated_data.pop("vendor_id")
+    update_fields = serializer.validated_data
+
+    if not update_fields:
+        return Response(
+            {"message": "No configuration values provided"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    with transaction.atomic():
+        config, _ = VendorConfig.objects.get_or_create(
+            vendor_id=vendor_id
+        )
+
+        for field, value in update_fields.items():
+            setattr(config, field, value)
+
+        config.save(update_fields=list(update_fields.keys()))
+
+    return Response(
+        {
+            "message": "Vendor configurations updated successfully",
+            "updated_vendor": vendor_id
+        },
+        status=status.HTTP_200_OK
+    )

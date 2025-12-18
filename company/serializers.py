@@ -15,10 +15,7 @@ from django.conf import settings
 from django.db import transaction
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
-class VendorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Vendor
-        fields = ['id','vendor_id', 'name', 'location']  
+ 
 
 class MqttServerConfigSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,8 +35,17 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'mqtt_mode',
             'business_day_start_hour',
             'timezone',
-            'auto_delete_hours'
+            'auto_delete_hours',
+            'use_utilities',
+            'phone_number_enabled',
         ]
+
+class VendorSerializer(serializers.ModelSerializer):
+    config = VendorConfigSerializer(read_only=True)
+    class Meta:
+        model = Vendor
+        fields = ['id','vendor_id', 'name', 'location','config'] 
+
 class VendorDetailSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
     menu_files = serializers.SerializerMethodField()

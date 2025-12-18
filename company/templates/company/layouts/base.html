@@ -192,6 +192,14 @@
                 </li>
               </ul>
             </li>
+            {% if PROJECT_NAME == "dine_flash" %}
+            <li class="nav-item">
+              <a href="{% url 'company:configurations' %}" class="nav-link {% if request.resolver_match.url_name == 'configurations' %}active{% endif %}">
+                <i class="nav-icon {{ ICONS.sidebar.configurations }}"></i>
+                <p>{{ LABELS.sidebar.configurations }}</p>
+              </a>
+            </li>
+            {% endif %}
           </ul>
         </nav>
       </div>
