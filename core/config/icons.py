@@ -13,6 +13,7 @@ DEFAULT = {
     "sidebar": {
         "outlet_list": "fas fa-store",
         "configurations": "fas fa-cogs",
+        "utilities": "fas fa-wrench",
     }
 }
 
@@ -23,6 +24,7 @@ FOOD_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-store",
         "configurations": "fas fa-cogs",
+        "utilities": "fas fa-wrench",
     }
 }
 
@@ -33,6 +35,7 @@ AIRLINE_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-plane-departure",
         "configurations": "fas fa-cogs",
+        "utilities": "fas fa-wrench",
     }
 }
 
@@ -44,6 +47,7 @@ DINE_FLASH = {
     "sidebar": {
         "outlet_list": "fas fa-store",
         "configurations": "fas fa-cogs",
+        "utilities": "fas fa-wrench",
     }
 }
 

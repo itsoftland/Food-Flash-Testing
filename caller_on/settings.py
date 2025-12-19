@@ -104,6 +104,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'vendors.context_processors.project_info',
+                'vendors.context_processors.utilities_visibility',
                 'core.context_processors.project_labels',
                 'core.context_processors.project_icons',
                 'core.context_processors.project_roles',

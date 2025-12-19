@@ -21,7 +21,9 @@ DEFAULT = {
         "order_update": "Order Update",
         "total_orders":"Total Orders",
         "order_details":"Orders Details",
-        "configurations":"Configurations"
+        "configurations":"Configurations",
+        "utilities":"Utilities",
+        "new_utility":"New Utility"
     },
     "dashboard": {
         "title": "Dashboard",
@@ -76,7 +78,9 @@ FOOD_FLASH = {
         "order_update": "Order Update",
         "total_orders":"Total Orders",
         "order_details":"Orders Details",
-        "configurations":"Configurations"
+        "configurations":"Configurations",
+        "utilities":"Utilities",
+        "new_utility":"New Utility"
     },
     "dashboard": {
         "title": "Food Flash Dashboard",
@@ -136,7 +140,9 @@ AIRLINE_FLASH = {
         "order_update": "Flight Update",
         "total_orders":"Total Passengers",
         "order_details":"Passenger Details",
-        "configurations":"Configurations"
+        "configurations":"Configurations",
+        "utilities":"Utilities",
+        "new_utility":"New Utility"
     },
     "dashboard": {
         "title": "Airline Flash Dashboard",
@@ -193,7 +199,9 @@ DINE_FLASH = {
         "order_update": "Table Allot",
         "total_orders":"Total Bookings",
         "order_details":"Booking Details",
-        "configurations":"Configurations"
+        "configurations":"Configurations",
+        "utilities":"Utilities",
+        "new_utility":"New Utility"
     },
     "dashboard": {
         "title": "Dine Flash Dashboard",

@@ -1,0 +1,149 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/configurations.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/create_utility.css' %}">
+{% endblock %}
+
+{% block title %}Utilities{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Utilities</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <form id="create-utilities-form" method="POST">
+          {% csrf_token %}
+
+          <div class="row g-3">
+
+            <!-- Vendor -->
+            <div class="col-md-6">
+              <label class="form-label required">Outlet</label>
+              <select
+                id="vendor-select"
+                name="vendor"
+                class="form-select"
+                required
+              >
+                <option value="">Select outlet</option>
+              </select>
+            </div>
+
+            <!-- Utility Name -->
+            <div class="col-md-6">
+              <label class="form-label required">Utility Name</label>
+              <input
+                type="text"
+                name="utility_name"
+                class="form-control"
+                maxlength="100"
+                placeholder="e.g. OutDoor, InDoor"
+                required
+              >
+            </div>
+
+            <!-- Display Name -->
+            <div class="col-md-6">
+              <label class="form-label required">Display Name</label>
+              <input
+                type="text"
+                name="display_name"
+                class="form-control"
+                maxlength="20"
+                placeholder="Customer facing name"
+                required
+              >
+            </div>
+
+            <!-- Display Code -->
+            <div class="col-md-6">
+              <label class="form-label required">Display Code</label>
+              <input
+                type="text"
+                name="display_code"
+                class="form-control text-uppercase"
+                maxlength="10"
+                placeholder="E.g. VIP, AC"
+                required
+              >
+            </div>
+
+            <!-- Token Mode -->
+            <div class="col-md-6">
+              <label class="form-label required">Token Mode</label>
+              <select
+                name="token_mode"
+                class="form-select"
+                required
+              >
+                <option value="">Select token mode</option>
+                <!-- backend choices -->
+              </select>
+            </div>
+
+            <!-- Prefix -->
+            <div class="col-md-6">
+              <label class="form-label">Prefix</label>
+              <input
+                type="text"
+                name="prefix"
+                class="form-control text-uppercase"
+                maxlength="4"
+                placeholder="Up to 4 characters"
+              >
+            </div>
+
+            <!-- Active -->
+            <div class="col-md-12 d-flex align-items-center mt-2">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  name="is_active"
+                  checked
+                >
+                <label class="form-check-label">
+                  Active
+                </label>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+              <button type="submit" form="create-utilities-form" class="btn-save-utility">
+                <i class="fas fa-save"></i> Save Utility
+              </button>
+              <button type="reset" form="create-utilities-form" class="btn-reset-form">
+                <i class="fas fa-redo"></i> Reset
+              </button>
+            </div>
+
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/utilities/createUtility.js' %}"></script>
+{% endblock %}

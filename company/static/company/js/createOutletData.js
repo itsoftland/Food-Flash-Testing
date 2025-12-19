@@ -45,15 +45,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         option.textContent = tv.mac_address;
         tvSelect.appendChild(option);
       });
-      new Choices(tvSelect, {
-        removeItemButton: true,
-        classNames: {
-          containerInner: 'choices-inner-foodflash',
-          item: 'choices-item-foodflash',
-        },
-        placeholderValue: 'Select TVs',
-        searchEnabled: true
-      });
     }
 
     // 3️⃣ Populate Keypad Devices Dropdown
@@ -64,15 +55,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         option.value = device.serial_no;
         option.textContent = device.serial_no;
         deviceSelect.appendChild(option);
-      });
-      new Choices(deviceSelect, {
-        removeItemButton: true,
-        classNames: {
-          containerInner: 'choices-inner-foodflash',
-          item: 'choices-item-foodflash',
-        },
-        placeholderValue: 'Select Devices',
-        searchEnabled: true
       });
     }
     if (tvCommunicationSelect) {

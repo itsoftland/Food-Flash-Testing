@@ -118,6 +118,14 @@ def total_orders(request):
 def order_details(request):
     return render(request, 'company/analytics/order_details.html')
 
+@login_required
+def utilities_management(request):
+    return render(request, 'company/utilities/utilities_management.html')
+
+@login_required
+def create_utility_page(request):
+    return render(request, 'company/utilities/create_utility.html')
+
 @api_view(['GET']) 
 @permission_classes([IsAuthenticated])
 def get_vendor_details(request):
@@ -1361,11 +1369,12 @@ def create_utility(request):
         display_code = request.data.get("display_code")
         token_mode = request.data.get("token_mode")
         prefix = request.data.get("prefix", "")
+        is_active = request.data.get("is_active")
 
         logger.debug(
-            f"[UtilityCreate] Payload received: vendor_id={vendor_id}, "
+            f"[UtilityCreate] Received data: vendor_id={vendor_id}, "
             f"utility_name={utility_name}, display_name={display_name}, "
-            f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}"
+            f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}, is_active={is_active}"
         )
 
         # ---- Basic Field Validations ----
@@ -1393,9 +1402,21 @@ def create_utility(request):
             logger.warning("[UtilityCreate] prefix missing")
             return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if len(prefix) > 3:
+        if len(utility_name) > 30:
+            logger.warning(f"[UtilityCreate] Utility name too long: {utility_name}")
+            return Response({"error": "utility_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(display_name) > 20:
+            logger.warning(f"[UtilityCreate] Display name too long: {display_name}")
+            return Response({"error": "display_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(display_code) > 10:
+            logger.warning(f"[UtilityCreate] Display code too long: {display_code}")
+            return Response({"error": "display_code must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(prefix) > 4:
             logger.warning(f"[UtilityCreate] Prefix too long: {prefix}")
-            return Response({"error": "prefix must be max 3 characters"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "prefix must be max 4 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
         if token_mode not in ["continuous", "utility_specific"]:
             logger.warning(f"[UtilityCreate] Invalid token_mode: {token_mode}")
@@ -1449,6 +1470,13 @@ def create_utility(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # ---- Active Status Normalization ----
+        if isinstance(is_active, str):
+            is_active = is_active.lower() in ["true", "1", "yes"]
+
+        is_active = bool(int(is_active)) if isinstance(is_active, (int, str)) else bool(is_active)
+
+        print("is_active:", is_active)
         # ---- Create Utility ----
         utility = Utility.objects.create(
             vendor=vendor,
@@ -1456,7 +1484,8 @@ def create_utility(request):
             display_name=display_name,
             display_code=display_code,
             token_mode=token_mode,
-            prefix=prefix
+            prefix=prefix,
+            is_active=is_active
         )
 
         logger.info(f"[UtilityCreate] Utility created successfully | ID={utility.id}")
@@ -1471,6 +1500,7 @@ def create_utility(request):
                     "display_code": utility.display_code,
                     "token_mode": utility.token_mode,
                     "prefix": utility.prefix,
+                    "is_active": utility.is_active
                 },
             },
             status=status.HTTP_201_CREATED
@@ -1488,6 +1518,11 @@ def create_utility(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+# # ---- Utility List ----
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def utility_list(request):
+        
 # -------------------------
 # Create TV Configuration
 # -------------------------
@@ -1847,3 +1882,309 @@ def vendor_configurations(request):
         },
         status=status.HTTP_200_OK
     )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_utilities(request):
+    """
+    API endpoint to fetch utilities for a specific vendor.
+    Query parameter: vendor_id (optional) - if provided, returns utilities for that vendor only
+    """
+    try:
+        # Get admin outlet from user
+        admin_outlet = request.user.admin_outlet
+        if not admin_outlet:
+            return Response(
+                {"error": "Admin outlet not found for this user"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get vendor_id from query parameter
+        vendor_id = request.query_params.get('vendor_id')
+
+        if vendor_id:
+            try:
+                vendor_id = int(vendor_id)
+                # Fetch utilities for specific vendor
+                utilities = Utility.objects.filter(
+                    vendor__vendor_id=vendor_id,
+                    vendor__admin_outlet=admin_outlet
+                ).values(
+                    'id',
+                    'utility_name',
+                    'display_name',
+                    'display_code',
+                    'prefix',
+                    'token_mode',
+                    'is_active',
+                    'vendor__id',
+                    'vendor__vendor_id',
+                    'vendor__name',
+                    'vendor__location'
+                )
+
+                utilities_list = []
+                for util in utilities:
+                    utilities_list.append({
+                        'id': util['id'],
+                        'utility_name': util['utility_name'],
+                        'display_name': util['display_name'],
+                        'display_code': util['display_code'],
+                        'prefix': util['prefix'],
+                        'token_mode': util['token_mode'],
+                        'is_active': util['is_active'],
+                        'vendor': util['vendor__id'],
+                        'vendor_id': util['vendor__vendor_id'],
+                        'vendor_name': util['vendor__name'],
+                        'vendor_location': util['vendor__location']
+                    })
+
+                return Response(
+                    {
+                        "success": True,
+                        "utilities": utilities_list,
+                        "count": len(utilities_list)
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            except ValueError:
+                return Response(
+                    {"error": "Invalid vendor_id format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            # Fetch all utilities for all vendors of this admin outlet
+            utilities = Utility.objects.filter(
+                vendor__admin_outlet=admin_outlet
+            ).values(
+                'id',
+                'utility_name',
+                'display_name',
+                'display_code',
+                'prefix',
+                'token_mode',
+                'is_active',
+                'vendor__id',
+                'vendor__vendor_id',
+                'vendor__name',
+                'vendor__location'
+            )
+
+            utilities_list = []
+            for util in utilities:
+                utilities_list.append({
+                    'id': util['id'],
+                    'utility_name': util['utility_name'],
+                    'display_name': util['display_name'],
+                    'display_code': util['display_code'],
+                    'prefix': util['prefix'],
+                    'token_mode': util['token_mode'],
+                    'is_active': util['is_active'],
+                    'vendor': util['vendor__id'],
+                    'vendor_id': util['vendor__vendor_id'],
+                    'vendor_name': util['vendor__name'],
+                    'vendor_location': util['vendor__location']
+                })
+
+            return Response(
+                {
+                    "success": True,
+                    "utilities": utilities_list,
+                    "count": len(utilities_list)
+                },
+                status=status.HTTP_200_OK
+            )
+
+    except Exception as e:
+        logger.error(f"[GetUtilities] Error: {str(e)}")
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_utility_status(request):
+    """
+    Update utility status (activate/deactivate)
+    Accepts PATCH requests with utility_id and is_active in request body
+    """
+    try:
+        utility_id = request.data.get('utility_id')
+        is_active = request.data.get('is_active')
+
+        if not utility_id:
+            return Response(
+                {"error": "Utility ID is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if is_active is None:
+            return Response(
+                {"error": "Status value is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get admin outlet for security
+        try:
+            admin_outlet = AdminOutlet.objects.get(user=request.user)
+        except AdminOutlet.DoesNotExist:
+            return Response(
+                {"error": "Admin outlet not found"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get the utility and verify it belongs to the admin outlet
+        try:
+            utility = Utility.objects.get(id=utility_id)
+        except Utility.DoesNotExist:
+            return Response(
+                {"error": "Utility not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verify the utility's vendor belongs to the admin_outlet for this user
+        try:
+            vendor_admin_outlet = utility.vendor.admin_outlet
+        except Exception:
+            return Response(
+                {"error": "Unable to determine utility owner"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if vendor_admin_outlet != admin_outlet:
+            return Response(
+                {"error": "You don't have permission to modify this utility"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Update status
+        utility.is_active = is_active
+        utility.save()
+
+        logger.info(f"[UpdateUtilityStatus] Utility {utility_id} status updated to {is_active}")
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Utility {'activated' if is_active else 'deactivated'} successfully",
+                "utility": {
+                    'id': utility.id,
+                    'utility_name': utility.utility_name,
+                    'is_active': utility.is_active
+                }
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.error(f"[UpdateUtilityStatus] Error: {str(e)}")
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_utility(request):
+    """
+    Update utility fields: utility_name, display_name, display_code, token_mode, prefix
+    Validations mirror create_utility but uniqueness checks exclude the current utility.
+    """
+    try:
+        utility_id = request.data.get('utility_id')
+        utility_name = request.data.get('utility_name')
+        display_name = request.data.get('display_name')
+        display_code = request.data.get('display_code')
+        token_mode = request.data.get('token_mode')
+        prefix = request.data.get('prefix', '')
+
+        if not utility_id:
+            return Response({"error": "utility_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            utility = Utility.objects.get(id=utility_id)
+        except Utility.DoesNotExist:
+            return Response({"error": "Utility not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Permission: ensure this utility belongs to user's admin_outlet
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if not admin_outlet:
+            return Response({"error": "Admin outlet not found for this user"}, status=status.HTTP_403_FORBIDDEN)
+
+        if utility.vendor.admin_outlet != admin_outlet:
+            return Response({"error": "You don't have permission to modify this utility"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Basic validations (presence)
+        if not utility_name:
+            return Response({"error": "utility_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not display_name:
+            return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not display_code:
+            return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not token_mode:
+            return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if prefix is None:
+            return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Length validations (match create_utility checks)
+        if len(utility_name) > 30:
+            return Response({"error": "utility_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(display_name) > 20:
+            return Response({"error": "display_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(display_code) > 10:
+            return Response({"error": "display_code must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(prefix) > 4:
+            return Response({"error": "prefix must be max 4 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if token_mode not in [Utility.TOKEN_MODE_CONTINUOUS, Utility.TOKEN_MODE_UTILITY_SPECIFIC]:
+            return Response({"error": "Invalid token_mode"}, status=status.HTTP_400_BAD_REQUEST)
+
+        vendor = utility.vendor
+
+        # Check vendor config allows utilities
+        config = getattr(vendor, 'config', None)
+        if config and config.use_utilities is False:
+            return Response({"error": "Utilities feature is disabled for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Uniqueness checks excluding current utility
+        if Utility.objects.filter(vendor=vendor, utility_name__iexact=utility_name).exclude(id=utility.id).exists():
+            return Response({"error": "Utility name already exists for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if Utility.objects.filter(vendor=vendor, display_name__iexact=display_name).exclude(id=utility.id).exists():
+            return Response({"error": "Display name already exists for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if Utility.objects.filter(vendor=vendor, display_code__iexact=display_code).exclude(id=utility.id).exists():
+            return Response({"error": "Display code already exists for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exclude(id=utility.id).exists():
+            return Response({"error": "prefix must be unique for each vendor"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # All validations passed; update utility
+        utility.utility_name = utility_name
+        utility.display_name = display_name
+        utility.display_code = display_code
+        utility.token_mode = token_mode
+        utility.prefix = prefix
+        utility.save()
+
+        return Response({
+            "success": True,
+            "message": "Utility updated successfully",
+            "utility": {
+                "id": utility.id,
+                "utility_name": utility.utility_name,
+                "display_name": utility.display_name,
+                "display_code": utility.display_code,
+                "token_mode": utility.token_mode,
+                "prefix": utility.prefix,
+                "is_active": utility.is_active
+            }
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"[UpdateUtility] Error: {str(e)}", exc_info=True)
+        return Response({"error": "An error occurred while updating utility"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -82,7 +82,8 @@
   font-size: 1.1rem;
 }
 
-.form-control:focus, 
+.form-control:focus,
+.form-select:focus, 
 .custom-select:focus {
   border-color: #fb8b24 !important;
   box-shadow: 0 0 0 0.2rem rgba(251, 139, 36, 0.25) !important;

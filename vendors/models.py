@@ -201,10 +201,10 @@ class Utility(models.Model):
     )
 
     prefix = models.CharField(
-        max_length=3,
+        max_length=4,
         blank=True,
         null=True,
-        help_text="3-character prefix (e.g., ROM, VIP, OUT)"
+        help_text="4-character prefix (e.g., ROM, VIP, OUT)"
     )
 
     utility_booking_counter = models.PositiveIntegerField(default=0)
@@ -227,6 +227,10 @@ class Utility(models.Model):
             models.UniqueConstraint(
                 fields=["vendor", "display_code"],
                 name="unique_display_code_per_vendor"
+            ),
+            models.UniqueConstraint(
+                fields=["vendor", "prefix"],
+                name="unique_prefix_per_vendor"
             ),
         ]
 

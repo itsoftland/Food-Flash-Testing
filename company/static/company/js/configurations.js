@@ -89,8 +89,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const loadVendorConfigFromMap = (vendorId) => {
     if (!vendorId) {
-      phoneNumberEnabledEl.value = '';
-      utilitiesEnabledEl.value = '';
+      phoneNumberEnabledEl.checked = false;
+      utilitiesEnabledEl.checked = false;
       return;
     }
 
@@ -98,15 +98,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const vendorConfig = vendor?.config || vendor?.vendor_config || null;
 
     if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'phone_number_enabled')) {
-      phoneNumberEnabledEl.value = vendorConfig.phone_number_enabled === null ? '' : String(vendorConfig.phone_number_enabled);
+      phoneNumberEnabledEl.checked = Boolean(vendorConfig.phone_number_enabled);
     } else {
-      phoneNumberEnabledEl.value = '';
+      phoneNumberEnabledEl.checked = false;
     }
 
     if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'use_utilities')) {
-      utilitiesEnabledEl.value = vendorConfig.use_utilities === null ? '' : String(vendorConfig.use_utilities);
+      utilitiesEnabledEl.checked = Boolean(vendorConfig.use_utilities);
     } else {
-      utilitiesEnabledEl.value = '';
+      utilitiesEnabledEl.checked = false;
     }
   };
 
@@ -146,14 +146,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const payload = {
       vendor_id: vendorId,
-      phone_number_enabled:
-        phoneNumberEnabledEl.value === ''
-          ? null
-          : phoneNumberEnabledEl.value === 'true',
-      use_utilities:
-        utilitiesEnabledEl.value === ''
-          ? null
-          : utilitiesEnabledEl.value === 'true'
+      phone_number_enabled: Boolean(phoneNumberEnabledEl.checked),
+      use_utilities: Boolean(utilitiesEnabledEl.checked)
     };
 
     try {

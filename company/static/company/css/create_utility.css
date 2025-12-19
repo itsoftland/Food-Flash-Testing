@@ -1,0 +1,100 @@
+/* Create Utility Page Styles */
+
+/* Form Actions Container */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+/* Primary Action Button (Save) */
+.btn-save-utility {
+  background-color: #f0a934;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-save-utility:hover {
+  background-color: #fb8b24;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(240, 169, 52, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
+.btn-save-utility:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(240, 169, 52, 0.2);
+}
+
+.btn-save-utility:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-save-utility i {
+  font-size: 16px;
+}
+
+/* Secondary Action Button (Reset) */
+.btn-reset-form {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-reset-form:hover {
+  background-color: #5a6268;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
+.btn-reset-form:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(108, 117, 125, 0.2);
+}
+
+.btn-reset-form:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-reset-form i {
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn-save-utility,
+  .btn-reset-form {
+    width: 100%;
+    justify-content: center;
+  }
+}

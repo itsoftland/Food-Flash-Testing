@@ -1,0 +1,119 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/utilities_management.css' %}">
+{% endblock %}
+
+{% block title %}Utilities Management{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Utilities</h1>
+      </div>
+      <div class="col-sm-6 text-end">
+        <a href="{% url 'company:create_utility_page' %}" class="btn-add-utility">
+          <i class="fas fa-plus"></i> Add Utility
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <!-- Control Bar - Optimized Layout -->
+    <div class="utilities-control-bar">
+      <div class="control-items">
+        <!-- Outlet Filter -->
+        <div class="control-item">
+          <select id="vendor-filter" class="form-select form-select-sm" title="Filter by outlet">
+            <option value="">All Outlets</option>
+          </select>
+        </div>
+
+        <!-- Search Input -->
+        <div class="control-item search-item">
+          <input
+            type="text"
+            id="search-input"
+            class="form-control form-control-sm"
+            placeholder="Search…"
+            aria-label="Search utilities"
+          >
+          <i class="fas fa-search search-icon"></i>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="control-item">
+          <select id="status-filter" class="form-select form-select-sm" title="Filter by status">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div id="table-container" class="utilities-table-container">
+      <div class="table-responsive">
+        <table class="utilities-table">
+          <thead>
+            <tr>
+              <th>Utility Name</th>
+              <th>Display Name</th>
+              <th>Display Code</th>
+              <th>Prefix</th>
+              <th>Token Mode</th>
+              <th>Outlet</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="utilities-tbody">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination-container" class="pagination-container"></div>
+
+      <!-- Empty State - No Utilities Found -->
+      <div id="empty-state-no-utilities" class="empty-state" style="display: none;">
+        <div class="empty-state-content">
+          <i class="fas fa-inbox"></i>
+          <h3>No utilities found</h3>
+          <p>No utilities match your filters. Try adjusting your search criteria.</p>
+          <a href="{% url 'company:create_utility_page' %}" class="btn-create-utility">
+            <i class="fas fa-plus"></i> Create Utility
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Action Menu Modal -->
+<div class="action-menu" id="action-menu" style="display: none;">
+  <div class="menu-item" data-action="edit">
+    <i class="fas fa-edit"></i> Edit Utility
+  </div>
+  <div class="menu-item" data-action="toggle">
+    <i class="fas fa-toggle-on"></i> <span id="toggle-text">Deactivate</span>
+  </div>
+</div>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'company/js/utilities/utilitiesManagement.js' %}"></script>
+{% endblock %}
