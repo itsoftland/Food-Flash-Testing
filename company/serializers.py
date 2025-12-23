@@ -622,8 +622,8 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at", "updated_at", "id")
 
     def validate_items_to_show(self, value):
-        if value < 1 or value > 3:
-            raise serializers.ValidationError("items_to_show must be between 1 and 3.")
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("items_to_show must be between 1 and 5.")
         return value
 
     def validate_booking_fields(self, value):

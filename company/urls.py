@@ -11,6 +11,8 @@ urlpatterns = [
     path('manager_devices/',views.manager_devices,name='manager_devices'),
     path('keypad_devices/', views.keypad_devices, name='keypad_devices'),
     path('android_tvs/', views.android_tvs, name='android_tvs'),
+    path('android_tv_config/', views.android_tv_config, name='android_tv_config'),
+    path('tv_config_list_page/', views.tv_config_list, name='tv_config_list_page'),
     path('configurations/', views.configurations, name='configurations'),
     path('new_profile/', views.new_profile, name='new_profile'),
     path('profile_list/', views.profile_list, name='profile_list'),
@@ -63,6 +65,9 @@ urlpatterns = [
     path('api/update_utility/', views.update_utility, name='update_utility'),
     path('api/tv_config_create/',views.tv_config_create, name="tv_config_create"),
     path('api/tv_config_list/',views.tv_config_list, name="tv_config_list"),
+    path('api/tv_config_detail/<int:config_id>/',views.tv_config_detail, name="tv_config_detail"),
+    path('api/tv_config_update/<int:config_id>/',views.tv_config_update, name="tv_config_update"),
+    path('api/tv_config_delete/<int:config_id>/',views.tv_config_delete, name="tv_config_delete"),
     path('api/configurations/', views.vendor_configurations, name='vendor_configurations'), 
 ]
  

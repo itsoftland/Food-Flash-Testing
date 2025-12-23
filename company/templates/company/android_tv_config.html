@@ -1,0 +1,178 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/android_tv_config.css' %}">
+{% endblock %}
+
+{% block title %}Android TV Configuration{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Android TV Configuration</h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <form id="tv-config-form" class="tv-config-form">
+          {% csrf_token %}
+
+          <!-- Row 1: QR Settings (3 columns) -->
+          <div class="form-section">
+            <h6 class="form-section-title">QR Code & Display</h6>
+            
+            <div class="row g-3">
+              <!-- Show QR Checkbox -->
+              <div class="form-group col-lg-4 col-md-6">
+                <div class="form-check ps-0">
+                  <input 
+                    type="checkbox" 
+                    id="show-qr" 
+                    name="show_qr" 
+                    class="form-check-input" 
+                  />
+                  <label class="form-check-label" for="show-qr">
+                    Show QR Code
+                  </label>
+                </div>
+              </div>
+              
+              <!-- QR Alignment -->
+              <div class="form-group col-lg-4 col-md-6">
+                <label for="qr-alignment" class="form-label">QR Alignment</label>
+                <select id="qr-alignment" name="qr_alignment" class="form-select form-select-sm" disabled>
+                  <option value="">-- Select --</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+
+              <!-- Screen Orientation -->
+              <div class="form-group col-lg-4 col-md-6">
+                <label for="screen-orientation" class="form-label">Screen Orientation</label>
+                <select id="screen-orientation" name="screen_orientation" class="form-select form-select-sm" required>
+                  <option value="">-- Select --</option>
+                  <option value="landscape">Landscape</option>
+                  <option value="portrait">Portrait</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: Items & Booking Fields (3 columns) -->
+          <div class="form-section">
+            <h6 class="form-section-title">Items Display Settings</h6>
+            
+            <div class="row g-3">
+              <!-- Items to Show -->
+              <div class="form-group col-lg-4 col-md-6">
+                <label for="items-to-show" class="form-label">Items to Show (1-5)</label>
+                <select id="items-to-show" name="items_to_show" class="form-select form-select-sm" required>
+                  <option value="">-- Select --</option>
+                  <option value="1">1 Item</option>
+                  <option value="2">2 Items</option>
+                  <option value="3">3 Items</option>
+                  <option value="4">4 Items</option>
+                  <option value="5">5 Items</option>
+                </select>
+              </div>
+
+              <!-- Utility Name Mode -->
+              <div class="form-group col-lg-4 col-md-6">
+                <label for="utility-name-mode" class="form-label">Utility Name Mode</label>
+                <select id="utility-name-mode" name="utility_name_mode" class="form-select form-select-sm" required>
+                  <option value="">-- Select --</option>
+                  <option value="display_name">Display Name</option>
+                  <option value="display_code">Display Code</option>
+                </select>
+              </div>
+
+              <!-- Booking Fields -->
+              <div class="form-group col-lg-4 col-md-6">
+                <label for="booking-fields" class="form-label">Fields to Display</label>
+                <div class="booking-fields-container">
+                  <div class="form-check ps-0">
+                    <input 
+                      type="checkbox" 
+                      id="field-name" 
+                      name="booking_fields" 
+                      value="name" 
+                      class="form-check-input"
+                    />
+                    <label class="form-check-label" for="field-name">Name</label>
+                  </div>
+                  <div class="form-check ps-0">
+                    <input 
+                      type="checkbox" 
+                      id="field-guest-count" 
+                      name="booking_fields" 
+                      value="guest_count" 
+                      class="form-check-input"
+                    />
+                    <label class="form-check-label" for="field-guest-count">Guest Count</label>
+                  </div>
+                  <div class="form-check ps-0">
+                    <input 
+                      type="checkbox" 
+                      id="field-token" 
+                      name="booking_fields" 
+                      value="token" 
+                      class="form-check-input"
+                    />
+                    <label class="form-check-label" for="field-token">Token</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Active Utilities Selection -->
+          <div class="form-section">
+            <h6 class="form-section-title">Active Utilities</h6>
+            
+            <div class="row g-3">
+              <div class="form-group col-12">
+                <label for="utilities-select" class="form-label">Select Utilities to Display</label>
+                <select 
+                  id="utilities-select" 
+                  name="utilities" 
+                  class="form-select form-select-sm choices-input" 
+                  multiple 
+                  required
+                  data-placeholder="Click to select utilities..."
+                >
+                  <!-- Options populated by JS -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="form-actions">
+            <button type="submit" class="btn btn-golden shadow-sm px-4 py-2">Save Configuration</button>
+            <button type="reset" class="btn btn-secondary shadow-sm px-4 py-2">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/androidTvConfig.js' %}"></script>
+{% endblock %}

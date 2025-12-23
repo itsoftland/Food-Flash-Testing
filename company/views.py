@@ -87,6 +87,14 @@ def android_tvs(request):
     return render(request, 'company/android_tvs.html')
 
 @login_required
+def android_tv_config(request):
+    return render(request, 'company/android_tv_config.html')
+
+@login_required
+def tv_config_list(request):
+    return render(request, 'company/tv_config_list.html')
+
+@login_required
 def banners(request):
     return render(request, 'company/banners.html')
 
@@ -1678,6 +1686,50 @@ def tv_config_update(request, config_id):
         logger.exception("tv_config_update: Unexpected server error.")
         return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# -------------------------
+# Assign config to device
+# POST /tv-config/assign/
+# payload: { "device_id": <int>, "config_id": <int> }
+
+# -------------------------
+# Delete config
+# DELETE /tv-config/delete/<int:config_id>/
+# -------------------------
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def tv_config_delete(request, config_id):
+    try:
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+        if not admin_outlet:
+            return Response(
+                {"error": "User is not associated with any admin outlet."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        config = get_object_or_404(TVDeviceConfig, pk=config_id)
+        
+        # Verify ownership
+        if config.admin_outlet != admin_outlet:
+            return Response(
+                {"error": "You do not have permission to delete this configuration."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        config_id_deleted = config.id
+        config.delete()
+        logger.info(f"tv_config_delete: Deleted config id={config_id_deleted}.")
+        return Response(
+            {"message": "Configuration deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+
+    except Exception:
+        logger.exception("tv_config_delete: Unexpected server error.")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 # -------------------------
 # Assign config to device

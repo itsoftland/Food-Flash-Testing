@@ -121,11 +121,34 @@
               </a>
             </li>
             {% endif %}
-            <li class="nav-item">
-              <a href="{% url 'company:android_tvs' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' %}active{% endif %}">
+            <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' %}menu-open{% endif %}">
+              <a href="#" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv"></i>
-                <p>Android TV's</p>
+                <p>
+                  Android TV's
+                  <i class="right fas fa-angle-down"></i> 
+                </p>
               </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{% url 'company:android_tvs' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' %}active{% endif %}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Android TV's</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{% url 'company:android_tv_config' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tv_config' %}active{% endif %}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Configuration</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{% url 'company:tv_config_list_page' %}" class="nav-link {% if request.resolver_match.url_name == 'tv_config_list_page' %}active{% endif %}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Configurations</p>
+                  </a>
+                </li>
+              </ul>
             </li>
             {% endif %}
             <li class="nav-item">
