@@ -36,7 +36,7 @@
         <!-- Screen Orientation Filter -->
         <div class="control-item">
           <select id="orientation-filter" class="form-select form-select-sm" title="Filter by orientation">
-            <option value="">All Orientations</option>
+            <option value="all">All Orientations</option>
             <option value="landscape">Landscape</option>
             <option value="portrait">Portrait</option>
           </select>
@@ -45,7 +45,7 @@
         <!-- QR Display Filter -->
         <div class="control-item">
           <select id="qr-filter" class="form-select form-select-sm" title="Filter by QR code">
-            <option value="">All QR Status</option>
+            <option value="all">All QR Status</option>
             <option value="enabled">QR Enabled</option>
             <option value="disabled">QR Disabled</option>
           </select>
@@ -94,7 +94,7 @@
 
 <!-- Action Menu -->
 <div id="action-menu" class="action-menu" style="display: none;">
-  <ul class="action-menu-list">
+  <ul id="action-menu-list" class="action-menu-list">
     <li><a href="#" class="action-menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</a></li>
     <li><a href="#" class="action-menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</a></li>
     <li><a href="#" class="action-menu-item" data-action="delete"><i class="fas fa-trash-alt"></i> Delete</a></li>
@@ -172,7 +172,8 @@
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-utility-name-mode" class="form-label">Utility Name Mode</label>
-                <select id="edit-utility-name-mode" name="utility_name_mode" class="form-select form-select-sm" required>
+                <select id="edit-utility-name-mode" name="utility_name_mode" class="form-select form-select-sm"
+                  required>
                   <option value="">-- Select --</option>
                   <option value="display_name">Display Name</option>
                   <option value="display_code">Display Code</option>
@@ -180,7 +181,8 @@
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-screen-orientation" class="form-label">Screen Orientation</label>
-                <select id="edit-screen-orientation" name="screen_orientation" class="form-select form-select-sm" required>
+                <select id="edit-screen-orientation" name="screen_orientation" class="form-select form-select-sm"
+                  required>
                   <option value="">-- Select --</option>
                   <option value="landscape">Landscape</option>
                   <option value="portrait">Portrait</option>
@@ -193,7 +195,8 @@
           <div class="form-section">
             <h6 class="form-section-title">Associated Utilities</h6>
             <div class="form-group">
-              <select id="edit-utilities-list" name="utilities" class="form-select form-select-sm" multiple required></select>
+              <select id="edit-utilities-list" name="utilities" class="form-select form-select-sm" multiple
+                required></select>
             </div>
           </div>
 
@@ -202,15 +205,18 @@
             <h6 class="form-section-title">Fields to Display</h6>
             <div class="booking-fields-container">
               <div class="form-check ps-0">
-                <input type="checkbox" id="edit-field-name" name="booking_fields" value="name" class="form-check-input" />
+                <input type="checkbox" id="edit-field-name" name="booking_fields" value="name"
+                  class="form-check-input" />
                 <label class="form-check-label" for="edit-field-name">Name</label>
               </div>
               <div class="form-check ps-0">
-                <input type="checkbox" id="edit-field-guest-count" name="booking_fields" value="guest_count" class="form-check-input" />
+                <input type="checkbox" id="edit-field-guest-count" name="booking_fields" value="guest_count"
+                  class="form-check-input" />
                 <label class="form-check-label" for="edit-field-guest-count">Guest Count</label>
               </div>
               <div class="form-check ps-0">
-                <input type="checkbox" id="edit-field-token" name="booking_fields" value="token" class="form-check-input" />
+                <input type="checkbox" id="edit-field-token" name="booking_fields" value="token"
+                  class="form-check-input" />
                 <label class="form-check-label" for="edit-field-token">Token</label>
               </div>
             </div>
@@ -240,6 +246,63 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" id="confirm-delete-btn" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Configuration Modal -->
+<div id="view-modal" class="modal fade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configuration Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- QR & Display Settings -->
+        <div class="form-section">
+          <h6 class="form-section-title">General Settings</h6>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Show QR Code</span>
+              <span class="detail-value" id="view-show-qr"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">QR Alignment</span>
+              <span class="detail-value" id="view-qr-align"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Screen Orientation</span>
+              <span class="detail-value" id="view-orientation"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Items to Show</span>
+              <span class="detail-value" id="view-items-show"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Utility Name Mode</span>
+              <span class="detail-value" id="view-name-mode"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Utilities -->
+        <div class="form-section">
+          <h6 class="form-section-title">Assigned Utilities</h6>
+          <div id="view-utilities" class="d-flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Booking Fields -->
+        <div class="form-section">
+          <h6 class="form-section-title">Visible Booking Fields</h6>
+          <div id="view-booking-fields" class="d-flex flex-wrap gap-2"></div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

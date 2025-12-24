@@ -1668,7 +1668,7 @@ def tv_config_detail(request, config_id):
 # Update config
 # POST /tv-config/update/<int:config_id>/
 # -------------------------
-@api_view(['POST'])
+@api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def tv_config_update(request, config_id):
     try:

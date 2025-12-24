@@ -45,7 +45,7 @@ export async function loadConfigurations() {
 
     renderTable();
     renderPagination();
-  } catch(error) {
+  } catch (error) {
     console.error('Error loading configurations', error);
     ctx.ModalService.showError('Failed to load configurations');
   }
@@ -67,27 +67,27 @@ function applyFilters() {
 }
 
 function renderTable() {
-    if (!el.configTable) {
-        console.error('Element with ID "configTable" not found');
-        return;
-    }
-    if (!filteredConfigs.length) {
-        el.configTable.style.display = 'none';
-        el.emptyState.style.display = 'block';
-        return;
-    }
+  if (!el.configTable) {
+    console.error('Element with ID "configTable" not found');
+    return;
+  }
+  if (!filteredConfigs.length) {
+    el.configTable.style.display = 'none';
+    el.emptyState.style.display = 'block';
+    return;
+  }
 
-    el.configTable.style.display = 'table';
-    el.emptyState.style.display = 'none';
+  el.configTable.style.display = 'table';
+  el.emptyState.style.display = 'none';
 
-    const start = (currentPage - 1) * itemsPerPage;
-    const pageData = filteredConfigs.slice(start, start + itemsPerPage);
+  const start = (currentPage - 1) * itemsPerPage;
+  const pageData = filteredConfigs.slice(start, start + itemsPerPage);
 
-    el.configTbody.innerHTML = pageData.map(rowTemplate).join('');
+  el.configTbody.innerHTML = pageData.map(rowTemplate).join('');
 
-    el.configTbody.querySelectorAll('.action-btn').forEach(btn => {
-        btn.addEventListener('click', e => showActionMenu(e, btn));
-    });
+  el.configTbody.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', e => showActionMenu(e, btn));
+  });
 }
 
 function rowTemplate(c) {
@@ -132,11 +132,44 @@ function rowTemplate(c) {
 
 function showActionMenu(e, btn) {
   e.stopPropagation();
+
+  // Toggle logic: If clicking the same button that opened the menu, close it
+  if (el.actionMenu.style.display === 'block' &&
+    el.actionMenu.dataset.triggeredById === btn.dataset.id) {
+    el.actionMenu.style.display = 'none';
+    el.actionMenu.dataset.triggeredById = ''; // Clear it
+    return;
+  }
+
+  // Store current ID to know who opened it
+  el.actionMenu.dataset.triggeredById = btn.dataset.id;
+
   const rect = btn.getBoundingClientRect();
 
+  const menuHeight = 120; // Approximate menu height
+  const viewportHeight = window.innerHeight;
+  const spaceBelow = viewportHeight - rect.bottom;
+
+  let top, left;
+
+  // If there's enough space below, show below; otherwise show above
+  if (spaceBelow > menuHeight + 20) {
+    top = rect.bottom + window.scrollY + 4;
+  } else {
+    top = rect.top + window.scrollY - menuHeight - 4;
+  }
+
+  // Align right edge of menu with right edge of button (shows to the left)
+  left = rect.right - 160 + window.scrollX;
+
+  // Ensure menu doesn't go off-screen on right side
+  if (left + 160 > window.innerWidth) {
+    left = window.innerWidth - 170;
+  }
+
+  el.actionMenu.style.top = `${top}px`;
+  el.actionMenu.style.left = `${left}px`;
   el.actionMenu.style.display = 'block';
-  el.actionMenu.style.top = `${rect.bottom + 5}px`;
-  el.actionMenu.style.left = `${rect.left}px`;
 
   el.actionMenuList.querySelectorAll('.action-menu-item')
     .forEach(item => item.onclick = ev => {
@@ -159,7 +192,7 @@ function renderPagination() {
         onclick="window.goToTVPage(${i + 1})">
         ${i + 1}
     </button>`
-    ).join('');
+  ).join('');
 
 }
 
@@ -170,6 +203,6 @@ window.goToTVPage = p => {
 
 function escapeHtml(t) {
   return t?.replace(/[&<>"']/g, m =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])
   );
 }
