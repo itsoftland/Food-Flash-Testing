@@ -91,7 +91,7 @@ def android_tv_config(request):
     return render(request, 'company/android_tv_config.html')
 
 @login_required
-def tv_config_list(request):
+def tv_config_list_page(request):
     return render(request, 'company/tv_config_list.html')
 
 @login_required

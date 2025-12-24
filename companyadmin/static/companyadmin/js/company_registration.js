@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             DeviceModel: "Windows",
             DeviceIdentifier1: form.companyname.value,
             DeviceType: 1,
-            Version: `${window.PROJECT_NAME} ${window.APP_VERSION}`,
+            Version: `${window.APP_VERSION}`,
             ProjectName: window.PROJECT_NAME 
         };
 
