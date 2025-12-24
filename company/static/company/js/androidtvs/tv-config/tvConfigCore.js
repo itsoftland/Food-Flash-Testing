@@ -93,6 +93,7 @@ function renderTable() {
 function rowTemplate(c) {
   return `
     <tr>
+      <td><strong>${escapeHtml(c.config_name || 'Unnamed')}</strong></td>
       <td>${escapeHtml(c.utility_name_mode)}</td>
 
       <td>

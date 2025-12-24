@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const utilityNameModeSelect = document.getElementById('utility-name-mode');
   const screenOrientationSelect = document.getElementById('screen-orientation');
   const utilitiesSelect = document.getElementById('utilities-select');
-  
+
   let choicesInstance = null; // Store Choices.js instance
 
   /* ------------------------------------
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         } else if (data.results && Array.isArray(data.results)) {
           utilities = data.results;
         }
-        
+
         // Populate utilities select options
         utilitiesSelect.innerHTML = '';
         utilities.forEach((utility) => {
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async function () {
           option.textContent = utility.display_name || utility.utility_name || utility.name || `Utility ${utility.id}`;
           utilitiesSelect.appendChild(option);
         });
-        
+
         // Initialize Choices.js after populating utilities
         initializeChoices();
       } else {
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   //       } else if (data.results && Array.isArray(data.results)) {
   //         configs = data.results;
   //       }
-        
+
   //       if (configs.length > 0) {
   //         populateFormWithConfig(configs[0]);
   //       } else {
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   function populateFormWithConfig(config) {
     // Populate Show QR checkbox
     showQrCheckbox.checked = config.show_qr || false;
-    
+
     // Populate QR Alignment
     if (config.qr_alignment) {
       qrAlignmentSelect.value = config.qr_alignment;
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     Array.from(utilitiesSelect.options).forEach((option) => {
       option.selected = selectedUtilityIds.includes(parseInt(option.value));
     });
-    
+
     // Update Choices.js if initialized
     if (choicesInstance) {
       choicesInstance.setChoiceByValue(selectedUtilityIds.map(id => id.toString()));
@@ -261,6 +261,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
 
       const payload = {
+        config_name: document.getElementById('config-name').value,
         show_qr: showQrCheckbox.checked,
         qr_alignment: qrAlignmentSelect.value || null,
         items_to_show: parseInt(itemsToShowSelect.value),

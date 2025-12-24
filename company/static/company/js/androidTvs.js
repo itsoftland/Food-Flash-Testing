@@ -1,4 +1,5 @@
 import { ConfirmModalService } from './services/confirmModalService.js';
+import { openAssignConfigModal } from './androidtvs/tvConfigAssignment.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Validate BASE exists
@@ -58,11 +59,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const iconTitle = isMapped ? 'Unlink Device' : 'Link Device';
         const outletClass = isMapped ? 'name' : 'text-muted';
 
+        const hasConfig = !!device.tv_config;
+        const configName = hasConfig ? device.tv_config.config_name : 'Not Assigned';
+        const configClass = hasConfig ? 'text-success fw-semibold' : 'text-muted fst-italic';
+
         const row = `
         <tr>
             <td class="text-muted text-center" data-label="ID">${Id}</td>
             <td class="name" data-label="MAC Address">${device.mac_address}</td>
             <td class="${outletClass}" data-label="Outlet Name">${outletName}</td>
+            <td data-label="Configuration">
+              <span class="config-link ${configClass}" 
+                    style="cursor:pointer; text-decoration:underline;"
+                    data-id="${device.id}"
+                    data-mac_address="${device.mac_address}"
+                    title="Click to ${hasConfig ? 'change' : 'assign'} configuration">
+                ${configName}
+              </span>
+            </td>
             <td class="text-muted" data-label="Created Time">${createdTime}</td>
             <td class="text-center" data-label="Actions">
             <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
@@ -85,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       $('[data-toggle="tooltip"]').tooltip('dispose').tooltip();
 
       attachActionListeners(); // Rebind link/unlink handlers
+      attachConfigListeners(); // Rebind config assignment handlers
     } catch (error) {
       console.error('Error loading devices:', error);
     }
@@ -125,6 +140,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           openMapDeviceModal(deviceId, macAddress);
         }
+      });
+    });
+  }
+
+  function attachConfigListeners() {
+    document.querySelectorAll('.config-link').forEach((link) => {
+      link.addEventListener('click', () => {
+        const deviceId = link.dataset.id;
+        const macAddress = link.dataset.mac_address;
+
+        openAssignConfigModal(deviceId, macAddress, {
+          fetchWithAutoRefresh,
+          API_ENDPOINTS,
+          ModalService
+        });
       });
     });
   }

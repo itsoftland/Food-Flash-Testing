@@ -66,57 +66,71 @@ function getCookie(name) {
 
 async function openViewModal(id, ctx) {
   try {
-    const res = await ctx.fetchWithAutoRefresh(ctx.apiEndpoints.GET_TV_CONFIG_DETAIL.replace('{id}', id));
+    const url = ctx.apiEndpoints.GET_TV_CONFIG_DETAIL.replace('{id}', id);
+    const res = await ctx.fetchWithAutoRefresh(url);
+
+    if (!res.ok) {
+      throw new Error(`API Error: ${res.status}`);
+    }
+
     const data = await res.json();
-    const config = data.config || data;
+    const config = data.config;
 
-    // Populate basic fields
-    setText('view-show-qr', config.show_qr ? 'Yes' : 'No');
-    setText('view-qr-align', config.qr_alignment ? capitalizeFirst(config.qr_alignment) : '-');
-    setText('view-orientation', capitalizeFirst(config.screen_orientation));
-    setText('view-items-show', config.items_to_show);
-    setText('view-name-mode', config.utility_name_mode === 'display_name' ? 'Display Name' : 'Display Code');
+    if (!config) {
+      throw new Error('Invalid configuration response');
+    }
 
-    // Populate Arrays
-    // Utilities
-    const utilsContainer = document.getElementById('view-utilities');
-    utilsContainer.innerHTML = (config.utilities && config.utilities.length)
-      ? config.utilities.map(u =>
-        `<span class="badge bg-secondary" style="font-size:0.85rem; padding: 0.5em 0.8em; font-weight:500;">
-                ${escapeHtml(u.utility_name)} <small class="opacity-75">(${u.display_code})</small>
-             </span>`
-      ).join('')
-      : '<span class="text-muted fst-italic">No utilities assigned</span>';
+    const container = document.getElementById('view-details-content');
+    if (!container) {
+      console.error('Element #view-details-content not found');
+      return;
+    }
 
-    // Booking Fields
-    const fieldsContainer = document.getElementById('view-booking-fields');
-    fieldsContainer.innerHTML = (config.booking_fields && config.booking_fields.length)
-      ? config.booking_fields.map(f =>
-        `<span class="badge bg-light text-dark border" style="font-size:0.85rem; padding: 0.5em 0.8em; font-weight:500;">
-                ${formatField(f)}
-             </span>`
-      ).join('')
-      : '<span class="text-muted fst-italic">No fields selected</span>';
+    /* --------- Render Clean UI --------- */
 
-    // Show Modal
+    const utilitiesHtml = config.utilities?.length
+      ? config.utilities.map(u => `
+          <span class="detail-value badge bg-light text-dark border">
+            ${escapeHtml(u.utility_name)}
+          </span>
+        `).join('')
+      : `<span class="text-muted fst-italic">No utilities assigned</span>`;
+
+    const fieldsHtml = config.booking_fields?.length
+      ? config.booking_fields.map(f => `
+          <span class="detail-value badge bg-light text-dark border">
+            ${formatField(f)}
+          </span>
+        `).join('')
+      : `<span class="text-muted fst-italic">No fields selected</span>`;
+
+    container.innerHTML = `
+      <div class="detail-item">
+        <div class="detail-label">Utilities</div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+          ${utilitiesHtml}
+        </div>
+      </div>
+
+      <div class="detail-item">
+        <div class="detail-label">Booking Fields</div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+          ${fieldsHtml}
+        </div>
+      </div>
+    `;
+
+    /* --------- Show Modal --------- */
+
     const modalEl = document.getElementById('view-modal');
-    const modal = new bootstrap.Modal(modalEl);
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) modal = new bootstrap.Modal(modalEl);
     modal.show();
 
   } catch (err) {
-    console.error('View error', err);
-    ctx.ModalService.showError('Failed to load details');
+    console.error('View modal error', err);
+    ctx.ModalService.showError('Failed to load configuration details');
   }
-}
-
-function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-function capitalizeFirst(s) {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function formatField(f) {

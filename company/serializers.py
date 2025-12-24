@@ -455,11 +455,19 @@ class AndroidDeviceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AndroidDevice
-        fields = ['id', 'mac_address', 'vendor', 'created_at', 'updated_at']
+        fields = ['id', 'mac_address', 'vendor', 'created_at', 'updated_at',]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['mac_address'] = representation.pop('mac_address', None)
+        # Include tv_config name
+        if instance.tv_config:
+            representation['tv_config'] = {
+                'id': instance.tv_config.id,
+                'config_name': instance.tv_config.config_name or f'Config #{instance.tv_config.id}'
+            }
+        else:
+            representation['tv_config'] = None
         return representation
 
 from vendors.models import Order
@@ -609,6 +617,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "admin_outlet",
+            "config_name",
             "show_qr",
             "qr_alignment",
             "items_to_show",

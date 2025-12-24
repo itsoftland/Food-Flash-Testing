@@ -536,6 +536,9 @@ class TVDeviceConfig(models.Model):
         blank=True
     )
 
+    # 7. Config name
+    config_name = models.CharField(max_length=255,blank=True,null=True)
+
     created_at = models.DateTimeField(auto_now_add=True,db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

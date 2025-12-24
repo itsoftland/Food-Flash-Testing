@@ -28,26 +28,33 @@
         <form id="tv-config-form" class="tv-config-form">
           {% csrf_token %}
 
+          <!-- Config Name -->
+          <div class="form-section">
+            <h6 class="form-section-title">Configuration Details</h6>
+            <div class="row g-3">
+              <div class="form-group col-lg-6 col-md-8">
+                <label for="config-name" class="form-label">Configuration Name</label>
+                <input type="text" id="config-name" name="config_name" class="form-control form-control-sm"
+                  placeholder="Enter a name for this configuration" required />
+              </div>
+            </div>
+          </div>
+
           <!-- Row 1: QR Settings (3 columns) -->
           <div class="form-section">
             <h6 class="form-section-title">QR Code & Display</h6>
-            
+
             <div class="row g-3">
               <!-- Show QR Checkbox -->
               <div class="form-group col-lg-4 col-md-6">
                 <div class="form-check ps-0">
-                  <input 
-                    type="checkbox" 
-                    id="show-qr" 
-                    name="show_qr" 
-                    class="form-check-input" 
-                  />
+                  <input type="checkbox" id="show-qr" name="show_qr" class="form-check-input" />
                   <label class="form-check-label" for="show-qr">
                     Show QR Code
                   </label>
                 </div>
               </div>
-              
+
               <!-- QR Alignment -->
               <div class="form-group col-lg-4 col-md-6">
                 <label for="qr-alignment" class="form-label">QR Alignment</label>
@@ -73,7 +80,7 @@
           <!-- Row 2: Items & Booking Fields (3 columns) -->
           <div class="form-section">
             <h6 class="form-section-title">Items Display Settings</h6>
-            
+
             <div class="row g-3">
               <!-- Items to Show -->
               <div class="form-group col-lg-4 col-md-6">
@@ -103,33 +110,18 @@
                 <label for="booking-fields" class="form-label">Fields to Display</label>
                 <div class="booking-fields-container">
                   <div class="form-check ps-0">
-                    <input 
-                      type="checkbox" 
-                      id="field-name" 
-                      name="booking_fields" 
-                      value="name" 
-                      class="form-check-input"
-                    />
+                    <input type="checkbox" id="field-name" name="booking_fields" value="name"
+                      class="form-check-input" />
                     <label class="form-check-label" for="field-name">Name</label>
                   </div>
                   <div class="form-check ps-0">
-                    <input 
-                      type="checkbox" 
-                      id="field-guest-count" 
-                      name="booking_fields" 
-                      value="guest_count" 
-                      class="form-check-input"
-                    />
+                    <input type="checkbox" id="field-guest-count" name="booking_fields" value="guest_count"
+                      class="form-check-input" />
                     <label class="form-check-label" for="field-guest-count">Guest Count</label>
                   </div>
                   <div class="form-check ps-0">
-                    <input 
-                      type="checkbox" 
-                      id="field-token" 
-                      name="booking_fields" 
-                      value="token" 
-                      class="form-check-input"
-                    />
+                    <input type="checkbox" id="field-token" name="booking_fields" value="token"
+                      class="form-check-input" />
                     <label class="form-check-label" for="field-token">Token</label>
                   </div>
                 </div>
@@ -140,18 +132,12 @@
           <!-- Row 3: Active Utilities Selection -->
           <div class="form-section">
             <h6 class="form-section-title">Active Utilities</h6>
-            
+
             <div class="row g-3">
               <div class="form-group col-12">
                 <label for="utilities-select" class="form-label">Select Utilities to Display</label>
-                <select 
-                  id="utilities-select" 
-                  name="utilities" 
-                  class="form-select form-select-sm choices-input" 
-                  multiple 
-                  required
-                  data-placeholder="Click to select utilities..."
-                >
+                <select id="utilities-select" name="utilities" class="form-select form-select-sm choices-input" multiple
+                  required data-placeholder="Click to select utilities...">
                   <!-- Options populated by JS -->
                 </select>
               </div>
