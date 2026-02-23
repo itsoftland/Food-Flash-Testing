@@ -250,6 +250,7 @@ def check_status(request):
                     status=400
                 )
             
+            chat_message = None
             try:
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
@@ -264,8 +265,9 @@ def check_status(request):
                 )
             except Exception as e:
                 logger.exception("Failed to store user chat message")
-                chat_message.is_send = False
-                chat_message.save(update_fields=["is_send"])
+                if chat_message:
+                    chat_message.is_send = False
+                    chat_message.save(update_fields=["is_send"])
             if project_name == "airline_flash":
                 title = "Passenger Message Received"
                 body = f"Passenger {order.sequence_code} has sent a new message."

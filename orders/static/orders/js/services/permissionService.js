@@ -7,8 +7,8 @@ export const PermissionService = (() => {
         if (modalElement && (forceShow || !localStorage.getItem("permissionStatus"))) {
             // console.log("🟢 [PermissionService] Showing permission modal (force:", forceShow, ")");
             const bsModal = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
+                backdrop: 'static',
+                keyboard: false
             });
             bsModal.show();
         } else {
