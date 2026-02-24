@@ -2,7 +2,7 @@
    GLOBAL HELPERS
 ------------------------------ */
 .hidden {
-  display: none !important;
+    display: none !important;
 }
 
 /* ------------------------------
@@ -12,7 +12,7 @@
     max-width: 500px;
     margin-top: 0px;
     padding-top: 60px;
-    padding-bottom:90px;
+    padding-bottom: 90px;
 }
 
 /* ------------------------------
@@ -36,13 +36,13 @@
 .registration-card-container {
     margin-top: 0 !important;
     padding: 0 10px !important;
-   
+
 }
 
 .registration-card {
     background: #fff;
     border-radius: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     padding: 20px;
 }
 
@@ -52,14 +52,15 @@
 .premium-input {
     background: #fff;
     border-radius: 14px;
-    border: 1px solid #b6cde0; /* soft light-blue-grey */
+    border: 1px solid #b6cde0;
+    /* soft light-blue-grey */
     padding: 7px 12px;
     font-size: 16px;
     font-family: 'Poppins', sans-serif;
 }
 
 .premium-input:focus {
-    box-shadow: 0 0 0 2px rgba(17,80,135,0.25);
+    box-shadow: 0 0 0 2px rgba(17, 80, 135, 0.25);
 }
 
 /* Textarea */
@@ -75,8 +76,9 @@ textarea.premium-input {
 /* ------------------------------
    BUTTON (Book Table) â€” BLUE THEME
 ------------------------------ */
-#register-btn {
-    background: #115087 !important;  /* Main blue */
+#table-booking-submit-btn {
+    background: #115087 !important;
+    /* Main blue */
     border: none !important;
     color: #ffffff !important;
     padding: 12px !important;
@@ -84,14 +86,15 @@ textarea.premium-input {
     font-weight: 600 !important;
     border-radius: 30px !important;
     width: 100%;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
     transition: 0.2s ease-in-out !important;
 }
 
-#register-btn:hover {
-    background: #0d3a63 !important; /* darker tone of your blue */
+#table-booking-submit-btn:hover {
+    background: #0d3a63 !important;
+    /* darker tone of your blue */
     transform: translateY(-2px) !important;
-    box-shadow: 0 5px 14px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* ------------------------------
@@ -103,9 +106,7 @@ textarea.premium-input {
     margin-right: 8px;
     vertical-align: middle;
     /* Book Table Icon â€” Gold (#F5C26B) */
-    filter: brightness(0) saturate(100%)
-            invert(85%) sepia(28%) saturate(850%)
-            hue-rotate(338deg) brightness(103%) contrast(96%);
+    filter: brightness(0) saturate(100%) invert(85%) sepia(28%) saturate(850%) hue-rotate(338deg) brightness(103%) contrast(96%);
 
 }
 
@@ -138,7 +139,8 @@ textarea.premium-input {
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
     cursor: pointer;
     transition: all 0.25s ease;
-    border: 1px solid rgba(17, 80, 135, 0.12); /* matches your blue */
+    border: 1px solid rgba(17, 80, 135, 0.12);
+    /* matches your blue */
 }
 
 /* Hover */
@@ -153,6 +155,7 @@ textarea.premium-input {
     background: #f0f7ff;
     box-shadow: 0 4px 14px rgba(17, 80, 135, 0.25);
 }
+
 .utility-display {
     font-size: 1rem;
     font-weight: 600;
