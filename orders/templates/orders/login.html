@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Admin Login</title>
@@ -12,60 +13,64 @@
   <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
   <link rel="stylesheet" href="{% static 'utils/css/form.css' %}">
 </head>
+
 <body class="hold-transition login-page">
 
-<div class="login-box">
-  <div class="card">
-    <div class="card-body login-card-body">
-      <div class="login-logo">
-        <img id="login-logo-img" src="" alt="Logo" style="max-width: 200px;">
-      </div>
-      {% comment %} <p class="login-box-msg">Sign in to start your session</p> {% endcomment %}
-
-      <form method="POST" id= "loginForm">
-        {% csrf_token %}
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <div class="input-group-text"><span class="fas fa-user"></span></div>
-          </div>
-          <input type="text" id="username" name="username" class="form-control" placeholder="Username" autocomplete="username" required>
+  <div class="login-box">
+    <div class="card">
+      <div class="card-body login-card-body">
+        <div class="login-logo">
+          <img id="login-logo-img" src="" alt="Logo" style="max-width: 200px;">
         </div>
+        {% comment %} <p class="login-box-msg">Sign in to start your session</p> {% endcomment %}
 
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <div class="input-group-text"><span class="fas fa-lock"></span></div>
+        <form method="POST" id="loginForm">
+          {% csrf_token %}
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <div class="input-group-text"><span class="fas fa-user"></span></div>
+            </div>
+            <input type="text" id="username" name="username" class="form-control" placeholder="Username"
+              autocomplete="username" required>
           </div>
-          <input type="password" id="password" name="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
-        </div>
 
-        <div class="row">
-          <div class="col-6">
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <div class="input-group-text"><span class="fas fa-lock"></span></div>
+            </div>
+            <input type="password" id="password" name="password" class="form-control" placeholder="Password"
+              autocomplete="current-password" required>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
               <!-- Remember Me (currently commented) -->
-          </div>
-          <div class="col-12">
+            </div>
+            <div class="col-12">
               <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+            </div>
           </div>
-        </div>
 
 
-      </form>
+        </form>
 
-      {% if form.errors %}
+        {% if form.errors %}
         <p class="text-danger mt-3">Invalid username or password.</p>
-      {% endif %}
+        {% endif %}
+      </div>
     </div>
   </div>
-</div>
-{% include "company/partials/modals.html" %}
-<!-- Scripts -->
-<script>
-  window.PROJECT_NAME = "{{ PROJECT_NAME }}";
-</script>
-<script type="module" src = "{% static 'utils/js/apiEndpoints.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-<script type ="module" src="{% static 'orders/js/login.js' %}"></script>
-<script type ="module" src="{% static 'utils/js/utils.js' %}"></script>
+  {% include "company/partials/modals.html" %}
+  <!-- Scripts -->
+  <script>
+    window.PROJECT_NAME = "{{ PROJECT_NAME }}";
+  </script>
+  <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+  <script type="module" src="{% static 'utils/js/utils.js' %}"></script>
+  <script type="module" src="{% static 'orders/js/login.js' %}"></script>
 </body>
+
 </html>

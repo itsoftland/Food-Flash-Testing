@@ -16,22 +16,22 @@ if (window.navigator.standalone) {
 
 // Safely read project variables from the global window object with fallbacks
 const projectName = (
-  typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== ""
+    typeof window.PROJECT_NAME === "string" && window.PROJECT_NAME.trim() !== ""
 )
-  ? window.PROJECT_NAME.trim()
-  : "calleron"; // Fallback project name
+    ? window.PROJECT_NAME.trim()
+    : "calleron"; // Fallback project name
 
 const projectDisplayName = (
-  typeof window.PROJECT_DISPLAY_NAME === "string" && window.PROJECT_DISPLAY_NAME.trim() !== ""
+    typeof window.PROJECT_DISPLAY_NAME === "string" && window.PROJECT_DISPLAY_NAME.trim() !== ""
 )
-  ? window.PROJECT_DISPLAY_NAME.trim()
-  : "Caller On"; // Fallback display name
+    ? window.PROJECT_DISPLAY_NAME.trim()
+    : "Caller On"; // Fallback display name
 
 const appVersion = (
-  typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+    typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
 )
-  ? window.APP_VERSION.trim()
-  : "1.0.0"; // Fallback version
+    ? window.APP_VERSION.trim()
+    : "1.0.0"; // Fallback version
 
 // ==================================================
 // 🌍 Base Path Setup
@@ -59,11 +59,11 @@ const staticBase = `${window.location.origin}/${projectName ? projectName + '/' 
 
 // Define project-to-favicon mapping
 const faviconMap = {
-  "food_flash": "food-flash-logo.ico",
-  "airline_flash": "airline-flash-logo.ico",
-  "service_flash": "service-flash-logo.ico",
-  "dine_flash": "dine-flash-logo.ico",
-  "calleron": "calleron-logo.ico",
+    "food_flash": "food-flash-logo.ico",
+    "airline_flash": "airline-flash-logo.ico",
+    "service_flash": "service-flash-logo.ico",
+    "dine_flash": "dine-flash-logo.ico",
+    "calleron": "calleron-logo.ico",
 };
 
 // Select favicon based on current project
@@ -101,48 +101,48 @@ window.AppUtils = {
         // 1️⃣ Try localStorage
         let locationId = localStorage.getItem(this.key);
         if (locationId) {
-          return locationId;
+            return locationId;
         }
-    
+
         // 2️⃣ Try IndexedDB
         try {
-          locationId = await idbGet(this.key);
-          if (locationId) {
-            localStorage.setItem(this.key, locationId); // Rehydrate
-            return locationId;
-          }
+            locationId = await idbGet(this.key);
+            if (locationId) {
+                localStorage.setItem(this.key, locationId); // Rehydrate
+                return locationId;
+            }
         } catch (e) {
-          console.warn("[LocationStore] IndexedDB read failed:", e);
+            console.warn("[LocationStore] IndexedDB read failed:", e);
         }
-    
+
         // 3️⃣ Try Cookie (after slight delay for PWA cold boot)
         await new Promise(resolve => setTimeout(resolve, 200));
         locationId = this.getCookie(this.key);
         if (locationId) {
-        //   console.log("[LocationStore] Loaded from Cookie:", locationId);
-          localStorage.setItem(this.key, locationId); // Rehydrate
-          try { await idbSet(this.key, locationId); } catch {}
-          return locationId;
+            //   console.log("[LocationStore] Loaded from Cookie:", locationId);
+            localStorage.setItem(this.key, locationId); // Rehydrate
+            try { await idbSet(this.key, locationId); } catch { }
+            return locationId;
         }
-    
+
         console.warn("[LocationStore] No activeLocation found in any storage.");
         return null;
-      },
+    },
     async set(locationId) {
-    if (!locationId) return;
+        if (!locationId) return;
 
-    // 1️⃣ Set in localStorage
-    localStorage.setItem(this.key, locationId);
+        // 1️⃣ Set in localStorage
+        localStorage.setItem(this.key, locationId);
 
-    // 2️⃣ Set in IndexedDB
-    try {
-        await idbSet(this.key, locationId);
-    } catch (e) {
-        console.warn("[LocationStore] IndexedDB write failed:", e);
-    }
+        // 2️⃣ Set in IndexedDB
+        try {
+            await idbSet(this.key, locationId);
+        } catch (e) {
+            console.warn("[LocationStore] IndexedDB write failed:", e);
+        }
 
-    // 3️⃣ Set in cookie
-    this.setCookie(this.key, locationId);
+        // 3️⃣ Set in cookie
+        this.setCookie(this.key, locationId);
     },
 
     setCookie(name, value, days = 365) {
@@ -229,7 +229,7 @@ window.AppUtils = {
         if (vendorId) {
             // console.log("[VendorStore] Loaded from Cookie:", vendorId);
             localStorage.setItem('activeVendor', vendorId);
-            try { await idbSet('activeVendor', vendorId); } catch {}
+            try { await idbSet('activeVendor', vendorId); } catch { }
             return parseInt(vendorId, 10);
         }
 
@@ -281,7 +281,7 @@ window.AppUtils = {
         if (token) {
             // console.log("[TokenStore] Loaded from Cookie:", token);
             localStorage.setItem('token', token);
-            try { await idbSet('token', token); } catch {}
+            try { await idbSet('token', token); } catch { }
             return token;
         }
 
@@ -298,6 +298,14 @@ window.AppUtils = {
             console.warn("[TokenStore] IndexedDB write failed:", e);
         }
         this.setCookie('token', token);
+    },
+    setCustomerId: function (id) {
+        localStorage.setItem('customer_id', id);
+        this.setCookie('customer_id', id);
+    },
+    setCustomerName: function (name) {
+        localStorage.setItem('customer_name', name);
+        this.setCookie('customer_name', name);
     },
     // ─────────────────────────────────────
     // Notification Sound
@@ -359,8 +367,8 @@ window.AppUtils = {
                 preferredVoice = voices.find(v =>
                     v.lang.startsWith("en") &&
                     (/female/i.test(v.name) ||
-                    /(Karen|Samantha|Moira)/i.test(v.name) ||
-                    /Google.*English.*Female/i.test(v.name))
+                        /(Karen|Samantha|Moira)/i.test(v.name) ||
+                        /Google.*English.*Female/i.test(v.name))
                 );
             }
 
@@ -390,7 +398,7 @@ window.AppUtils = {
 
 
     // Use this in your existing method
-    playNotificationSound : function (pattern,duration,volume = 1.0) {
+    playNotificationSound: function (pattern, duration, volume = 1.0) {
         if (unlockedNotificationAudio) {
             unlockedNotificationAudio.volume = Math.max(0, Math.min(volume, 1));
             unlockedNotificationAudio.currentTime = 0;
@@ -401,7 +409,7 @@ window.AppUtils = {
             console.warn('🔕 Notification sound is not unlocked yet.');
         }
         // Start vibration using reusable controller
-        VibrationManager.start(pattern,duration);
+        VibrationManager.start(pattern, duration);
     },
     /**
      * Plays a flavour-specific welcome message using Text-to-Speech (TTS).
@@ -474,19 +482,19 @@ window.AppUtils = {
         const chatResponse = document.querySelector('.chat-response');
         const chatFooter = document.querySelector('.chat-footer');
         const premiumFooter = document.querySelector('.premium-footer');
-    
+
         if (!chatResponse) return;
-    
+
         const chatFooterHeight = chatFooter?.offsetHeight || 0;
         const premiumFooterHeight = premiumFooter?.offsetHeight || 0;
-    
+
         const viewportHeight = window.visualViewport?.height || window.innerHeight;
         const keyboardOffset = window.innerHeight - viewportHeight;
-    
+
         const totalBottomOffset = chatFooterHeight + premiumFooterHeight + keyboardOffset;
-    
+
         chatResponse.style.paddingBottom = `${totalBottomOffset}px`; // Add safe spacing
-    
+
         // Optional: Dynamically limit height if needed
         const topOffset = 120; // Same as your padding-top
         const calculatedHeight = viewportHeight - chatFooterHeight - premiumFooterHeight - 20;
@@ -495,7 +503,7 @@ window.AppUtils = {
     initPaddingAdjustmentListeners: function () {
         const self = this;
         const adjust = () => self.adjustChatResponsePadding();
-    
+
         window.addEventListener('load', adjust);
         window.addEventListener('resize', adjust);
         window.visualViewport?.addEventListener('resize', adjust);
@@ -503,12 +511,12 @@ window.AppUtils = {
         window.addEventListener('focusout', adjust);
     },
 
-    showToast: function(message) {
+    showToast: function (message) {
         const toast = document.getElementById('customToast');
         toast.textContent = message;
         toast.classList.add('show');
         setTimeout(() => {
-          toast.classList.remove('show');
+            toast.classList.remove('show');
         }, 3000); // 3 seconds
     },
     // ─────────────────────────────────────
@@ -536,7 +544,7 @@ window.AppUtils = {
     // ============================================
     // Unlock Notification Sound + Preferred Voice (iOS + Android)
     // ============================================
-    notifyOrderReady: function(pushData) {
+    notifyOrderReady: function (pushData) {
         try {
             // console.log(`[TTS] Speaking order ready message: Order ${pushData.token_no} - Counter ${pushData.counter_no}`);
             const synth = window.speechSynthesis;
@@ -581,7 +589,7 @@ window.AppUtils = {
             let message;
 
             if (pushData.status === 'ready') {
-            // 🍴 Food Flash
+                // 🍴 Food Flash
                 message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
 
             } else if (pushData.status === 'cancelled') {
@@ -594,7 +602,7 @@ window.AppUtils = {
                 message = `Your order number ${pushData.token_no} is currently being prepared. Please wait while we finish it.`;
 
             } else if (pushData.status === 'checked_in') {
-            // ✈️ Airline Flash
+                // ✈️ Airline Flash
                 const flightSpeech = formatFlightNoForSpeech(pushData.flight_no);
                 message = `You have successfully checked in for flight ${flightSpeech}.`;
 
@@ -617,7 +625,7 @@ window.AppUtils = {
                 message = `Attention passenger. Please contact the airline staff for assistance.`;
 
             } else if (projectName === 'airline_flash' && pushData.type === 'airline_manager') {
-            // 📩 Manager broadcast messages
+                // 📩 Manager broadcast messages
                 message = `You have a new message. Please check the app for details.`;
             }
             // 🍽️ Dine Flash
@@ -637,11 +645,11 @@ window.AppUtils = {
                 message = `Unfortunately, your booking ${DineSpeech} has been cancelled. Please contact the restaurant staff for assistance.`;
 
             } else if (pushData.type === 'dine_manager') {
-            // 📩 Manager broadcast messages
+                // 📩 Manager broadcast messages
                 message = `You have a new message. Please check the app for details.`;
             }
             else {
-            // 🧾 Default fallback
+                // 🧾 Default fallback
                 message = `Your order number ${pushData.token_no} has a new update. Please check the app for details.`;
             }
 
@@ -713,12 +721,12 @@ window.AppUtils = {
         return browserId;
     },
     getCurrentBrowserId: function () {
-    let browserId = localStorage.getItem('browser_id');
-    if (!browserId) {
-        console.warn("No browser ID found.");
-        return null;
-    }
-    return browserId;
+        let browserId = localStorage.getItem('browser_id');
+        if (!browserId) {
+            console.warn("No browser ID found.");
+            return null;
+        }
+        return browserId;
     },
     // ─────────────────────────────────────
     // Device Detection
@@ -804,4 +812,6 @@ window.AppUtils = {
     }
 
 };
+
+export const AppUtils = window.AppUtils;
 

@@ -7,10 +7,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Import modules once
     const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
     const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+    const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
+    const labelModule = await import(`${window.BASE}static/utils/js/formFieldLabelService.js`);
 
     const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
     const API_ENDPOINTS = apiModule.API_ENDPOINTS;
     const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
+    const ModalService = modalModule.ModalService;
+    const getFriendlyFieldLabels = labelModule.default;
 
     const form = document.getElementById("companyForm");
     if (!form) {
@@ -38,7 +42,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             DeviceIdentifier1: form.companyname.value,
             DeviceType: 1,
             Version: `${window.APP_VERSION}`,
-            ProjectName: window.PROJECT_NAME 
+            ProjectName: window.PROJECT_NAME
         };
 
         try {
@@ -55,12 +59,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             const result = await response.json();
 
             if (result.status === "success") {
-                window.location.href = WEB_ENDPOINTS.COMPANY_LIST;
+                ModalService.showSuccess("Restaurant registered successfully", () => {
+                    window.location.href = WEB_ENDPOINTS.COMPANY_LIST;
+                });
             } else {
-                console.warn("Error: " + (result.message || "Unknown error occurred"));
+                const errorMessage = getFriendlyFieldLabels(result);
+                ModalService.showError(errorMessage || result.error || "Unknown error occurred");
             }
         } catch (err) {
             console.error("Request failed:", err);
+            ModalService.showError("An error occurred during registration. Please check the network or try again.");
         }
     });
 });

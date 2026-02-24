@@ -12,5 +12,6 @@ class VendorListSerializer(serializers.ModelSerializer):
             'name',
             'alias_name',
             'location',
-            'company_name',   # shows which company this outlet belongs to
+            'company_name',
+            'vendor_id',
         ]
