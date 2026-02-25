@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // console.log("Utility Data:",data)
 
             renderUtilities(data.utilities || []);
-        }
+        } 
         catch (err) {
             console.error("Error loading utilities:", err);
             ModalService.showError("Network error while loading utilities.");
@@ -230,9 +230,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Build booking payload
     // --------------------------
     function buildPayload() {
-        const customerNameEl = document.getElementById("table-booking-customer");
-        const guestsEl = document.getElementById("table-booking-guests");
-        const notesEl = document.getElementById("table-booking-remarks");
+        const customerNameEl = document.getElementById("customer_name");
+        const guestsEl = document.getElementById("no_of_packs");
+        const notesEl = document.getElementById("remarks");
         const selectedItem = document.querySelector(".utility-item.selected");
 
         let utilityId = null;
@@ -261,8 +261,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Auto-capitalize each word: john doe → John Doe
         name = name.split(" ")
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(" ");
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(" ");
 
         return name;
     }
@@ -338,7 +338,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Submit booking
     // --------------------------
     async function submitBooking() {
-        const registerBtn = document.getElementById("table-booking-submit-btn");
+        const registerBtn = document.getElementById("register-btn");
         if (!registerBtn) return;
 
         // disable & show spinner
@@ -409,7 +409,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             ModalService.showError("Network error. Please try again.");
         } finally {
             // restore button state
-            const registerBtnFinal = document.getElementById("table-booking-submit-btn");
+            const registerBtnFinal = document.getElementById("register-btn");
             if (registerBtnFinal) {
                 registerBtnFinal.disabled = false;
                 registerBtnFinal.innerHTML = originalHTML || `<i class="fas fa-user-plus me-2"></i> Book Table`;
@@ -433,7 +433,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     // Event binding
     // --------------------------
-    const registerBtn = document.getElementById("table-booking-submit-btn");
+    const registerBtn = document.getElementById("register-btn");
     if (registerBtn) {
         registerBtn.addEventListener("click", async (e) => {
             e.preventDefault();
