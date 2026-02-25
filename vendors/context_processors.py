@@ -22,16 +22,20 @@ def utilities_visibility(request):
     if not request.user.is_authenticated:
         return {"SHOW_UTILITIES_SIDEBAR": False}
 
-    # 2. User must be a company (AdminOutlet user)
-    admin_outlet = getattr(request.user, "admin_outlet", None)
-    if not admin_outlet:
-        return {"SHOW_UTILITIES_SIDEBAR": False}
-
-    # 3. Handle Flavour Specific visibility
-    # For Dine Flash, we show utilities by default regardless of the config
+    # 2. Handle Flavour Specific visibility (Dine Flash - Always Show)
     project_name = getattr(settings, "PROJECT_NAME", "").lower()
     if project_name == "dine_flash":
         return {"SHOW_UTILITIES_SIDEBAR": True}
+
+    # 3. User must be a company (AdminOutlet user) or Superuser
+    if request.user.is_superuser:
+        # For superusers in other flavours, we check if utilities are enabled system-wide or just show it
+        # For now, let's keep it consistent: if they are superuser, show them the tools.
+        return {"SHOW_UTILITIES_SIDEBAR": True}
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return {"SHOW_UTILITIES_SIDEBAR": False}
 
     # 4. For other flavours, check if ANY vendor under this company has utilities enabled
     utilities_enabled = VendorConfig.objects.filter(
