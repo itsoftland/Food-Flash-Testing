@@ -116,7 +116,7 @@ export const API_ENDPOINTS = {
   //Airline Flash Specific
   CREATE_PASSENGER: `${BASE}api/public_create_passenger/`,
   //DINE FLASH SPECIFIC
-  UTILITY_LIST: `${BASE}api/utility_list`,
+  UTILITY_LIST: `${BASE}api/utility_list/`,
   TABLE_BOOKING: `${BASE}api/book_table/`,
 };
 

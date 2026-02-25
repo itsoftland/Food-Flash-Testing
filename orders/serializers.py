@@ -16,7 +16,11 @@ class VendorLogoSerializer(serializers.ModelSerializer):
         try:
             if request and hasattr(instance.logo, 'url'):
                 url = request.build_absolute_uri(instance.logo.url)
-                data['logo_url'] = url.replace("http://", "https://")
+                # ✅ Force HTTPS only on non-local environments
+                if 'localhost' not in url and '127.0.0.1' not in url:
+                    data['logo_url'] = url.replace("http://", "https://")
+                else:
+                    data['logo_url'] = url
             else:
                 data['logo_url'] = ''
         except Exception as e:
@@ -44,8 +48,11 @@ class VendorAdsSerializer(serializers.ModelSerializer):
             for path in ad_paths:
                 if not path.startswith("http"):
                     url = request.build_absolute_uri(f"/media/{path}")
-                    # Force HTTPS
-                    full_ad_urls.append(url.replace("http://", "https://"))
+                    # ✅ Force HTTPS only on non-local environments
+                    if 'localhost' not in url and '127.0.0.1' not in url:
+                        full_ad_urls.append(url.replace("http://", "https://"))
+                    else:
+                        full_ad_urls.append(url)
                 else:
                     full_ad_urls.append(path)
 
@@ -74,8 +81,11 @@ class VendorMenuSerializer(serializers.ModelSerializer):
             for path in menu_paths:
                 if not path.startswith("http"):
                     url = request.build_absolute_uri(f"/{start_url}/media/{path}")
-                    # Force HTTPS
-                    full_menu_urls.append(url.replace("http://", "https://"))
+                    # ✅ Force HTTPS only on non-local environments
+                    if 'localhost' not in url and '127.0.0.1' not in url:
+                        full_menu_urls.append(url.replace("http://", "https://"))
+                    else:
+                        full_menu_urls.append(url)
                 else:
                     full_menu_urls.append(path)
 

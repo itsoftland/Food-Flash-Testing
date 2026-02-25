@@ -27,7 +27,13 @@ def utilities_visibility(request):
     if not admin_outlet:
         return {"SHOW_UTILITIES_SIDEBAR": False}
 
-    # 3. Check if ANY vendor under this company has utilities enabled
+    # 3. Handle Flavour Specific visibility
+    # For Dine Flash, we show utilities by default regardless of the config
+    project_name = getattr(settings, "PROJECT_NAME", "").lower()
+    if project_name == "dine_flash":
+        return {"SHOW_UTILITIES_SIDEBAR": True}
+
+    # 4. For other flavours, check if ANY vendor under this company has utilities enabled
     utilities_enabled = VendorConfig.objects.filter(
         vendor__admin_outlet=admin_outlet,
         use_utilities=True
