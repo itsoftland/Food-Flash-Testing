@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // console.log("Utility Data:",data)
 
             renderUtilities(data.utilities || []);
-        } 
+        }
         catch (err) {
             console.error("Error loading utilities:", err);
             ModalService.showError("Network error while loading utilities.");
@@ -261,8 +261,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Auto-capitalize each word: john doe → John Doe
         name = name.split(" ")
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(" ");
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(" ");
 
         return name;
     }
@@ -369,6 +369,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     detailsEl.innerHTML = `
                         <strong>${escapeHtml(data.customer_name || payload.customer_name)}</strong><br>
                         Guests: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
+                        Token No: <strong>${data.token_no}</strong><br>
+                        Booking ID: <strong>${data.table_booking_no}</strong><br>
                         ${data.special_notes ? `Notes: ${escapeHtml(data.special_notes)}` : ""}
                     `;
                 }
