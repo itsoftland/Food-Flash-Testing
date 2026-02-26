@@ -33,9 +33,8 @@
             <div class="row g-2 mb-3">
                 <div class="col-12">
                     <label class="form-label">Customer Name</label>
-                    <input type="text" id="customer_name"
-                           class="form-control premium-input"
-                           placeholder="Enter customer name">
+                    <input type="text" id="customer_name" class="form-control premium-input"
+                        placeholder="Enter customer name">
                 </div>
             </div>
 
@@ -43,9 +42,7 @@
             <div class="row g-2 mb-3">
                 <div class="col-12">
                     <label class="form-label">Number of Packs (Persons)</label>
-                    <input type="number" id="no_of_packs"
-                           class="form-control premium-input"
-                           placeholder="Eg: 4">
+                    <input type="number" id="no_of_packs" class="form-control premium-input" placeholder="Eg: 4">
                 </div>
             </div>
             {% if UTILITIES_ENABLED %}
@@ -67,9 +64,8 @@
             <div class="row g-2 mb-3">
                 <div class="col-12">
                     <label class="form-label">Phone Number</label>
-                    <input type="text" id="phone_number"
-                           class="form-control premium-input"
-                           placeholder="Enter phone number">
+                    <input type="text" id="phone_number" class="form-control premium-input"
+                        placeholder="Enter phone number">
                 </div>
             </div>
             {% endif %}
@@ -78,9 +74,8 @@
             <div class="row g-2 mb-4">
                 <div class="col-12">
                     <label class="form-label">Remarks / Instructions</label>
-                    <textarea id="remarks" rows="3"
-                              class="form-control premium-input"
-                              placeholder="Any special instructions related to booking "></textarea>
+                    <textarea id="remarks" rows="3" class="form-control premium-input"
+                        placeholder="Any special instructions related to booking "></textarea>
                 </div>
             </div>
 
@@ -88,9 +83,7 @@
             <div class="row g-3 justify-content-between button-row">
                 <div class="col-12 ps-1">
                     <button class="btn premium-primary-btn w-100" id="register-btn">
-                        <img src="{% static 'orders/icons/book-table.png' %}"
-                             alt="Book Table"
-                             class="btn-icon">
+                        <img src="{% static 'orders/icons/book-table.png' %}" alt="Book Table" class="btn-icon">
                         Request Table
                     </button>
                 </div>
@@ -105,11 +98,8 @@
 <!-- ================================
      Success Modal
 ================================== -->
-<div class="modal fade register-modal"
-     id="successModal"
-     tabindex="-1"
-     data-bs-backdrop="static"
-     data-bs-keyboard="false">
+<div class="modal fade register-modal" id="successModal" tabindex="-1" data-bs-backdrop="static"
+    data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content p-3">
             <h5 class="modal-title">Table Booking Successful</h5>
@@ -133,5 +123,5 @@
     window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
 </script>
 
-<script src="{% static 'orders/js/dineflash/table_booking.js' %}"></script>
+<script src="{% static 'orders/js/dineflash/table_booking.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}
