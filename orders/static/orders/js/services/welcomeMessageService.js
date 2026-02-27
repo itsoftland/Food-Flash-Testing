@@ -28,19 +28,19 @@ export const WelcomeMessageService = {
         // -------------------------------------------------------------
         const WELCOME_MESSAGES = {
             default: [
-                "Hi, Good Day! Welcome to {outletName}.",
+                "Hi {customerName}, Good Day! Welcome to {outletName}.",
                 "Kindly enter the Bill Number and Send so that we can track your order."
             ],
             food_flash: [
-                "Hi, Good Day! Welcome to {outletName}.",
+                "Hi {customerName}, Good Day! Welcome to {outletName}.",
                 "Kindly enter the Bill Number and Send so that we can track your order."
             ],
             airline_flash: [
-                "Hi, Good Day! Welcome to {outletName}.",
+                "Hi {customerName}, Good Day! Welcome to {outletName}.",
                 "Enter your Sequence Code to stay updated on your boarding schedule and gate announcements."
             ],
             dine_flash: [
-                "Hi, Welcome to {outletName}!",
+                "Hi {customerName}, Welcome to {outletName}!",
                 "Kindly enter your booking number to check your table allocation status."
             ]
         };
@@ -53,10 +53,26 @@ export const WelcomeMessageService = {
         console.log("WelcomeMessageService: Using messages for project:", projectKey);
         console.log("Selected welcome messages:", selectedMessages);
 
-        // Replace {outletName} placeholder dynamically
-        const messages = selectedMessages.map(msg =>
-            msg.replace("{outletName}", outletName)
-        );
+        let customerName = "";
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.getCustomerName === "function") {
+            customerName = AppUtils.getCustomerName() || "";
+        }
+
+        // Replace placeholders dynamically
+        const messages = selectedMessages.map(msg => {
+            let processedMsg = msg.replace("{outletName}", outletName);
+
+            // Handle the customerName replacement cleanly based on existence
+            if (customerName) {
+                processedMsg = processedMsg.replace("{customerName}", customerName);
+            } else {
+                // If no customer name is found, remove the placeholder and the trailing space/comma
+                processedMsg = processedMsg.replace("{customerName}, ", "");
+                processedMsg = processedMsg.replace("Hi {customerName}", "Hi");
+            }
+
+            return processedMsg;
+        });
 
         // -------------------------------------------------------------
         // 3️⃣ Build welcome message elements

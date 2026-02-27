@@ -364,6 +364,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (resp.status === 201) {
                 // New booking
+                const finalCustomerName = data.customer_name || payload.customer_name;
+                AppUtils.setCustomerName(finalCustomerName);
+
                 const detailsEl = document.getElementById("success-details");
                 if (detailsEl) {
                     detailsEl.innerHTML = `

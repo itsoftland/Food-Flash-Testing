@@ -307,6 +307,14 @@ window.AppUtils = {
         localStorage.setItem('customer_name', name);
         this.setCookie('customer_name', name);
     },
+    getCustomerName: function () {
+        // Try localStorage first, then fallback to cookie
+        let name = localStorage.getItem('customer_name');
+        if (!name) {
+            name = this.getCookie('customer_name');
+        }
+        return name;
+    },
     // ─────────────────────────────────────
     // Notification Sound
     // ─────────────────────────────────────
