@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,9 +10,11 @@
     <meta name="mobile-web-app-status-bar-style" content="default">
     <meta name="mobile-web-app-title" content="{{ PROJECT_DISPLAY_NAME }}">
 
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,700&display=swap"
+        rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Poppins' rel='stylesheet'>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <link rel="manifest" href="{% url 'manifest' %}?v={{ APP_VERSION }}">
     <title>{{ PROJECT_DISPLAY_NAME }}</title>
@@ -48,7 +51,7 @@
         <h1 class="header-title">{{ PROJECT_DISPLAY_NAME }}</h1>
         {% block header_heading %}{% endblock %}
     </header>
-    
+
 
     <!-- Main Content -->
     <main class="flex-fill">
@@ -56,7 +59,7 @@
     </main>
 
     <!-- Footer -->
-     {% block footer %}
+    {% block footer %}
     <footer class="custom-footer">
         <p class="footer-title">&copy; 2025 Softland India Ltd</p>
     </footer>
@@ -72,13 +75,13 @@
     </script>
 
     <!-- Global Utilities -->
-    <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}"></script>
-    <script src="{% static 'utils/js/projectAssets.js' %}"></script>
+    <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}?v={{ APP_VERSION }}"></script>
+    <script src="{% static 'utils/js/projectAssets.js' %}?v={{ APP_VERSION }}"></script>
 
     <!-- Load Vibration Controller BEFORE utils.js -->
-    <script src="{% static 'orders/js/config/vibrationController.js' %}"></script>
+    <script src="{% static 'orders/js/config/vibrationController.js' %}?v={{ APP_VERSION }}"></script>
 
-    <script type="module" src="{% static 'orders/js/utils.js' %}"></script>
+    <script type="module" src="{% static 'orders/js/utils.js' %}?v={{ APP_VERSION }}"></script>
 
     <!-- External libraries -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -87,4 +90,5 @@
     <!-- Page-specific JS -->
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>
