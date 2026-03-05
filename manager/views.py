@@ -253,6 +253,50 @@ def book_table(request):
             return Response({"error": "Utility not found for this vendor."}, status=status.HTTP_404_NOT_FOUND)
 
     # ------------------------------
+    # 3b. Duplicate Booking Check (5-minute window)
+    # ------------------------------
+    time_threshold = timezone.now() - timedelta(minutes=5)
+    duplicate_query = Order.objects.filter(
+        vendor=vendor,
+        customer_name__iexact=customer_name,
+        no_of_packs=no_of_guests,
+        created_at__gte=time_threshold
+    )
+    if utility:
+        duplicate_query = duplicate_query.filter(utility=utility)
+    
+    if phone_number:
+        duplicate_query = duplicate_query.filter(phone_number=phone_number)
+    else:
+        duplicate_query = duplicate_query.filter(phone_number__isnull=True)
+
+    existing_order = duplicate_query.first()
+    if existing_order:
+        logger.info("[book_table] Duplicate booking detected | token=%s", existing_order.token_no)
+        
+        try:
+            tracking_path = reverse("orders:home")
+            tracking_url = request.build_absolute_uri(
+                f"{tracking_path}?location_id={vendor.location_id}&vendor_id={vendor.vendor_id}"
+                f"&booking_no={existing_order.table_booking_no}&booking_id={existing_order.id}"
+            )
+        except Exception:
+            tracking_url = request.build_absolute_uri(
+                f"/{project_name}/home/?location_id={vendor.location_id}"
+                f"&vendor_id={vendor.vendor_id}&booking_no={existing_order.table_booking_no}&booking_id={existing_order.id}"
+            )
+
+        resp_data = {
+            "id": existing_order.id,
+            "token_no": existing_order.token_no,
+            "table_booking_no": existing_order.table_booking_no,
+            "tracking_url": tracking_url,
+            "message": "Duplicate booking detected. Returning existing ticket.",
+        }
+        return Response(resp_data, status=status.HTTP_200_OK)
+
+
+    # ------------------------------
     # 4. Atomic section with row-level locking
     #    - Lock vendor row (serializes token allocation)
     #    - Lock utility row if we will update its counter
