@@ -23,6 +23,7 @@ from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
 from static.utils.functions.queries import get_vendor
+from static.utils.functions.utils import get_vendor_business_day_range
 from manager.utils.utils import reset_counters_if_new_business_day 
 
 from .serializers import (
@@ -717,9 +718,14 @@ def webchat_messages(request):
 
         logger.info(f"✅ Vendor resolved: {vendor.name} ({vendor.vendor_id})")
 
-        messages = WebChatMessage.objects.filter(vendor_id=vendor.id,subscription=subscription.id).order_by('timestamp')
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        messages = WebChatMessage.objects.filter(
+            vendor_id=vendor.id,
+            subscription=subscription.id,
+            timestamp__range=(start_dt, end_dt)
+        ).order_by('timestamp')
         count = messages.count()
-        logger.info(f"💬 Retrieved {count} messages for vendor {vendor.name}.")
+        logger.info(f"💬 Retrieved {count} messages for vendor {vendor.name} for business day ({start_dt} to {end_dt}).")
 
         serializer = WebChatMessageSerializer(messages, many=True)
         return Response({'messages': serializer.data}, status=status.HTTP_200_OK)
