@@ -1403,7 +1403,7 @@ def manager_booking_update(request):
         # -------------------------
         # This will update booking.utility and run the normal notification / mqtt / tv flows.
         # -------------------------
-        if action_type == "allocated":
+        if action_type in ["allocated", "utility_transfer"]:
             utility_id = data['utility_id']
 
             # === Validate utility_id ===o
@@ -1419,6 +1419,12 @@ def manager_booking_update(request):
                 return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
             booking.utility = target_utility
+            
+            # 🛡️ FIX: If it is a transfer, do not overwrite the DB with "utility_transfer" as a status.
+            # Preserve the existing valid status (e.g., 'allocated' or 'occupied').
+            if action_type == "utility_transfer":
+                status_to_update = booking.status
+
             # Optionally update status if client provided a status that should apply
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
 
@@ -1426,7 +1432,7 @@ def manager_booking_update(request):
 
             # Update payload fields for notifications
             payload["utility_name"] = target_utility.display_name
-            payload["status"] = booking.status
+            payload["status"] = "utility_transfer" if action_type == "utility_transfer" else booking.status
             payload["type"] = "dinestatus"
 
             # For Android TV (Firebase) notify if configured
@@ -1467,10 +1473,20 @@ def manager_booking_update(request):
                 logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
         elif action_type == "occupied":
             logger.info("🔔 Occupied Booking %s by manager %s", booking_id, manager.name)
+            status_to_update = "occupied"  # Enforce correct state
+            payload["status"] = "occupied" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
-
+            if updated_booking:
+                payload["title"] = "Table Occupied"
+                push_errors = notify_web_push(updated_booking, vendor, payload)
+                updated_booking.refresh_from_db()
+                updated_booking.notified_at = timezone.now()
+                updated_booking.save(update_fields=["notified_at"])
+                logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
         elif action_type  ==  "booking_cancelled":
             logger.info("🔔 %s Booking %s by manager %s", action_type.capitalize(), booking_id, manager.name)
+            status_to_update = "booking_cancelled"  # Enforce correct state
+            payload["status"] = "booking_cancelled" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update,manager)
             if updated_booking:
                 payload["title"] = f"Order {action_type.capitalize()}"
@@ -1481,7 +1497,9 @@ def manager_booking_update(request):
                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
         
         elif action_type == "operation_closed":
-            logger.info("🔔 Operation Closed Booking %s by manager %s", booking_id, manager.name)
+            logger.info("🔔 %s Booking %s by manager %s", action_type.capitalize(), booking_id, manager.name)
+            status_to_update = "operation_closed"  # Enforce correct state
+            payload["status"] = "operation_closed" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
             if updated_booking:
                 if vendor.config:
@@ -1494,7 +1512,7 @@ def manager_booking_update(request):
                 updated_booking.save(update_fields=["notified_at"])
                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
 
-        else:  # action_type == "message"
+        elif action_type == "message":
             MAX_MESSAGE_LENGTH = 200
             if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)

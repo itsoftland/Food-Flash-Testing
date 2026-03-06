@@ -2,7 +2,8 @@
 const statusClassMap = {
   preparing: 'preparing-color',
   ready: 'ready-color',
-  allocated:'ready-color',
+  allocated: 'ready-color',
+  occupied: 'checked-in-color',
   delivered: 'delivered-color',
   checked_in: 'checked-in-color',
   boarding_shortly: 'boarding-shortly-color',
@@ -10,8 +11,9 @@ const statusClassMap = {
   gate_change: 'gate-change-color',
   rescheduled: 'rescheduled-color',
   cancelled: 'cancelled-color',
-  booking_cancelled:'cancelled-color',
-  operation_closed:'boarding-shortly-color',
+  booking_cancelled: 'cancelled-color',
+  operation_closed: 'boarding-shortly-color',
+  utility_transfer: 'ready-color',
 };
 
 
@@ -24,9 +26,12 @@ const payloadStatusMap = {
   cancelled: 'Cancelled',
 };
 const dineInPayloadStatusMap = {
-  waiting:'Allocation Pending',
-  allocated :'Table Allocated',
-  booking_cancelled:'Booking Cancelled',
+  waiting: 'Allocation Pending',
+  allocated: 'Table Allocated',
+  booking_cancelled: 'Booking Cancelled',
+  occupied: 'Table Occupied',
+  operation_closed: 'Operation Closed',
+  utility_transfer: 'Table Transferred',
 };
 
 function buildThankYouMessage(payload) {
@@ -256,8 +261,8 @@ export const ChatTemplateService = {
   build(message) {
     // const payload = message.text || {};
     const payload = typeof message.text === "object" && Object.keys(message.text).length
-    ? message.text
-    : message;
+      ? message.text
+      : message;
 
     switch (message.type) {
       case "foodstatus":

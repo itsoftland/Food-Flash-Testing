@@ -33,7 +33,7 @@ export const STATUS_MESSAGE_MAP = {
   boarding_shortly: (data) => `
     <strong>Flight ${data.flight_no}</strong> will be ready for boarding shortly. 
     Kindly wait for next announcement.`,
-  
+
   boarding_announced: (data) => `
     <strong>Flight ${data.flight_no}</strong> is ready for boarding.
     Kindly proceed through boarding gate.`,
@@ -43,20 +43,32 @@ export const STATUS_MESSAGE_MAP = {
     Kindly contact the airline staff.`,
 
   gate_change: (data) => `
-    Gate No changed.Revised Gate No will be Announced Shortly`, 
-    
+    Gate No changed.Revised Gate No will be Announced Shortly`,
+
   flightcancel: (data) => `
-    Kindly contact the airline staff.`, 
+    Kindly contact the airline staff.`,
 
   waiting: (data) => `
     Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
     is now <strong>waiting</strong> for allocation.`,
-  
+
   allocated: (data) => `
     Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
     has been Allocated at <strong>${data.utility_name}</strong>.`,
-  
+
+  utility_transfer: (data) => `
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    has been transferred to <strong>${data.utility_name}</strong>.`,
+
+  occupied: (data) => `
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    is now <strong>Occupied</strong>. Enjoy your meal!`,
+
+  booking_cancelled: (data) => `
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    has been <strong>Cancelled</strong>.`,
+
   operation_closed: (data) => `
     Thank you for choosing us today.`,
-  
+
 };
