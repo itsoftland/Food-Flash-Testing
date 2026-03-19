@@ -246,12 +246,14 @@ def product_authentication(request):
     product_authentication_url = getattr(settings, "LICENSE_PORTAL_URL")
     external_url = product_authentication_url + "api/ProductAuthentication"
     try:
+        print("SENDING TO PORTAL:", request.data)
         # Forward the received JSON payload to the external API
         response = requests.post(
             external_url,
             json=request.data,  # e.g., { "CustomerId": "1234" }
             timeout=10
         )
+        print("PORTAL REPLIED:", response.text)
 
         if response.status_code == 200:
             return Response(response.json(), status=status.HTTP_200_OK)
