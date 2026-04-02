@@ -597,8 +597,12 @@ window.AppUtils = {
             let message;
 
             if (pushData.status === 'ready') {
-                // 🍴 Food Flash
-                message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
+                // 🍴 Food Flash (Buffet flavour uses a simpler “token ready” line)
+                if (projectName === "dine_flash_buffet") {
+                    message = `Your order ${pushData.token_no} is now ready. Please collect it.`;
+                } else {
+                    message = `Your order number ${pushData.token_no} is ready at counter ${pushData.counter_no}. Please collect it.`;
+                }
 
             } else if (pushData.status === 'cancelled') {
                 message = `Unfortunately, your order number ${pushData.token_no} has been cancelled. Please contact the staff for assistance.`;
@@ -721,15 +725,34 @@ window.AppUtils = {
      * Stores and retrieves it from localStorage.
      */
     getBrowserId: function () {
-        let browserId = localStorage.getItem('browser_id');
+        // Flavour isolation: Food Flash and Airline Flash live on the same origin,
+        // so they must NOT share the same PushSubscription browser_id.
+        const projectKey = (() => {
+            const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
+            if (pn) return pn;
+            const path = (window.location?.pathname || '').toLowerCase();
+            const parts = path.split('/').filter(Boolean);
+            return parts[0] || 'default';
+        })();
+
+        const storageKey = `browser_id_${projectKey}`;
+        let browserId = localStorage.getItem(storageKey);
         if (!browserId) {
             browserId = crypto.randomUUID();
-            localStorage.setItem('browser_id', browserId);
+            localStorage.setItem(storageKey, browserId);
         }
         return browserId;
     },
     getCurrentBrowserId: function () {
-        let browserId = localStorage.getItem('browser_id');
+        const projectKey = (() => {
+            const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
+            if (pn) return pn;
+            const path = (window.location?.pathname || '').toLowerCase();
+            const parts = path.split('/').filter(Boolean);
+            return parts[0] || 'default';
+        })();
+        const storageKey = `browser_id_${projectKey}`;
+        let browserId = localStorage.getItem(storageKey);
         if (!browserId) {
             console.warn("No browser ID found.");
             return null;

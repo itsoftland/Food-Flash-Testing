@@ -20,6 +20,26 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
     )
     logger.debug(f"Payload: {payload}")
 
+    # Tag outgoing web-push payload with the current project/flavour so
+    # browsers can ignore unrelated notifications.
+    #
+    # Some call-sites may pass a dict-like object or even a JSON string;
+    # normalize so `payload.project` is consistently present.
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            payload = {"data": payload}
+    if isinstance(payload, dict):
+        payload.setdefault("project", project_name)
+    else:
+        # Best-effort: if it's dict-like with setdefault, use it.
+        setdefault_fn = getattr(payload, "setdefault", None)
+        if callable(setdefault_fn):
+            payload.setdefault("project", project_name)
+        else:
+            payload = {"data": payload, "project": project_name}
+
     subscriptions = list(
         PushSubscription.objects.filter(
             tokens__token_no=order.token_no,
@@ -94,6 +114,20 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
 
 def send_push_notification(subscription_info, payload):
     try:
+        # Ensure the payload is tagged so the PWA can ignore cross-flavour messages.
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {"data": payload}
+        if isinstance(payload, dict):
+            payload.setdefault("project", project_name)
+        else:
+            setdefault_fn = getattr(payload, "setdefault", None)
+            if callable(setdefault_fn):
+                payload.setdefault("project", project_name)
+            else:
+                payload = {"data": payload, "project": project_name}
         logger.info("Attempting to send web push notification.")
         logger.debug("Payload: %s", json.dumps(payload, indent=2))
         logger.debug("Subscription Info: %s", json.dumps(subscription_info, indent=2))
@@ -163,7 +197,7 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
                 is_read=False,
                 is_send=True
             )
-        elif project_name == "dine_flash" and booking_id:
+        elif project_name in ["dine_flash", "dine_flash_buffet"] and booking_id:
             message = WebChatMessage.objects.create(
                 message_id=uuid.uuid4(),
                 subscription=subscription,

@@ -3,7 +3,6 @@ import { AddOutletService } from "./services/addOutletService.js";
 import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js";
 import { PermissionService } from "./services/permissionService.js";
-import { initNotificationModal, showNotificationModal } from './services/notificationService.js';
 import { VendorUIService } from "./services/vendorUIService.js";
 import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
@@ -29,6 +28,16 @@ onDOMReady(async function () {
 
     let apiEndpoints;
     const base = window.BASE || '/caller_on/';
+    const appVersion =
+        (typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== "")
+            ? window.APP_VERSION.trim()
+            : "";
+
+    // ✅ Import notification service with cache-busting (ensures latest modal logic is used)
+    const notificationModule = await import(
+        `${base}static/orders/js/services/notificationService.js${appVersion ? `?v=${encodeURIComponent(appVersion)}` : ""}`
+    );
+    const { initNotificationModal, showNotificationModal } = notificationModule;
 
     // ✅ Import endpoints dynamically
     const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);
@@ -222,6 +231,35 @@ onDOMReady(async function () {
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
                 // console.log("Payload Recieved:",pushData)
+                // Ignore cross-flavour messages (fixes food_flash -> airline_flash leakage).
+                const expectedProject = (() => {
+                    const path = (window.location?.pathname || '').toLowerCase();
+                    if (path.includes('/airline_flash/')) return 'airline_flash';
+                    if (path.includes('/dine_flash_buffet/')) return 'dine_flash_buffet';
+                    if (path.includes('/dine_flash/')) return 'dine_flash';
+                    if (path.includes('/food_flash/')) return 'food_flash';
+                    // Fallbacks
+                    const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
+                    if (pn) return pn;
+                    const base = (window.BASE || '').toString();
+                    const parts = base.split('/').filter(Boolean);
+                    return (parts[parts.length - 1] || '').toLowerCase().trim();
+                })();
+
+                const incomingProject =
+                    pushData?.project != null ? String(pushData.project).toLowerCase().trim() : null;
+
+                // If project identity doesn't match (or is missing), discard to avoid
+                // cross-flavour card updates.
+                if (expectedProject && incomingProject !== expectedProject) {
+                    return;
+                }
+
+                // Extra safety: Airline UI expects `sequence_code`.
+                if (expectedProject === "airline_flash") {
+                    const seq = pushData?.sequence_code != null ? String(pushData.sequence_code).trim() : "";
+                    if (!seq) return;
+                }
                 // ✅ Send ACK back to Service Worker confirming receipt
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
@@ -255,39 +293,56 @@ onDOMReady(async function () {
 
                     case 'manager':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'notification');
+                        await showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.token_no, pushData.message_id);
                         break;
                     case 'airline_manager':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'notification');
+                        await showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.sequence_code, pushData.message_id);
                         break;
                     case 'dine_manager':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'notification');
+                        await showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
+                        break;
+                    case 'item_preparing':
+                    case 'item_ready':
+                    case 'item_cancelled':
+                    case 'item_delivered':
+                    case 'buffet_item_preparing':
+                    case 'buffet_item_ready':
+                    case 'buffet_item_cancelled':
+                    case 'buffet_item_delivered':
+                        AppUtils.notifyOrderReady(pushData);
+                        await showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        break;
+                    case 'order_delivered':
+                        AppUtils.notifyOrderReady(pushData);
+                        await showNotificationModal(pushData, 'push');
+                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
                         break;
                     case 'foodstatus':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'push');
+                        await showNotificationModal(pushData, 'push');
                         appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
                         break;
                     case 'flightstatus':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'push');
+                        await showNotificationModal(pushData, 'push');
                         appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
                         break;
                     case 'dinestatus':
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'push');
+                        await showNotificationModal(pushData, 'push');
                         console.log("booking_id", pushData.booking_id);
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
                     
                     case 'thankyou' :
                         AppUtils.notifyOrderReady(pushData);
-                        showNotificationModal(pushData, 'push');
+                        await showNotificationModal(pushData, 'push');
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
 
@@ -704,26 +759,17 @@ onDOMReady(async function () {
         const activeVendor = await AppUtils.getActiveVendor();
         let payload = {};
         let type = '';
-        if (window.BASE && window.BASE.includes('/airline_flash/')) {
+        // Decide flavour based on the actual URL path.
+        // `window.BASE` is injected by templates and can drift across flavours.
+        const path = (window.location && window.location.pathname) ? window.location.pathname : '';
+        if (path.includes('/airline_flash/')) {
             payload = { sequence_code: token, vendor_id: activeVendor };
             type = 'flightstatus';
         }
-        else if (window.BASE && window.BASE.includes('/dine_flash/')) {
-            if (!bookingId) {
-                console.log("Fetching booking ID for token:", token);
-                bookingId = BookingMappingService.getBookingId(token.split("-")[1]);
-                if (Array.isArray(bookingId)) {
-                    // console.log("Multiple bookings found for token:", token, "→", bookingId);
-                    console.warn("⚠️ Multiple bookings found for token:", token);
-                    // Multiple bookings → show list to user
-                    // showBookingSelectionUI(bookingData);
-                    return; // stop here until user selects
-                }
-            }
-            console.log("Fetching booking ID for token:", token, "→", bookingId);
-            payload = { booking_id: bookingId, vendor_id: activeVendor };
-            type = 'dinestatus';
-        } 
+        else if (path.includes('/dine_flash_buffet/')) {
+            payload = { token_no: token, vendor_id: activeVendor };
+            type = 'buffetstatus';
+        }
         else {
             payload = { token_no: token, vendor_id: activeVendor };
             type = 'foodstatus';
@@ -749,24 +795,41 @@ onDOMReady(async function () {
                 throw new Error(err);
             }
             if (!replyText) {
-                const messageHTML = ChatTemplateService.build({
-                    type: type,
-                    text: data
-                });
-                // console.log("Built message HTML:", messageHTML);
-                if (type === 'flightstatus') {
-                    appendMessage(messageHTML, 'server', null, type, data.sequence_code);
-                    await saveChat(data, 'server', type, data.sequence_code);
+                if (type === 'buffetstatus' && data.items) {
+                    // Sort items chronologically by updated_at
+                    const sortedItems = data.items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+                    
+                    for (const item of sortedItems) {
+                        const itemHTML = ChatTemplateService.build({
+                            type: 'buffet_item_update',
+                            text: {
+                                ...item,
+                                item_name: item.name,
+                                alias_name: data.alias_name
+                            }
+                        });
+                        appendMessage(itemHTML, 'server', null, 'buffet_item_update', data.token_no);
+                    }
+                } else {
+                    const messageHTML = ChatTemplateService.build({
+                        type: type,
+                        text: data
+                    });
+                    // console.log("Built message HTML:", messageHTML);
+                    if (type === 'flightstatus') {
+                        appendMessage(messageHTML, 'server', null, type, data.sequence_code);
+                        await saveChat(data, 'server', type, data.sequence_code);
+                    }
+                    else if (type === 'dinestatus') {
+                        appendMessage(messageHTML, 'server', null, type, bookingId);
+                        await saveChat(data, 'server', type, bookingId);
+                    } 
+                    else {
+                        appendMessage(messageHTML, 'server', null, type, data.token_no);
+                        await saveChat(data, 'server', type, data.token_no);
+                    }
                 }
-                else if (type === 'dinestatus') {
-                    appendMessage(messageHTML, 'server', null, type, bookingId);
-                    await saveChat(data, 'server', type, bookingId);
-                } 
-                else {
-                    appendMessage(messageHTML, 'server', null, type, data.token_no);
-                    await saveChat(data, 'server', type, data.token_no);
-                }
-                showNotificationModal(data, 'usercheck');
+                await showNotificationModal(data, 'usercheck');
                 AppUtils.notifyOrderReady(data);
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {

@@ -155,6 +155,11 @@ def save_subscription(request):
 
         # If token provided, try to link with order (optional)
         if token_number:
+            # Prevent a single PushSubscription from accumulating links to multiple
+            # orders/tokens over time (can cause cross-flavour leakage when projects
+            # share the same browser in the past).
+            subscription.tokens.clear()
+
             if project_name == "airline_flash":
                 order = Order.objects.filter(sequence_code=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via sequence_code for airline_flash: {token_number}")
@@ -737,7 +742,9 @@ def send_firebase_admin_multicast(fcm_tokens, data_payload):
         message = messaging.MulticastMessage(
             data={
                 "type": "ready_orders",
-                "orders": data_payload  # Ensure this is a string, if JSON dump is needed
+                "orders": data_payload,  # Ensure this is a string, if JSON dump is needed
+                # Tag the payload so Android clients can ignore cross-flavour messages.
+                "project": project_name.lower() if isinstance(project_name, str) else "food_flash",
             },
             notification=messaging.Notification(
                 title="Order Ready!",

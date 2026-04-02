@@ -7,6 +7,21 @@ let lastVisitedPage = null;
 
 const CACHE_NAME = "push-store";
 const BASE_URL_CACHE = "sw-base-url-store";
+// Expected project/flavour for this PWA deployment.
+// Used to ignore cross-flavour pushes (e.g., food_flash -> airline_flash).
+//
+// Derive from the SW scope (/food_flash/ or /airline_flash/) instead of relying
+// only on server-side template context.
+const EXPECTED_PROJECT = (() => {
+  try {
+    const scope = String(self.registration?.scope || "");
+    const parts = scope.split("/").filter(Boolean);
+    const last = parts[parts.length - 1];
+    return (last || "food_flash").toLowerCase().trim();
+  } catch (e) {
+    return "food_flash";
+  }
+})();
 
 // ============================================================================
 // 🧱 Install & Activate
@@ -18,7 +33,16 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   // console.log("[Service Worker] 🚀 Activated — Scope:", self.registration.scope);
-  event.waitUntil(self.clients.claim());
+  // One-time purge of cached pushes that may have been stored before
+  // the `payload.project` filtering was introduced.
+  event.waitUntil((async () => {
+    try {
+      await caches.delete(CACHE_NAME);
+      // console.log("[Service Worker] 🧹 Purged old push cache:", CACHE_NAME);
+    } catch (err) {
+      console.warn("[Service Worker] ⚠️ Failed to purge push cache:", err);
+    }
+  })().finally(() => self.clients.claim()));
 });
 
 // ============================================================================
@@ -62,6 +86,20 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
 
   const payload = event.data.json();
+
+  // Filter out unrelated flavour pushes.
+  const incomingProject =
+    payload?.project != null ? String(payload.project).toLowerCase().trim() : null;
+  if (EXPECTED_PROJECT && incomingProject !== EXPECTED_PROJECT) {
+    return; // Don't forward/cache/show notification for other project.
+  }
+
+  // Extra safety: Airline UI expects `sequence_code`.
+  if (EXPECTED_PROJECT === "airline_flash") {
+    const seq = payload?.sequence_code != null ? String(payload.sequence_code).trim() : "";
+    if (!seq) return;
+  }
+
   const key = `push_${payload.token_no}`;
 
   // 🔹 Notify active clients (live update)
@@ -149,6 +187,19 @@ self.addEventListener("notificationclick", (event) => {
       } catch (err) {
         console.warn("[Service Worker] ⚠️ Failed to retrieve cached push:", err);
       }
+
+        // Final guard for already-cached pushes (created before this filter shipped).
+        const incomingProject =
+          pushData?.project != null ? String(pushData.project).toLowerCase().trim() : null;
+        if (EXPECTED_PROJECT && incomingProject !== EXPECTED_PROJECT) {
+          return;
+        }
+
+        // Extra safety: Airline UI expects `sequence_code`.
+        if (EXPECTED_PROJECT === "airline_flash") {
+          const seq = pushData?.sequence_code != null ? String(pushData.sequence_code).trim() : "";
+          if (!seq) return;
+        }
 
       const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
 

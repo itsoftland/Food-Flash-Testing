@@ -1,6 +1,7 @@
 from firebase_admin import messaging
 import json
 import logging
+from django.conf import settings
 from vendors.models import AndroidDevice
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,13 @@ def send_firebase_admin_multicast(fcm_tokens, data_payload):
         return False, {"error": "No tokens to send"}
 
     try:
+        project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
         message = messaging.MulticastMessage(
             data={
                 "type": "ready_orders",
-                "orders": data_payload  # Ensure this is a string, if JSON dump is needed
+                "orders": data_payload,  # Ensure this is a string, if JSON dump is needed
+                # Tag the payload so Android clients can ignore cross-flavour messages.
+                "project": project_name,
             },
             notification=messaging.Notification(
                 title="Order Ready!",
