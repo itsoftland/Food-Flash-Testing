@@ -1,0 +1,130 @@
+{% extends 'companyadmin/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/utilities_management.css' %}">
+<style>
+    /* Super Admin specific overrides */
+    .utilities-table th:nth-child(8), .utilities-table td:nth-child(8) {
+        /* Extra column for Company Name */
+    }
+</style>
+{% endblock %}
+
+{% block title %}Manage Food Counters{% endblock %}
+
+{% block content %}
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center justify-content-between">
+      <div class="col-sm-6">
+        <h1 class="page-title">Food Counters</h1>
+      </div>
+      <div class="col-sm-6 text-end">
+        <a href="{% url 'companyadmin:create_utility' %}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Add Food Counter
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <!-- Control Bar -->
+    <div class="utilities-control-bar">
+      <div class="control-items">
+        <!-- Outlet Filter -->
+        <div class="control-item">
+          <select id="vendor-filter" class="form-select form-select-sm" title="Filter by outlet">
+            <option value="">All Outlets</option>
+          </select>
+        </div>
+
+        <!-- Search Input -->
+        <div class="control-item search-item">
+          <input
+            type="text"
+            id="search-input"
+            class="form-control form-control-sm"
+            placeholder="Search…"
+            aria-label="Search utilities"
+          >
+          <i class="fas fa-search search-icon"></i>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="control-item">
+          <select id="status-filter" class="form-select form-select-sm" title="Filter by status">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div id="table-container" class="utilities-table-container">
+      <div class="table-responsive">
+        <table class="utilities-table">
+          <thead>
+            <tr>
+              <th>Counter Name</th>
+              <th>Display Name</th>
+              {% if PROJECT_NAME != "dine_flash_buffet" %}
+              <th>Display Code</th>
+              <th>Prefix</th>
+              <th>Token Mode</th>
+              {% endif %}
+              <th>Company</th>
+              <th>Outlet</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="utilities-tbody">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination-container" class="pagination-container"></div>
+
+      <!-- Empty State -->
+      <div id="empty-state-no-utilities" class="empty-state" style="display: none;">
+        <div class="empty-state-content">
+          <i class="fas fa-inbox"></i>
+          <h3>No food counters found</h3>
+          <p>No counters match your filters.</p>
+          <a href="{% url 'companyadmin:create_utility' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Food Counter
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="action-menu" id="action-menu" style="display: none;">
+  <div class="menu-item" data-action="edit">
+    <i class="fas fa-edit"></i> Edit
+  </div>
+  <div class="menu-item" data-action="toggle">
+    <i class="fas fa-toggle-on"></i> <span id="toggle-text">Deactivate</span>
+  </div>
+</div>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  window.IS_BUFFET_PROJECT = {% if PROJECT_NAME == "dine_flash_buffet" %}true{% else %}false{% endif %};
+</script>
+<script type="module" src="{% static 'companyadmin/js/manageUtilities.js' %}?v={{ APP_VERSION }}"></script>
+{% endblock %}

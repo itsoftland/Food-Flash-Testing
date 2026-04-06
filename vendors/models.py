@@ -238,6 +238,21 @@ class Utility(models.Model):
         return f"{self.display_name} ({self.vendor.name})"
 
 
+class UtilityOption(models.Model):
+    utility = models.ForeignKey(Utility, on_delete=models.CASCADE, related_name='options')
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['utility', 'name'], name='unique_option_name_per_utility')
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.utility.display_name})"
+
 class Device(models.Model):
     serial_no = models.CharField(max_length=255)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, related_name="devices",null=True,blank=True)
@@ -253,8 +268,12 @@ class Device(models.Model):
     
 class UserProfile(models.Model):
     ROLE_CHOICES = [
+        ('admin_manager', 'Admin Manager'),
+        ('outlet_manager', 'Outlet Manager'),
+        ('order_manager', 'Order Manager'),
         ('manager', 'Manager (Android APK)'),
         ('web', 'Web User'),
+        ('utility_user', 'Utility User (Kitchen)'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='profile_roles')
@@ -262,6 +281,7 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE,related_name='user_profiles')
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
+    assigned_utilities = models.ManyToManyField(Utility, blank=True, related_name='assigned_users')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -704,6 +724,7 @@ class ChatMessage(models.Model):
     SENDER_CHOICES = [
         ('user', 'User'),       # foodflash user
         ('manager', 'Manager'), # android apk
+        ('system', 'System'),   # automated updates
     ]
 
     message_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -765,7 +786,7 @@ class WebChatMessage(models.Model):
     booking_no = models.CharField(max_length=50, blank=True, null=True)
     booking_id = models.IntegerField(null=True, blank=True)
     sender = models.CharField(max_length=20)   
-    type = models.CharField(max_length=20, default='chat')
+    type = models.CharField(max_length=48, default='chat')
     text = models.JSONField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
@@ -794,4 +815,18 @@ class IoTDeviceCredential(models.Model):
 
     def __str__(self):
         return f"IoT Credentials for {self.device_id}"
+
+
+class BuffetOrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='buffet_items')
+    utility = models.ForeignKey(Utility, on_delete=models.SET_NULL, null=True, related_name='buffet_ordered_items')
+    status = models.CharField(max_length=20, default='created')
+    customizations = models.JSONField(blank=True, null=True, default=list) # e.g. ["No Onion"]
+    remarks = models.TextField(blank=True, null=True)
+    is_grouped = models.BooleanField(default=False)
+    quantity = models.PositiveIntegerField(default=1) # For grouped utilities
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
+    def __str__(self):
+        return f"Item for Order {self.order.token_no} - {self.utility.display_name if self.utility else 'Unknown'}"    

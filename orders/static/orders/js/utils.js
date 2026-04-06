@@ -95,33 +95,78 @@ window.AppUtils = {
     // ─────────────────────────────────────
     // Global Chat Flags
     // ─────────────────────────────────────
-    isReplyMode: false, // <- this is your global flag
+    getPrefixedKey: function(key) {
+        const project = (window.PROJECT_NAME || 'default').toLowerCase().trim();
+        return `${project}:${key}`;
+    },
+
+    storageGet: function(key) {
+        return localStorage.getItem(this.getPrefixedKey(key));
+    },
+
+    storageSet: function(key, value) {
+        localStorage.setItem(this.getPrefixedKey(key), value);
+    },
+
+    storageRemove: function(key) {
+        localStorage.removeItem(this.getPrefixedKey(key));
+    },
+
+    /**
+     * 🚀 Migration: One-time copy of old unprefixed keys to new project-prefixed keys.
+     * This ensures users don't lose their session identity (tokens, etc.)
+     */
+    migrateOldStorage: function() {
+        const project = (window.PROJECT_NAME || 'default').toLowerCase().trim();
+        if (project === 'default') return;
+
+        const keysToMigrate = [
+            'token', 'activeVendor', 'selectedVendors', 'customer_id', 
+            'customer_name', 'activeLocation', 'browser_id', 
+            'pushSubscription', 'notification_order_states', 'role',
+            'activeVendorLogo', 'selectedOutletName'
+        ];
+
+        keysToMigrate.forEach(key => {
+            const oldVal = localStorage.getItem(key);
+            const prefixedKey = this.getPrefixedKey(key);
+            const newVal = localStorage.getItem(prefixedKey);
+
+            // Only migrate if old exists and new doesn't
+            if (oldVal !== null && newVal === null) {
+                console.log(`[AppUtils] Migrated legacy key: ${key} -> ${prefixedKey}`);
+                localStorage.setItem(prefixedKey, oldVal);
+            }
+        });
+    },
+
+    isReplyMode: false,
     key: 'activeLocation',
     async get() {
+        const prefixedKey = this.getPrefixedKey(this.key);
         // 1️⃣ Try localStorage
-        let locationId = localStorage.getItem(this.key);
+        let locationId = localStorage.getItem(prefixedKey);
         if (locationId) {
             return locationId;
         }
 
-        // 2️⃣ Try IndexedDB
+        // 2️⃣ Try IndexedDB (using prefixed key)
         try {
-            locationId = await idbGet(this.key);
+            locationId = await idbGet(prefixedKey);
             if (locationId) {
-                localStorage.setItem(this.key, locationId); // Rehydrate
+                localStorage.setItem(prefixedKey, locationId); // Rehydrate
                 return locationId;
             }
         } catch (e) {
             console.warn("[LocationStore] IndexedDB read failed:", e);
         }
 
-        // 3️⃣ Try Cookie (after slight delay for PWA cold boot)
+        // 3️⃣ Try Cookie (using prefixed key)
         await new Promise(resolve => setTimeout(resolve, 200));
-        locationId = this.getCookie(this.key);
+        locationId = this.getCookie(prefixedKey);
         if (locationId) {
-            //   console.log("[LocationStore] Loaded from Cookie:", locationId);
-            localStorage.setItem(this.key, locationId); // Rehydrate
-            try { await idbSet(this.key, locationId); } catch { }
+            localStorage.setItem(prefixedKey, locationId); // Rehydrate
+            try { await idbSet(prefixedKey, locationId); } catch { }
             return locationId;
         }
 
@@ -130,19 +175,20 @@ window.AppUtils = {
     },
     async set(locationId) {
         if (!locationId) return;
+        const prefixedKey = this.getPrefixedKey(this.key);
 
         // 1️⃣ Set in localStorage
-        localStorage.setItem(this.key, locationId);
+        localStorage.setItem(prefixedKey, locationId);
 
         // 2️⃣ Set in IndexedDB
         try {
-            await idbSet(this.key, locationId);
+            await idbSet(prefixedKey, locationId);
         } catch (e) {
             console.warn("[LocationStore] IndexedDB write failed:", e);
         }
 
         // 3️⃣ Set in cookie
-        this.setCookie(this.key, locationId);
+        this.setCookie(prefixedKey, locationId);
     },
 
     setCookie(name, value, days = 365) {
@@ -163,14 +209,17 @@ window.AppUtils = {
     // Vendor Helpers
     // ─────────────────────────────────────
     getStoredVendors: function () {
-        const storedVendors = localStorage.getItem('selectedVendors');
+        const prefixedKey = this.getPrefixedKey('selectedVendors');
+        const storedVendors = localStorage.getItem(prefixedKey);
         return storedVendors ? JSON.parse(storedVendors) : [];
     },
     setSelectedOutletName: function (name) {
-        localStorage.setItem('selectedOutletName', name);
+        const prefixedKey = this.getPrefixedKey('selectedOutletName');
+        localStorage.setItem(prefixedKey, name);
     },
     getSelectedOutletName: function () {
-        const outletName = localStorage.getItem('selectedOutletName');
+        const prefixedKey = this.getPrefixedKey('selectedOutletName');
+        const outletName = localStorage.getItem(prefixedKey);
         return outletName ? outletName : null;
     },
     setCurrentVendors: async function (vendorInput) {
@@ -185,39 +234,42 @@ window.AppUtils = {
         const updatedList = Array.from(new Set(newVendors));
         const lastVendor = updatedList[updatedList.length - 1];
 
+        const vendorsKey = this.getPrefixedKey('selectedVendors');
+        const activeKey = this.getPrefixedKey('activeVendor');
+
         // Store in localStorage
-        localStorage.setItem('selectedVendors', JSON.stringify(updatedList));
+        localStorage.setItem(vendorsKey, JSON.stringify(updatedList));
         if (lastVendor) {
-            localStorage.setItem('activeVendor', lastVendor);
+            localStorage.setItem(activeKey, lastVendor);
         }
 
         // Store in IndexedDB
         try {
-            await idbSet('selectedVendors', updatedList);
+            await idbSet(vendorsKey, updatedList);
             if (lastVendor) {
-                await idbSet('activeVendor', lastVendor);
+                await idbSet(activeKey, lastVendor);
             }
         } catch (e) {
             console.warn("[VendorStore] Failed to write to IndexedDB:", e);
         }
 
         // Store in cookies
-        this.setCookie('selectedVendors', JSON.stringify(updatedList));
+        this.setCookie(vendorsKey, JSON.stringify(updatedList));
         if (lastVendor) {
-            this.setCookie('activeVendor', lastVendor);
+            this.setCookie(activeKey, lastVendor);
         }
     },
     getActiveVendor: async function () {
-        let vendorId = localStorage.getItem('activeVendor');
+        const activeKey = this.getPrefixedKey('activeVendor');
+        let vendorId = localStorage.getItem(activeKey);
         if (vendorId) {
             return parseInt(vendorId, 10);
         }
 
         try {
-            vendorId = await idbGet('activeVendor');
+            vendorId = await idbGet(activeKey);
             if (vendorId) {
-                // console.log("[VendorStore] Loaded from IndexedDB:", vendorId);
-                localStorage.setItem('activeVendor', vendorId);
+                localStorage.setItem(activeKey, vendorId);
                 return parseInt(vendorId, 10);
             }
         } catch (e) {
@@ -225,11 +277,10 @@ window.AppUtils = {
         }
 
         await new Promise(resolve => setTimeout(resolve, 200));
-        vendorId = this.getCookie('activeVendor');
+        vendorId = this.getCookie(activeKey);
         if (vendorId) {
-            // console.log("[VendorStore] Loaded from Cookie:", vendorId);
-            localStorage.setItem('activeVendor', vendorId);
-            try { await idbSet('activeVendor', vendorId); } catch { }
+            localStorage.setItem(activeKey, vendorId);
+            try { await idbSet(activeKey, vendorId); } catch { }
             return parseInt(vendorId, 10);
         }
 
@@ -238,38 +289,40 @@ window.AppUtils = {
     },
 
     appendVendorIfNotExists: async function (vendorId) {
-        let selectedVendors = JSON.parse(localStorage.getItem('selectedVendors')) || [];
+        const vendorsKey = this.getPrefixedKey('selectedVendors');
+        const activeKey = this.getPrefixedKey('activeVendor');
+
+        let selectedVendors = JSON.parse(localStorage.getItem(vendorsKey)) || [];
         selectedVendors.push(vendorId);
 
         const updatedList = Array.from(new Set(selectedVendors));
-        localStorage.setItem('selectedVendors', JSON.stringify(updatedList));
-        localStorage.setItem('activeVendor', updatedList[updatedList.length - 1]);
+        localStorage.setItem(vendorsKey, JSON.stringify(updatedList));
+        localStorage.setItem(activeKey, updatedList[updatedList.length - 1]);
 
         try {
-            await idbSet('selectedVendors', updatedList);
-            await idbSet('activeVendor', updatedList[updatedList.length - 1]);
+            await idbSet(vendorsKey, updatedList);
+            await idbSet(activeKey, updatedList[updatedList.length - 1]);
         } catch (e) {
             console.warn("[VendorStore] IndexedDB write failed:", e);
         }
 
-        this.setCookie('selectedVendors', JSON.stringify(updatedList));
-        this.setCookie('activeVendor', updatedList[updatedList.length - 1]);
+        this.setCookie(vendorsKey, JSON.stringify(updatedList));
+        this.setCookie(activeKey, updatedList[updatedList.length - 1]);
     },
     // ─────────────────────────────────────
     // Token Management
     // ─────────────────────────────────────
     getToken: async function () {
-        let token = localStorage.getItem('token');
+        const tokenKey = this.getPrefixedKey('token');
+        let token = localStorage.getItem(tokenKey);
         if (token) {
-            // console.log("[TokenStore] Loaded from localStorage:", token);
             return token;
         }
 
         try {
-            token = await idbGet('token');
+            token = await idbGet(tokenKey);
             if (token) {
-                // console.log("[TokenStore] Loaded from IndexedDB:", token);
-                localStorage.setItem('token', token);
+                localStorage.setItem(tokenKey, token);
                 return token;
             }
         } catch (e) {
@@ -277,11 +330,10 @@ window.AppUtils = {
         }
 
         await new Promise(resolve => setTimeout(resolve, 200));
-        token = this.getCookie('token');
+        token = this.getCookie(tokenKey);
         if (token) {
-            // console.log("[TokenStore] Loaded from Cookie:", token);
-            localStorage.setItem('token', token);
-            try { await idbSet('token', token); } catch { }
+            localStorage.setItem(tokenKey, token);
+            try { await idbSet(tokenKey, token); } catch { }
             return token;
         }
 
@@ -291,27 +343,28 @@ window.AppUtils = {
 
     setToken: async function (token) {
         if (!token) return;
-        // console.log("[TokenStore] Setting token:", token);
-
-        localStorage.setItem('token', token);
-        try { await idbSet('token', token); } catch (e) {
+        const tokenKey = this.getPrefixedKey('token');
+        localStorage.setItem(tokenKey, token);
+        try { await idbSet(tokenKey, token); } catch (e) {
             console.warn("[TokenStore] IndexedDB write failed:", e);
         }
-        this.setCookie('token', token);
+        this.setCookie(tokenKey, token);
     },
     setCustomerId: function (id) {
-        localStorage.setItem('customer_id', id);
-        this.setCookie('customer_id', id);
+        const key = this.getPrefixedKey('customer_id');
+        localStorage.setItem(key, id);
+        this.setCookie(key, id);
     },
     setCustomerName: function (name) {
-        localStorage.setItem('customer_name', name);
-        this.setCookie('customer_name', name);
+        const key = this.getPrefixedKey('customer_name');
+        localStorage.setItem(key, name);
+        this.setCookie(key, name);
     },
     getCustomerName: function () {
-        // Try localStorage first, then fallback to cookie
-        let name = localStorage.getItem('customer_name');
+        const key = this.getPrefixedKey('customer_name');
+        let name = localStorage.getItem(key);
         if (!name) {
-            name = this.getCookie('customer_name');
+            name = this.getCookie(key);
         }
         return name;
     },
@@ -530,11 +583,14 @@ window.AppUtils = {
     // ─────────────────────────────────────
     // Notification State (Persistent)
     // ─────────────────────────────────────
-    notificationStorageKey: "notification_order_states",
+    getNotificationStorageKey: function() {
+        return this.getPrefixedKey("notification_order_states");
+    },
 
     saveOrderStates: function (orderStates) {
         try {
-            localStorage.setItem(this.notificationStorageKey, JSON.stringify(orderStates));
+            const key = this.getNotificationStorageKey();
+            localStorage.setItem(key, JSON.stringify(orderStates));
         } catch (e) {
             console.error("Failed to save orderStates to storage", e);
         }
@@ -542,7 +598,8 @@ window.AppUtils = {
 
     loadOrderStates: function () {
         try {
-            const stored = localStorage.getItem(this.notificationStorageKey);
+            const key = this.getNotificationStorageKey();
+            const stored = localStorage.getItem(key);
             return stored ? JSON.parse(stored) : {};
         } catch (e) {
             console.error("Failed to load orderStates from storage", e);
@@ -722,39 +779,62 @@ window.AppUtils = {
 
     /**
      * Get or generate a unique browser identifier.
-     * Stores and retrieves it from localStorage.
+     * Unified with project-prefixed storage.
      */
     getBrowserId: function () {
-        // Flavour isolation: Food Flash and Airline Flash live on the same origin,
-        // so they must NOT share the same PushSubscription browser_id.
-        const projectKey = (() => {
-            const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
-            if (pn) return pn;
-            const path = (window.location?.pathname || '').toLowerCase();
-            const parts = path.split('/').filter(Boolean);
-            return parts[0] || 'default';
-        })();
+        // 1️⃣ Try the new project-prefixed storage first
+        let browserId = this.storageGet("browser_id");
 
-        const storageKey = `browser_id_${projectKey}`;
-        let browserId = localStorage.getItem(storageKey);
         if (!browserId) {
+            // 2️⃣ Fallback for legacy keys (e.g., 'browser_id_food_flash')
+            const projectKey = (() => {
+                const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
+                if (pn) return pn;
+                const path = (window.location?.pathname || '').toLowerCase();
+                const parts = path.split('/').filter(Boolean);
+                return parts[0] || 'default';
+            })();
+            const legacyKey = `browser_id_${projectKey}`;
+            browserId = localStorage.getItem(legacyKey);
+
+            if (browserId) {
+                // Migrate to new prefixed storage
+                this.storageSet("browser_id", browserId);
+            }
+        }
+
+        if (!browserId) {
+            // 3️⃣ Generate new if still missing
             browserId = crypto.randomUUID();
-            localStorage.setItem(storageKey, browserId);
+            this.storageSet("browser_id", browserId);
         }
         return browserId;
     },
+
+    /**
+     * Retrieves the current browser ID if it exists, without generating a new one.
+     */
     getCurrentBrowserId: function () {
-        const projectKey = (() => {
-            const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
-            if (pn) return pn;
-            const path = (window.location?.pathname || '').toLowerCase();
-            const parts = path.split('/').filter(Boolean);
-            return parts[0] || 'default';
-        })();
-        const storageKey = `browser_id_${projectKey}`;
-        let browserId = localStorage.getItem(storageKey);
+        let browserId = this.storageGet("browser_id");
+
         if (!browserId) {
-            console.warn("No browser ID found.");
+            const projectKey = (() => {
+                const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
+                if (pn) return pn;
+                const path = (window.location?.pathname || '').toLowerCase();
+                const parts = path.split('/').filter(Boolean);
+                return parts[0] || 'default';
+            })();
+            const legacyKey = `browser_id_${projectKey}`;
+            browserId = localStorage.getItem(legacyKey);
+
+            if (browserId) {
+                this.storageSet("browser_id", browserId);
+            }
+        }
+
+        if (!browserId) {
+            console.warn("[AppUtils] No browser ID found.");
             return null;
         }
         return browserId;
@@ -843,6 +923,11 @@ window.AppUtils = {
     }
 
 };
+
+// 🚀 Immediately run migration on script load to avoid race conditions
+if (typeof window !== 'undefined') {
+    window.AppUtils.migrateOldStorage();
+}
 
 export const AppUtils = window.AppUtils;
 

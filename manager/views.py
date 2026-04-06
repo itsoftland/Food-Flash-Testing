@@ -654,7 +654,7 @@ def get_booking_list(request):
 
         for i, item in enumerate(serialized):
             utility = bookings_qs[i].utility
-            code = utility.display_code
+            code = utility.display_code if utility else "Unassigned"
 
             if code not in grouped:
                 grouped[code] = {

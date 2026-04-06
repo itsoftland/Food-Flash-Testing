@@ -83,16 +83,13 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'companyadmin.middleware.MaintenanceModeMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-   
+    'caller_on.middlewares.RequestLoggingMiddleware',
+    'caller_on.middlewares.CacheControlMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-
-    'caller_on.middlewares.RequestLoggingMiddleware',
-    'caller_on.middlewares.CacheControlMiddleware',
-
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

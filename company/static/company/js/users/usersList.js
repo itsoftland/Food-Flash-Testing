@@ -201,7 +201,8 @@ document.addEventListener('DOMContentLoaded', async() => {
             admin_manager: 'Admin Manager',
             outlet_manager: 'Outlet Manager',
             order_manager: 'Order Manager',
-            web_user: 'Web User'
+            web_user: 'Web User',
+            utility_user: 'Utility User'
         };
         return roles
             .map(r => `<span class="badge mr-1" style="background-color: var(--chip-hover-bg); color: var(--text-dark); font-size: 0.95rem; padding: 0.35em 0.6em;">${map[r] || r}</span>`)

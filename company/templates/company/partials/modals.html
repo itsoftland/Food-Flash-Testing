@@ -25,6 +25,13 @@
 </div>
 
 <!-- Banner Deletion Confirmation Modal -->
+{% if PROJECT_NAME == "dine_flash_buffet" %}
+<style>
+  .ff-modal.hidden {
+    display: none !important;
+  }
+</style>
+{% endif %}
 <div id="confirmationModal" class="ff-modal hidden">
   <div class="ff-modal-content">
     <p id="confirmationMessage">Are you sure you want to discard this banner?</p>
@@ -100,6 +107,27 @@
 
 
 <!-- Styled Success Modal -->
+{% if PROJECT_NAME == "dine_flash_buffet" %}
+<style>
+  .success-modal-content {
+      border-top: 5px solid #28a745 !important;
+  }
+  .success-modal-header {
+      background-color: #d4edda !important;
+      color: #155724 !important;
+  }
+  .success-icon {
+      color: #28a745 !important;
+  }
+  .success-ok-btn {
+      background-color: #28a745 !important;
+      color: white !important;
+  }
+  .success-ok-btn:hover {
+      background-color: #218838 !important;
+  }
+</style>
+{% endif %}
 <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content success-modal-content">

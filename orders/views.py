@@ -8,8 +8,9 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.http import JsonResponse,HttpResponseBadRequest
 from django.db import transaction
+from django.views.decorators.cache import never_cache
 
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -18,7 +19,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from vendors.models import (Order, Vendor, AdminOutlet,
                             AdvertisementProfileAssignment,
                             UserProfile,ChatMessage,
-                            Utility)
+                            Utility, UtilityOption, BuffetOrderItem)
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
@@ -140,6 +141,19 @@ def check_status(request):
         body = f"Passenger {identifier_value} is checking their flight status."
         status_type = 'flightstatus'
         message = 'Passenger details retrieved successfully.'
+    elif project_name == "dine_flash_buffet":
+        identifier_field = "token_no"
+        identifier_value = request.data.get("token_no")
+        order_filter = {
+            identifier_field: identifier_value,
+            "vendor__vendor_id": vendor_id,
+        }
+        status_check_name = None  # No auto-transition for buffet
+        status_to_update = None
+        title = "Buffet Tracking Check"
+        body = f"Customer {identifier_value} is tracking their buffet items."
+        status_type = 'buffetstatus'
+        message = 'Buffet items retrieved successfully.'
     elif project_name == "dine_flash":
         identifier_field = "id"
         identifier_value = request.data.get("booking_id")
@@ -184,7 +198,7 @@ def check_status(request):
         # ───── Existing Order ─────
         order = Order.objects.get(**order_filter)
 
-        if order.status == status_check_name:
+        if status_check_name and order.status == status_check_name:
             if project_name == "airline_flash":
                 title = "Passenger Connected to Your Flight"
                 body = f"Passenger {identifier_value} has opened the status checking page."
@@ -235,8 +249,22 @@ def check_status(request):
             data['customer_name'] = order.customer_name
             data['no_of_packs'] = order.no_of_packs
             data['remarks'] = order.remarks
-            data['utility_name'] = order.utility.display_name if order.utility else None
+        elif project_name == "dine_flash_buffet":
+            data['booking_no'] = order.table_booking_no
+            data['booking_id'] = order.id
+            data['customer_name'] = order.customer_name
             data['phone_number'] = order.phone_number
+            # Items (skipping 'created' status)
+            buffet_items = order.buffet_items.exclude(status='created')
+            data['items'] = [
+                {
+                    'id': item.id,
+                    'name': item.utility.display_name if item.utility else 'Generic',
+                    'status': item.status,
+                    'quantity': item.quantity,
+                    'updated_at': item.updated_at.isoformat()
+                } for item in buffet_items
+            ]
 
 
         if reply_text:
@@ -488,6 +516,7 @@ def login_view(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def login_api_view(request):
     username = request.data.get('username')
@@ -500,6 +529,7 @@ def login_api_view(request):
     user = authenticate(username=username, password=password)
 
     if not user:
+        logger.warning(f"Authentication failed for username: {username} from IP: {request.META.get('REMOTE_ADDR')}")
         return Response({'error': 'Invalid username or password.'}, status=status.HTTP_401_UNAUTHORIZED)
     login(request, user)
     refresh = RefreshToken.for_user(user)
@@ -508,6 +538,7 @@ def login_api_view(request):
         'outlet_manager': 'Outlet Manager',
         'outlet_staff': 'Outlet Staff',
         'web_manager': 'Web Manager',
+        'utility_user': 'Utility User',
     }
     
     # 1. Manager Login (UserProfile with a specific role)
@@ -515,7 +546,7 @@ def login_api_view(request):
         try:
             profile = UserProfile.objects.get(
                 user=user,
-                role__in=['outlet_manager', 'admin_manager', 'outlet_staff']
+                role__in=['outlet_manager', 'admin_manager', 'outlet_staff', 'utility_user']
             )
             role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
             return Response({
@@ -594,9 +625,15 @@ def outlet_dashboard(request):
     }
     return render(request, 'orders/outlet/outlet_dashboard.html', context)
 
+@never_cache
 def logout_view(request):
     logout(request)
-    return redirect(base)
+    request.session.flush()
+    response = redirect(base)
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1159,7 +1196,7 @@ def utility_list(request):
         utilities = Utility.objects.filter(
             vendor=vendor,
             is_active=True
-        ).order_by("id")
+        ).prefetch_related('options').order_by("id")
 
         data = [
             {
@@ -1169,6 +1206,13 @@ def utility_list(request):
                 "display_code": util.display_code,
                 "token_mode": util.token_mode,
                 "prefix": util.prefix,
+                "options": [
+                    {
+                        "id": opt.id,
+                        "name": opt.name,
+                        "is_active": opt.is_active
+                    } for opt in util.options.all() if opt.is_active
+                ] if getattr(settings, 'PROJECT_NAME', '') == 'dine_flash_buffet' else []
             }
             for util in utilities
         ]

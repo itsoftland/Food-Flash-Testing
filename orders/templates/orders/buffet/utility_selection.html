@@ -1,0 +1,192 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<style>
+    .utility-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        background: #ffffff;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+    }
+    .utility-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+    .qty-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .qty-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid #ff6b6b;
+        background: white;
+        color: #ff6b6b;
+        font-weight: bold;
+        font-size: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .qty-btn:hover {
+        background: #ff6b6b;
+        color: white;
+    }
+    .qty-display {
+        font-weight: 700;
+        font-size: 1.3rem;
+        min-width: 20px;
+        text-align: center;
+    }
+    .main-btn {
+        background-color: var(--primary-color, #ff6b6b);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 12px;
+        width: 100%;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-top: 25px;
+        box-shadow: 0 4px 12px rgba(255,107,107,0.3);
+        transition: transform 0.2s;
+    }
+    .main-btn:active {
+        transform: scale(0.98);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5 pb-5">
+    <h3 class="text-center mb-4 font-weight-bold" style="color: #333;">Select Food Counters</h3>
+    
+    <div id="utilities-container">
+        <!-- Utilities will be loaded here -->
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading counters...</p>
+        </div>
+    </div>
+
+</div>
+
+<div class="fixed-bottom bg-white p-3 border-top shadow-lg" style="max-width: 600px; margin: 0 auto; display: none; bottom: 50px; z-index: 1020;" id="bottom-bar">
+    <button class="main-btn mt-0" id="proceed-btn">Proceed (<span id="total-qty">0</span> items)</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const vendorId = new URLSearchParams(window.location.search).get("vendor_id") || localStorage.getItem("buffet_vendor_id");
+        if (!vendorId) {
+            alert("Vendor not found.");
+            return;
+        }
+
+        const utilitiesContainer = document.getElementById("utilities-container");
+        const proceedBtn = document.getElementById("proceed-btn");
+        const totalQtySpan = document.getElementById("total-qty");
+        const bottomBar = document.getElementById("bottom-bar");
+        let utilityQuantities = {};
+
+        function updateTotal() {
+            let total = 0;
+            for (let id in utilityQuantities) {
+                total += utilityQuantities[id].qty;
+            }
+            totalQtySpan.innerText = total;
+            
+            if (total > 0) {
+                bottomBar.style.display = "block";
+            } else {
+                bottomBar.style.display = "none";
+            }
+        }
+
+        fetch(`{% url 'utility_list' %}?vendor_id=${vendorId}`)
+            .then(res => res.json())
+            .then(data => {
+                const utilities = data.utilities || [];
+                if (utilities.length === 0) {
+                    utilitiesContainer.innerHTML = "<p class='text-center p-4'>No food counters available.</p>";
+                    return;
+                }
+
+                utilitiesContainer.innerHTML = "";
+
+                utilities.forEach(u => {
+                    utilityQuantities[u.id] = {
+                        name: u.display_name || u.utility_name,
+                        qty: 0,
+                        options: u.options || []
+                    };
+
+                    const div = document.createElement("div");
+                    div.className = "utility-item";
+                    div.innerHTML = `
+                        <div class="utility-name">${u.display_name || u.name}</div>
+                        <div class="qty-controls">
+                            <button class="qty-btn minus-btn" data-id="${u.id}">-</button>
+                            <span class="qty-display" id="qty-${u.id}">0</span>
+                            <button class="qty-btn plus-btn" data-id="${u.id}">+</button>
+                        </div>
+                    `;
+                    utilitiesContainer.appendChild(div);
+                });
+
+                document.querySelectorAll(".plus-btn").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const id = e.target.getAttribute("data-id");
+                        utilityQuantities[id].qty++;
+                        document.getElementById(`qty-${id}`).innerText = utilityQuantities[id].qty;
+                        updateTotal();
+                    });
+                });
+
+                document.querySelectorAll(".minus-btn").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const id = e.target.getAttribute("data-id");
+                        if (utilityQuantities[id].qty > 0) {
+                            utilityQuantities[id].qty--;
+                            document.getElementById(`qty-${id}`).innerText = utilityQuantities[id].qty;
+                            updateTotal();
+                        }
+                    });
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                utilitiesContainer.innerHTML = "<p class='text-center text-danger'>Failed to load counters.</p>";
+            });
+
+        proceedBtn.addEventListener("click", function() {
+            const selected = Object.keys(utilityQuantities)
+                .map(id => ({ id: id, name: utilityQuantities[id].name, qty: utilityQuantities[id].qty, options: utilityQuantities[id].options }))
+                .filter(item => item.qty > 0);
+
+            if (selected.length === 0) {
+                return;
+            }
+
+            sessionStorage.setItem("buffet_selected_utilities", JSON.stringify(selected));
+            window.location.href = `{% url 'buffet_combined_options' %}?vendor_id=${vendorId}`;
+        });
+    });
+</script>
+{% endblock %}

@@ -11,6 +11,9 @@
 {% if PROJECT_NAME == 'airline_flash' %}
 <link rel="stylesheet" href="{% static 'orders/css/flight_status.css' %}">
 {% endif %}
+{% if PROJECT_NAME == 'dine_flash_buffet' %}
+<link rel="stylesheet" href="{% static 'orders/css/buffet_status.css' %}?v={{ APP_VERSION }}">
+{% endif %}
 {% if PROJECT_NAME == 'dine_flash'%}
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/booking_choice.css' %}">
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}">

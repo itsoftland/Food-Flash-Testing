@@ -100,6 +100,20 @@ STATUS_CHOICES_MAP = {
         ('booking_cancelled', 'Booking Cancelled'), # Booking cancelled
         ('operation_closed', 'Close Operation'),   # Operation closed for the day or seat closure
     ],
+
+    # ---------------------------------------------------------------
+    # 🍽️ DINE FLASH BUFFET
+    # ---------------------------------------------------------------
+    # Item-level statuses for the Buffet kitchen workflow
+    # ---------------------------------------------------------------
+    "dine_flash_buffet": [
+        ('created', 'Created'),          # Item ordered
+        ('preparing', 'Preparing'),      # Item being prepared
+        ('ready', 'Ready'),              # Item is ready to be picked up/served
+        ('delivered', 'Delivered'),      # Item delivered (Booking level)
+        ('cancelled', 'Cancelled'),      # Item cancelled
+        ('operation_closed', 'Close Operation'),
+    ],
 }
 
 # -------------------------------------------------------------------

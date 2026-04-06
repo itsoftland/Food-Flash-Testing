@@ -48,6 +48,10 @@ export const ChatRestoreService = (() => {
           // console.log(msg)
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
           });
+        } else if (window.BASE && window.BASE.includes('/dine_flash_buffet/')) {
+          cachedMessages.forEach(msg => {
+            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+          });
         } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
           cachedMessages.forEach(msg => {
           // console.log(msg)

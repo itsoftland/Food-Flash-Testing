@@ -33,7 +33,8 @@ class OrdersSerializer(serializers.ModelSerializer):
             "passenger_name"
         ]
 
-        if project_name != "airline_flash":
+        is_airline = project_name == "airline_flash"
+        if not is_airline:
             for f in airline_fields:
                 fields.pop(f, None)
 
@@ -45,9 +46,12 @@ class OrdersSerializer(serializers.ModelSerializer):
             "no_of_packs",
             "remarks",
             "table_booking_no",
+            "utility",
+            "current_utility"
         ]
 
-        if project_name != "dine_flash":
+        is_dine = project_name in ["dine_flash", "dine_flash_buffet"]
+        if not is_dine:
             for f in dine_fields:
                 fields.pop(f, None)
 

@@ -1,0 +1,240 @@
+{% extends 'companyadmin/layouts/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4 max-w-lg mx-auto" style="max-width: 800px;">
+    <div id="mapping-toast" class="mapping-toast" aria-live="polite" aria-atomic="true"></div>
+    <h2 class="mb-3">Utility User Mapping</h2>
+    <p class="text-muted mb-4">Map Kitchen Staff (Utility Users) to specific Food Counters so they only receive relevant items in their kitchen view.</p>
+
+    <div class="card shadow-sm border-0 rounded-3 p-4 mt-3">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Select Utility User</label>
+            <select id="user-select" class="form-select form-select-lg">
+                <option value="">-- Select Kitchen Staff --</option>
+            </select>
+            <small class="text-muted mt-1 d-block">Only users with the 'Utility User' role will appear here.</small>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Assign Food Counters</label>
+            <div id="utilities-list" class="border p-3 rounded bg-light" style="max-height: 300px; overflow-y: auto;">
+                <div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>
+            </div>
+        </div>
+
+        <div class="mt-4 mb-5 text-center">
+            <button id="save-mapping-btn" class="btn btn-golden btn-lg w-100 fw-bold shadow-sm">Save Mapping</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const toastEl = document.getElementById("mapping-toast");
+
+    function showToast(message, type = "success") {
+        const icon = type === "success" ? "✓" : type === "error" ? "!" : "i";
+        const color = type === "success" ? "#198754" : type === "error" ? "#dc3545" : "#0d6efd";
+        toastEl.innerHTML = `
+            <div class="toast-card" style="border-left: 5px solid ${color};">
+                <div class="toast-icon" style="background:${color};">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${type === "success" ? "Success" : type === "error" ? "Failed" : "Notice"}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            </div>
+        `;
+        toastEl.classList.add("show");
+        setTimeout(() => toastEl.classList.remove("show"), 2600);
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        loadUsers();
+        loadUtilities();
+
+        document.getElementById("save-mapping-btn").addEventListener("click", saveMapping);
+    });
+
+    let allUtilities = [];
+
+    function loadUsers() {
+        fetch("{% url 'companyadmin:get_all_users' %}")
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById("user-select");
+                select.innerHTML = '<option value="">-- Select Kitchen Staff --</option>';
+                const users = data.users || [];
+
+                users.forEach(user => {
+                    if (user.roles && user.roles.includes('utility_user')) {
+                        const opt = document.createElement("option");
+                        opt.value = user.id;
+                        opt.text = (user.name || "").trim() || user.username || "Unnamed User";
+                        opt.dataset.assigned = JSON.stringify(user.assigned_utilities || []);
+                        select.appendChild(opt);
+                    }
+                });
+            });
+    }
+
+    function loadUtilities() {
+        fetch("{% url 'companyadmin:get_all_utilities' %}")
+            .then(res => res.json())
+            .then(data => {
+                allUtilities = data.utilities || [];
+            });
+    }
+
+    function renderUtilityCheckboxes(selectedIds) {
+        const container = document.getElementById("utilities-list");
+        container.innerHTML = "";
+
+        if (allUtilities.length === 0) {
+            container.innerHTML = '<div class="text-danger">No food counters exist. Please create them first.</div>';
+            return;
+        }
+
+        allUtilities.forEach(u => {
+            const isChecked = selectedIds.includes(u.id) ? "checked" : "";
+            container.innerHTML += `
+                <div class="form-check mb-2 custom-control custom-checkbox custom-control-inline p-3 border bg-white rounded shadow-sm d-flex align-items-center">
+                    <input class="form-check-input utility-checkbox me-3 mt-0" style="transform: scale(1.3);" type="checkbox" value="${u.id}" id="util-${u.id}" ${isChecked}>
+                    <label class="form-check-label w-100 font-weight-bold" for="util-${u.id}" style="cursor: pointer;">
+                        ${u.display_name || u.utility_name}
+                    </label>
+                </div>
+            `;
+        });
+    }
+
+    document.getElementById("user-select").addEventListener("change", function(e) {
+        const selectedOpt = e.target.options[e.target.selectedIndex];
+        if (selectedOpt.value) {
+            try {
+                const assigned = JSON.parse(selectedOpt.dataset.assigned);
+                const assignedIds = assigned.map(a => a.id);
+                renderUtilityCheckboxes(assignedIds);
+            } catch (err) {
+                renderUtilityCheckboxes([]);
+            }
+        } else {
+            document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+        }
+    });
+
+    function saveMapping() {
+        const userId = document.getElementById("user-select").value;
+        if (!userId) {
+            showToast("Please select a user.", "info");
+            return;
+        }
+
+        const btn = document.getElementById("save-mapping-btn");
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
+        const checkboxes = document.querySelectorAll(".utility-checkbox:checked");
+        const assignedIds = Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+
+        const payload = {
+            user_id: userId,
+            assigned_utilities: assignedIds
+        };
+
+        fetch("{% url 'companyadmin:update_user_utilities_sa' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.message) {
+                showToast("Utility mapping saved successfully.", "success");
+                loadUsers();
+                document.getElementById("user-select").value = "";
+                document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+            } else {
+                showToast(data.error || "Unable to save mapping.", "error");
+            }
+        })
+        .catch(() => {
+            showToast("Network error. Please try again.", "error");
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = "Save Mapping";
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+<style>
+    .mapping-toast {
+        position: fixed;
+        top: 28px;
+        left: 50%;
+        z-index: 1055;
+        opacity: 0;
+        transform: translate(-50%, -12px) scale(0.96);
+        pointer-events: none;
+        transition: all 0.25s ease;
+    }
+    .mapping-toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+    .toast-card {
+        min-width: 460px;
+        max-width: 620px;
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        padding: 16px 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .toast-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        color: #fff;
+        font-weight: 700;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .toast-title {
+        font-weight: 700;
+        font-size: 18px;
+        margin-bottom: 4px;
+        line-height: 1.1;
+    }
+    .toast-message {
+        font-size: 17px;
+        color: #555;
+        line-height: 1.3;
+    }
+    /* Hide unrelated shared banner modal text on this page */
+</style>
+{% endblock %}

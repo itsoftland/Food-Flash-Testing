@@ -5,24 +5,27 @@ from vendors.order_utils import get_last_tokens
 
 logger = logging.getLogger(__name__)
 
-def send_order_update(vendor):
-    """Send an MQTT update with the latest order tokens for a vendor.
+def send_order_update(vendor, payload=None):
+    """Send an MQTT update with order tokens or a custom payload for a vendor.
 
     Args:
         vendor: The vendor object containing vendor details and configuration.
+        payload: Optional custom payload dictionary. If None, default token list is sent.
     """
     config = vendor.config
-    tokens = get_last_tokens(vendor, config.token_display_limit)
-    total_count = total_count = len(tokens)
+    
+    if payload is None:
+        tokens = get_last_tokens(vendor, config.token_display_limit)
+        total_count = len(tokens)
 
-    payload = {
-        "vendor_id": vendor.vendor_id,
-        "mode": config.mqtt_mode,
-        "total_count": total_count,
-        "tokens": tokens
-    }
+        payload = {
+            "vendor_id": vendor.vendor_id,
+            "mode": config.mqtt_mode,
+            "total_count": total_count,
+            "tokens": tokens
+        }
 
-    logger.info(f"📡 Sending MQTT update | Vendor: {vendor.name} (ID: {vendor.vendor_id}) | Mode: {config.mqtt_mode} | Total Orders: {total_count}")
+    logger.info(f"📡 Sending MQTT update | Vendor: {vendor.name} (ID: {vendor.vendor_id}) | Mode: {config.mqtt_mode}")
     logger.debug(f"Payload: {payload}")
 
     if config.mqtt_mode == "All":

@@ -37,7 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             food_flash: `${base}static/utils/Images/foodflash-login-bg.webp`,
             airline_flash: `${base}static/utils/Images/airlineflash-login-bg.webp`,
             service_flash: `${base}static/utils/Images/serviceflash-login-bg.webp`,
-            dine_flash: `${base}static/utils/Images/dineflash-login-bg.webp`
+            dine_flash: `${base}static/utils/Images/dineflash-login-bg.webp`,
+            dine_flash_buffet: `${base}static/utils/Images/dineflash-login-bg.webp`
         };
 
         const body = document.querySelector("body.login-page");
@@ -63,7 +64,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 food_flash: `${base}static/company/images/foodflashlogo.webp`,
                 airline_flash: `${base}static/company/images/airlineflashlogo.webp`,
                 service_flash: `${base}static/company/images/serviceflashlogo.webp`,
-                dine_flash: `${base}static/company/images/dineflashlogo.webp`
+                dine_flash: `${base}static/company/images/dineflashlogo.webp`,
+                dine_flash_buffet: `${base}static/company/images/dineflashlogo.webp`
             };
             loginLogoImg.src = loginLogos[projectName];
         }
@@ -80,7 +82,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             'food_flash': 'food-flash-logo.ico',
             'airline_flash': 'airline-flash-logo.ico',
             'service_flash': 'service-flash-logo.ico',
-            'dine_flash':'dine-flash-logo.ico'
+            'dine_flash':'dine-flash-logo.ico',
+            'dine_flash_buffet':'dine-flash-logo.ico'
         };
 
         const iconFile = faviconMap[projectName] || 'default-logo.ico';
@@ -138,7 +141,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 🔸 Send login request to backend API
             const response = await fetch(apiEndpoints.LOGIN, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': AppUtils.getCSRFToken() // Add CSRF token
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -153,10 +159,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const role = data.user.role;
 
             // 🔸 Store tokens and user info
-            localStorage.setItem('access_token', data.access);
-            localStorage.setItem('refresh_token', data.refresh);
+            AppUtils.storageSet('access_token', data.access);
+            AppUtils.storageSet('refresh_token', data.refresh);
             AppUtils.setCustomerName(data.user.username);
-            localStorage.setItem('role', role);
+            AppUtils.storageSet('role', role);
 
             /**
              * ---------------------------------------------

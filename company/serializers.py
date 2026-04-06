@@ -516,14 +516,18 @@ class UserProfileCreateSerializer(serializers.Serializer):
         ('order_manager', 'Order Manager'),
         ('web_user', 'Web User'),
         ('both', 'Both Manager and Web User'),
+        ('utility_user', 'Utility User (Kitchen)'),
     ]
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     name = serializers.CharField()
     role = serializers.ChoiceField(choices=ROLE_CHOICES)
-    customer_id = serializers.IntegerField()
-    vendor_id = serializers.IntegerField()
+    customer_id = serializers.IntegerField(required=False, allow_null=True)
+    vendor_id = serializers.IntegerField(required=False, allow_null=True)
+    assigned_utilities = serializers.ListField(
+        child=serializers.IntegerField(), required=False, allow_empty=True
+    )
 
     def validate_name(self, value):
         if not value.strip():
@@ -537,17 +541,35 @@ class UserProfileCreateSerializer(serializers.Serializer):
         if User.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError("Username already exists.")
 
-        # Validate AdminOutlet via customer_id
-        try:
-            data['admin_outlet'] = AdminOutlet.objects.get(customer_id=data['customer_id'])
-        except AdminOutlet.DoesNotExist:
-            raise serializers.ValidationError("AdminOutlet with the given customer_id not found.")
+        # Validate AdminOutlet via customer_id or current user
+        customer_id = data.get('customer_id')
+        request = self.context.get('request')
+        
+        if customer_id:
+            try:
+                data['admin_outlet'] = AdminOutlet.objects.get(customer_id=customer_id)
+            except AdminOutlet.DoesNotExist:
+                raise serializers.ValidationError("AdminOutlet with the given customer_id not found.")
+        elif request and hasattr(request.user, 'admin_outlet'):
+            data['admin_outlet'] = request.user.admin_outlet
+        else:
+            raise serializers.ValidationError("customer_id is required or user must have an associated AdminOutlet.")
 
-        # Validate Vendor via vendor_id
-        try:
-            data['vendor'] = Vendor.objects.get(id=data['vendor_id'])
-        except Vendor.DoesNotExist:
-            raise serializers.ValidationError("Vendor with the given ID not found.")
+        # Validate Vendor via vendor_id (Optional for some roles)
+        vendor_id = data.get('vendor_id')
+        if vendor_id:
+            try:
+                data['vendor'] = Vendor.objects.get(id=vendor_id)
+            except Vendor.DoesNotExist:
+                raise serializers.ValidationError("Vendor with the given ID not found.")
+        else:
+            data['vendor'] = None
+
+        if 'assigned_utilities' in data and data['assigned_utilities']:
+            utilities = Utility.objects.filter(id__in=data['assigned_utilities'], vendor=data['vendor'])
+            if utilities.count() != len(set(data['assigned_utilities'])):
+                raise serializers.ValidationError("Some utilities are invalid or do not belong to this vendor.")
+            data['validated_utilities'] = utilities
 
         return data
 
@@ -565,6 +587,8 @@ class UserProfileCreateSerializer(serializers.Serializer):
         # Decide roles to create
         requested_roles = ['manager', 'web'] if role == 'both' else [role]
 
+        utilities = validated_data.pop('validated_utilities', [])
+
         created_profiles = []
         for r in requested_roles:
             if UserProfile.objects.filter(user=user, role=r).exists():
@@ -576,6 +600,8 @@ class UserProfileCreateSerializer(serializers.Serializer):
                 admin_outlet=admin_outlet,
                 vendor=vendor
             )
+            if r == 'utility_user' and utilities:
+                profile.assigned_utilities.set(utilities)
             created_profiles.append(profile)
 
         return created_profiles if len(created_profiles) > 1 else created_profiles[0]
@@ -585,6 +611,7 @@ class UserListDetailSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     outlet_name = serializers.CharField(source='admin_outlet.name', read_only=True)
     vendor_name = serializers.CharField(source='vendor.name', read_only=True, default=None)
+    assigned_utilities = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -595,10 +622,14 @@ class UserListDetailSerializer(serializers.ModelSerializer):
             'name',
             'outlet_name',
             'vendor_name',
+            'assigned_utilities',
             'created_at',
             'updated_at',
             # Note: We won't include `role` here; instead, we manually inject `roles`
         ]
+
+    def get_assigned_utilities(self, obj):
+        return list(obj.assigned_utilities.values('id', 'display_name'))
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
     class Meta:

@@ -101,6 +101,30 @@
               </a>
             </li>
             {% endif %}
+            {% if PROJECT_NAME == "dine_flash_buffet" %}
+            <li class="nav-header">FOOD / UTILITY</li>
+            <li class="nav-item">
+              <a href="{% url 'companyadmin:manage_utilities' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'manage_utilities' %}active{% endif %}">
+                <i class="nav-icon fas fa-list"></i>
+                <p>Manage Food Counters</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'companyadmin:create_utility' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'create_utility' %}active{% endif %}">
+                <i class="nav-icon fas fa-plus-circle"></i>
+                <p>New Food Counter</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'companyadmin:utility_user_mapping' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'utility_user_mapping' %}active{% endif %}">
+                <i class="nav-icon fas fa-user-tag"></i>
+                <p>Food / Utility Mapping</p>
+              </a>
+            </li>
+{% endif %}
           </ul>
         </nav>
       </div>
@@ -131,6 +155,7 @@
   <!-- Scripts -->
   <script type="module" src="{% static 'utils/js/apiEndpoints.js' %}"></script>
   <script type="module" src="{% static 'utils/js/utils.js' %}"></script>
+  <script src="{% static 'utils/js/logoutHandler.js' %}"></script>
   <script src="{% static 'utils/js/projectAssets.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

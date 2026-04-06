@@ -14,7 +14,13 @@ const BASE_URL_CACHE = "sw-base-url-store";
 // only on server-side template context.
 const EXPECTED_PROJECT = (() => {
   try {
-    const scope = String(self.registration?.scope || "");
+    const scope = String(self.registration?.scope || "").toLowerCase();
+    if (scope.includes("/airline_flash")) return "airline_flash";
+    if (scope.includes("/dine_flash_buffet")) return "dine_flash_buffet";
+    if (scope.includes("/dine_flash")) return "dine_flash";
+    if (scope.includes("/food_flash")) return "food_flash";
+    
+    // Fallback to last segment if none matches
     const parts = scope.split("/").filter(Boolean);
     const last = parts[parts.length - 1];
     return (last || "food_flash").toLowerCase().trim();

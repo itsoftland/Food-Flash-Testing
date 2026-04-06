@@ -1,5 +1,6 @@
 from django.urls import path
 from .import views
+from . import buffet_views
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenRefreshView       # For refreshing access token
@@ -37,4 +38,10 @@ urlpatterns = [
     path('table_booking/',views.table_booking,name='table_booking'),
     path('api/book_table/',views.book_table,name='book_table'),
     path('api/utility_list/',views.utility_list,name='utility_list'),
+    # DineFlash Buffet System URLs
+    path('api/buffet_submit_order/', buffet_views.buffet_submit_order, name='buffet_submit_order'),
+    path('buffet/table_booking/', buffet_views.buffet_table_booking, name='buffet_table_booking'),
+    path('buffet/utility_selection/', buffet_views.buffet_utility_selection, name='buffet_utility_selection'),
+    path('buffet/combined_options/', buffet_views.buffet_combined_options, name='buffet_combined_options'),
+    path('buffet/order_confirmation/', buffet_views.buffet_order_confirmation, name='buffet_order_confirmation'),
 ]

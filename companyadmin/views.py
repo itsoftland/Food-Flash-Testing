@@ -1,6 +1,7 @@
 import json
 import logging
 import random
+from collections import defaultdict
 
 import pytz
 import requests
@@ -10,7 +11,9 @@ from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import never_cache
 from rest_framework import status
 from rest_framework.decorators import (
     api_view,
@@ -30,12 +33,16 @@ from vendors.models import (
     AdminOutlet,
     AndroidDevice,
     Device,
+    Utility,
+    UtilityOption,
+    UserProfile,
     Vendor,
     VendorConfig,
 )
 
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
+PROJECT_NAME = getattr(settings, "PROJECT_NAME", "").lower()
 
 @login_required
 def registration(request):
@@ -267,6 +274,7 @@ def product_authentication(request):
         )
 
 @login_required
+@never_cache
 def dashboard(request):
     # Superadmin check - not linked to AdminOutlet or Vendor
     is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
@@ -280,6 +288,255 @@ def dashboard(request):
         'vendors': Vendor.objects.all(),
     }
     return render(request, 'companyadmin/dashboard.html', context)
+    
+@login_required
+def create_utility(request):
+    # Superadmin check - not linked to AdminOutlet or Vendor
+    is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+    is_vendor = Vendor.objects.filter(user=request.user).exists()
+    if is_admin_outlet or is_vendor:
+        return redirect(base)
+
+    return render(request, 'companyadmin/create_utility.html')
+
+@login_required
+def manage_utilities(request):
+    # Superadmin check
+    is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+    is_vendor = Vendor.objects.filter(user=request.user).exists()
+    if is_admin_outlet or is_vendor:
+        return redirect(base)
+
+    return render(request, 'companyadmin/manage_utilities.html')
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_utilities(request):
+    """
+    Returns all utilities for Super Admin with search and filtering.
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        is_vendor = Vendor.objects.filter(user=request.user).exists()
+        if is_admin_outlet or is_vendor:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        search_query = request.GET.get('search', '')
+        vendor_id = request.GET.get('vendor_id', '')
+        status_filter = request.GET.get('status', '')
+
+        utilities = Utility.objects.all().select_related('vendor', 'vendor__admin_outlet')
+
+        if search_query:
+            utilities = utilities.filter(
+                Q(utility_name__icontains=search_query) |
+                Q(display_name__icontains=search_query) |
+                Q(display_code__icontains=search_query)
+            )
+
+        if vendor_id:
+            utilities = utilities.filter(vendor__vendor_id=vendor_id)
+
+        if status_filter:
+            is_active = status_filter.lower() == 'active'
+            utilities = utilities.filter(is_active=is_active)
+
+        utilities_list = []
+        for util in utilities:
+            options = util.options.all()
+            options_list = [{
+                'id': opt.id,
+                'name': opt.name,
+                'is_active': opt.is_active
+            } for opt in options]
+            
+            utilities_list.append({
+                'id': util.id,
+                'utility_name': util.utility_name,
+                'display_name': util.display_name,
+                'display_code': util.display_code,
+                'token_mode': util.token_mode,
+                'prefix': util.prefix,
+                'is_active': util.is_active,
+                'vendor_id': util.vendor.vendor_id,
+                'vendor_name': util.vendor.name,
+                'vendor_location': util.vendor.location,
+                'company_name': util.vendor.admin_outlet.customer_name if util.vendor.admin_outlet else 'N/A',
+                'options': options_list
+            })
+
+        return Response({
+            "success": True,
+            "utilities": utilities_list,
+            "count": len(utilities_list)
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@login_required
+def utility_user_mapping(request):
+    # Superadmin check
+    is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+    is_vendor = Vendor.objects.filter(user=request.user).exists()
+    if is_admin_outlet or is_vendor:
+        return redirect(base)
+
+    if PROJECT_NAME == "dine_flash_buffet":
+        return render(request, 'companyadmin/utility_user_mapping_buffet.html')
+
+    return render(request, 'companyadmin/utility_user_mapping.html')
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_users(request):
+    """
+    API to fetch all users for Super Admin.
+    """
+    try:
+        if PROJECT_NAME == "dine_flash_buffet":
+            utility_profiles = UserProfile.objects.filter(
+                role='utility_user'
+            ).select_related('user', 'admin_outlet', 'vendor').prefetch_related('assigned_utilities')
+
+            users_data = []
+            for profile in utility_profiles:
+                user_inst = profile.user
+                users_data.append({
+                    'id': profile.id,
+                    'username': user_inst.username,
+                    'name': profile.name or f"{user_inst.first_name} {user_inst.last_name}".strip() or user_inst.username,
+                    'email': user_inst.email,
+                    'roles': ['utility_user'],
+                    'assigned_utilities': [
+                        {
+                            'id': util.id,
+                            'display_name': util.display_name,
+                            'utility_name': util.utility_name
+                        }
+                        for util in profile.assigned_utilities.all()
+                    ]
+                })
+
+            return Response({
+                'message': 'Users retrieved successfully.',
+                'users': users_data
+            }, status=status.HTTP_200_OK)
+
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        is_vendor = Vendor.objects.filter(user=request.user).exists()
+        if is_admin_outlet or is_vendor:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        users = UserProfile.objects.all().select_related('user', 'admin_outlet', 'vendor')
+
+        # Group users by user.id and aggregate roles
+        grouped_users = {}
+        
+        for u in users:
+            uid = u.user.id
+            if uid not in grouped_users:
+                grouped_users[uid] = {
+                    'instance': u,
+                    'roles': set(),
+                    'assigned_utilities': []
+                }
+            
+            grouped_users[uid]['roles'].add(u.role)
+            
+            # Add assigned utilities if any
+            if u.assigned_utilities.exists():
+                for util in u.assigned_utilities.all():
+                    # Avoid duplicates in assigned_utilities list
+                    if not any(item['id'] == util.id for item in grouped_users[uid]['assigned_utilities']):
+                        grouped_users[uid]['assigned_utilities'].append({
+                            'id': util.id, 
+                            'name': util.display_name or util.utility_name
+                        })
+
+        serialized_data = []
+        for uid, data in grouped_users.items():
+            user_inst = data['instance'].user
+            serialized_data.append({
+                'id': uid,
+                'username': user_inst.username,
+                'name': f"{user_inst.first_name} {user_inst.last_name}",
+                'email': user_inst.email,
+                'roles': list(data['roles']),
+                'assigned_utilities': data['assigned_utilities']
+            })
+
+        return Response({
+            'message': 'Users retrieved successfully.',
+            'users': serialized_data
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_user_utilities_sa(request):
+    """
+    Super Admin API to update a user's assigned utilities.
+    """
+    try:
+        if PROJECT_NAME == "dine_flash_buffet":
+            user_id = request.data.get('user_id')
+            assigned_utilities = request.data.get('assigned_utilities', [])
+
+            if not user_id:
+                return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                user_profile = UserProfile.objects.get(id=user_id)
+            except UserProfile.DoesNotExist:
+                return Response({"error": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if user_profile.role != 'utility_user':
+                return Response({"error": "User is not a utility_user."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not user_profile.vendor:
+                return Response({"error": "User does not belong to a vendor."}, status=status.HTTP_400_BAD_REQUEST)
+
+            utilities = Utility.objects.filter(id__in=assigned_utilities, vendor=user_profile.vendor)
+            if utilities.count() != len(set(assigned_utilities)):
+                return Response({"error": "Some utilities are invalid or do not belong to this vendor."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user_profile.assigned_utilities.set(utilities)
+            return Response({"message": "Assigned utilities updated successfully."}, status=status.HTTP_200_OK)
+
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        is_vendor = Vendor.objects.filter(user=request.user).exists()
+        if is_admin_outlet or is_vendor:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.data.get('user_id')
+        assigned_utilities = request.data.get('assigned_utilities', [])
+
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update all UserProfile instances for this user
+        # (Since roles are stored in UserProfile, and mapping relates to the user)
+        # Assuming Utility mapping is global for the User across all their profiles?
+        # Actually, let's update ALL profiles for this user.
+        profiles = UserProfile.objects.filter(user_id=user_id)
+        if not profiles.exists():
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        utilities = Utility.objects.filter(id__in=assigned_utilities)
+        
+        for profile in profiles:
+            profile.assigned_utilities.set(utilities)
+
+        return Response({"message": "Mapping updated successfully"}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -420,12 +677,14 @@ def create_vendor(request):
             menus=json.dumps(menu_paths),
         )
         logger.info("Vendor created: %s", vendor.vendor_id)
+        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
         vendor_config = VendorConfig.objects.create(
             vendor=vendor,
             tv_communication_mode=tv_communication_mode,
             business_day_start_hour=business_day_start_hour,
             timezone=timezone,
-            mqtt_mode=mqtt_mode
+            mqtt_mode=mqtt_mode,
+            use_utilities=is_buffet
         )
         logger.info("Vendor Config created: %s", vendor_config.tv_communication_mode)
         
@@ -463,6 +722,124 @@ def create_vendor(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_utility_status_sa(request):
+    """
+    Super Admin API to update utility status (activate/deactivate).
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        if is_admin_outlet:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        utility_id = request.data.get('utility_id')
+        is_active = request.data.get('is_active')
+
+        utility = Utility.objects.get(id=utility_id)
+        utility.is_active = is_active
+        utility.save()
+
+        return Response({"message": "Status updated successfully"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_utility_sa(request):
+    """
+    Super Admin API to update utility details.
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        if is_admin_outlet:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        utility_id = request.data.get('utility_id')
+        utility = Utility.objects.get(id=utility_id)
+
+        utility.utility_name = request.data.get('utility_name', utility.utility_name)
+        utility.display_name = request.data.get('display_name', utility.display_name)
+        utility.display_code = request.data.get('display_code', utility.display_code)
+        utility.token_mode = request.data.get('token_mode', utility.token_mode)
+        utility.prefix = request.data.get('prefix', utility.prefix)
+        
+        utility.save()
+        return Response({"message": "Utility updated successfully"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_utility_option_sa(request, utility_id):
+    """
+    Super Admin API to create utility option.
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        if is_admin_outlet:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        utility = Utility.objects.get(id=utility_id)
+        name = request.data.get("name")
+        
+        if UtilityOption.objects.filter(utility=utility, name__iexact=name).exists():
+            return Response({"error": "Option already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        option = UtilityOption.objects.create(utility=utility, name=name)
+        return Response({"message": "Option created", "option": {"id": option.id, "name": option.name, "is_active": option.is_active}}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_utility_option_sa(request, option_id):
+    """
+    Super Admin API to update utility option.
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        if is_admin_outlet:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        option = UtilityOption.objects.get(id=option_id)
+        name = request.data.get("name")
+        is_active = request.data.get("is_active")
+        
+        if name:
+            option.name = name
+        if is_active is not None:
+            if isinstance(is_active, str):
+                is_active = is_active.lower() == 'true'
+            option.is_active = is_active
+            
+        option.save()
+        return Response({"message": "Option updated", "option": {"id": option.id, "name": option.name, "is_active": option.is_active}}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_utility_option_sa(request, option_id):
+    """
+    Super Admin API to delete utility option.
+    """
+    try:
+        # Superadmin check
+        is_admin_outlet = AdminOutlet.objects.filter(user=request.user).exists()
+        if is_admin_outlet:
+             return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        option = UtilityOption.objects.get(id=option_id)
+        option.delete()
+        return Response({"message": "Option deleted"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

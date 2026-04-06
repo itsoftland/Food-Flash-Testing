@@ -223,7 +223,7 @@
               </a>
             </li>
             {% endif %}
-            {% if SHOW_UTILITIES_SIDEBAR %}
+            {% if SHOW_UTILITIES_SIDEBAR and PROJECT_NAME != "dine_flash_buffet" %}
             <li class="nav-item has-treeview {% if request.resolver_match.url_name in 'utilities_management,create_utility_page' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name in 'utilities_management,create_utility_page' %}active{% endif %}">
                 <i class="nav-icon {{ ICONS.sidebar.utilities }}"></i>
@@ -248,6 +248,32 @@
               </ul>
             </li>
             {% endif %}
+
+            {% if PROJECT_NAME == "dine_flash_buffet" %}
+            <li class="nav-header">FOOD / UTILITY</li>
+            <li class="nav-item">
+              <a href="{% url 'company:utilities_management' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'utilities_management' %}active{% endif %}">
+                <i class="nav-icon fas fa-list"></i>
+                <p>Manage Food Counters</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'company:create_utility_page' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'create_utility_page' %}active{% endif %}">
+                <i class="nav-icon fas fa-plus-circle"></i>
+                <p>New Food Counter</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'company:utility_user_mapping' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'utility_user_mapping' %}active{% endif %}">
+                <i class="nav-icon fas fa-user-tag"></i>
+                <p>Food / Utility Mapping</p>
+              </a>
+            </li>
+            {% endif %}
+
           </ul>
         </nav>
       </div>
@@ -278,6 +304,7 @@
   <script src="{% static 'utils/js/projectAssets.js' %}"></script>
   <script type ="module" src="{% static 'company/js/authCheck.js' %}"></script>
   <script type ="module" src="{% static 'utils/js/utils.js' %}"></script>
+  <script src="{% static 'utils/js/logoutHandler.js' %}"></script>
   <!-- Page-Specific JS -->
   {% block extra_js %}{% endblock %}
 

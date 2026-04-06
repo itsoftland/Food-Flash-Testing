@@ -1,0 +1,256 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .item-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+    }
+    .item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .item-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #333;
+    }
+    .expand-btn {
+        background: transparent;
+        border: 1px solid var(--primary-color, #ff6b6b);
+        color: var(--primary-color, #ff6b6b);
+        padding: 6px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .expand-btn:hover {
+        background: var(--primary-color, #ff6b6b);
+        color: white;
+    }
+    .indiv-item {
+        background: #f9f9f9;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border: 1px dashed #ccc;
+    }
+    .main-btn {
+        background-color: var(--primary-color, #ff6b6b);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 12px;
+        width: 100%;
+        font-weight: 600;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(255,107,107,0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5 pb-5">
+    <h3 class="text-center mb-4 font-weight-bold" style="color: #333;">Review & Customize</h3>
+    
+    <div id="options-container">
+        <!-- Selected items loaded here -->
+    </div>
+
+</div>
+
+<div class="fixed-bottom bg-white p-3 border-top shadow-lg" style="max-width: 600px; margin: 0 auto; bottom: 50px; z-index: 1020;">
+    <button class="main-btn" id="submit-order-btn">Submit Order</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const vendorId = new URLSearchParams(window.location.search).get("vendor_id") || localStorage.getItem("buffet_vendor_id");
+        const tableNumber = sessionStorage.getItem("buffet_table_number");
+        const customerName = sessionStorage.getItem("buffet_customer_name");
+        const phoneNumber = sessionStorage.getItem("buffet_phone_number");
+        
+        let selectedUtilities = JSON.parse(sessionStorage.getItem("buffet_selected_utilities") || "[]");
+
+        if (!vendorId || !tableNumber || selectedUtilities.length === 0) {
+            alert("Order session expired. Redirecting to start.");
+            window.location.href = `{% url 'buffet_table_booking' %}?vendor_id=${vendorId || ''}`;
+            return;
+        }
+
+        const container = document.getElementById("options-container");
+        
+        const generateCheckboxes = (idPrefix, options) => {
+            if (!options || options.length === 0) return '';
+
+            return `
+                <div class="mb-2 mt-2">
+                    <label class="form-label fw-bold small text-muted">Predefined Options</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${options.map((opt, i) => `
+                            <div class="form-check">
+                                <input class="form-check-input customization-cb" type="checkbox" value="${opt.name}" id="${idPrefix}-cb-${i}">
+                                <label class="form-check-label small" for="${idPrefix}-cb-${i}">${opt.name}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        };
+        
+        let orderState = {};
+
+        selectedUtilities.forEach((u, index) => {
+            orderState[u.id] = {
+                utility_id: u.id,
+                name: u.name,
+                qty: u.qty,
+                mode: "grouped",
+                global_remark: "",
+                individuals: Array(u.qty).fill(0).map(() => ({ remark: "" })) 
+            };
+
+            const card = document.createElement("div");
+            card.className = "item-card";
+            card.id = `card-${u.id}`;
+            
+            card.innerHTML = `
+                <div class="item-header">
+                    <div class="item-title">${u.qty}x ${u.name}</div>
+                    ${u.qty > 1 ? `<button class="expand-btn" data-id="${u.id}" id="toggle-${u.id}">Customize Individually</button>` : ''}
+                </div>
+                
+                <div id="view-grouped-${u.id}">
+                    ${generateCheckboxes(`global-${u.id}`, u.options)}
+                    <label class="form-label text-muted small mt-2">Special Instructions (Applies to all ${u.qty})</label>
+                    <textarea class="form-control mt-1" id="global-remark-${u.id}" rows="2" placeholder="E.g., Make it spicy"></textarea>
+                </div>
+                
+                <div id="view-individual-${u.id}" style="display: none;">
+                    ${Array(u.qty).fill(0).map((_, i) => `
+                        <div class="indiv-item">
+                            <label class="form-label fw-bold">${u.name} #${i + 1}</label>
+                            ${generateCheckboxes(`indiv-${u.id}-${i}`, u.options)}
+                            <textarea class="form-control" id="indiv-remark-${u.id}-${i}" rows="1" placeholder="Special instructions"></textarea>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.appendChild(card);
+        });
+
+        document.querySelectorAll(".expand-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const id = e.target.getAttribute("data-id");
+                const state = orderState[id];
+                const viewGrouped = document.getElementById(`view-grouped-${id}`);
+                const viewIndiv = document.getElementById(`view-individual-${id}`);
+                const globalInput = document.getElementById(`global-remark-${id}`);
+                
+                if (state.mode === "grouped") {
+                    state.mode = "individual";
+                    e.target.innerText = "Group Items";
+                    viewGrouped.style.display = "none";
+                    viewIndiv.style.display = "block";
+                    if (globalInput.value) {
+                         document.getElementById(`indiv-remark-${id}-0`).value = globalInput.value;
+                    }
+                    const globalCBs = viewGrouped.querySelectorAll('.customization-cb:checked');
+                    globalCBs.forEach(cb => {
+                         const val = cb.value;
+                         Array.from(viewIndiv.querySelectorAll(`[id^="indiv-${id}-0-cb-"]`))
+                             .filter(indivCb => indivCb.value === val)
+                             .forEach(indivCb => indivCb.checked = true);
+                    });
+                } else {
+                    state.mode = "grouped";
+                    e.target.innerText = "Customize Individually";
+                    viewGrouped.style.display = "block";
+                    viewIndiv.style.display = "none";
+                }
+            });
+        });
+
+        document.getElementById("submit-order-btn").addEventListener("click", function() {
+            const submitBtn = this;
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Submitting...";
+
+            const finalItems = [];
+
+            for (let id in orderState) {
+                const state = orderState[id];
+                if (state.mode === "grouped") {
+                    const remark = document.getElementById(`global-remark-${id}`).value.trim();
+                    const customizations = Array.from(document.querySelectorAll(`[id^="global-${id}-cb-"]:checked`)).map(cb => cb.value);
+                    finalItems.push({
+                        utility_id: id,
+                        quantity: state.qty,
+                        is_grouped: true,
+                        remarks: remark,
+                        customizations: customizations
+                    });
+                } else {
+                    for (let i = 0; i < state.qty; i++) {
+                        const remark = document.getElementById(`indiv-remark-${id}-${i}`).value.trim();
+                        const customizations = Array.from(document.querySelectorAll(`[id^="indiv-${id}-${i}-cb-"]:checked`)).map(cb => cb.value);
+                        finalItems.push({
+                            utility_id: id,
+                            quantity: 1,
+                            is_grouped: false,
+                            remarks: remark,
+                            customizations: customizations
+                        });
+                    }
+                }
+            }
+
+            const payload = {
+                vendor_id: vendorId,
+                table_number: tableNumber,
+                customer_name: customerName,
+                phone_number: phoneNumber,
+                items: finalItems
+            };
+
+            fetch("{% url 'buffet_submit_order' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": AppUtils.getCSRFToken()
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json().then(data => ({ status: res.status, body: data })))
+            .then(res => {
+                if (res.status === 201) {
+                    sessionStorage.removeItem("buffet_selected_utilities"); // clear cart
+                    window.location.href = `{% url 'home' %}?token_no=${res.body.token_no}&vendor_id=${vendorId}`;
+                } else {
+                    alert("Error submitting order: " + (res.body.error || "Unknown error"));
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "Submit Order";
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Network error.");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Submit Order";
+            });
+        });
+    });
+</script>
+{% endblock %}

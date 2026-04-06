@@ -48,8 +48,8 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
       if (projectName === "airline_flash" && (key === "android_tvs" || key === "keypad_devices")) {
         return;
       }
-      // Skip keypad_devices for dine_flash
-      if (projectName === "dine_flash" && key === "keypad_devices") {
+      // Skip keypad_devices for dine_flash and dine_flash_buffet
+      if ((projectName === "dine_flash" || projectName === "dine_flash_buffet") && key === "keypad_devices") {
         return;
       }
 

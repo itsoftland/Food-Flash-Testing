@@ -185,7 +185,7 @@ AIRLINE_FLASH = {
     },
 }
 # ----------------------------
-# Airline Flash Label Configuration
+# Dine Flash Label Configuration
 # ----------------------------
 DINE_FLASH = {
     "sidebar": {
@@ -244,7 +244,65 @@ DINE_FLASH = {
     },
 }
 
-
+# ----------------------------
+# Dine Flash Buffet Label Configuration
+# ----------------------------
+DINE_FLASH_BUFFET = {
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "company": "Restaurant",
+        "register_company": "Register Restaurant",
+        "company_list": "Restaurant List",
+        "create_outlet": "Create Outlet",
+        "outlet_list": "Outlet List",
+        "outlet_update":"Update Outlet Data",
+        "order_update": "Table Allot",
+        "total_orders":"Total Bookings",
+        "order_details":"Booking Details",
+        "configurations":"Configurations",
+        "utilities":"Food / Utility",
+        "new_utility":"New Food Counter"
+    },
+    "dashboard": {
+        "title": "Dine Flash Buffet Dashboard",
+        "body": "You can manage companies and view analytics from here.",
+    },
+    "company_dashboard": {
+        "title": "Company Dashboard",
+    },
+    "outlet_list":{
+        "title":"You can manage outlets from here."
+    },
+    "outlet_update": {
+        "outlet_name": "Outlet Name",
+        "outlet_alias_name": "Outlet Alias Name",
+        "button":"Update Outlet Data"
+    },
+    "create_user":{
+        "outlet":"Outlet",
+        "select_outlet":"Select Outlet"
+    },
+    "registration": {
+        "title": "Restaurant Registration",
+        "company_name": "Restaurant Name",
+        "contact_phone": "Contact Number",
+        "email": "Restaurant Email",
+        "gst": "GST Number",
+        "contact_person": "Manager Name",
+        "contact_manager_phone": "Manager Contact Number",
+        "address1": "Restaurant Address 1",
+        "address2": "Restaurant Address 2",
+        "state": "State",
+        "city": "City",
+        "username": "Username",
+        "password": "Password",
+        "submit_button": "Register Restaurant",
+    },
+    "select_outlet_modal": {
+        "title": "Select Outlet",
+        "instruction": "Please select your outlet to proceed.",
+    },
+}
 
 # ----------------------------
 # Mapping of Project Key → Labels
@@ -253,5 +311,6 @@ LABELS = {
     "default": DEFAULT,
     "food_flash": FOOD_FLASH,
     "airline_flash": AIRLINE_FLASH,
-    "dine_flash":DINE_FLASH
+    "dine_flash": DINE_FLASH,
+    "dine_flash_buffet": DINE_FLASH_BUFFET
 }

@@ -204,6 +204,54 @@ function buildFlightStatusMessage(payload) {
   `;
 }
 
+function buildBuffetItemStatusMessage(payload) {
+  const statusKey = String(payload.status || 'unknown').toLowerCase();
+  const statusClass = statusClassMap[statusKey] || 'unknown-color';
+  const itemName = payload.item_name || payload.name || 'Item';
+  
+  return `
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-status-card">
+        <div class="buffet-item-header">
+            <span class="buffet-item-name">${itemName}</span>
+            <span class="buffet-status-badge ${statusClass}">${statusKey.toUpperCase()}</span>
+        </div>
+        <div class="buffet-status-body">
+            ${payload.message || `Your ${itemName} is now ${statusKey}.`}
+        </div>
+    </div>
+  `;
+}
+
+function buildBuffetDeliveredMessage(payload) {
+  return `
+    <div class="response-title">
+      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-delivered-card">
+        <div class="delivered-icon">✅</div>
+        <div class="delivered-text">
+            ${payload.message || "Your order has been delivered. Enjoy your meal!"}
+        </div>
+    </div>
+  `;
+}
+
+function maskSequenceCode(sequenceCode) {
+  const parts = (sequenceCode || "").split("-");
+  if (parts.length === 6) {
+    parts[0] = "****";
+    parts[1] = "***";
+    parts[2] = "***";
+    parts[3] = "*";
+  }
+  return parts.join("-");
+}
+
 function buildBookingStatusMessage(payload) {
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
@@ -222,49 +270,79 @@ function buildBookingStatusMessage(payload) {
         </span>
     </div>
 
-    <div class="dine-body">
-
-      <div class="dine-card-header">
-         <span class="customer-icon" aria-hidden="true">👤</span>
-         <div class="customer-name">${payload.customer_name || "-"}</div>
+    <div class="flight-card-body">
+      <!-- Customer Name -->
+      <div class="flight-card-header">
+        <span class="passenger-icon" aria-hidden="true">👤</span>
+        <div class="passenger-name">${payload.customer_name || "-"}</div>
       </div>
 
-      <div class="dine-row">
-          <div class="dine-label">
-              <span class="dine-icon">🏷️</span>
-              Booking No
-          </div>
-          <div class="dine-value">${payload.booking_no || "-"}</div>
+      <!-- Booking No Display -->
+      <div class="sequence-code-row">
+        <span class="sequence-code-label">Booking No:</span>
+        <div class="sequence-code-display d-flex align-items-center">
+          <span class="sequence-code-text">
+            ${payload.booking_no || "-"}
+          </span>
+        </div>
       </div>
 
-      <div class="dine-row">
-          <div class="dine-label">
-              <span class="dine-icon">👥</span>
-              Guest
-          </div>
-          <div class="dine-value">${payload.no_of_packs || "-"}</div>
+      <!-- Packs Row -->
+      <div class="flight-row">
+        <div class="flight-item">
+          <span class="flight-icon" aria-hidden="true">👥</span>
+          <span class="flight-label">Guest</span>
+          <span class="flight-badge seat-badge">${payload.no_of_packs || "-"}</span>
+        </div>
       </div>
 
-      <div class="dine-row">
-          <div class="dine-label">
-              <span class="dine-icon">🪑</span>
-              Area
-          </div>
-          <div class="dine-value dine-badge">${payload.utility_name || "-"}</div>
+      <!-- Utility Row -->
+      <div class="pnr-zone-row">
+        <div class="pnr-item">
+          <span class="pnr-icon" aria-hidden="true">🪑</span>
+          <span class="flight-label">Allocated Place</span>
+          <span class="flight-badge pnr-badge">${payload.utility_name || "-"}</span>
+        </div>
       </div>
-
     </div>
   `;
+}
+
+
+function resolveMessageKind(message) {
+  const outer = (message.type || "").toLowerCase();
+  const inner =
+    typeof message.text === "object" && message.text !== null && typeof message.text.type === "string"
+      ? String(message.text.type).toLowerCase()
+      : "";
+  // Prefer nested payload type for item/buffet events (WebChat may truncate outer `type` in DB).
+  if (inner.startsWith("item_") || inner.startsWith("buffet_item")) {
+    return inner;
+  }
+  return outer || inner;
 }
 
 export const ChatTemplateService = {
   build(message) {
     // const payload = message.text || {};
-    const payload = typeof message.text === "object" && Object.keys(message.text).length
+    const payload = typeof message.text === "object" && message.text !== null && Object.keys(message.text).length
       ? message.text
       : message;
 
-    switch (message.type) {
+    const type = resolveMessageKind(message);
+    switch (type) {
+      case "buffet_item_update":
+      case "buffet_item_preparing":
+      case "buffet_item_ready":
+      case "buffet_item_cancelled":
+      case "item_preparing":
+      case "item_ready":
+      case "item_delivered":
+      case "buffet_item_delivered":
+      case "item_cancelled":
+        return buildBuffetItemStatusMessage(payload);
+      case "order_delivered":
+        return buildBuffetDeliveredMessage(payload);
       case "foodstatus":
         return buildStatusMessage(payload);
       case "offers":
@@ -279,6 +357,9 @@ export const ChatTemplateService = {
         return buildFlightStatusMessage(payload);
       case "dinestatus":
         return buildBookingStatusMessage(payload);
+      case "buffetstatus":
+        // Fallback for buffet order status itself (though usually items are handled individually)
+        return buildStatusMessage(payload);
       case "thankyou":
         return buildThankYouMessage(payload);
 

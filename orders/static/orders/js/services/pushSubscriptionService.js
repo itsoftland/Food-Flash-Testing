@@ -65,10 +65,10 @@ export const PushSubscriptionService = (() => {
 
             // Always send the current subscription to the server
             const newSubscriptionJSON = JSON.stringify(subscription);
-            const storedSubscription = localStorage.getItem("pushSubscription");
+            const storedSubscription = AppUtils.storageGet("pushSubscription");
 
             if (storedSubscription !== newSubscriptionJSON) {
-                localStorage.setItem("pushSubscription", newSubscriptionJSON);
+                AppUtils.storageSet("pushSubscription", newSubscriptionJSON);
             }
          
             const browserId = AppUtils.getBrowserId();

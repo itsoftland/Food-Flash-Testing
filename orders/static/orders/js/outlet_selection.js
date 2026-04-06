@@ -66,14 +66,14 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     if (agreeBtn) {
         agreeBtn.addEventListener("click", () => {
-            localStorage.setItem("iosA2HS", "true");
+            AppUtils.storageSet("iosA2HS", "true");
             IosPwaInstallService.dismiss();
         });
     }
 
     if (denyBtn) {
         denyBtn.addEventListener("click", () => {
-            localStorage.setItem("iosA2HS", "false");
+            AppUtils.storageSet("iosA2HS", "false");
             IosPwaInstallService.dismiss();
         });
     }

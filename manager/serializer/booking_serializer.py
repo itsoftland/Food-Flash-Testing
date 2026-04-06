@@ -8,7 +8,7 @@ project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 class BookingSerializer(serializers.ModelSerializer):
     booked_time = serializers.DateTimeField(source="created_at", read_only=True)
     new_notifications = serializers.SerializerMethodField()
-    utility_id = serializers.IntegerField(source="utility.id", read_only=True)
+    utility_id = serializers.SerializerMethodField()
 
     tracking_url = serializers.SerializerMethodField()
 
@@ -28,6 +28,9 @@ class BookingSerializer(serializers.ModelSerializer):
             "tracking_url",   # ➜ Added here
         ]
         read_only_fields = fields
+
+    def get_utility_id(self, obj):
+        return obj.utility.id if obj.utility else None
 
     def get_tracking_url(self, obj):
         request = self.context.get("request")

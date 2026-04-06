@@ -24,6 +24,28 @@ function onDOMReady(callback) {
     }
 }
 onDOMReady(async function () {
+    // -------------------------------------------------------------------------
+    // 🚀 Auto-Resume Subscription & Health Check
+    // -------------------------------------------------------------------------
+    (async () => {
+        const savedToken = await AppUtils.getToken();
+        const activeVendor = await AppUtils.getActiveVendor();
+        
+        if (savedToken && activeVendor) {
+            // console.log(`[Init] Resuming subscription for Token: ${savedToken}, Vendor: ${activeVendor}`);
+            try {
+                await PushSubscriptionService.subscribe(savedToken, activeVendor);
+                // console.log("✅ Subscription resumed.");
+            } catch (err) {
+                console.error("❌ Subscription resume failed:", err);
+            }
+        }
+    })();
+
+    // -------------------------------------------------------------------------
+    // 🛡️ Helper: Re-establish connection on visibility change
+    // -------------------------------------------------------------------------
+
     // console.log("✅ DOM ready — initialization...");
 
     let apiEndpoints;
@@ -234,16 +256,11 @@ onDOMReady(async function () {
                 // Ignore cross-flavour messages (fixes food_flash -> airline_flash leakage).
                 const expectedProject = (() => {
                     const path = (window.location?.pathname || '').toLowerCase();
-                    if (path.includes('/airline_flash/')) return 'airline_flash';
-                    if (path.includes('/dine_flash_buffet/')) return 'dine_flash_buffet';
-                    if (path.includes('/dine_flash/')) return 'dine_flash';
-                    if (path.includes('/food_flash/')) return 'food_flash';
-                    // Fallbacks
-                    const pn = (window.PROJECT_NAME || '').toString().toLowerCase().trim();
-                    if (pn) return pn;
-                    const base = (window.BASE || '').toString();
-                    const parts = base.split('/').filter(Boolean);
-                    return (parts[parts.length - 1] || '').toLowerCase().trim();
+                    if (path.includes('/airline_flash')) return 'airline_flash';
+                    if (path.includes('/dine_flash_buffet')) return 'dine_flash_buffet';
+                    if (path.includes('/dine_flash')) return 'dine_flash';
+                    if (path.includes('/food_flash')) return 'food_flash';
+                    return null;
                 })();
 
                 const incomingProject =

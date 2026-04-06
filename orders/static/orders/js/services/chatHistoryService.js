@@ -40,12 +40,27 @@ export const ChatHistoryService = (() => {
 
             return data.messages.map(msg => {
                 // console.log("Raw message:", msg);
-                const rendered = ChatTemplateService.build(msg);
+                let finalMsg = { ...msg };
+                
+                // If it's a system/manager message with JSON in message_text, parse it
+                if ((msg.sender === 'system' || msg.sender === 'manager') && msg.message_text) {
+                    try {
+                        const parsed = JSON.parse(msg.message_text);
+                        if (parsed && typeof parsed === 'object') {
+                            finalMsg.type = parsed.type || msg.type;
+                            finalMsg.text = parsed;
+                        }
+                    } catch (e) {
+                        // console.error("Failed to parse message_text:", e);
+                    }
+                }
+
+                const rendered = ChatTemplateService.build(finalMsg.type ? finalMsg : msg);
                 // console.log("Rendered message:", rendered);
 
                 return {
-                    ...msg, // keep raw info (sender, type, token_no, etc.)
-                    rendered, // ✅ HTML (or plain text for user messages)
+                    ...finalMsg, 
+                    rendered, 
                     timestamp: msg.timestamp
                         ? new Date(msg.timestamp).toLocaleTimeString([], { 
                             hour: '2-digit', 

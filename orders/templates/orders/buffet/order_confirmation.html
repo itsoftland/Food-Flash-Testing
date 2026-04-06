@@ -1,0 +1,35 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <div style="font-size: 5rem; color: #2ecc71; margin-bottom: 20px;">
+        ✓
+    </div>
+    <h2 class="mb-3 font-weight-bold">Order Received!</h2>
+    <h4 class="text-muted mb-4">Your Table Token: <span id="token-no" class="fw-bold" style="color: var(--primary-color, #ff6b6b);"></span></h4>
+    
+    <p class="lead mb-5">Your food is being prepared. We will notify you when it's ready.</p>
+
+    <a href="#" id="new-order-btn" class="btn btn-outline-primary px-4 py-2" style="border-radius: 20px; font-weight: 600;">Place Another Order</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const tokenNo = new URLSearchParams(window.location.search).get("token_no");
+        const vendorId = localStorage.getItem("buffet_vendor_id");
+        
+        if (tokenNo) {
+            document.getElementById("token-no").innerText = "#" + tokenNo;
+        }
+
+        const newOrderBtn = document.getElementById("new-order-btn");
+        newOrderBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            window.location.href = `{% url 'buffet_utility_selection' %}?vendor_id=${vendorId}`;
+        });
+    });
+</script>
+{% endblock %}

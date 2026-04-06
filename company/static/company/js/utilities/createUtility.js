@@ -43,12 +43,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   ];
 
   // Populate token mode dropdown
-  TOKEN_MODE_CHOICES.forEach(choice => {
-    const option = document.createElement('option');
-    option.value = choice.value;
-    option.textContent = choice.label;
-    tokenModeSelect.appendChild(option);
-  });
+  if (tokenModeSelect) {
+    TOKEN_MODE_CHOICES.forEach(choice => {
+      const option = document.createElement('option');
+      option.value = choice.value;
+      option.textContent = choice.label;
+      tokenModeSelect.appendChild(option);
+    });
+  }
 
   /* ------------------------------------
      Fetch vendors & populate outlets
@@ -108,9 +110,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Get form values
     const utilityName = utilityNameInput.value.trim();
     const displayName = displayNameInput.value.trim();
-    const displayCode = displayCodeInput.value.trim();
-    const tokenMode = tokenModeSelect.value.trim();
-    const prefix = prefixInput.value.trim();
+    const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
+    const displayCode = isBuffet ? "" : (displayCodeInput ? displayCodeInput.value.trim() : '');
+    const tokenMode = isBuffet ? 'continuous' : (tokenModeSelect ? tokenModeSelect.value.trim() : '');
+    const prefix = isBuffet ? null : (prefixInput ? prefixInput.value.trim() : '');
     const isActive = isActiveCheckbox.checked;
 
     // Basic validation
@@ -122,11 +125,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       ModalService.showError('Display Name is required.');
       return;
     }
-    if (!displayCode) {
+    if (!isBuffet && !displayCode) {
       ModalService.showError('Display Code is required.');
       return;
     }
-    if (!tokenMode) {
+    if (!isBuffet && !tokenMode) {
       ModalService.showError('Token Mode is required.');
       return;
     }

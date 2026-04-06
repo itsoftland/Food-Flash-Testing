@@ -1,0 +1,190 @@
+{% extends "orders/layouts/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<style>
+    .premium-primary-btn {
+        background-color: var(--primary-color, #ff6b6b);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .premium-primary-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255,107,107,0.3);
+    }
+    .invalid-feedback {
+        display: none;
+        color: #ff3b3b;
+        font-size: 0.85rem;
+        margin-top: 5px;
+        text-align: left;
+        font-weight: 500;
+    }
+    .premium-input.is-invalid {
+        border-color: #ff3b3b !important;
+        background-color: rgba(255, 59, 59, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container public-register-container">
+    <div class="vendor-branding text-center mt-3">
+        <h2 id="vendor-name" class="vendor-name">Begin Your Buffet Experience</h2>
+    </div>
+
+    <div class="registration-card-container mt-4">
+        <div class="registration-card p-4">
+            <!-- Table Number -->
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Table Number *</label>
+                    <input type="text" id="table_number" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Eg: 12" required maxlength="50">
+                    <div id="table_number_error" class="invalid-feedback">Please enter a valid table number (numeric only).</div>
+                </div>
+            </div>
+
+            <!-- Customer Name -->
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Customer Name *</label>
+                    <input type="text" id="customer_name" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Enter your name" required maxlength="30">
+                    <div id="customer_name_error" class="invalid-feedback">Please enter your name (alphabetical characters only).</div>
+                </div>
+            </div>
+
+            {% if PHONE_NUMBER_ENABLED %}
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Phone Number (Optional)</label>
+                    <input type="text" id="phone_number" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Enter phone number" maxlength="20">
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row g-3 justify-content-between button-row mt-4">
+                <div class="col-12">
+                    <button class="btn premium-primary-btn w-100" id="start-btn" style="font-size: 1.1rem;">
+                        Start Ordering
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const vendorId = "{{ vendor_id }}";
+        if (vendorId) {
+            localStorage.setItem("buffet_vendor_id", vendorId);
+        }
+
+        const tableInput = document.getElementById("table_number");
+
+        // ✅ Automatic Table Identification (Buffet Only)
+        if (window.PROJECT_NAME === "dine_flash_buffet" && tableInput) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableNo = urlParams.get("table_no");
+
+            // Validate: Must be a non-empty numeric value
+            if (tableNo && /^[0-9]+$/.test(tableNo)) {
+                tableInput.value = tableNo;
+                tableInput.readOnly = true;
+                
+                // UX: Visual cues for non-editable auto-filled state
+                tableInput.style.backgroundColor = "#f8f9fa";
+                tableInput.style.cursor = "not-allowed";
+                tableInput.title = "Table number auto-filled via QR code";
+            }
+        }
+
+        const nameInput = document.getElementById("customer_name");
+        const tableError = document.getElementById("table_number_error");
+        const nameError = document.getElementById("customer_name_error");
+
+        function validateTable() {
+            const value = tableInput.value.trim();
+            if (!value) {
+                tableInput.classList.add("is-invalid");
+                tableError.textContent = "Table number is required.";
+                tableError.style.display = "block";
+                return false;
+            }
+            // Restrict to numeric only
+            if (!/^[0-9]+$/.test(value)) {
+                tableInput.classList.add("is-invalid");
+                tableError.textContent = "Please enter numeric table number only.";
+                tableError.style.display = "block";
+                return false;
+            }
+            if (value.length > 50) {
+                tableInput.classList.add("is-invalid");
+                tableError.textContent = "Table number too long (max 50).";
+                tableError.style.display = "block";
+                return false;
+            }
+            tableInput.classList.remove("is-invalid");
+            tableError.style.display = "none";
+            return true;
+        }
+
+        function validateName() {
+            const value = nameInput.value.trim();
+            if (!value) {
+                nameInput.classList.add("is-invalid");
+                nameError.textContent = "Customer name is required.";
+                nameError.style.display = "block";
+                return false;
+            }
+            if (!/^[a-zA-Z\s]+$/.test(value)) {
+                nameInput.classList.add("is-invalid");
+                nameError.textContent = "Names should only contain letters.";
+                nameError.style.display = "block";
+                return false;
+            }
+            if (value.length > 30) {
+                nameInput.classList.add("is-invalid");
+                nameError.textContent = "Name too long (max 30 letters).";
+                nameError.style.display = "block";
+                return false;
+            }
+            nameInput.classList.remove("is-invalid");
+            nameError.style.display = "none";
+            return true;
+        }
+
+        // Real-time validation
+        tableInput.addEventListener("input", validateTable);
+        nameInput.addEventListener("input", validateName);
+
+        document.getElementById("start-btn").addEventListener("click", function() {
+            const isTableValid = validateTable();
+            const isNameValid = validateName();
+
+            if (!isTableValid || !isNameValid) {
+                return;
+            }
+
+            const tableNumber = tableInput.value.trim();
+            const customerName = nameInput.value.trim();
+            const phoneEl = document.getElementById("phone_number");
+            const phoneNumber = phoneEl ? phoneEl.value.trim() : "";
+
+            // Save details to session/local storage for the next steps
+            sessionStorage.setItem("buffet_table_number", tableNumber);
+            sessionStorage.setItem("buffet_customer_name", customerName);
+            sessionStorage.setItem("buffet_phone_number", phoneNumber);
+
+            window.location.href = `{% url 'buffet_utility_selection' %}?vendor_id=${vendorId}`;
+        });
+    });
+</script>
+{% endblock %}

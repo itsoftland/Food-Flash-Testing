@@ -152,9 +152,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       row.innerHTML = `
         <td>${escapeHtml(utility.utility_name)}</td>
         <td>${escapeHtml(utility.display_name)}</td>
+        ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
         <td><strong>${escapeHtml(utility.display_code)}</strong></td>
         <td>${utility.prefix ? escapeHtml(utility.prefix) : '—'}</td>
         <td><span class="token-mode-badge ${utility.token_mode === 'utility_specific' ? 'utility-specific' : ''}">${tokenModeLabel}</span></td>
+        ` : ''}
         <td>${escapeHtml(vendorName)}</td>
         <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
         <td>
@@ -317,6 +319,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'edit':
         editUtility(utility);
         break;
+      case 'options':
+        manageOptions(utility);
+        break;
       case 'toggle':
         toggleUtilityStatus(utility);
         break;
@@ -330,14 +335,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const vendor = vendorsData.find(v => v.id === utility.vendor);
     const vendorName = vendor ? `${vendor.name} (${vendor.location})` : 'N/A';
     const tokenMode = utility.token_mode === 'continuous' ? 'Continuous' : 'Utility Specific';
+    const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
 
     const details = `
       <div style="text-align: left;">
         <p><strong>Utility Name:</strong> ${escapeHtml(utility.utility_name)}</p>
         <p><strong>Display Name:</strong> ${escapeHtml(utility.display_name)}</p>
+        ${!isBuffet ? `
         <p><strong>Display Code:</strong> ${escapeHtml(utility.display_code)}</p>
         <p><strong>Prefix:</strong> ${utility.prefix ? escapeHtml(utility.prefix) : 'N/A'}</p>
         <p><strong>Token Mode:</strong> ${tokenMode}</p>
+        ` : ''}
         <p><strong>Outlet:</strong> ${escapeHtml(vendorName)}</p>
         <p><strong>Status:</strong> ${utility.is_active ? 'Active' : 'Inactive'}</p>
       </div>
@@ -368,6 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
 
+        ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
         <!-- Row 2: Display Code & Token Mode -->
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
@@ -392,6 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 4 characters</small>
           </div>
         </div>
+        ` : ''}
 
         <!-- Submit Buttons -->
         <div class="d-flex justify-content-end gap-2 mt-3">
@@ -423,25 +433,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       newSave.addEventListener('click', async (e) => {
         e.preventDefault();
 
+        const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
         const name = document.getElementById('edit-utility-name').value.trim();
         const dname = document.getElementById('edit-display-name').value.trim();
-        const dcode = document.getElementById('edit-display-code').value.trim();
-        const tmode = document.getElementById('edit-token-mode').value;
-        const pref = document.getElementById('edit-prefix').value.trim();
+        const dcode = isBuffet ? "" : document.getElementById('edit-display-code').value.trim();
+        const tmode = isBuffet ? 'continuous' : document.getElementById('edit-token-mode').value;
+        const pref = isBuffet ? '' : document.getElementById('edit-prefix').value.trim();
 
         // Client-side validations (same limits as server) - show inline
         if (!name) return showInlineError('Utility name is required');
         if (!dname) return showInlineError('Display name is required');
-        if (!dcode) return showInlineError('Display code is required');
-        if (!tmode) return showInlineError('Token mode is required');
-        if (pref === '' || pref === null) return showInlineError('Prefix is required');
+        if (!isBuffet && !dcode) return showInlineError('Display code is required');
+        if (!isBuffet && !tmode) return showInlineError('Token mode is required');
+        if (!isBuffet && (pref === '' || pref === null)) return showInlineError('Prefix is required');
 
         if (name.length > 30) return showInlineError('Utility name must be at most 30 characters');
         if (dname.length > 20) return showInlineError('Display name must be at most 20 characters');
-        if (dcode.length > 10) return showInlineError('Display code must be at most 10 characters');
-        if (pref.length > 4) return showInlineError('Prefix must be at most 4 characters');
+        if (!isBuffet && dcode.length > 10) return showInlineError('Display code must be at most 10 characters');
+        if (!isBuffet && pref.length > 4) return showInlineError('Prefix must be at most 4 characters');
 
-        if (!['continuous','utility_specific'].includes(tmode)) return showInlineError('Invalid token mode');
+        if (!isBuffet && !['continuous','utility_specific'].includes(tmode)) return showInlineError('Invalid token mode');
 
         try {
           const response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_UTILITY, {
@@ -479,6 +490,179 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (err) {
           console.error('Error updating utility:', err);
           showInlineError('An error occurred while updating utility');
+        }
+      });
+    }});
+  }
+
+  /* ------------------------------------
+     Manage Options (modal for specific utility)
+  ------------------------------------ */
+  function manageOptions(utility) {
+    let optionsHtml = '';
+    const options = utility.options || [];
+    
+    if (options.length === 0) {
+      optionsHtml = '<p class="text-muted small">No options configured.</p>';
+    } else {
+      optionsHtml = '<ul class="list-group mb-3">';
+      options.forEach(opt => {
+        const activeBadge = opt.is_active ? '<span class="badge bg-success" style="font-size:0.7em;">Active</span>' : '<span class="badge bg-warning text-dark" style="font-size:0.7em;">Inactive</span>';
+        optionsHtml += `
+          <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+            <div>
+              <strong>${escapeHtml(opt.name)}</strong> ${activeBadge}
+            </div>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary edit-opt-btn" data-id="${opt.id}" data-name="${escapeHtml(opt.name)}" data-active="${opt.is_active}"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-sm btn-outline-danger del-opt-btn" data-id="${opt.id}"><i class="fas fa-trash"></i></button>
+            </div>
+          </li>
+        `;
+      });
+      optionsHtml += '</ul>';
+    }
+
+    const body = `
+      <div id="options-error-message" style="display: none; margin-bottom: 12px;"></div>
+      <div id="options-list-container" style="max-height: 200px; overflow-y:auto; margin-bottom: 15px;">
+        ${optionsHtml}
+      </div>
+      <hr>
+      <h6 class="mb-2" id="option-form-title" style="font-size: 0.95rem;">Add New Option</h6>
+      <form id="manage-option-form" class="px-0 py-0" style="max-width: 100%;">
+        <input type="hidden" id="edit-option-id" value="">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-7 mb-2">
+            <label class="form-label" style="font-size: 0.85rem; margin-bottom: 4px;">Option Name</label>
+            <input type="text" id="new-option-name" class="form-control form-control-sm" placeholder="e.g. No onion" maxlength="100" />
+          </div>
+          <div class="col-md-3 mb-2">
+            <label class="form-label" style="font-size: 0.85rem; margin-bottom: 4px;">Status</label>
+            <select id="new-option-status" class="form-select form-select-sm">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+          <div class="col-md-2 mb-2">
+            <button type="button" id="save-option-btn" class="btn btn-golden btn-sm w-100">Save</button>
+          </div>
+        </div>
+        <div class="row g-2 mt-1" id="cancel-edit-row" style="display:none;">
+          <div class="col-12 text-end">
+             <button type="button" class="btn btn-sm btn-secondary" id="cancel-edit-opt-btn">Cancel Edit</button>
+          </div>
+        </div>
+      </form>
+    `;
+
+    ModalService.showCustom({ title: `Manage Options: ${escapeHtml(utility.display_name)}`, body, onShown: () => {
+      const errorDiv = document.getElementById('options-error-message');
+      const showInlineError = (msg) => {
+        errorDiv.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+          ${escapeHtml(msg)}
+          <button type="button" class="btn-close" style="padding: 0.6rem;" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+        errorDiv.style.display = 'block';
+      };
+
+      const saveBtn = document.getElementById('save-option-btn');
+      const cancelBtn = document.getElementById('cancel-edit-opt-btn');
+      const nameInput = document.getElementById('new-option-name');
+      const statusInput = document.getElementById('new-option-status');
+      const idInput = document.getElementById('edit-option-id');
+      const formTitle = document.getElementById('option-form-title');
+      const cancelRow = document.getElementById('cancel-edit-row');
+
+      // Edit handlers
+      document.querySelectorAll('.edit-opt-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          nameInput.value = btn.dataset.name;
+          statusInput.value = btn.dataset.active;
+          idInput.value = btn.dataset.id;
+          formTitle.textContent = 'Edit Option';
+          saveBtn.textContent = 'Update';
+          cancelRow.style.display = 'block';
+        });
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        nameInput.value = '';
+        statusInput.value = 'true';
+        idInput.value = '';
+        formTitle.textContent = 'Add New Option';
+        saveBtn.textContent = 'Save';
+        cancelRow.style.display = 'none';
+      });
+
+      // Delete handlers
+      document.querySelectorAll('.del-opt-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          if(!confirm('Are you sure you want to delete this option?')) return;
+          try {
+            const resp = await fetchWithAutoRefresh(`${window.BASE}company/api/delete_utility_option/${btn.dataset.id}/`, {
+              method: 'DELETE',
+              headers: { 'X-CSRFToken': window.AppUtils.getCSRFToken() }
+            });
+            if (resp.ok) {
+              await loadUtilities(selectedVendorId);
+              const updatedUtil = utilitiesData.find(u => u.id === utility.id);
+              if(updatedUtil) {
+                const customEl = document.getElementById('customModal');
+                const bs = bootstrap.Modal.getInstance(customEl);
+                if(bs) bs.hide();
+                setTimeout(() => manageOptions(updatedUtil), 300);
+              }
+            } else {
+              const res = await resp.json();
+              showInlineError(res.error || 'Failed to delete');
+            }
+          } catch(err) {
+            showInlineError('Error deleting option');
+          }
+        });
+      });
+
+      saveBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const nameVal = nameInput.value.trim();
+        const activeVal = statusInput.value;
+        const optId = idInput.value;
+
+        if (!nameVal) return showInlineError('Option name is required');
+
+        const isEdit = !!optId;
+        const url = isEdit 
+          ? `${window.BASE}company/api/update_utility_option/${optId}/`
+          : `${window.BASE}company/api/create_utility_option/${utility.id}/`;
+        const method = isEdit ? 'PUT' : 'POST';
+
+        try {
+          const resp = await fetchWithAutoRefresh(url, {
+            method,
+            headers: {
+               'Content-Type': 'application/json',
+               'X-CSRFToken': window.AppUtils.getCSRFToken()
+            },
+            body: JSON.stringify({ name: nameVal, is_active: activeVal })
+          });
+          const res = await resp.json();
+          if (resp.ok) {
+            await loadUtilities(selectedVendorId);
+            const updatedUtil = utilitiesData.find(u => u.id === utility.id);
+            if(updatedUtil) {
+              const customEl = document.getElementById('customModal');
+              const bs = bootstrap.Modal.getInstance(customEl);
+              if(bs) bs.hide();
+              setTimeout(() => manageOptions(updatedUtil), 300);
+            }
+          } else {
+            showInlineError(res.error || 'Failed to save option');
+          }
+        } catch(err) {
+          showInlineError('Error saving option');
         }
       });
     }});

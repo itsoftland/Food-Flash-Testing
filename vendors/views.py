@@ -131,27 +131,53 @@ def save_subscription(request):
             logger.error(f"❌ Vendor not found for vendor_id={vendor_id}")
             return Response({"error": "Vendor not found."}, status=404)
 
-        # Get or create subscription
-        subscription, created = PushSubscription.objects.get_or_create(
-            browser_id=browser_id,
-            defaults={
-                "endpoint": endpoint,
-                "p256dh": keys.get("p256dh", ""),
-                "auth": keys.get("auth", ""),
-            },
-        )
+        # 🚀 Backend-level Flavour Isolation:
+        # Ensure the vendor belongs to the current backend project/flavour.
+        # Normalized comparison handles 'food_flash' vs 'foodflashqc' etc.
+        if vendor.admin_outlet.project_code:
+            def normalize(s):
+                return str(s or "").lower().replace("_", "").replace("-", "").strip()
 
-        if created:
-            logger.info(f"🆕 PushSubscription created for browser_id={browser_id}")
+            v_project_norm = normalize(vendor.admin_outlet.project_code)
+            server_project_norm = normalize(project_name)
+
+            # Check if one is a prefix of the other (e.g., 'foodflash' matches 'foodflashqc')
+            is_match = (v_project_norm.startswith(server_project_norm) or 
+                        server_project_norm.startswith(v_project_norm))
+
+            if not is_match:
+                logger.warning("🚫 Cross-flavour subscription rejected | Vendor: %s, Server: %s",
+                               vendor.admin_outlet.project_code, project_name)
+                return Response({"error": "This vendor does not belong to the current project context."}, status=403)
+
+        # 📥 Subscription Persistence & Migration:
+        # We try to find the subscription by its unique 'endpoint' FIRST, as this is
+        # the physical identity of the push channel. The browser_id may have changed
+        # due to our new project-prefixing logic.
+        subscription = PushSubscription.objects.filter(endpoint=endpoint).first()
+
+        if not subscription:
+            # If not found by endpoint, try browser_id
+            subscription = PushSubscription.objects.filter(browser_id=browser_id).first()
+
+        if not subscription:
+            # Create new if still not found
+            subscription = PushSubscription.objects.create(
+                browser_id=browser_id,
+                endpoint=endpoint,
+                p256dh=keys.get("p256dh", ""),
+                auth=keys.get("auth", ""),
+            )
+            logger.info(f"🆕 PushSubscription created | BrowserID={browser_id}")
         else:
-            logger.info(f"♻️ PushSubscription found, updating browser_id={browser_id}")
-
-        # Update subscription details if changed
-        subscription.endpoint = endpoint
-        subscription.p256dh = keys.get("p256dh", "")
-        subscription.auth = keys.get("auth", "")
-        subscription.save()
-        logger.info(f"🔄 PushSubscription updated | ID={subscription.id}, BrowserID={subscription.browser_id}")
+            # Update existing (handles migration of browser_id)
+            old_bid = subscription.browser_id
+            subscription.browser_id = browser_id
+            subscription.endpoint = endpoint
+            subscription.p256dh = keys.get("p256dh", "")
+            subscription.auth = keys.get("auth", "")
+            subscription.save()
+            logger.info(f"♻️ PushSubscription re-linked | OldID={old_bid}, NewID={browser_id}")
 
         # If token provided, try to link with order (optional)
         if token_number:

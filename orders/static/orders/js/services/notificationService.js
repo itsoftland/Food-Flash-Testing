@@ -1,6 +1,5 @@
 // orders/static/orders/js/services/notificationService.js
 import { updateChatOnPush } from './chatService.js';
-import { STATUS_MESSAGE_MAP } from '../config/statusMessages.js';
 
 let notificationsEnabled = true;
 let activeNotificationToken = null;
@@ -8,6 +7,23 @@ let snoozeTimers = {};
 let orderStates = AppUtils.loadOrderStates();  // 💾 Load from storage
 let notificationModal = null;
 let clearTimers = {};  // Store timers to clear token after 1 hour
+
+let statusMessageMapPromise = null;
+async function getStatusMessageMap() {
+    if (statusMessageMapPromise) return statusMessageMapPromise;
+    const base = (typeof window !== "undefined" && typeof window.BASE === "string" && window.BASE) ? window.BASE : "/";
+    const v =
+        (typeof window !== "undefined" && typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== "")
+            ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+            : "";
+    statusMessageMapPromise = import(`${base}static/orders/js/config/statusMessages.js${v}`)
+        .then((m) => m.STATUS_MESSAGE_MAP)
+        .catch((err) => {
+            console.warn("Failed to load status message templates", err);
+            return {};
+        });
+    return statusMessageMapPromise;
+}
 
 /**
  * Initializes the notification modal behavior including OK and Snooze handling.
@@ -96,7 +112,7 @@ function initNotificationModal(modalInstance) {
  * @param {Object} pushData - Data object containing notification payload.
  * @param {string} [source] - Source of the notification ('notification' or 'usercheck').
  */
-function showNotificationModal(pushData, source) {
+async function showNotificationModal(pushData, source) {
     if (!notificationsEnabled || !pushData) return;
 
     const token = pushData.token_no;
@@ -125,10 +141,69 @@ function showNotificationModal(pushData, source) {
     activeNotificationToken = token;
     AppUtils.saveOrderStates(orderStates);
 
-    // 💬 Build modal message
+    // 💬 Build modal message (prefer explicit push `type`, then status; merge buffet item fields)
     const modalHeader = document.querySelector('#notificationModal .modal-body h5');
-    let messageFn = STATUS_MESSAGE_MAP[pushData.status];
-    let messageHtml = messageFn ? messageFn(pushData) : "You have a new update.";
+    const modalPayload = { ...pushData };
+    if (
+      (modalPayload.item_name == null || modalPayload.item_name === "") &&
+      Array.isArray(modalPayload.items)
+    ) {
+      const st = modalPayload.status;
+      const match =
+        modalPayload.items.find((it) => it && it.status === st) ||
+        modalPayload.items.find((it) => it && it.status === "ready") ||
+        modalPayload.items[0];
+      if (match) {
+        modalPayload.item_name = match.name || match.item_name || modalPayload.item_name;
+      }
+    }
+    const noCounter =
+      modalPayload.counter_no == null ||
+      modalPayload.counter_no === "" ||
+      String(modalPayload.counter_no) === "undefined";
+    if (noCounter) {
+      delete modalPayload.counter_no;
+    }
+    const STATUS_MESSAGE_MAP = await getStatusMessageMap();
+    let messageFn =
+      STATUS_MESSAGE_MAP[modalPayload.type] || STATUS_MESSAGE_MAP[modalPayload.status];
+    let messageHtml = messageFn ? messageFn(modalPayload) : "You have a new update.";
+
+    // 🍽️ Buffet flavour: keep ready message aligned with other status templates.
+    // Use BASE/path detection to avoid relying on PROJECT_NAME being set.
+    const isBuffetFlavour =
+      (typeof window !== "undefined" &&
+        typeof window.BASE === "string" &&
+        window.BASE.includes("/dine_flash_buffet/")) ||
+      (typeof window !== "undefined" &&
+        typeof window.location?.pathname === "string" &&
+        window.location.pathname.includes("/dine_flash_buffet/"));
+    if (isBuffetFlavour) {
+      const statusKey = String(modalPayload.status || "").toLowerCase();
+      const typeKey = String(modalPayload.type || "").toLowerCase();
+      const isReadyLike =
+        statusKey.includes("ready") ||
+        typeKey.includes("ready");
+
+      if (isReadyLike && modalPayload.token_no != null && String(modalPayload.token_no) !== "") {
+        // Prefer item name first so buffet ready copy matches other status wording.
+        const itemLabel =
+          (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
+            ? modalPayload.item_name.trim()
+            : null) ||
+          (typeof modalPayload.name === "string" && modalPayload.name.trim() !== ""
+            ? modalPayload.name.trim()
+            : null) ||
+          (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
+            ? modalPayload.utility_name.trim()
+            : null) ||
+          "your item";
+
+        messageHtml = `
+          Your Order <strong>${modalPayload.token_no}</strong> for <strong>${itemLabel}</strong> is now <strong>ready</strong>.<br>
+          Please collect it.`;
+      }
+    }
 
     // 🛎️ Override for push notification source
     if (source === 'notification') {

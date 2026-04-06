@@ -1,0 +1,88 @@
+/* Buffet Status Card Styling */
+.buffet-status-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-left: 4px solid #ccc;
+    transition: all 0.3s ease;
+}
+
+.buffet-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.buffet-item-name {
+    font-weight: 700;
+    color: #333;
+    font-size: 1rem;
+}
+
+.buffet-status-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.buffet-status-body {
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+/* Status Specific Colors */
+.preparing-color,
+.buffet-status-badge.preparing-color {
+    background-color: #ef6c00 !important;
+    color: #ffffff !important;
+    border: 1px solid #ffeeba;
+}
+
+.ready-color {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.cancelled-color {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.delivered-color,
+.buffet-status-badge.delivered-color {
+    background-color: #115087 !important;
+    color: #ffffff !important;
+    border: 1px solid #b8daff;
+}
+
+/* Delivered Card */
+.buffet-delivered-card {
+    background: linear-gradient(135deg, #115087 0%, #0d3f69 100%);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 10px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(17, 80, 135, 0.2);
+    border: 1px solid #2d6a9d;
+}
+
+.delivered-icon {
+    font-size: 2rem;
+    margin-bottom: 5px;
+    color: #ffffff;
+}
+
+.delivered-text {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 1.05rem;
+}

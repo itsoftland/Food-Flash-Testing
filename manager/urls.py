@@ -1,5 +1,6 @@
 from django.urls import path
 from .import views
+from . import buffet_views
 
 urlpatterns = [
     path('api/create_order/', views.create_order_by_manager,name='create_order_by_manager'),
@@ -19,4 +20,12 @@ urlpatterns = [
     path('api/manager_booking_update/', views.manager_booking_update, name='manager_booking_update'),
     path('api/get_active_customers_list/',views.get_active_customers_list,name='get_active_customers_list'),
     path('api/get_contact_list/',views.get_contact_list,name='get_contact_list'),
+    
+    # DineFlash Buffet System URLs
+    path('api/buffet_kitchen_items/', buffet_views.get_buffet_kitchen_items, name='buffet_kitchen_items'),
+    path('api/buffet_mark_item_preparing/', buffet_views.mark_buffet_item_preparing, name='buffet_mark_item_preparing'),
+    path('api/buffet_mark_item_ready/', buffet_views.mark_buffet_item_ready, name='buffet_mark_item_ready'),
+    path('api/buffet_mark_item_cancelled/', buffet_views.mark_buffet_item_cancelled, name='buffet_mark_item_cancelled'),
+    path('api/buffet_mark_item_delivered/', buffet_views.mark_buffet_item_delivered, name='buffet_mark_item_delivered'),
+    path('api/buffet_mark_booking_delivered/', buffet_views.mark_booking_delivered, name='buffet_mark_booking_delivered'),
 ]

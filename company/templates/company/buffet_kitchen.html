@@ -1,0 +1,152 @@
+{% extends 'company/layouts/base.html' %} 
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Buffet Kitchen Processing</h2>
+        <span class="badge bg-primary fs-6" id="last-updated">Last Updated: Just now</span>
+    </div>
+    
+    <div id="kitchen-container" class="mt-4">
+        <div class="row flex-row flex-nowrap overflow-auto" id="kitchen-grid" style="min-height: 400px; padding-bottom: 20px;">
+            <div class="text-center w-100 p-5 mt-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="mt-3 text-muted">Loading Active Orders...</h5>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .order-item-card {
+        min-width: 280px;
+        max-width: 300px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-right: 20px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s;
+    }
+    .order-item-card:hover {
+        transform: translateY(-2px);
+    }
+    .order-item-card.status-preparing {
+        border-top: 5px solid #f39c12;
+    }
+    .order-item-card.status-created {
+        border-top: 5px solid #e74c3c;
+    }
+    .ready-btn { 
+        margin-top: auto; 
+        font-weight: 600;
+        border-radius: 8px;
+    }
+    .grid-column {
+        display: inline-block;
+        white-space: normal;
+        vertical-align: top;
+    }
+</style>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        fetchKitchenItems();
+        setInterval(fetchKitchenItems, 10000); 
+    });
+
+    function fetchKitchenItems() {
+        fetch("{% url 'manager:buffet_kitchen_items' %}")
+            .then(res => res.json())
+            .then(data => {
+                const now = new Date();
+                document.getElementById('last-updated').innerText = `Last Updated: ${now.toLocaleTimeString()}`;
+                
+                if (data.items) {
+                    renderGrid(data.items);
+                } else if (data.error) {
+                    console.error(data.error);
+                    document.getElementById("kitchen-grid").innerHTML = `<div class="alert alert-danger mx-auto mt-4">${data.error}</div>`;
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    function renderGrid(items) {
+        const grid = document.getElementById("kitchen-grid");
+        
+        if (items.length === 0) {
+            grid.innerHTML = `
+                <div class="w-100 text-center mt-5 pt-5">
+                    <h3 class="text-muted"><i class="fas fa-clipboard-check mb-3 fa-2x"></i><br>All Caught Up!</h3>
+                    <p class="text-secondary">No active items assigned to you at the moment.</p>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = "";
+
+        items.forEach(item => {
+            const card = document.createElement("div");
+            card.className = `order-item-card grid-column status-${item.status}`;
+            
+            const groupedBadge = item.is_grouped ? `<span class="badge bg-secondary mb-3 w-100 fs-6">Qty: ${item.quantity}</span>` : '';
+            
+            card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h4 class="mb-0 text-dark fw-bold">#${item.token_no}</h4>
+                    <span class="badge bg-light text-dark border">Table ${item.table_number || 'N/A'}</span>
+                </div>
+                <h5 class="mt-2 mb-3 text-primary fw-bold" style="font-size: 1.4rem;">${item.utility_name}</h5>
+                ${groupedBadge}
+                <div class="mb-4">
+                    ${item.remarks ? `<div class="alert alert-warning py-2 px-3 mb-0"><strong>Note:</strong> ${item.remarks}</div>` : '<p class="text-muted small italic">No special instructions</p>'}
+                </div>
+                <button class="btn btn-lg btn-success ready-btn w-100 shadow-sm" onclick="markReady(${item.id})">Mark as Ready</button>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function markReady(itemId) {
+        fetch("{% url 'manager:buffet_mark_item_ready' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify({ item_id: itemId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.message) {
+                fetchKitchenItems(); 
+            } else {
+                alert(data.error || "Error marking item ready");
+            }
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

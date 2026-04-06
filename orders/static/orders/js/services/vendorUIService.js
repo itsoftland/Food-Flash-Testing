@@ -79,7 +79,7 @@ export const VendorUIService = {
             if (vendor.vendor_id === activeVendorId) {
                 wrapper.classList.add("active");
                 AppUtils.setSelectedOutletName(vendor.alias_name);
-                localStorage.setItem("activeVendorLogo", vendor.logo_url);
+                AppUtils.storageSet("activeVendorLogo", vendor.logo_url);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
                 if (browser_id) {
                     ChatRestoreService.restore(vendor.vendor_id);

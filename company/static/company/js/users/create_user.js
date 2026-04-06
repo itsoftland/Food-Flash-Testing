@@ -62,7 +62,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const confirmPassword = document.getElementById('confirm_password').value;
         const role = roleSelect.value;
         const vendorId = outletSelect.value || null;
-        const customerId = localStorage.getItem('customer_id');
+        
+        // Get customerId from localStorage or hidden field fallback
+        let customerId = localStorage.getItem('customer_id');
+        if (!customerId) {
+            const hiddenCustomerId = document.querySelector('input[name="customer_id"]');
+            if (hiddenCustomerId) {
+                customerId = hiddenCustomerId.value;
+            }
+        }
 
         if (!name || !username || !password || !confirmPassword || !role) {
             ModalService.showError('Please fill all required fields.');

@@ -3,145 +3,81 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
+<link rel="stylesheet" href="{% static 'utils/css/forms.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
-<link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
-<link rel="stylesheet" href="{% static 'company/css/configurations.css' %}">
-<link rel="stylesheet" href="{% static 'company/css/create_utility.css' %}">
+{% comment %} <link rel="stylesheet" href="{% static 'company/css/create_utility.css' %}"> {% endcomment %}
 {% endblock %}
 
-{% block title %}Utilities{% endblock %}
+{% block title %}{{ LABELS.sidebar.new_utility }}{% endblock %}
 
 {% block content %}
 <section class="content-header">
-  <div class="container-fluid">
-    <div class="row mb-2 align-items-center justify-content-between">
-      <div class="col-sm-6">
-        <h1 class="page-title">Utilities</h1>
-      </div>
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>{{ LABELS.sidebar.new_utility }}</h1>
+            </div>
+        </div>
     </div>
-  </div>
 </section>
 
 <section class="content">
-  <div class="container-fluid">
-    <div class="card shadow-sm border-0">
-      <div class="card-body">
-        <form id="create-utilities-form" method="POST">
-          {% csrf_token %}
+    <div class="container-fluid">
+        <div class="card card-outline card-golden">
+            <div class="card-body">
+                <form id="create-utilities-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="vendor-select" class="form-label">Select Outlet</label>
+                            <select id="vendor-select" name="vendor_id" class="form-select" required>
+                                <option value="">Loading outlets...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Utility Name</label>
+                            <input type="text" name="utility_name" class="form-control" placeholder="e.g. South Indian Counter" required maxlength="30">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Display Name</label>
+                            <input type="text" name="display_name" class="form-control" placeholder="e.g. Counter 1" required maxlength="20">
+                        </div>
+                    </div>
 
-          <div class="row g-3">
+                    {% if PROJECT_NAME != "dine_flash_buffet" %}
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Display Code</label>
+                            <input type="text" name="display_code" class="form-control" placeholder="e.g. SINC" maxlength="10">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Token Mode</label>
+                            <select name="token_mode" class="form-select">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Prefix</label>
+                            <input type="text" name="prefix" class="form-control" placeholder="e.g. S" maxlength="4">
+                        </div>
+                    </div>
+                    {% endif %}
 
-            <!-- Vendor -->
-            <div class="col-md-6">
-              <label class="form-label required">Outlet</label>
-              <select
-                id="vendor-select"
-                name="vendor"
-                class="form-select"
-                required
-              >
-                <option value="">Select outlet</option>
-              </select>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="isActive" checked>
+                        <label class="form-check-label" for="isActive">Is Active</label>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-golden">Create Utility</button>
+                        <a href="{% url 'company:utilities_management' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
-
-            <!-- Utility Name -->
-            <div class="col-md-6">
-              <label class="form-label required">Utility Name</label>
-              <input
-                type="text"
-                name="utility_name"
-                class="form-control"
-                maxlength="100"
-                placeholder="e.g. OutDoor, InDoor"
-                required
-              >
-            </div>
-
-            <!-- Display Name -->
-            <div class="col-md-6">
-              <label class="form-label required">Display Name</label>
-              <input
-                type="text"
-                name="display_name"
-                class="form-control"
-                maxlength="20"
-                placeholder="Customer facing name"
-                required
-              >
-            </div>
-
-            <!-- Display Code -->
-            <div class="col-md-6">
-              <label class="form-label required">Display Code</label>
-              <input
-                type="text"
-                name="display_code"
-                class="form-control text-uppercase"
-                maxlength="10"
-                placeholder="E.g. VIP, AC"
-                required
-              >
-            </div>
-
-            <!-- Token Mode -->
-            <div class="col-md-6">
-              <label class="form-label required">Token Mode</label>
-              <select
-                name="token_mode"
-                class="form-select"
-                required
-              >
-                <option value="">Select token mode</option>
-                <!-- backend choices -->
-              </select>
-            </div>
-
-            <!-- Prefix -->
-            <div class="col-md-6">
-              <label class="form-label">Prefix</label>
-              <input
-                type="text"
-                name="prefix"
-                class="form-control text-uppercase"
-                maxlength="4"
-                placeholder="Up to 4 characters"
-              >
-            </div>
-
-            <!-- Active -->
-            <div class="col-md-12 d-flex align-items-center mt-2">
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  name="is_active"
-                  checked
-                >
-                <label class="form-check-label">
-                  Active
-                </label>
-              </div>
-            </div>
-
-            <!-- Form Actions -->
-            <div class="form-actions">
-              <button type="submit" form="create-utilities-form" class="btn-save-utility">
-                <i class="fas fa-save"></i> Save Utility
-              </button>
-              <button type="reset" form="create-utilities-form" class="btn-reset-form">
-                <i class="fas fa-redo"></i> Reset
-              </button>
-            </div>
-
-          </div>
-        </form>
-      </div>
+        </div>
     </div>
-  </div>
 </section>
-
-
-{% include "company/partials/modals.html" %}
 {% endblock %}
 
 {% block extra_js %}

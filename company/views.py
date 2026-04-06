@@ -6,6 +6,7 @@ from django.db import transaction
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from itertools import chain
@@ -25,7 +26,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             ArchivedOrder,UserProfile,
                             AndroidAPK,VendorConfig,
                             OrderStatusHistory,ArchivedOrderStatusHistory,
-                            Utility,TVDeviceConfig)
+                            Utility,TVDeviceConfig,UtilityOption)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -51,6 +52,7 @@ logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
 
 @login_required()
+@never_cache
 def dashboard(request):
     return render(request, 'company/dashboard.html')
 
@@ -380,12 +382,14 @@ def create_vendor(request):
             menus=json.dumps(menu_paths),
         )
         logger.info("Vendor created: %s", vendor.vendor_id)
+        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
         vendor_config = VendorConfig.objects.create(
             vendor=vendor,
             tv_communication_mode=tv_communication_mode,
             business_day_start_hour=business_day_start_hour,
             timezone=timezone,
-            mqtt_mode=mqtt_mode
+            mqtt_mode=mqtt_mode,
+            use_utilities=is_buffet
         )
         logger.info("Vendor Config created: %s", vendor_config.tv_communication_mode)
         
@@ -745,6 +749,53 @@ def map_user(request, user_id):
     user_details.save(update_fields=['vendor'])
 
     return Response({"message": "User mapped to Outlet successfully."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_user_utilities(request):
+    try:
+        user_id = request.data.get('user_id')
+        assigned_utilities = request.data.get('assigned_utilities', [])
+        
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if not admin_outlet:
+            return Response({"error": "AdminOutlet not found."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        try:
+            user_profile = UserProfile.objects.get(id=user_id)
+        except UserProfile.DoesNotExist:
+            return Response({"error": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        if user_profile.admin_outlet != admin_outlet:
+            return Response({"error": "You do not have permission to modify this user."}, status=status.HTTP_403_FORBIDDEN)
+            
+        if user_profile.role != 'utility_user':
+            return Response({"error": "User is not a utility_user."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not user_profile.vendor:
+            return Response({"error": "User does not belong to a vendor."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        utilities = Utility.objects.filter(id__in=assigned_utilities, vendor=user_profile.vendor)
+        if utilities.count() != len(set(assigned_utilities)):
+            return Response({"error": "Some utilities are invalid or do not belong to this vendor."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user_profile.assigned_utilities.set(utilities)
+        
+        return Response({"message": "Assigned utilities updated successfully."}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.exception("Error updating user utilities")
+        return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@login_required
+def buffet_kitchen(request):
+    return render(request, 'company/buffet_kitchen.html')
+
+@login_required
+def utility_user_mapping(request):
+    return render(request, 'company/utility_user_mapping.html')
 
 # save individually
 @api_view(['POST'])
@@ -1398,15 +1449,30 @@ def create_utility(request):
             logger.warning("[UtilityCreate] display_name missing")
             return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not display_code:
+        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+
+        # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
+        if is_buffet:
+            if not display_code or display_code == "BFFT":
+                import re
+                base_code = re.sub(r'[^a-zA-Z0-9]', '', utility_name).upper()[:10]
+                display_code = base_code if base_code else "BFFT"
+            
+            if not token_mode:
+                token_mode = "continuous"
+            
+            if not prefix:
+                prefix = None # Use None to avoid uniqueness conflicts with ''
+
+        if not display_code and not is_buffet:
             logger.warning("[UtilityCreate] display_code missing")
             return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not token_mode:
+        if not token_mode and not is_buffet:
             logger.warning("[UtilityCreate] token_mode missing")
             return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not prefix:
+        if not prefix and not is_buffet:
             logger.warning("[UtilityCreate] prefix missing")
             return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1418,11 +1484,11 @@ def create_utility(request):
             logger.warning(f"[UtilityCreate] Display name too long: {display_name}")
             return Response({"error": "display_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if len(display_code) > 10:
+        if display_code and len(display_code) > 10:
             logger.warning(f"[UtilityCreate] Display code too long: {display_code}")
-            return Response({"error": "display_code must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "display_code must be max 10 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if len(prefix) > 4:
+        if prefix and len(prefix) > 4:
             logger.warning(f"[UtilityCreate] Prefix too long: {prefix}")
             return Response({"error": "prefix must be max 4 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1440,7 +1506,7 @@ def create_utility(request):
 
         # ---- Utility Feature Check ----
         config = getattr(vendor, 'config', None)
-        if config.use_utilities is False:
+        if config.use_utilities is False and not is_buffet:
             logger.warning(f"[UtilityCreate] Vendor {vendor_id} has utilities disabled")
             return Response(
                 {"error": "Utilities feature is disabled for this vendor"},
@@ -1471,7 +1537,7 @@ def create_utility(request):
             )
 
         # ---- Prefix Uniqueness Check ----
-        if Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exists():
+        if prefix and Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exists():
             logger.warning(f"[UtilityCreate] Duplicate prefix '{prefix}' for vendor {vendor_id}")
             return Response(
                 {"error": "prefix must be unique for each vendor"},
@@ -1991,6 +2057,20 @@ def get_utilities(request):
                         'vendor_location': util['vendor__location']
                     })
 
+                # Attach options
+                utility_ids = [u['id'] for u in utilities_list]
+                options = UtilityOption.objects.filter(utility_id__in=utility_ids).values('id', 'utility_id', 'name', 'is_active')
+                options_by_utility = defaultdict(list)
+                for opt in options:
+                    options_by_utility[opt['utility_id']].append({
+                        'id': opt['id'],
+                        'name': opt['name'],
+                        'is_active': opt['is_active']
+                    })
+                
+                for util in utilities_list:
+                    util['options'] = options_by_utility.get(util['id'], [])
+
                 return Response(
                     {
                         "success": True,
@@ -2038,6 +2118,20 @@ def get_utilities(request):
                     'vendor_name': util['vendor__name'],
                     'vendor_location': util['vendor__location']
                 })
+
+            # Attach options
+            utility_ids = [u['id'] for u in utilities_list]
+            options = UtilityOption.objects.filter(utility_id__in=utility_ids).values('id', 'utility_id', 'name', 'is_active')
+            options_by_utility = defaultdict(list)
+            for opt in options:
+                options_by_utility[opt['utility_id']].append({
+                    'id': opt['id'],
+                    'name': opt['name'],
+                    'is_active': opt['is_active']
+                })
+            
+            for util in utilities_list:
+                util['options'] = options_by_utility.get(util['id'], [])
 
             return Response(
                 {
@@ -2170,16 +2264,31 @@ def update_utility(request):
         if utility.vendor.admin_outlet != admin_outlet:
             return Response({"error": "You don't have permission to modify this utility"}, status=status.HTTP_403_FORBIDDEN)
 
+        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+
+        # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
+        if is_buffet:
+            if not display_code or display_code == "BFFT":
+                import re
+                base_code = re.sub(r'[^a-zA-Z0-9]', '', utility_name).upper()[:10]
+                display_code = base_code if base_code else "BFFT"
+            
+            if not token_mode:
+                token_mode = "continuous"
+            
+            if not prefix:
+                prefix = None
+
         # Basic validations (presence)
         if not utility_name:
             return Response({"error": "utility_name is required"}, status=status.HTTP_400_BAD_REQUEST)
         if not display_name:
             return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if not display_code:
+        if not display_code and not is_buffet:
             return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if not token_mode:
+        if not token_mode and not is_buffet:
             return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if prefix is None:
+        if prefix is None and not is_buffet:
             return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Length validations (match create_utility checks)
@@ -2189,7 +2298,7 @@ def update_utility(request):
             return Response({"error": "display_name must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
         if len(display_code) > 10:
             return Response({"error": "display_code must be max 50 characters"}, status=status.HTTP_400_BAD_REQUEST)
-        if len(prefix) > 4:
+        if prefix is not None and len(prefix) > 4:
             return Response({"error": "prefix must be max 4 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
         if token_mode not in [Utility.TOKEN_MODE_CONTINUOUS, Utility.TOKEN_MODE_UTILITY_SPECIFIC]:
@@ -2212,7 +2321,7 @@ def update_utility(request):
         if Utility.objects.filter(vendor=vendor, display_code__iexact=display_code).exclude(id=utility.id).exists():
             return Response({"error": "Display code already exists for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exclude(id=utility.id).exists():
+        if not is_buffet and Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exclude(id=utility.id).exists():
             return Response({"error": "prefix must be unique for each vendor"}, status=status.HTTP_400_BAD_REQUEST)
 
         # All validations passed; update utility
@@ -2240,3 +2349,77 @@ def update_utility(request):
     except Exception as e:
         logger.error(f"[UpdateUtility] Error: {str(e)}", exc_info=True)
         return Response({"error": "An error occurred while updating utility"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_utility_option(request, utility_id):
+    if settings.PROJECT_NAME != 'dine_flash_buffet':
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+        utility = Utility.objects.get(id=utility_id)
+    except Utility.DoesNotExist:
+        return Response({"error": "Utility not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet or utility.vendor.admin_outlet != admin_outlet:
+        return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+    name = request.data.get("name")
+    if not name:
+        return Response({"error": "Option name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if UtilityOption.objects.filter(utility=utility, name__iexact=name).exists():
+        return Response({"error": "Option with this name already exists for this utility"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    option = UtilityOption.objects.create(utility=utility, name=name)
+    return Response({"message": "Option created", "option": {"id": option.id, "name": option.name, "is_active": option.is_active}}, status=status.HTTP_201_CREATED)
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def update_utility_option(request, option_id):
+    if settings.PROJECT_NAME != 'dine_flash_buffet':
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+        option = UtilityOption.objects.get(id=option_id)
+    except UtilityOption.DoesNotExist:
+        return Response({"error": "Option not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet or option.utility.vendor.admin_outlet != admin_outlet:
+        return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+    name = request.data.get("name")
+    is_active = request.data.get("is_active")
+    
+    if name:
+        if UtilityOption.objects.filter(utility=option.utility, name__iexact=name).exclude(id=option_id).exists():
+            return Response({"error": "Option with this name already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        option.name = name
+    
+    if is_active is not None:
+        if isinstance(is_active, str):
+            is_active = is_active.lower() == 'true'
+        option.is_active = is_active
+        
+    option.save()
+    return Response({"message": "Option updated", "option": {"id": option.id, "name": option.name, "is_active": option.is_active}}, status=status.HTTP_200_OK)
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_utility_option(request, option_id):
+    if settings.PROJECT_NAME != 'dine_flash_buffet':
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+        option = UtilityOption.objects.get(id=option_id)
+    except UtilityOption.DoesNotExist:
+        return Response({"error": "Option not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet or option.utility.vendor.admin_outlet != admin_outlet:
+        return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+    option.delete()
+    return Response({"message": "Option deleted"}, status=status.HTTP_200_OK)

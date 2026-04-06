@@ -69,9 +69,11 @@
             <tr>
               <th>Utility Name</th>
               <th>Display Name</th>
+              {% if PROJECT_NAME != "dine_flash_buffet" %}
               <th>Display Code</th>
               <th>Prefix</th>
               <th>Token Mode</th>
+              {% endif %}
               <th>Outlet</th>
               <th>Status</th>
               <th>Actions</th>
@@ -101,11 +103,15 @@
   </div>
 </section>
 
-<!-- Action Menu Modal -->
 <div class="action-menu" id="action-menu" style="display: none;">
   <div class="menu-item" data-action="edit">
     <i class="fas fa-edit"></i> Edit Utility
   </div>
+  {% if PROJECT_NAME == "dine_flash_buffet" %}
+  <div class="menu-item" data-action="options" id="manage-options-item">
+    <i class="fas fa-list"></i> Manage Options
+  </div>
+  {% endif %}
   <div class="menu-item" data-action="toggle">
     <i class="fas fa-toggle-on"></i> <span id="toggle-text">Deactivate</span>
   </div>

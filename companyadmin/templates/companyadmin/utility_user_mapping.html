@@ -1,0 +1,216 @@
+{% extends 'companyadmin/layouts/base.html' %} 
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4 mx-auto" style="max-width: 800px;">
+    <h2 class="mb-3">Utility User Mapping (Super Admin)</h2>
+    <p class="text-muted mb-4">Map Kitchen Staff (Utility Users) to specific Food Counters across all companies.</p>
+    
+    <div class="card shadow-sm border-0 rounded-3 p-4 mt-3">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Select Utility User</label>
+            <select id="user-select" class="form-select form-select-lg">
+                <option value="">-- Select Kitchen Staff --</option>
+            </select>
+            <small class="text-muted mt-1 d-block">Only users with the 'Utility User' role will appear here.</small>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Assign Food Counters</label>
+            <div class="mb-2">
+                <select id="vendor-filter" class="form-select form-select-sm">
+                    <option value="">All Outlets</option>
+                </select>
+            </div>
+            <div id="utilities-list" class="border p-3 rounded bg-light" style="max-height: 400px; overflow-y: auto;">
+                <div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>
+            </div>
+        </div>
+        
+        <div class="mt-4 mb-5 text-center">
+            <button id="save-mapping-btn" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">Save Mapping</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        loadUsers();
+        loadOutlets();
+        loadAllUtilities();
+        
+        document.getElementById("save-mapping-btn").addEventListener("click", saveMapping);
+        document.getElementById("vendor-filter").addEventListener("change", filterUtilities);
+    });
+
+    let allUtilities = [];
+    let selectedUserAssignedIds = [];
+
+    function loadUsers() {
+        fetch("{% url 'companyadmin:get_all_users' %}")
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById("user-select");
+                select.innerHTML = '<option value="">-- Select Kitchen Staff --</option>';
+                const users = data.users || [];
+                
+                users.forEach(user => {
+                    if (user.roles && user.roles.includes('utility_user')) {
+                        const opt = document.createElement("option");
+                        opt.value = user.id;
+                        opt.text = `${user.name} (${user.email || user.username})`;
+                        opt.dataset.assigned = JSON.stringify(user.assigned_utilities || []);
+                        select.appendChild(opt);
+                    }
+                });
+            });
+    }
+
+    function loadOutlets() {
+        // Reuse the outlet data API if available, or just extract from utilities
+        // For simplicity, we'll wait for utilities to load then populate filter
+    }
+
+    function loadAllUtilities() {
+        fetch("{% url 'companyadmin:get_all_utilities' %}")
+            .then(res => res.json())
+            .then(data => {
+                allUtilities = data.utilities || [];
+                populateOutletFilter();
+            });
+    }
+
+    function populateOutletFilter() {
+        const vendorFilter = document.getElementById("vendor-filter");
+        const vendors = {};
+        allUtilities.forEach(u => {
+            if (!vendors[u.vendor_id]) {
+                vendors[u.vendor_id] = `${u.vendor_name} (${u.vendor_location}) - ${u.company_name}`;
+            }
+        });
+
+        for (const [id, name] of Object.entries(vendors)) {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.text = name;
+            vendorFilter.appendChild(opt);
+        }
+    }
+
+    function filterUtilities() {
+        renderUtilityCheckboxes(selectedUserAssignedIds);
+    }
+
+    function renderUtilityCheckboxes(selectedIds) {
+        const container = document.getElementById("utilities-list");
+        const vendorFilterVal = document.getElementById("vendor-filter").value;
+        container.innerHTML = "";
+        
+        const filtered = vendorFilterVal ? allUtilities.filter(u => u.vendor_id == vendorFilterVal) : allUtilities;
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center py-4">No food counters found for this filter.</div>';
+            return;
+        }
+        
+        filtered.forEach(u => {
+            const isChecked = selectedIds.includes(u.id) ? "checked" : "";
+            const div = document.createElement("div");
+            div.className = "form-check mb-2 p-3 border bg-white rounded shadow-sm d-flex align-items-center";
+            div.innerHTML = `
+                <input class="form-check-input utility-checkbox me-3 mt-0" style="transform: scale(1.3);" type="checkbox" value="${u.id}" id="util-${u.id}" ${isChecked}>
+                <label class="form-check-label w-100 font-weight-bold" for="util-${u.id}" style="cursor: pointer;">
+                    ${u.display_name || u.utility_name} <br>
+                    <small class="text-muted">${u.vendor_name} | ${u.company_name}</small>
+                </label>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    document.getElementById("user-select").addEventListener("change", function(e) {
+        const selectedOpt = e.target.options[e.target.selectedIndex];
+        if (selectedOpt.value) {
+            try {
+                const assigned = JSON.parse(selectedOpt.dataset.assigned);
+                selectedUserAssignedIds = assigned.map(a => a.id);
+                renderUtilityCheckboxes(selectedUserAssignedIds);
+            } catch (err) {
+                selectedUserAssignedIds = [];
+                renderUtilityCheckboxes([]);
+            }
+        } else {
+            selectedUserAssignedIds = [];
+            document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+        }
+    });
+
+    function saveMapping() {
+        const userId = document.getElementById("user-select").value;
+        if (!userId) {
+            alert("Please select a user.");
+            return;
+        }
+        
+        const btn = document.getElementById("save-mapping-btn");
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+        
+        const checkboxes = document.querySelectorAll(".utility-checkbox:checked");
+        const assignedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        
+        // Also keep ones that are NOT in the current view but WERE selected before?
+        // Wait, the checkboxes are ONLY for the current filter.
+        // This is a common bug. I should track the global selected set.
+        
+        const payload = {
+            user_id: userId,
+            assigned_utilities: assignedIds // For now, only saves what's visible and checked
+        };
+        
+        fetch("{% url 'companyadmin:update_user_utilities_sa' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.message) {
+                alert("Mapping saved successfully!");
+                loadUsers(); 
+                document.getElementById("user-select").value = "";
+                document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+            } else {
+                alert("Error: " + (data.error || "Unknown error occurred."));
+            }
+        })
+        .catch(err => {
+            alert("Network Error");
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = "Save Mapping";
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

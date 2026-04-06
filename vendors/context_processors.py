@@ -22,9 +22,9 @@ def utilities_visibility(request):
     if not request.user.is_authenticated:
         return {"SHOW_UTILITIES_SIDEBAR": False}
 
-    # 2. Handle Flavour Specific visibility (Dine Flash - Always Show)
+    # 2. Handle Flavour Specific visibility (Dine Flash and Buffet - Always Show)
     project_name = getattr(settings, "PROJECT_NAME", "").lower()
-    if project_name == "dine_flash":
+    if project_name in ["dine_flash", "dine_flash_buffet"]:
         return {"SHOW_UTILITIES_SIDEBAR": True}
 
     # 3. User must be a company (AdminOutlet user) or Superuser
