@@ -151,7 +151,7 @@ onDOMReady(async function () {
     
     // Example usage: Get the last active vendor ID
 
-    const vendorIdsString = localStorage.getItem("selectedVendors");
+    const vendorIdsString = AppUtils.storageGet("selectedVendors");
     if (vendorIdsString) {
         const vendorIdsArray = JSON.parse(vendorIdsString);
     
@@ -284,7 +284,7 @@ onDOMReady(async function () {
                         token_no: pushData.token_no,
                     });
                 }
-                let selectedVendors = JSON.parse(localStorage.getItem('selectedVendors')) || [];
+                let selectedVendors = AppUtils.getStoredVendors() || [];
                 // Check if the vendor is already in the list
                 if (!selectedVendors.includes(pushData.vendor_id)) {
                     await AppUtils.appendVendorIfNotExists(pushData.vendor_id);
@@ -462,7 +462,7 @@ onDOMReady(async function () {
 
     if (tokenFromQR && !isOpenedFromPush) {
 
-        const vendorId = localStorage.getItem("activeVendor");
+        const vendorId = await AppUtils.getActiveVendor();
 
         // console.log("🔍 QR Scan Detected:", { tokenFromQR, vendorId, permissionStatus });
 
@@ -869,7 +869,7 @@ onDOMReady(async function () {
         const chatInput = document.getElementById('chat-input'); 
 
         if (!chatContainer || !chatInput) return;
-        const vendorId=localStorage.getItem("activeVendor");
+        const vendorId = await AppUtils.getActiveVendor();
         const browser_id = AppUtils.getCurrentBrowserId();
 
         if (!browser_id) {

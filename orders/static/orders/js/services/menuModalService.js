@@ -119,7 +119,7 @@ export const MenuModalService = (() => {
 
                 // Check if clicked button is for opening the menu modal
                 if (this.classList.contains('menu-btn')) {
-                    const activeVendorId = localStorage.getItem("activeVendor");
+                    const activeVendorId = AppUtils.storageGet("activeVendor");
 
                     if (!activeVendorId) {
                         AppUtils.showToast("No active vendor selected");
@@ -161,7 +161,7 @@ export const MenuModalService = (() => {
                         });
                 }
                 else if (this.classList.contains('rating-btn')) {
-                    let ratingLink = localStorage.getItem("activeVendorRatingLink") || "https://default-rating-link.com";
+                    let ratingLink = AppUtils.storageGet("activeVendorRatingLink") || "https://default-rating-link.com";
                     // Construct the Google Review URL
                     const googleReviewUrl = `https://search.google.com/local/writereview?placeid=${ratingLink}`;
 

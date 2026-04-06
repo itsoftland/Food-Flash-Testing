@@ -8,16 +8,16 @@ export function updateChatOnPush(vendorId, logo_url, name) {
             document.querySelectorAll(".vendor-logo-wrapper").forEach(w => w.classList.remove("active"));
             wrapper.classList.add("active");
             AppUtils.setSelectedOutletName(name);
-            let ratingLink = localStorage.getItem("activeVendorRatingLink") || "https://default-rating-link.com";
+            let ratingLink = AppUtils.storageGet("activeVendorRatingLink") || "https://default-rating-link.com";
             handleOutletSelection(vendorId, logo_url, ratingLink);
         }
     });
 }
 
 export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
-    localStorage.setItem("activeVendor", vendorId);
-    localStorage.setItem("activeVendorLogo", vendor_logo);
-    localStorage.setItem("activeVendorRatingLink", placeId);
+    AppUtils.storageSet("activeVendor", vendorId);
+    AppUtils.storageSet("activeVendorLogo", vendor_logo);
+    AppUtils.storageSet("activeVendorRatingLink", placeId);
 }
 
 export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
@@ -144,7 +144,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
 }
 export async function saveChat(text, sender, type, token_no) {
     // console.log("Saving chat message:", {text, sender, type, token_no});
-    const activeVendorId = localStorage.getItem("activeVendor");
+    const activeVendorId = await AppUtils.getActiveVendor();
     if (!activeVendorId) return;
 
     let normalizedText;
