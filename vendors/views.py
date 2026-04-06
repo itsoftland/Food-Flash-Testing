@@ -150,15 +150,29 @@ def save_subscription(request):
                                vendor.admin_outlet.project_code, project_name)
                 return Response({"error": "This vendor does not belong to the current project context."}, status=403)
 
-        # 📥 Subscription Persistence & Migration:
-        # We try to find the subscription by its unique 'endpoint' FIRST, as this is
-        # the physical identity of the push channel. The browser_id may have changed
-        # due to our new project-prefixing logic.
-        subscription = PushSubscription.objects.filter(endpoint=endpoint).first()
+        # 📥 Subscription Persistence:
+        # The browser_id is now flavour-scoped on the web app, so treat it as the
+        # primary identity to prevent cross-flavour endpoint relinking.
+        subscription = PushSubscription.objects.filter(browser_id=browser_id).first()
 
         if not subscription:
-            # If not found by endpoint, try browser_id
-            subscription = PushSubscription.objects.filter(browser_id=browser_id).first()
+            # Guard: endpoint may already exist for another browser identity.
+            # Re-linking that row would merge flavours again, so reject instead.
+            endpoint_subscription = PushSubscription.objects.filter(endpoint=endpoint).first()
+            if endpoint_subscription and endpoint_subscription.browser_id != browser_id:
+                logger.warning(
+                    "🚫 Endpoint already linked to another browser_id | endpoint=%s old=%s new=%s",
+                    endpoint,
+                    endpoint_subscription.browser_id,
+                    browser_id,
+                )
+                return Response(
+                    {
+                        "error": "Push endpoint is already registered for another browser session. "
+                                 "Please refresh and resubscribe."
+                    },
+                    status=409
+                )
 
         if not subscription:
             # Create new if still not found
