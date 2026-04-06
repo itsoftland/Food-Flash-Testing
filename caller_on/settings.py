@@ -6,6 +6,8 @@ from datetime import timedelta
 # Load environment variables from .env file
 load_dotenv()
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 # === BASE DIRECTORIES ===
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,8 +20,8 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS").split(",")
 CORS_ALLOW_ALL_ORIGINS = True
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
 # === FIREBASE ===
 FIREBASE_SERVICE_ACCOUNT_FILE = BASE_DIR / 'firebase' / 'service-account.json'
@@ -81,12 +83,16 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'companyadmin.middleware.MaintenanceModeMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'caller_on.middlewares.RequestLoggingMiddleware',
+   
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
+    'caller_on.middlewares.RequestLoggingMiddleware',
+    'caller_on.middlewares.CacheControlMiddleware',
+
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -140,6 +146,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
 }
 # === JWT Configurations ===
@@ -302,6 +309,11 @@ LOGGING = {
             "propagate": False,
         },
         "company.views": {
+            "handlers": ["company_file"],
+            "level": "DEBUG",
+            "propagate": False, 
+        },
+        "companyadmin.views": {
             "handlers": ["company_file"],
             "level": "DEBUG",
             "propagate": False, 
