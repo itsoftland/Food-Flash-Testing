@@ -648,8 +648,16 @@ def generate_unique_vendor_id():
             return vendor_id
         
 @api_view(['POST'])
-@validate_fields(['customer_id', 'name', 'location', 'place_id',
-                  'location_id','logo','menu_files','alias_name'])
+@validate_fields([
+    'customer_id',
+    'name',
+    'alias_name',
+    'location',
+    'location_id',
+    'tv_communication_mode',
+    'business_day_start_hour',
+    'timezone',
+])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
