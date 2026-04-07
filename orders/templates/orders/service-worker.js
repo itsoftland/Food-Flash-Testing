@@ -29,6 +29,37 @@ const EXPECTED_PROJECT = (() => {
   }
 })();
 
+function normalizeProjectName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[_-]/g, "")
+    .trim();
+}
+
+function projectsMatch(expected, incoming) {
+  const e = normalizeProjectName(expected);
+  const i = normalizeProjectName(incoming);
+  if (!e || !i) return false;
+  return e === i || e.startsWith(i) || i.startsWith(e);
+}
+
+function inferProjectFromUrl(url) {
+  const raw = String(url || "").toLowerCase();
+  if (raw.includes("/airline_flash") || raw.includes("/airlineflash")) return "airline_flash";
+  if (raw.includes("/dine_flash_buffet") || raw.includes("/dineflashbuffet")) return "dine_flash_buffet";
+  if (raw.includes("/dine_flash") || raw.includes("/dineflash")) return "dine_flash";
+  if (raw.includes("/food_flash") || raw.includes("/foodflash")) return "food_flash";
+
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    return (parts[0] || "").toLowerCase();
+  } catch (e) {
+    const parts = raw.split("/").filter(Boolean);
+    return (parts[0] || "").toLowerCase();
+  }
+}
+
 // ============================================================================
 // 🧱 Install & Activate
 // ============================================================================
@@ -96,7 +127,7 @@ self.addEventListener("push", (event) => {
   // Filter out unrelated flavour pushes.
   const incomingProject =
     payload?.project != null ? String(payload.project).toLowerCase().trim() : null;
-  if (EXPECTED_PROJECT && incomingProject !== EXPECTED_PROJECT) {
+  if (EXPECTED_PROJECT && !projectsMatch(EXPECTED_PROJECT, incomingProject)) {
     return; // Don't forward/cache/show notification for other project.
   }
 
@@ -112,6 +143,10 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     const allClients = await self.clients.matchAll({ includeUncontrolled: true });
     for (const client of allClients) {
+      const clientProject = inferProjectFromUrl(client?.url);
+      if (EXPECTED_PROJECT && !projectsMatch(EXPECTED_PROJECT, clientProject)) {
+        continue;
+      }
       client.postMessage({ type: "PUSH_RECEIVED", payload });
     }
   })());
@@ -135,6 +170,11 @@ self.addEventListener("push", (event) => {
       let shouldShowSystemNotification = true;
 
       allClients.forEach((client) => {
+        const clientProject = inferProjectFromUrl(client?.url);
+        if (EXPECTED_PROJECT && !projectsMatch(EXPECTED_PROJECT, clientProject)) {
+          return;
+        }
+
         client.postMessage({
           type: "PUSH_STATUS_UPDATE",
           payload,
@@ -197,7 +237,7 @@ self.addEventListener("notificationclick", (event) => {
         // Final guard for already-cached pushes (created before this filter shipped).
         const incomingProject =
           pushData?.project != null ? String(pushData.project).toLowerCase().trim() : null;
-        if (EXPECTED_PROJECT && incomingProject !== EXPECTED_PROJECT) {
+        if (EXPECTED_PROJECT && !projectsMatch(EXPECTED_PROJECT, incomingProject)) {
           return;
         }
 

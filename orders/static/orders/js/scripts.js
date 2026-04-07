@@ -24,6 +24,27 @@ function onDOMReady(callback) {
     }
 }
 onDOMReady(async function () {
+    const normalizeProjectName = (value) =>
+        String(value || '').toLowerCase().replace(/[_-]/g, '').trim();
+
+    const inferProjectFromPath = () => {
+        const path = (window.location?.pathname || '').toLowerCase();
+        if (path.includes('/airline_flash') || path.includes('/airlineflash')) return 'airline_flash';
+        if (path.includes('/dine_flash_buffet') || path.includes('/dineflashbuffet')) return 'dine_flash_buffet';
+        if (path.includes('/dine_flash') || path.includes('/dineflash')) return 'dine_flash';
+        if (path.includes('/food_flash') || path.includes('/foodflash')) return 'food_flash';
+        const parts = path.split('/').filter(Boolean);
+        return parts[0] || null;
+    };
+
+    const currentProject = () => window.PROJECT_NAME || inferProjectFromPath();
+    const projectsMatch = (expected, incoming) => {
+        const e = normalizeProjectName(expected);
+        const i = normalizeProjectName(incoming);
+        if (!e || !i) return false;
+        return e === i || e.startsWith(i) || i.startsWith(e);
+    };
+
     // -------------------------------------------------------------------------
     // 🚀 Auto-Resume Subscription & Health Check
     // -------------------------------------------------------------------------
@@ -244,6 +265,10 @@ onDOMReady(async function () {
 
         navigator.serviceWorker.addEventListener('message', async (event) => {
             if (event.data && event.data.type === "OPEN_CHAT") {
+                const payloadProject = event.data?.payload?.project;
+                if (!projectsMatch(currentProject(), payloadProject)) {
+                    return;
+                }
                 // Call a function to display or refresh the chat view
                 await showChatWindow(event.data.payload);   
             }
@@ -254,21 +279,14 @@ onDOMReady(async function () {
                 const pushData = event.data.payload;
                 // console.log("Payload Recieved:",pushData)
                 // Ignore cross-flavour messages (fixes food_flash -> airline_flash leakage).
-                const expectedProject = (() => {
-                    const path = (window.location?.pathname || '').toLowerCase();
-                    if (path.includes('/airline_flash')) return 'airline_flash';
-                    if (path.includes('/dine_flash_buffet')) return 'dine_flash_buffet';
-                    if (path.includes('/dine_flash')) return 'dine_flash';
-                    if (path.includes('/food_flash')) return 'food_flash';
-                    return null;
-                })();
+                const expectedProject = currentProject();
 
                 const incomingProject =
                     pushData?.project != null ? String(pushData.project).toLowerCase().trim() : null;
 
                 // If project identity doesn't match (or is missing), discard to avoid
                 // cross-flavour card updates.
-                if (expectedProject && incomingProject !== expectedProject) {
+                if (!projectsMatch(expectedProject, incomingProject)) {
                     return;
                 }
 
