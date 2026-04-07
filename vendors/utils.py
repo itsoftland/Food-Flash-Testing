@@ -40,14 +40,18 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
         else:
             payload = {"data": payload, "project": project_name}
 
+    # Target only subscriptions explicitly linked to THIS order row (M2M).
+    # Do NOT match on token_no + vendor alone: Food and Airline share the same
+    # Order model and token_no can collide for the same vendor, which would
+    # notify the wrong flavour's browsers.
     subscriptions = list(
-        PushSubscription.objects.filter(
-            tokens__token_no=order.token_no,
-            tokens__vendor=vendor
-        ).distinct()
+        PushSubscription.objects.filter(tokens=order).distinct()
     )
     sub_count = len(subscriptions)
-    logger.info(f"📦 Found {sub_count} subscription(s) for token_no={order.token_no}")
+    logger.info(
+        f"📦 Found {sub_count} subscription(s) for order_id={getattr(order, 'pk', None)} "
+        f"token_no={getattr(order, 'token_no', None)}"
+    )
 
     if sub_count == 0:
         msg = f"No push subscriptions found for token_no={order.token_no}, vendor_id={vendor.id}"
