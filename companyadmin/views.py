@@ -15,8 +15,10 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
+    authentication_classes,
     parser_classes,
     permission_classes,
 )
@@ -46,6 +48,7 @@ PROJECT_NAME = getattr(settings, "PROJECT_NAME", "").lower()
 
 @login_required
 def registration(request):
+    logger.info("Registration page requested by user: %s", request.user)
     # Clear only cache entries relevant to this view
     cache.delete_many([
         'registration_page_data',
@@ -54,6 +57,7 @@ def registration(request):
 
 @login_required
 def companies(request):
+    logger.info("Companies list page requested by user: %s", request.user)
     # Clear only cache entries relevant to this view
     cache.delete_many([
         'registration_page_data',
@@ -85,6 +89,7 @@ def order_update(request):
     return render(request, 'companyadmin/update_order.html')
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def product_registration(request):
     product_registration_url = getattr(settings, "LICENSE_PORTAL_URL")
@@ -146,14 +151,20 @@ def preprocess_request_data(data):
     }
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def register_company(request):
+    logger.info("Company registration initiated. Incoming request data.")
+    logger.debug("Registration payload: %s", dict(request.data))
+    
     data = preprocess_request_data(request.data)
     # Duplicate check for company name and email
     if AdminOutlet.objects.filter(
         customer_name=data.get('customer_name'),
         customer_email=data.get('customer_email')
     ).exists():
+        logger.warning("Registration failed: Company with name '%s' and email '%s' already exists.", 
+                       data.get('customer_name'), data.get('customer_email'))
         return Response(
             {"error": "A company with the same name and email already exists."},
             status=status.HTTP_400_BAD_REQUEST
@@ -161,6 +172,7 @@ def register_company(request):
     # Duplicate check for username in User model
     username = data.get('user', {}).get('username')
     if username and AdminOutlet.objects.filter(user__username=username).exists():
+        logger.warning("Registration failed: Username '%s' already exists.", username)
         return Response(
             {"error": "Username already exists."},
             status=status.HTTP_400_BAD_REQUEST
@@ -169,14 +181,18 @@ def register_company(request):
     serializer = AdminOutletSerializer(data=data)
     if serializer.is_valid():
         serializer.save()
+        logger.info("Company registered successfully: %s (User: %s)", 
+                    data.get('customer_name'), username)
         return Response({
             "status": "success",
             "message": "Company registered successfully"
             }, status=status.HTTP_201_CREATED)
 
+    logger.warning("Registration validation failed: %s", serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def company_lists(request):
     """
@@ -186,11 +202,13 @@ def company_lists(request):
       - page_size (optional, if you want variable page size and enabled)
       - all=true  -> returns all records (no pagination)
     """
+    logger.info("Fetching company lists (API). User: %s, Params: %s", request.user, request.query_params)
     qs = AdminOutlet.objects.all().order_by('-created_at')
 
     # if client explicitly requests all, return non-paginated list
     if request.query_params.get('all') in ('1', 'true', 'True'):
         serializer = AdminOutletSerializer(qs, many=True, context={'request': request})
+        logger.debug("Returning all companies (unpaginated). Count: %d", qs.count())
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # otherwise paginate
@@ -198,9 +216,11 @@ def company_lists(request):
     paginator.page_size = 25  # default page size; change or read from settings
     page = paginator.paginate_queryset(qs, request)
     serializer = AdminOutletSerializer(page, many=True, context={'request': request})
+    logger.debug("Returning paginated company list. Count: %d", len(page) if page else 0)
     return paginator.get_paginated_response(serializer.data)
 
 @api_view(['PUT'])
+@authentication_classes([])
 @permission_classes([AllowAny]) 
 def update_company_id(request,id):
     if not id:
@@ -221,6 +241,7 @@ def update_company_id(request,id):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
+@authentication_classes([])
 @permission_classes([AllowAny]) 
 def update_company(request):
     customer_id = request.data.get('customer_id')
@@ -248,6 +269,7 @@ def update_company(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def product_authentication(request):
     product_authentication_url = getattr(settings, "LICENSE_PORTAL_URL")
@@ -539,35 +561,46 @@ def update_user_utilities_sa(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_outlet_creation_data(request,customer_id):
     """
     GET /api/get_outlet_creation_data/
-    Returns:
-      - locations: List of all possible locations from AdminOutlet.locations JSON field 
-        - keypad_devices: List of unmapped keypad devices (serial_no)
-        - android_tvs: List of unmapped Android TVs (mac_address)
-        - tv_communication_modes: List of choices from VendorConfig.tv_communication_mode field
     """
+    logger.info("Fetching outlet creation data for customer_id: %s (User: %s)", customer_id, request.user)
     admin_outlet = AdminOutlet.objects.filter(customer_id=customer_id).first()
     if not admin_outlet:
+        logger.error("AdminOutlet not found for customer_id: %s", customer_id)
         return Response(
             {'error': 'AdminOutlet not found'}
             , status=status.HTTP_404_NOT_FOUND)
 
-    # Parse all locations from JSON field
-    try:
-        locations_data = json.loads(admin_outlet.locations)
-    except json.JSONDecodeError:
-        return Response(
-            {'error': 'Invalid locations JSON'}
-            , status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # Parse locations from JSONField safely.
+    # Local DB may already return list/dict, while some environments store JSON as string.
+    raw_locations = admin_outlet.locations
+    if raw_locations in (None, ""):
+        locations_data = []
+    elif isinstance(raw_locations, str):
+        try:
+            locations_data = json.loads(raw_locations)
+        except json.JSONDecodeError:
+            return Response(
+                {'error': 'Invalid locations JSON'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    elif isinstance(raw_locations, list):
+        locations_data = raw_locations
+    elif isinstance(raw_locations, dict):
+        locations_data = [raw_locations]
+    else:
+        locations_data = []
     # All locations
     locations = []
     for location in locations_data:
+        if not isinstance(location, dict):
+            continue
         for name, code in location.items():
-            # if code not in mapped_codes:
-            locations.append({'key': name, 'value': code})
+            locations.append({'key': str(name), 'value': str(code)})
 
     # Get unmapped keypad devices
     available_keypads = Device.objects.filter(
@@ -617,6 +650,7 @@ def generate_unique_vendor_id():
 @api_view(['POST'])
 @validate_fields(['customer_id', 'name', 'location', 'place_id',
                   'location_id','logo','menu_files','alias_name'])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 @transaction.atomic
@@ -842,6 +876,7 @@ def delete_utility_option_sa(request, option_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_outlets(request):
     """

@@ -10,7 +10,13 @@ export async function fetchWithAutoRefresh(url, options = {}) {
   const refreshToken = localStorage.getItem('refresh_token');
 
   options.headers = options.headers || {};
-  options.headers['Authorization'] = 'Bearer ' + accessToken;
+  const hasAccessToken = !!accessToken && accessToken !== 'null' && accessToken !== 'undefined';
+  if (hasAccessToken) {
+    options.headers['Authorization'] = 'Bearer ' + accessToken;
+  } else {
+    delete options.headers['Authorization'];
+  }
+  options.credentials = options.credentials || 'same-origin';
 
   // Only set Content-Type if it's not FormData
   if (!(options.body instanceof FormData)) {
@@ -23,6 +29,16 @@ export async function fetchWithAutoRefresh(url, options = {}) {
   }
   
   let response = await fetch(url, options);
+
+  // If a stale/invalid JWT causes 401, retry once using session auth only.
+  if (response.status === 401 && hasAccessToken) {
+    const retryOptions = { ...options, headers: { ...(options.headers || {}) } };
+    delete retryOptions.headers.Authorization;
+    response = await fetch(url, retryOptions);
+    if (response.ok) {
+      return response;
+    }
+  }
 
   if (response.status === 401 && refreshToken) {
     // Attempt to refresh token dynamically

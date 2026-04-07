@@ -54,6 +54,7 @@ base = getattr(settings, 'LOGIN_URL')
 @login_required()
 @never_cache
 def dashboard(request):
+    logger.info("Company Dashboard requested by user: %s", request.user)
     return render(request, 'company/dashboard.html')
 
 @login_required(login_url=base)
@@ -141,22 +142,18 @@ def create_utility_page(request):
 def get_vendor_details(request):
     """
     API endpoint to fetch details of a vendor.
-
-    Parameters:
-    - vendor_id: The ID of the vendor to fetch details for.
-
-    Returns:
-    - A JSON response containing the vendor details, unmapped vendor details, TV communication mode choices and MQTT mode choices.
-    - A 400 error response if the vendor_id parameter is not provided.
-    - A 400 error response if the vendor with the given ID is not found.
     """
     vendor_id = request.GET.get('vendor_id')
+    logger.info("Fetching vendor details for vendor_id: %s (User: %s)", vendor_id, request.user)
     
     if not vendor_id:
+        logger.warning("Vendor ID not provided in request by user: %s", request.user)
         return Response({'error': 'Vendor ID not provided'}, status=400)
     try:
         vendor = Vendor.objects.get(vendor_id=vendor_id)
+        logger.debug("Vendor found: %s", vendor.name)
     except Vendor.DoesNotExist:
+        logger.error("Vendor not found for vendor_id: %s", vendor_id)
         return Response({'error': 'Vendor not found'}, status=400)
     
     serializer = VendorDetailSerializer(
@@ -171,17 +168,18 @@ def get_vendor_details(request):
         tv_comm_field = VendorConfig._meta.get_field('tv_communication_mode')
         tv_comm_choices = [{'key': choice[0], 'value': choice[1]} for choice in tv_comm_field.choices]
     except Exception as e:
-        # Fallback — empty list if something goes wrong
+        logger.warning("Failed to fetch tv_communication_mode choices: %s", str(e))
         tv_comm_choices = []
-        # Optionally log the exception
 
-    # (Optional) Get mqtt_mode choices as well
+    # Get mqtt_mode choices as well
     try:
         mqtt_mode_field = VendorConfig._meta.get_field('mqtt_mode')
         mqtt_mode_choices = [{'key': choice[0], 'value': choice[1]} for choice in mqtt_mode_field.choices]
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to fetch mqtt_mode choices: %s", str(e))
         mqtt_mode_choices = []
     
+    logger.info("Successfully retrieved details for vendor: %s", vendor_id)
     return Response({
         "vendor_data": serializer,
         "unmapped_data":unmapped_vendors_data,
@@ -195,23 +193,20 @@ def get_vendor_details(request):
 def get_vendors(request):
     """
     Returns all vendors associated with the logged-in admin outlet.
-    
-    Parameters:
-    request (Request): Django's request object
-    
-    Returns:
-    Response: A response containing a list of vendors associated with the admin outlet.
     """
     user = request.user
+    logger.info("Fetching vendors list for user: %s", user)
     try:
         admin_outlet = user.admin_outlet
     except AdminOutlet.DoesNotExist:
+        logger.error("AdminOutlet not found for user: %s", user)
         return Response(
             {"error": "AdminOutlet not found for this user."}
             , status=404)
 
     vendors = admin_outlet.vendors.all()
     vendors_data = VendorSerializer(vendors, many=True).data
+    logger.debug("Found %d vendors for admin_outlet: %s", vendors.count(), admin_outlet.customer_name)
        
     return Response(
         {"vendors": vendors_data, "message": "Success"}
@@ -222,23 +217,13 @@ def get_vendors(request):
 def get_outlet_creation_data(request):
     """
     GET /api/get_outlet_creation_data/
-    Returns all data required to create a new vendor for a given admin outlet.
-    - locations: List of all possible locations from AdminOutlet.locations JSON field
-    - keypad_devices: List of unmapped keypad devices (serial_no)
-    - android_tvs: List of unmapped Android TVs (mac_address)
-    - tv_communication_modes: List of choices from VendorConfig.tv_communication_mode field
-    - mqtt_modes: List of choices from VendorConfig.mqtt_mode field (optional)
-
-    Parameters:
-    request (Request): Django's request object
-    
-    Returns:
-    Response: A response containing all data required to create a new vendor for a given admin outlet.
     """
     user = request.user
+    logger.info("Fetching outlet creation data for user: %s", user)
     try:
         admin_outlet = user.admin_outlet
     except AdminOutlet.DoesNotExist:
+        logger.error("AdminOutlet (customer_id) invalid or not found for user: %s", user)
         return Response(
             {'error': 'Invalid customer_id'}
             ,status=status.HTTP_404_NOT_FOUND)

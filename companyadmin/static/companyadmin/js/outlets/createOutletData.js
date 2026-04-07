@@ -47,19 +47,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
-    // ✅ When a company is selected, fetch outlet creation data
-    if (company) {
-        company.addEventListener('change', async (e) => {
-            const companyId = e.target.value;
-            if (!companyId) return;
+    const loadOutletCreationData = async (companyId) => {
+        if (!companyId) return;
 
-            try {
-                const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.COMPANYADMIN_OUTLET_CREATION_DATA}${companyId}/`);
-                if (!response.ok) throw new Error("Failed to fetch outlet creation data");
+        try {
+            const response = await fetchWithAutoRefresh(`${API_ENDPOINTS.COMPANYADMIN_OUTLET_CREATION_DATA}${companyId}/`);
+            if (!response.ok) throw new Error("Failed to fetch outlet creation data");
 
-                const data = await response.json();
-                // console.log("Outlet Creation Data:", data);
-                const { locations, android_tvs, keypad_devices, tv_communication_modes, timezones } = data;
+            const data = await response.json();
+            // console.log("Outlet Creation Data:", data);
+            const { locations, android_tvs, keypad_devices, tv_communication_modes, timezones } = data;
 
                 // Populate Location
                 if (locationSelect) {
@@ -148,9 +145,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         timezoneSelect.value = defaultTimezone;
                     }
                 }
-            } catch (error) {
-                console.error('Error fetching outlet creation data:', error);
-            }
+        } catch (error) {
+            console.error('Error fetching outlet creation data:', error);
+        }
+    };
+
+    // ✅ When a company is selected, fetch outlet creation data
+    if (company) {
+        company.addEventListener('change', async (e) => {
+            await loadOutletCreationData(e.target.value);
         });
+
+        // If company is already selected on page load (e.g. local prefilled state),
+        // immediately load dependent dropdowns.
+        if (company.value) {
+            await loadOutletCreationData(company.value);
+        }
     }
 });

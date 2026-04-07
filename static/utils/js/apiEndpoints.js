@@ -29,6 +29,9 @@ const appVersion = (
 // Construct the base path for the project (e.g., /airline_flash/)
 window.BASE = `/${projectName}/`;
 
+// Local alias used by endpoint templates below
+const BASE = window.BASE;
+
 // Reassign and expose consistent global variables for reuse across modules
 window.PROJECT_NAME = projectName;
 window.PROJECT_DISPLAY_NAME = projectDisplayName;
