@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       formData.append('place_id', document.getElementById('place_id').value || '');
       formData.append('tv_communication_mode', document.getElementById('tv_communication_mode').value || '');
       formData.append('business_day_start_hour', document.getElementById('business_day_start_hour').value || '');
+      const timezoneEl = document.getElementById('timezone');
+      formData.append('timezone', timezoneEl ? timezoneEl.value : 'Asia/Kolkata');
 
       const customer_id =AppUtils.getCustomerId('customer_id');
       formData.append('customer_id', customer_id);
@@ -68,10 +70,15 @@ document.addEventListener('DOMContentLoaded', async function () {
           },
           body: formData,
         });
-  
-        const result = await response.json();
-  
-        if (result.success) {
+
+        let result = {};
+        try {
+          result = await response.json();
+        } catch (_) {
+          result = {};
+        }
+
+        if (response.ok && result.success) {
           ModalService.showSuccess("Outlet Created Successfully", () => {
           // Callback on OK button click
           form.reset();
@@ -79,10 +86,17 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);
-          ModalService.showError(userFriendlyMessage);
+          const fallbackMessage =
+            userFriendlyMessage ||
+            result?.error ||
+            result?.message ||
+            `Failed to create outlet (HTTP ${response.status})`;
+          ModalService.showError(fallbackMessage);
+          console.error('Create outlet failed:', { status: response.status, result });
         }
       } catch (err) {
-        ModalService.showError(err);
+        const errMessage = err?.message || 'Unexpected error while creating outlet.';
+        ModalService.showError(errMessage);
       }
     });
   });

@@ -74,20 +74,32 @@ document.addEventListener('DOMContentLoaded', async function () {
             },
             body: formData,
             });
-  
-        const result = await response.json();
-  
-        if (result.success) {
+
+        let result = {};
+        try {
+          result = await response.json();
+        } catch (_) {
+          result = {};
+        }
+
+        if (response.ok && result.success) {
           ModalService.showSuccess("Outlet Created Successfully", () => {
           form.reset();
           window.location.href = WEB_ENDPOINTS.COMPANY_OUTLETS;
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);
-          ModalService.showError(userFriendlyMessage);
+          const fallbackMessage =
+            userFriendlyMessage ||
+            result?.error ||
+            result?.message ||
+            `Failed to create outlet (HTTP ${response.status})`;
+          ModalService.showError(fallbackMessage);
+          console.error('Create outlet failed:', { status: response.status, result });
         }
         } catch (err) {
-        ModalService.showError(err);
+        const errMessage = err?.message || 'Unexpected error while creating outlet.';
+        ModalService.showError(errMessage);
         console.error('Error creating outlet:', err);
         }
     });

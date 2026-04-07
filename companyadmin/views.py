@@ -719,15 +719,18 @@ def create_vendor(request):
             menus=json.dumps(menu_paths),
         )
         logger.info("Vendor created: %s", vendor.vendor_id)
-        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
-        vendor_config = VendorConfig.objects.create(
-            vendor=vendor,
-            tv_communication_mode=tv_communication_mode,
-            business_day_start_hour=business_day_start_hour,
-            timezone=timezone,
-            mqtt_mode=mqtt_mode,
-            use_utilities=is_buffet
-        )
+        config_kwargs = {
+            "vendor": vendor,
+            "tv_communication_mode": tv_communication_mode,
+            "business_day_start_hour": business_day_start_hour,
+            "timezone": timezone,
+            "mqtt_mode": mqtt_mode,
+        }
+        # Backward-compatible: older live schemas may not have `use_utilities`.
+        vendor_config_fields = {f.name for f in VendorConfig._meta.get_fields()}
+        if "use_utilities" in vendor_config_fields:
+            config_kwargs["use_utilities"] = settings.PROJECT_NAME == "dine_flash_buffet"
+        vendor_config = VendorConfig.objects.create(**config_kwargs)
         logger.info("Vendor Config created: %s", vendor_config.tv_communication_mode)
         
         # Handle multiple Device mappings (serial numbers)
