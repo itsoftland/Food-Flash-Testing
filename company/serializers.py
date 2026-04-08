@@ -517,6 +517,8 @@ class UserProfileCreateSerializer(serializers.Serializer):
         ('web_user', 'Web User'),
         ('both', 'Both Manager and Web User'),
         ('utility_user', 'Utility User (Kitchen)'),
+        ('airport_manager', 'Airport Manager'),
+        ('outlet_staff', 'Outlet Staff'),
     ]
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)

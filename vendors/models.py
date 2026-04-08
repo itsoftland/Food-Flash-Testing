@@ -273,7 +273,10 @@ class UserProfile(models.Model):
         ('order_manager', 'Order Manager'),
         ('manager', 'Manager (Android APK)'),
         ('web', 'Web User'),
+        ('web_user', 'Web Manager'),
         ('utility_user', 'Utility User (Kitchen)'),
+        ('airport_manager', 'Airport Manager'),
+        ('outlet_staff', 'Outlet Staff'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='profile_roles')
