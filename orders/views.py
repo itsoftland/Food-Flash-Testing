@@ -605,7 +605,8 @@ def login_api_view(request):
             'user': {
                 'username': vendor.name,
                 'role': 'Outlet',
-                'vendor_id': vendor.id
+                'vendor_id': vendor.id,
+                'customer_id': vendor.admin_outlet.customer_id if vendor.admin_outlet else None,
             }
         }, status=status.HTTP_200_OK)
 

@@ -7,7 +7,20 @@ export async function callProductAuthAPI() {
         const { fetchWithAutoRefresh } = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
         const { API_ENDPOINTS } = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
 
-        const customerId = localStorage.getItem("customer_id");
+        // CustomerId storage differs across flavours/builds:
+        // - Newer builds: project-prefixed keys via AppUtils.storageGet()/storageSet()
+        // - Older builds: unprefixed keys via AppUtils.getCustomerId()/setCustomerId()
+        // Support both to prevent false "license expired" modals.
+        const prefixedCustomerKey =
+            (typeof AppUtils?.getPrefixedKey === "function")
+                ? AppUtils.getPrefixedKey("customer_id")
+                : null;
+
+        const customerId =
+            (typeof AppUtils?.storageGet === "function" ? AppUtils.storageGet("customer_id") : null) ||
+            (prefixedCustomerKey ? localStorage.getItem(prefixedCustomerKey) : null) ||
+            (typeof AppUtils?.getCustomerId === "function" ? AppUtils.getCustomerId() : null) ||
+            localStorage.getItem("customer_id");
         if (!customerId) {
             console.warn('No customerId found, skipping product auth check.');
             return { status: false, expiryDays: 0 };
