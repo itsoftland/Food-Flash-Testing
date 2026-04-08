@@ -546,7 +546,7 @@ def login_api_view(request):
         try:
             profile = UserProfile.objects.get(
                 user=user,
-                role__in=['outlet_manager', 'admin_manager', 'outlet_staff', 'utility_user']
+                role__in=['outlet_manager', 'admin_manager', 'outlet_staff', 'utility_user', 'airport_manager']
             )
             role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
             return Response({
