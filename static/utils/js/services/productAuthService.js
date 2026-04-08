@@ -1,4 +1,4 @@
-export async function callProductAuthAPI() {
+export async function callProductAuthAPI(customerIdOverride = null) {
     try {
         // Validate BASE exists
         if (!window.BASE) throw new Error('window.BASE is not defined');
@@ -17,6 +17,7 @@ export async function callProductAuthAPI() {
                 : null;
 
         const customerId =
+            customerIdOverride ||
             (typeof AppUtils?.storageGet === "function" ? AppUtils.storageGet("customer_id") : null) ||
             (prefixedCustomerKey ? localStorage.getItem(prefixedCustomerKey) : null) ||
             (typeof AppUtils?.getCustomerId === "function" ? AppUtils.getCustomerId() : null) ||

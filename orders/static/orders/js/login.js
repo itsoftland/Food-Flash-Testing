@@ -171,8 +171,9 @@ document.addEventListener('DOMContentLoaded', async () => {
              * Ensures valid license before accessing system.
              */
             if (role !== 'Super Admin') {
-                AppUtils.setCustomerId(data.user.customer_id || '');
-                const { status } = await callProductAuthAPI();
+                const customerId = data?.user?.customer_id || '';
+                AppUtils.setCustomerId(customerId);
+                const { status } = await callProductAuthAPI(customerId);
                 if (status === false) {
                     ModalService.showError(
                         "Your license has expired. Please click OK to return to login.",
