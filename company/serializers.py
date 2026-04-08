@@ -510,15 +510,9 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 class UserProfileCreateSerializer(serializers.Serializer):
-    ROLE_CHOICES = [
-        ('admin_manager', 'Admin Manager'),
-        ('outlet_manager', 'Outlet Manager'),
-        ('order_manager', 'Order Manager'),
-        ('web_user', 'Web User'),
+    # Keep API role choices aligned with UserProfile.role (plus synthetic "both").
+    ROLE_CHOICES = list(UserProfile.ROLE_CHOICES) + [
         ('both', 'Both Manager and Web User'),
-        ('utility_user', 'Utility User (Kitchen)'),
-        ('airport_manager', 'Airport Manager'),
-        ('outlet_staff', 'Outlet Staff'),
     ]
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
