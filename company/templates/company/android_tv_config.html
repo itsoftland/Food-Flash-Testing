@@ -106,9 +106,10 @@
               </div>
 
               <!-- Booking Fields -->
+              {% if PROJECT_NAME == "dine_flash" %}
               <div class="form-group col-lg-4 col-md-6">
                 <label for="booking-fields" class="form-label">Fields to Display</label>
-                <div class="booking-fields-container">
+                <div class="booking-fields-container d-flex flex-column gap-2 mt-2">
                   <div class="form-check ps-0">
                     <input type="checkbox" id="field-name" name="booking_fields" value="name"
                       class="form-check-input" />
@@ -126,6 +127,7 @@
                   </div>
                 </div>
               </div>
+              {% endif %}
             </div>
           </div>
 
@@ -136,10 +138,12 @@
             <div class="row g-3">
               <div class="form-group col-12">
                 <label for="utilities-select" class="form-label">Select Utilities to Display</label>
+                <div class="tv-utilities-field">
                 <select id="utilities-select" name="utilities" class="form-select form-select-sm choices-input" multiple
                   required data-placeholder="Click to select utilities...">
                   <!-- Options populated by JS -->
                 </select>
+                </div>
               </div>
             </div>
           </div>

@@ -1,0 +1,496 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    .form-section-title {
+        color: #b8860b;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+    }
+    .form-section-title i {
+        margin-right: 0.75rem;
+    }
+    .card {
+        border-radius: 12px;
+        border: none;
+    }
+    .form-label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #444;
+    }
+    .btn-golden {
+        background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+        color: #fff;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    .btn-golden:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(184, 134, 11, 0.3);
+        color: #fff;
+    }
+    .qr-settings-group {
+        transition: all 0.3s ease;
+    }
+    .hidden {
+        display: none;
+    }
+    .color-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .color-picker {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    /* Choices.js utilities multiselect — scope via wrapper (do not pass partial classNames; breaks some Choices versions) */
+    .choices-input {
+        display: none !important;
+    }
+    .tv-utilities-field .choices {
+        margin-bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        --choices-primary-color: #f0a934;
+    }
+    .tv-utilities-field .choices__inner {
+        min-height: 36px;
+        padding: 0.45rem 0.6rem;
+        background-color: #fff;
+        border: 1px solid #e0e3e8;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        color: #1a1a1a;
+    }
+    .tv-utilities-field .choices__placeholder {
+        color: #5c5c5c;
+        opacity: 1;
+    }
+    .tv-utilities-field .choices__input {
+        background-color: #fff;
+        color: #1a1a1a;
+    }
+    .tv-utilities-field .choices__list--multiple .choices__item {
+        background-color: #f0a934;
+        color: #fff;
+        border: 1px solid #d89a2a;
+        font-size: 0.8rem;
+    }
+    .tv-utilities-field .choices__button {
+        color: #fff;
+        opacity: 0.9;
+    }
+    .tv-utilities-field .choices__button:hover,
+    .tv-utilities-field .choices__button:focus {
+        color: #fff;
+        opacity: 1;
+    }
+    .tv-utilities-field .choices__list--dropdown .choices__item--selectable {
+        color: #1a1a1a;
+        background-color: #fff;
+    }
+    .tv-utilities-field .choices__list--dropdown .choices__item--selectable.is-highlighted:not(.is-selected) {
+        background-color: #fff3d6;
+        color: #1a1a1a;
+    }
+    .tv-utilities-field .choices__list--dropdown .choices__item--selectable.is-selected {
+        background-color: #f0a934 !important;
+        color: #fff !important;
+    }
+    .tv-utilities-field .choices__list--dropdown .choices__item--selectable.is-selected.is-highlighted {
+        background-color: #e09d2e !important;
+        color: #fff !important;
+    }
+    .tv-utilities-field .choices.is-open .choices__inner {
+        border-color: #f0a934;
+        box-shadow: 0 0 0 0.15rem rgba(240, 169, 52, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block title %}TV Configuration | Dine Flash{% endblock %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2 align-items-center justify-content-between">
+            <div class="col-sm-6">
+                <h1 class="page-title"><i class="fas fa-tv mr-2"></i>TV Configuration</h1>
+                <p class="text-muted small">Manage display, audio, and QR settings for Dine Flash TV.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form id="tv-config-form">
+                    {% csrf_token %}
+
+                    <!-- Configuration Details -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-cog"></i>Basic Details</h6>
+                        <div class="row g-3">
+                            <div class="form-group col-md-6">
+                                <label for="config-name" class="form-label">Configuration Name</label>
+                                <input type="text" id="config-name" name="config_name" class="form-control" placeholder="e.g. Main Dining Room" required />
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="screen-orientation" class="form-label">Screen Orientation</label>
+                                <select id="screen-orientation" name="screen_orientation" class="form-select" required>
+                                    <option value="landscape" selected>Landscape</option>
+                                    <option value="portrait">Portrait</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Display Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-paint-brush"></i>Display Settings</h6>
+                        <div class="row g-4">
+                            <!-- Font Sizes -->
+                            <div class="col-md-4">
+                                <label class="form-label">Token Font Size</label>
+                                <select name="token_font_size" class="form-select">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large" selected>Large</option>
+                                    <option value="extra-large">Extra Large</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Counter Font Size</label>
+                                <select name="counter_font_size" class="form-select">
+                                    <option value="small">Small</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="large">Large</option>
+                                    <option value="extra-large">Extra Large</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Utility Font Size</label>
+                                <select name="utility_font_size" class="form-select">
+                                    <option value="small" selected>Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                    <option value="extra-large">Extra Large</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Header Font Size</label>
+                                <select name="header_font_size" class="form-select">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large" selected>Large</option>
+                                    <option value="extra-large">Extra Large</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Header Font Style</label>
+                                <select name="header_font_style" class="form-select">
+                                    <option value="regular">Regular</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="bold" selected>Bold</option>
+                                </select>
+                            </div>
+                            <!-- Colors -->
+                            <div class="col-md-4">
+                                <label class="form-label">Token Text Color</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="token_text_color" value="#000000" class="color-picker">
+                                    <span class="text-muted small color-code">#000000</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Counter Text Color</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="counter_text_color" value="#000000" class="color-picker">
+                                    <span class="text-muted small color-code">#000000</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Utility Text Color</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="utility_text_color" value="#000000" class="color-picker">
+                                    <span class="text-muted small color-code">#000000</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Header Text Color</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="header_text_color" value="#000000" class="color-picker">
+                                    <span class="text-muted small color-code">#000000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visibility Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-eye"></i>Visibility Settings</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="show_customer_name" class="form-check-input" id="show-cust-name" checked>
+                                    <label class="form-check-label" for="show-cust-name">Show Customer Name</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="show_phone_number" class="form-check-input" id="show-phone" checked>
+                                    <label class="form-check-label" for="show-phone">Show Phone Number</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="show_order_details" class="form-check-input" id="show-order" checked>
+                                    <label class="form-check-label" for="show-order">
+                                        {% if PROJECT_NAME == "dine_flash" %}Show No of Packs{% else %}Show Order Details{% endif %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-volume-up"></i>Audio Settings</h6>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="audio_enabled" class="form-check-input" id="audio-enabled">
+                                    <label class="form-check-label" for="audio-enabled">Enable Audio Announcements</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label d-block">Announcement Language</label>
+                                <select name="announcement_language" class="form-select">
+                                    <option value="English" selected>English</option>
+                                    <option value="Malayalam">Malayalam</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Animation Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-magic"></i>Animation Settings</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="blink_token" class="form-check-input" id="blink-token">
+                                    <label class="form-check-label" for="blink-token">Blink Current Token</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="blink_utility" class="form-check-input" id="blink-utility">
+                                    <label class="form-check-label" for="blink-utility">Blink Utility Text</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Text Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-align-left"></i>Footer Text Settings</h6>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" id="footer-enabled" name="footer_enabled" class="form-check-input" />
+                                    <label class="form-check-label text-bold" for="footer-enabled">Enable Footer Text</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3" id="footer-texts-group">
+                            <div class="col-12">
+                                <label class="form-label">Footer Texts (max 8, one per line)</label>
+                                <textarea id="footer-texts" class="form-control" rows="4" placeholder="Welcome to Dine Flash&#10;Please wait for your table&#10;Thank you for your patience"></textarea>
+                                <small class="text-muted">When enabled, TV can rotate these footer lines.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-qrcode"></i>QR Code Settings</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" id="show-qr" name="show_qr" class="form-check-input" />
+                                    <label class="form-check-label text-bold" for="show-qr">Display QR Code on TV</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="qr-settings-group" class="row g-3 hidden">
+                            <div class="col-md-4">
+                                <label class="form-label">QR Placement</label>
+                                <select name="qr_placement" class="form-select">
+                                    <option value="top-left">Top Left</option>
+                                    <option value="top-right">Top Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-right" selected>Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">QR Base URL (Optional)</label>
+                                <input type="url" name="qr_base_url" class="form-control" placeholder="https://example.com/booking/">
+                                <small class="text-muted">Defaults to current domain if left empty. Parameters like vendor_id will be appended.</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">QR Expiry (minutes)</label>
+                                <input type="number" name="qr_expiry_minutes" class="form-control" value="5" min="1" max="1440" />
+                                <small class="text-muted">QR will stop working after this time.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advertisement Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-photo-video"></i>Advertisement Settings</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" id="enable-ads" name="enable_ads" class="form-check-input" />
+                                    <label class="form-check-label text-bold" for="enable-ads">Enable Ads on TV</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Ad Interval (seconds)</label>
+                                <input type="number" name="ad_interval" class="form-control" value="8" min="3" max="120" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Video Playback Mode</label>
+                                <select name="video_ad_mode" class="form-select">
+                                    <option value="play_full" selected>Play Full Video</option>
+                                    <option value="respect_interval">Respect Ad Interval</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label">Upload Ad Media (image/video)</label>
+                                <input type="file" id="ad-files" class="form-control" accept="image/*,video/*" multiple>
+                                <small class="text-muted">Upload image or video files (max 100MB each). You can assign up to 15 advertisements per configuration.</small>
+                            </div>
+                            <div class="col-md-5 d-flex align-items-end">
+                                <button type="button" id="upload-ads-btn" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-upload mr-2"></i>Upload Ads
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label">Available Advertisements</label>
+                            <div id="ad-list" class="border rounded p-3 bg-light">
+                                <p class="text-muted mb-0">No advertisements uploaded.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Other Core Settings -->
+                    <div class="form-section">
+                        <h6 class="form-section-title"><i class="fas fa-list-ul"></i>Other Display Logic</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Items to Show (1-5)</label>
+                                <select name="items_to_show" class="form-select" required>
+                                    <option value="1">1 Item</option>
+                                    <option value="2">2 Items</option>
+                                    <option value="3" selected>3 Items</option>
+                                    <option value="4">4 Items</option>
+                                    <option value="5">5 Items</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Utility Name Mode</label>
+                                <select name="utility_name_mode" class="form-select" required>
+                                    <option value="display_name" selected>Display Name</option>
+                                    <option value="display_code">Display Code</option>
+                                </select>
+                            </div>
+                            {% if PROJECT_NAME == "dine_flash" %}
+                            <div class="col-md-4">
+                                <label class="form-label">Booking Fields to Show</label>
+                                <div class="d-flex flex-column gap-2 mt-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="booking_fields" value="name" class="form-check-input" id="bf-name" checked>
+                                        <label class="form-check-label" for="bf-name">Name</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" name="booking_fields" value="token" class="form-check-input" id="bf-token" checked>
+                                        <label class="form-check-label" for="bf-token">Token</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" name="booking_fields" value="guest_count" class="form-check-input" id="bf-guest">
+                                        <label class="form-check-label" for="bf-guest">Guest Count</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Display Rows</label>
+                                <input type="number" name="display_rows" class="form-control" value="1" min="1" max="10" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Display Columns</label>
+                                <input type="number" name="display_columns" class="form-control" value="1" min="1" max="10" required>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Utilities -->
+                    <div class="form-section border-bottom-0 mb-0">
+                        <h6 class="form-section-title"><i class="fas fa-hand-holding-heart"></i>Active Utilities</h6>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="utilities-select" class="form-label">Select Utilities to Display</label>
+                                <div class="tv-utilities-field">
+                                <select id="utilities-select" name="utilities" class="form-select choices-input w-100" multiple required>
+                                </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="mt-5 d-flex gap-3">
+                        <button type="submit" class="btn btn-golden px-5 py-2 fw-bold">
+                            <i class="fas fa-save mr-2"></i>SAVE CONFIGURATION
+                        </button>
+                        <button type="reset" class="btn btn-outline-secondary px-4 py-2">
+                            RESET
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% include "company/partials/modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script type="module" src="{% static 'company/js/tvConfiguration.js' %}"></script>
+{% endblock %}

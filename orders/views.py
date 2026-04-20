@@ -6,6 +6,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.utils import timezone
+from datetime import datetime, timedelta
+import secrets
 from django.http import JsonResponse,HttpResponseBadRequest
 from django.db import transaction
 from django.views.decorators.cache import never_cache
@@ -16,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from vendors.models import (Order, Vendor, AdminOutlet,
+from vendors.models import (Order, Vendor, AdminOutlet, AndroidDevice,
                             AdvertisementProfileAssignment,
                             UserProfile,ChatMessage,
                             Utility, UtilityOption, BuffetOrderItem)
@@ -41,6 +43,145 @@ logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
 project_name = getattr(settings, "PROJECT_NAME", "calleron")
 
+
+def _get_dine_flash_qr_expiry_minutes(vendor_id):
+    """
+    Dine Flash only: resolve QR expiry minutes from the most recently updated
+    Android TV device config mapped to the given vendor_id.
+    """
+    try:
+        device = (
+            AndroidDevice.objects.select_related("tv_config")
+            .filter(vendor__vendor_id=vendor_id, tv_config__isnull=False)
+            .order_by("-updated_at")
+            .first()
+        )
+        if device and device.tv_config and getattr(device.tv_config, "qr_expiry_minutes", None):
+            return int(device.tv_config.qr_expiry_minutes)
+    except Exception:
+        pass
+    return 5
+
+
+def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id):
+    """
+    Validate that the QR date+time represent a *current* QR within the configured window.
+    Returns (ok: bool, error_msg: str|None).
+    """
+    if not qr_date or not qr_time:
+        return False, "Invalid QR link. Date and time are required."
+
+    try:
+        naive = datetime.strptime(f"{qr_date} {qr_time}", "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return False, "Invalid QR link. Date/time format is invalid."
+
+    qr_dt = timezone.make_aware(naive, timezone.get_current_timezone())
+
+    now_dt = timezone.localtime(timezone.now())
+
+    expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+    max_age = timedelta(minutes=expiry_min)
+
+    # Allow small client clock skew into the future.
+    if qr_dt - now_dt > timedelta(seconds=30):
+        return False, "Invalid QR link. QR time is not current."
+
+    if now_dt - qr_dt > max_age:
+        return False, "QR expired. Please scan the new QR code on the TV."
+
+    return True, None
+
+
+def _dine_flash_qr_session_cache_key(token: str) -> str:
+    return f"dine_flash:qr_session:{token}"
+
+
+def _create_dine_flash_qr_session(vendor_id: str, qr_dt: datetime, expiry_minutes: int):
+    token = secrets.token_urlsafe(24)
+    expires_at = qr_dt + timedelta(minutes=expiry_minutes)
+    ttl = max(1, int((expires_at - timezone.localtime(timezone.now())).total_seconds()))
+    cache.set(
+        _dine_flash_qr_session_cache_key(token),
+        {
+            "vendor_id": str(vendor_id),
+            "expires_at_epoch": int(expires_at.timestamp()),
+        },
+        timeout=ttl,
+    )
+    return token, int(expires_at.timestamp())
+
+
+def _validate_dine_flash_qr_session(qr_session: str, vendor_id: str):
+    if not qr_session:
+        return False, "Invalid QR link."
+    payload = cache.get(_dine_flash_qr_session_cache_key(qr_session))
+    if not payload:
+        return False, "QR expired. Please scan the new QR code on the TV."
+    if str(payload.get("vendor_id")) != str(vendor_id):
+        return False, "Invalid QR link."
+    expires_at_epoch = int(payload.get("expires_at_epoch") or 0)
+    if expires_at_epoch <= int(timezone.localtime(timezone.now()).timestamp()):
+        return False, "QR expired. Please scan the new QR code on the TV."
+    return True, None
+
+
+def _is_manager_created_booking_link(request, vendor_id):
+    """
+    Allow Dine Flash tracking without qr_session only for manager-created bookings.
+    Accepts either booking_id or booking_no in the query params.
+    """
+    booking_id = request.GET.get("booking_id")
+    booking_no = request.GET.get("booking_no")
+
+    base_qs = Order.objects.filter(vendor__vendor_id=vendor_id, updated_by="manager")
+
+    if booking_id:
+        try:
+            return base_qs.filter(id=int(booking_id)).exists()
+        except (TypeError, ValueError):
+            return False
+
+    if booking_no:
+        return base_qs.filter(table_booking_no=str(booking_no)).exists()
+
+    return False
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def dine_flash_qr_exchange(request):
+    """
+    Dine Flash only: exchange visible qr_date/qr_time into an opaque qr_session token.
+    This prevents users from extending access by editing date/time in the URL.
+    """
+    if project_name != "dine_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    vendor_id = request.GET.get("vendor_id")
+    qr_date = request.GET.get("qr_date")
+    qr_time = request.GET.get("qr_time")
+    if not vendor_id:
+        return Response({"error": "vendor_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    ok, msg = _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id)
+    if not ok:
+        return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    naive = datetime.strptime(f"{qr_date} {qr_time}", "%Y-%m-%d %H:%M:%S")
+    qr_dt = timezone.make_aware(naive, timezone.get_current_timezone())
+    expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+
+    token, expires_at_epoch = _create_dine_flash_qr_session(vendor_id, qr_dt, expiry_min)
+    return Response(
+        {
+            "qr_session": token,
+            "expires_at_epoch": expires_at_epoch,
+            "expiry_minutes": expiry_min,
+        },
+        status=status.HTTP_200_OK,
+    )
+
 def outlet_selection(request):
     location_id = request.GET.get("location_id")
     context = {}
@@ -59,6 +200,19 @@ def outlet_selection(request):
     return response
 
 def home(request):
+    if project_name == "dine_flash":
+        vendor_id = request.GET.get("vendor_id")
+        if not vendor_id:
+            return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+        qr_session = request.GET.get("qr_session")
+        if qr_session:
+            ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id)
+            if not ok:
+                return HttpResponseBadRequest(msg)
+        else:
+            # Manager-created booking links can open without QR session.
+            if not _is_manager_created_booking_link(request, vendor_id):
+                return HttpResponseBadRequest("Invalid QR link.")
     cache.clear()
     return render(request, 'orders/index.html')
 
@@ -91,6 +245,20 @@ def table_booking(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
 
+    if project_name == "dine_flash":
+        vendor_id_from_qr = request.GET.get("vendor_id")
+        qr_date = request.GET.get("qr_date")
+        qr_time = request.GET.get("qr_time")
+        qr_session = request.GET.get("qr_session")
+        if not vendor_id_from_qr:
+            return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+        if qr_session:
+            ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id_from_qr)
+        else:
+            ok, msg = _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id_from_qr)
+        if not ok:
+            return HttpResponseBadRequest(msg)
+
     vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
 
     utilities_enabled = False  # default fallback
@@ -107,6 +275,16 @@ def table_booking(request):
         "UTILITIES_ENABLED": utilities_enabled,
         "PHONE_NUMBER_ENABLED": phone_number_enabled,
     }
+    context["IS_DINE_FLASH"] = project_name == "dine_flash"
+    if project_name == "dine_flash":
+        # Expose QR info for countdown + safe URL rewriting.
+        context.update(
+            {
+                "QR_DATE": request.GET.get("qr_date") or "",
+                "QR_TIME": request.GET.get("qr_time") or "",
+                "QR_EXPIRY_MINUTES": _get_dine_flash_qr_expiry_minutes(vendor_id),
+            }
+        )
 
     return render(request, 'orders/dine_flash/table_booking.html', context)
 
@@ -155,12 +333,24 @@ def check_status(request):
         status_type = 'buffetstatus'
         message = 'Buffet items retrieved successfully.'
     elif project_name == "dine_flash":
-        identifier_field = "id"
-        identifier_value = request.data.get("booking_id")
-        order_filter = {
-            identifier_field: identifier_value,
-            "vendor__vendor_id": vendor_id,
-        }
+        booking_id = request.data.get("booking_id")
+        booking_no = request.data.get("booking_no") or request.data.get("token_no")
+
+        if booking_id:
+            identifier_field = "id"
+            identifier_value = booking_id
+            order_filter = {
+                identifier_field: identifier_value,
+                "vendor__vendor_id": vendor_id,
+            }
+        else:
+            # Backward compatibility: older clients may send booking_no/token_no.
+            identifier_field = "table_booking_no"
+            identifier_value = booking_no
+            order_filter = {
+                identifier_field: identifier_value,
+                "vendor__vendor_id": vendor_id,
+            }
         status_check_name = "created"
         status_to_update = "waiting"
         title = "Booking Status Check"
@@ -187,7 +377,10 @@ def check_status(request):
 
     try:
         vendor_id = int(vendor_id)
-        if project_name != "airline_flash":
+        if project_name == "dine_flash" and identifier_field == "table_booking_no":
+            # booking_no can be alphanumeric (e.g. VIP-9); no int casting.
+            pass
+        elif project_name != "airline_flash":
             identifier_value = int(identifier_value)
             if identifier_value <= 0:
                 return Response({'error': 'Token number must be a positive integer.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1017,21 +1210,38 @@ def book_table(request):
 
     data = request.data or {}
 
+    manager_profile = None
+    manager_vendor = None
+    try:
+        if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "profile_roles"):
+            manager_profile = request.user.profile_roles.select_related("vendor").order_by("id").first()
+            manager_vendor = getattr(manager_profile, "vendor", None)
+    except Exception:
+        manager_profile = None
+        manager_vendor = None
+
+    is_manager_created_booking = project_name == "dine_flash" and manager_vendor is not None
+
     vendor_id = data.get("vendor_id")
     utility_id = data.get("utility_id")
     no_of_guests = data.get("no_of_guests")
     special_notes = data.get("special_notes")
     phone_number = data.get("phone_number") or None
     customer_name = data.get("customer_name")
+    requested_status = (data.get("status") or "waiting").strip().lower()
+    qr_date = data.get("qr_date")
+    qr_time = data.get("qr_time")
+    qr_session = data.get("qr_session")
 
     # --------------------------------------------------------
     # 1. Validate required base fields (vendor-independent)
     # --------------------------------------------------------
     required_base = {
-        "vendor_id": vendor_id,
         "no_of_guests": no_of_guests,
         "customer_name": customer_name,
     }
+    if not is_manager_created_booking:
+        required_base["vendor_id"] = vendor_id
 
     missing = [k for k, v in required_base.items() if not v]
     if missing:
@@ -1044,15 +1254,42 @@ def book_table(request):
     # --------------------------------------------------------
     # 2. Vendor resolution
     # --------------------------------------------------------
-    try:
-        vendor_id_int = int(vendor_id)
-    except (ValueError, TypeError):
-        return Response({"error": "Invalid vendor_id"}, status=status.HTTP_400_BAD_REQUEST)
+    if is_manager_created_booking:
+        vendor = manager_vendor
+        if not vendor:
+            return Response({"error": "Manager vendor not found."}, status=status.HTTP_403_FORBIDDEN)
+        if vendor_id and str(vendor_id) != str(vendor.vendor_id):
+            return Response(
+                {"error": "vendor_id does not match manager vendor."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+    else:
+        try:
+            vendor_id_int = int(vendor_id)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid vendor_id"}, status=status.HTTP_400_BAD_REQUEST)
+        vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
 
-    vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
     if not vendor:
         logger.warning("[book_table] Vendor not found | vendor_id=%s ", vendor_id)
         return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if project_name == "dine_flash" and not is_manager_created_booking:
+        ok, msg = _validate_dine_flash_qr_session(qr_session, vendor.vendor_id)
+        if not ok:
+            return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    allowed_statuses = {choice[0] for choice in Order.STATUS_CHOICES}
+    if requested_status not in allowed_statuses:
+        return Response(
+            {
+                "error": (
+                    f"Invalid status '{requested_status}'. "
+                    f"Allowed values: {sorted(allowed_statuses)}"
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     vendor_config = getattr(vendor, "config", None)
     if vendor_config is None:
@@ -1128,8 +1365,8 @@ def book_table(request):
             'token_no': token_no,
             'table_booking_no': booking_no,
             'counter_no': 1,
-            'updated_by': 'customer',
-            'status': 'waiting',
+            'updated_by': 'manager' if is_manager_created_booking else 'customer',
+            'status': requested_status,
             'name': vendor.name,
             'location_id': vendor.location_id,
             'device': None,
@@ -1139,6 +1376,8 @@ def book_table(request):
             "phone_number": phone_number,
             'utility': utility.id if utility else None,
         }
+        if is_manager_created_booking and manager_profile:
+            new_booking_data['manager_id'] = manager_profile.id
 
         serializer = OrdersSerializer(data=new_booking_data)
 
@@ -1155,10 +1394,13 @@ def book_table(request):
                 f"&booking_no={booking_no}"
                 f"&booking_id={booking_obj.id}"
             )
+            if qr_session:
+                tracking_url = f"{tracking_url}&qr_session={qr_session}"
 
             resp_data = serializer.data
             resp_data["tracking_url"] = tracking_url
-            resp_data["manager_id"] = None
+            resp_data["manager_id"] = manager_profile.id if is_manager_created_booking and manager_profile else None
+            resp_data["created_by"] = "manager" if is_manager_created_booking else "customer"
             resp_data['type'] = 'dinestatus'
             resp_data["message"] = "Booking created successfully."
 

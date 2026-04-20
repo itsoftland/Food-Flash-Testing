@@ -1,7 +1,7 @@
 # vendors/utils.py
 from pywebpush import webpush, WebPushException
 from django.conf import settings
-from .models import PushSubscription, ArchivedOrder,ArchivedOrderStatusHistory
+from .models import PushSubscription, ArchivedOrder, ArchivedOrderStatusHistory, Order, Vendor
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.db import transaction
 import json
@@ -283,10 +283,11 @@ def archive_order(order):
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
 
-def build_tv_config_payload(tv_config):
+def build_tv_config_payload(tv_config, request=None):
     """
     Builds a standardized payload for TVDeviceConfig,
     dynamically resolving utility label based on utility_name_mode.
+    Includes Dine Flash specific fields if applicable.
     """
     if not tv_config:
         return None
@@ -302,7 +303,8 @@ def build_tv_config_payload(tv_config):
             "label": label_value,
         })
 
-    return {
+    # Base payload compatible with all variants
+    payload = {
         "show_qr": tv_config.show_qr,
         "qr_alignment": tv_config.qr_alignment if tv_config.show_qr else None,
         "items_to_show": tv_config.items_to_show,
@@ -313,6 +315,311 @@ def build_tv_config_payload(tv_config):
         "created_at": tv_config.created_at,
         "updated_at": tv_config.updated_at,
     }
+
+    # Dine Flash Specific Scope
+    if tv_config.admin_outlet and tv_config.admin_outlet.project_code == 'dine_flash':
+        # Add Extended Display settings
+        payload.update({
+            "display_rows": tv_config.display_rows,
+            "display_columns": tv_config.display_columns,
+            "token_font_size": tv_config.token_font_size,
+            "counter_font_size": tv_config.counter_font_size,
+            "utility_font_size": tv_config.utility_font_size,
+            "token_text_color": tv_config.token_text_color,
+            "counter_text_color": tv_config.counter_text_color,
+            "utility_text_color": tv_config.utility_text_color,
+            "show_customer_name": tv_config.show_customer_name,
+            "show_phone_number": tv_config.show_phone_number,
+            "show_order_details": tv_config.show_order_details,
+            "audio_enabled": tv_config.audio_enabled,
+            "announcement_language": tv_config.announcement_language,
+            "blink_token": tv_config.blink_token,
+            "blink_utility": tv_config.blink_utility,
+            "enable_ads": tv_config.enable_ads,
+            "ad_position": tv_config.ad_position,
+            "ad_interval": tv_config.ad_interval,
+            "video_ad_mode": getattr(tv_config, "video_ad_mode", "play_full"),
+            "header_font_size": getattr(tv_config, "header_font_size", "large"),
+            "header_font_style": getattr(tv_config, "header_font_style", "bold"),
+            "header_text_color": getattr(tv_config, "header_text_color", "#000000"),
+            "footer_enabled": getattr(tv_config, "footer_enabled", False),
+            "footer_texts": (tv_config.footer_texts or []) if getattr(tv_config, "footer_enabled", False) else [],
+        })
+
+        # QR Code Extended Logic
+        if tv_config.show_qr:
+            qr_url = tv_config.qr_base_url
+            if not qr_url and request:
+                # Default to dynamic project path if empty
+                qr_url = request.build_absolute_uri('/dine_flash/table_booking/')
+            
+            payload.update({
+                "qr_placement": tv_config.qr_placement,
+                "qr_base_url": qr_url,
+                "qr_expiry_minutes": getattr(tv_config, "qr_expiry_minutes", 5),
+            })
+        else:
+            # Explicitly exclude or nullify if QR is disabled for Dine Flash
+            payload["qr_placement"] = None
+            payload["qr_base_url"] = None
+            payload["qr_expiry_minutes"] = None
+
+        ad_items = []
+        if tv_config.enable_ads:
+            ad_queryset = tv_config.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
+            for ad in ad_queryset:
+                if not ad.media_file:
+                    continue
+                media_url = request.build_absolute_uri(ad.media_file.url) if request else ad.media_file.url
+                play_full_video = getattr(tv_config, "video_ad_mode", "play_full") == "play_full"
+                ad_items.append({
+                    "id": ad.id,
+                    "title": ad.title,
+                    "media_type": ad.media_type,
+                    "media_url": media_url,
+                    "sequence": ad.sequence,
+                    "play_full_video": play_full_video if ad.media_type == "video" else None,
+                    "display_seconds": tv_config.ad_interval if ad.media_type == "image" or not play_full_video else None,
+                    "cache_key": int(ad.updated_at.timestamp()) if ad.updated_at else None,
+                })
+        payload["ad_items"] = ad_items
+
+    return payload
+
+
+# Dine Flash: queue / table statuses (see core.config.status_choices.STATUS_CHOICES_MAP)
+_DINE_FLASH_WAITING_STATUSES = frozenset({"created", "waiting"})
+# "occupied" should remain visible on TV as an ongoing table state.
+_DINE_FLASH_ACTIVE_TABLE_STATUSES = frozenset({"allocated", "occupied"})
+_DINE_FLASH_EXCLUDED_STATUSES = frozenset({"booking_cancelled", "operation_closed"})
+_DINE_FLASH_QR_DATE_FORMAT = "%Y-%m-%d"
+_DINE_FLASH_QR_TIME_FORMAT = "%H:%M:%S"
+_DINE_FLASH_QR_DATE_PART_DIGITS = {"year": 4, "month": 2, "day": 2}
+_DINE_FLASH_QR_TIME_PART_DIGITS = {"hour": 2, "minute": 2, "second": 2}
+
+
+def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
+    """
+    Initial TV payload for Dine Flash: waiting queue + seated/active tables for the
+    current business day, filtered by dashboard TV config (utilities, visibility,
+    booking_fields, items_to_show). Does not apply to other project flavours.
+    """
+    from datetime import timedelta
+
+    from django.urls import reverse
+    from django.utils import timezone as django_timezone
+    from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_date
+
+    # Resolve the same Vendor row book_table uses: unique business vendor_id (AndroidDevice FK can be stale).
+    if vendor is not None:
+        canonical = (
+            Vendor.objects.select_related("config")
+            .filter(vendor_id=vendor.vendor_id)
+            .first()
+        )
+        if canonical is not None:
+            vendor = canonical
+
+    def build_empty_snapshot():
+        return {
+            "display_mode": "table_booking",
+            # Frontend contract:
+            # - tv_config => display behavior/config controls
+            # - dine_flash => booking/table data payload
+            "data_source": "dine_flash",
+            "vendor_id": vendor.vendor_id,
+            "location_id": getattr(vendor, "location_id", None),
+            "waiting": [],
+            # Keep active_tables for backward compatibility, add clearer alias.
+            "active_tables": [],
+            "ongoing_tables": [],
+            "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+            "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+            "table_booking_url": None,
+            # Dine Flash QR workflow: Android TV receives this base tracking URL
+            # and appends dynamic date/time params while generating the QR payload.
+            "tracking_qr_base_url": None,
+            "qr_expiry_minutes": None,
+            "qr_date_format": _DINE_FLASH_QR_DATE_FORMAT,
+            "qr_time_format": _DINE_FLASH_QR_TIME_FORMAT,
+            "qr_date_part_digits": _DINE_FLASH_QR_DATE_PART_DIGITS,
+            "qr_time_part_digits": _DINE_FLASH_QR_TIME_PART_DIGITS,
+        }
+
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    if not start_dt or not end_dt:
+        return build_empty_snapshot()
+
+    # Resolve "today" safely (Vendor.config is required elsewhere for Dine Flash, but be defensive).
+    try:
+        vendor_today = get_vendor_current_date(vendor)
+    except Exception as exc:
+        logger.warning(
+            "build_dine_flash_tv_booking_snapshot: get_vendor_current_date failed vendor_id=%s: %s",
+            getattr(vendor, "vendor_id", None),
+            exc,
+        )
+        vendor_today = django_timezone.now().date()
+
+    utc_today = django_timezone.now().date()
+    # Calendar backup for primary window only: outlet-local "today" and UTC "today" on Order.created_date.
+    # (Avoid ±1 day here — that pulled stale rows into the main path; business-day coverage is in_window.)
+    date_keys = {vendor_today, utc_today}
+
+    # Avoid Q(...) | Q(...) + distinct(): some MySQL configs mis-handle OR+distinct; merge IDs instead.
+    vid = vendor.id
+    in_window = Order.objects.filter(
+        vendor_id=vid,
+        created_at__gte=start_dt,
+        created_at__lt=end_dt,
+    ).values_list("id", flat=True)
+    by_calendar = Order.objects.filter(
+        vendor_id=vid,
+        created_date__in=date_keys,
+    ).values_list("id", flat=True)
+    order_ids = set(in_window) | set(by_calendar)
+    used_created_at_fallback = False
+
+    # Last resort only: misconfigured DB time, broken naive/aware compares, etc.
+    fallback_hours = int(getattr(settings, "DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS", 24) or 0)
+    if not order_ids and fallback_hours > 0:
+        used_created_at_fallback = True
+        order_ids = set(
+            Order.objects.filter(
+                vendor_id=vid,
+                created_at__gte=django_timezone.now() - timedelta(hours=fallback_hours),
+            ).values_list("id", flat=True)
+        )
+        # Single grep-friendly line for vendors.log / managers.log / runserver (DEBUG):
+        #   rg DINE_FLASH_TV_SNAPSHOT_FALLBACK
+        logger.warning(
+            "[DINE_FLASH_TV_SNAPSHOT_FALLBACK] vendor_pk=%s business_vendor_id=%s "
+            "lookback_hours=%s matched_order_ids=%s | primary_business_day+calendar returned 0 ids; "
+            "fix outlet timezone/DB or set DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS=0 to disable",
+            vid,
+            getattr(vendor, "vendor_id", None),
+            fallback_hours,
+            len(order_ids),
+        )
+
+    qs = (
+        Order.objects.filter(id__in=order_ids)
+        .exclude(status__in=_DINE_FLASH_EXCLUDED_STATUSES)
+        .select_related("utility")
+    )
+
+    if tv_config:
+        # All utilities linked to this TV config (snapshot must not drop rows if is_active is wrong in DB)
+        utility_ids = list(tv_config.utilities.values_list("id", flat=True))
+        if utility_ids:
+            before_utility = qs
+            qs = qs.filter(utility_id__in=utility_ids)
+            if before_utility.exists() and not qs.exists():
+                logger.warning(
+                    "build_dine_flash_tv_booking_snapshot: TV config id=%s utility_ids=%s "
+                    "excluded every candidate order; booking utility_id values=%s",
+                    tv_config.id,
+                    utility_ids,
+                    list(before_utility.values_list("utility_id", flat=True)[:50]),
+                )
+
+    mode = getattr(tv_config, "utility_name_mode", "display_name") if tv_config else "display_name"
+    booking_fields = (
+        list(tv_config.booking_fields)
+        if tv_config and tv_config.booking_fields
+        else ["name", "phone", "guest_count", "datetime", "token"]
+    )
+    max_items = int(getattr(tv_config, "items_to_show", 5) or 5) if tv_config else 5
+    max_items = max(1, min(max_items, 5))
+
+    show_customer_name = getattr(tv_config, "show_customer_name", True) if tv_config else True
+    show_phone = getattr(tv_config, "show_phone_number", True) if tv_config else True
+    show_order_details = getattr(tv_config, "show_order_details", True) if tv_config else True
+
+    def utility_label(order):
+        u = order.utility
+        if not u:
+            return None
+        return getattr(u, mode, None) or u.display_name or u.name
+
+    def serialize_row(order):
+        row = {
+            "id": order.id,
+            "status": order.status,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+        }
+        ul = utility_label(order)
+        if ul:
+            row["utility_label"] = ul
+        if "name" in booking_fields and show_customer_name:
+            row["customer_name"] = order.customer_name
+        if "phone" in booking_fields and show_phone:
+            row["phone_number"] = order.phone_number
+        if "guest_count" in booking_fields and show_order_details:
+            row["guest_count"] = order.no_of_packs
+        if "datetime" in booking_fields:
+            row["booked_at"] = order.created_at.isoformat() if order.created_at else None
+        if "token" in booking_fields:
+            row["table_booking_no"] = order.table_booking_no
+            row["token_no"] = order.token_no
+        if show_order_details and order.remarks:
+            row["remarks"] = order.remarks
+        return row
+
+    waiting_qs = qs.filter(status__in=_DINE_FLASH_WAITING_STATUSES).order_by("created_at")
+    active_qs = qs.filter(status__in=_DINE_FLASH_ACTIVE_TABLE_STATUSES).order_by("-created_at")
+
+    waiting = [serialize_row(o) for o in waiting_qs[:max_items]]
+    active_tables = [serialize_row(o) for o in active_qs[:max_items]]
+
+    table_booking_url = None
+    tracking_qr_base_url = None
+    if request:
+        try:
+            path = reverse("table_booking")
+            table_booking_url = request.build_absolute_uri(f"{path}?vendor_id={vendor.vendor_id}")
+        except Exception:
+            if getattr(settings, "PROJECT_NAME", ""):
+                table_booking_url = request.build_absolute_uri(
+                    f"/{settings.PROJECT_NAME}/table_booking/?vendor_id={vendor.vendor_id}"
+                )
+        # Dynamic QR base should open the booking form first (not home).
+        tracking_qr_base_url = table_booking_url
+
+    payload = {
+        "display_mode": "table_booking",
+        "data_source": "dine_flash",
+        "vendor_id": vendor.vendor_id,
+        "location_id": getattr(vendor, "location_id", None),
+        "waiting": waiting,
+        "active_tables": active_tables,
+        "ongoing_tables": active_tables,  # clearer alias for frontend readability
+        "counts": {
+            "waiting": waiting_qs.count(),
+            "active_tables": active_qs.count(),
+            "ongoing_tables": active_qs.count(),
+        },
+        # Display-limited counts for UI rendering indicators
+        "displayed_counts": {
+            "waiting": len(waiting),
+            "active_tables": len(active_tables),
+            "ongoing_tables": len(active_tables),
+        },
+        "table_booking_url": table_booking_url,
+        "tracking_qr_base_url": tracking_qr_base_url,
+        "qr_expiry_minutes": getattr(tv_config, "qr_expiry_minutes", None) if tv_config else None,
+        "qr_date_format": _DINE_FLASH_QR_DATE_FORMAT,
+        "qr_time_format": _DINE_FLASH_QR_TIME_FORMAT,
+        "qr_date_part_digits": _DINE_FLASH_QR_DATE_PART_DIGITS,
+        "qr_time_part_digits": _DINE_FLASH_QR_TIME_PART_DIGITS,
+    }
+    if used_created_at_fallback:
+        payload["meta"] = {
+            "created_at_fallback": True,
+            "fallback_hours": fallback_hours,
+        }
+    return payload
+
 
 def build_vendor_config_payload(vendor):
     """

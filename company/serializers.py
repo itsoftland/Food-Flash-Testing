@@ -6,7 +6,8 @@ from vendors.models import (Vendor,AndroidDevice,
                             AdminOutlet,UserProfile,
                             AndroidAPK,MqttServerConfig,
                             VendorConfig,OrderStatusHistory,
-                            AdvertisementSlot,TVDeviceConfig,Utility)
+                            AdvertisementSlot,TVDeviceConfig,Utility,
+                            TVAdvertisement)
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
@@ -634,10 +635,50 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
 
 
 ALLOWED_BOOKING_FIELDS = {"name", "phone", "guest_count", "datetime", "token"}
+MAX_FOOTER_TEXTS = 8
+MAX_TV_ADS_PER_CONFIGURATION = 15
+
+
+class TVAdvertisementSerializer(serializers.ModelSerializer):
+    media_url = serializers.SerializerMethodField()
+    media_cache_key = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TVAdvertisement
+        fields = [
+            "id",
+            "title",
+            "media_type",
+            "media_url",
+            "sequence",
+            "is_active",
+            "media_cache_key",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_media_url(self, obj):
+        request = self.context.get("request")
+        if not obj.media_file:
+            return None
+        if request:
+            return request.build_absolute_uri(obj.media_file.url)
+        return obj.media_file.url
+
+    def get_media_cache_key(self, obj):
+        return int(obj.updated_at.timestamp()) if obj.updated_at else None
 
 class TVDeviceConfigSerializer(serializers.ModelSerializer):
     admin_outlet = serializers.PrimaryKeyRelatedField(queryset=AdminOutlet.objects.all(), required=True)
     utilities = serializers.PrimaryKeyRelatedField(many=True, queryset=Utility.objects.all(), required=False, allow_empty=True)
+    advertisement_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=TVAdvertisement.objects.all(),
+        required=False,
+        write_only=True,
+        source="advertisements",
+    )
+    advertisements = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = TVDeviceConfig
@@ -654,8 +695,86 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             "utilities",
             "created_at",
             "updated_at",
+            # New fields
+            "display_rows",
+            "display_columns",
+            "token_font_size",
+            "counter_font_size",
+            "utility_font_size",
+            "token_text_color",
+            "counter_text_color",
+            "utility_text_color",
+            "show_customer_name",
+            "show_phone_number",
+            "show_order_details",
+            "audio_enabled",
+            "announcement_language",
+            "blink_token",
+            "blink_utility",
+            "qr_placement",
+            "qr_base_url",
+            "qr_expiry_minutes",
+            "enable_ads",
+            "ad_position",
+            "ad_interval",
+            "video_ad_mode",
+            "header_font_size",
+            "header_font_style",
+            "header_text_color",
+            "footer_enabled",
+            "footer_texts",
+            "advertisements",
+            "advertisement_ids",
         ]
         read_only_fields = ("created_at", "updated_at", "id")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # If we have an instance or data, we can check the outlet
+        # NOTE: DRF commonly passes `instance` positionally, so rely on self.instance.
+        instance = getattr(self, "instance", None)
+        data = kwargs.get('data')
+        
+        admin_outlet = None
+        if instance:
+            if hasattr(instance, "admin_outlet"):
+                admin_outlet = instance.admin_outlet
+            elif hasattr(instance, "first"):
+                first_instance = instance.first()
+                admin_outlet = getattr(first_instance, "admin_outlet", None) if first_instance else None
+            elif isinstance(instance, (list, tuple)):
+                first_instance = instance[0] if instance else None
+                admin_outlet = getattr(first_instance, "admin_outlet", None) if first_instance else None
+        elif data:
+            outlet_id = data.get('admin_outlet')
+            if outlet_id:
+                try:
+                    admin_outlet = AdminOutlet.objects.get(id=outlet_id)
+                except (AdminOutlet.DoesNotExist, ValueError, TypeError):
+                    pass
+        
+        is_dine_flash = admin_outlet and admin_outlet.project_code == 'dine_flash'
+        
+        if not is_dine_flash:
+            # Fields to remove for non-Dine Flash variants
+            dine_flash_fields = [
+                "display_rows", "display_columns",
+                "token_font_size", "counter_font_size", "utility_font_size",
+                "token_text_color", "counter_text_color", "utility_text_color",
+                "show_customer_name", "show_phone_number", "show_order_details",
+                "audio_enabled", "announcement_language",
+                "blink_token", "blink_utility",
+                "qr_placement", "qr_base_url", "qr_expiry_minutes",
+                "enable_ads", "ad_position", "ad_interval",
+                "video_ad_mode",
+                "header_font_size", "header_font_style", "header_text_color",
+                "footer_enabled", "footer_texts",
+                "advertisements", "advertisement_ids",
+            ]
+            for field in dine_flash_fields:
+                if field in self.fields:
+                    self.fields.pop(field)
 
     def validate_items_to_show(self, value):
         if value < 1 or value > 5:
@@ -675,8 +794,9 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         show_qr = attrs.get("show_qr", getattr(self.instance, "show_qr", False))
         qr_alignment = attrs.get("qr_alignment", getattr(self.instance, "qr_alignment", None))
-        if show_qr and not qr_alignment:
-            raise serializers.ValidationError({"qr_alignment": "qr_alignment is required when show_qr is true."})
+        qr_placement = attrs.get("qr_placement", getattr(self.instance, "qr_placement", None))
+        if show_qr and not qr_alignment and not qr_placement:
+            raise serializers.ValidationError({"qr_alignment": "qr_alignment or qr_placement is required when show_qr is true."})
 
         # utilities -- ensure they belong to the same admin_outlet when provided
         utilities = attrs.get("utilities", None)
@@ -687,22 +807,102 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             if bad:
                 raise serializers.ValidationError({"utilities": f"Utilities {bad} do not belong to the same vendor as admin_outlet."})
 
+        ad_interval = attrs.get("ad_interval", getattr(self.instance, "ad_interval", 8))
+        if ad_interval < 3 or ad_interval > 120:
+            raise serializers.ValidationError({"ad_interval": "ad_interval must be between 3 and 120 seconds."})
+
+        advertisements = attrs.get("advertisements", None)
+        if advertisements is not None and admin_outlet:
+            if len(advertisements) > MAX_TV_ADS_PER_CONFIGURATION:
+                raise serializers.ValidationError(
+                    {
+                        "advertisement_ids": (
+                            f"A maximum of {MAX_TV_ADS_PER_CONFIGURATION} advertisements can be assigned per configuration."
+                        )
+                    }
+                )
+            invalid_ads = [ad.id for ad in advertisements if ad.admin_outlet_id != admin_outlet.id]
+            if invalid_ads:
+                raise serializers.ValidationError(
+                    {"advertisement_ids": f"Advertisements {invalid_ads} do not belong to this outlet."}
+                )
+
+        footer_enabled = attrs.get("footer_enabled", getattr(self.instance, "footer_enabled", False))
+        footer_texts = attrs.get("footer_texts", getattr(self.instance, "footer_texts", []))
+        if footer_texts is None:
+            footer_texts = []
+        if not isinstance(footer_texts, list):
+            raise serializers.ValidationError({"footer_texts": "footer_texts must be a list of strings."})
+        cleaned_footer_texts = []
+        for item in footer_texts:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                cleaned_footer_texts.append(text[:120])
+        if len(cleaned_footer_texts) > MAX_FOOTER_TEXTS:
+            raise serializers.ValidationError(
+                {"footer_texts": f"Maximum {MAX_FOOTER_TEXTS} footer texts are allowed."}
+            )
+        if footer_enabled and len(cleaned_footer_texts) == 0:
+            raise serializers.ValidationError(
+                {"footer_texts": "Add at least one footer text when footer is enabled."}
+            )
+        attrs["footer_texts"] = cleaned_footer_texts
+
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
         utilities = validated_data.pop("utilities", [])
+        advertisements = validated_data.pop("advertisements", [])
         config = TVDeviceConfig.objects.create(**validated_data)
         if utilities:
             config.utilities.set(utilities)
+        if advertisements:
+            config.advertisements.set(advertisements)
         return config
 
     @transaction.atomic
     def update(self, instance, validated_data):
         utilities = validated_data.pop("utilities", None)
+        advertisements = validated_data.pop("advertisements", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         if utilities is not None:
             instance.utilities.set(utilities)
+        if advertisements is not None:
+            instance.advertisements.set(advertisements)
         return instance
+
+    def get_advertisements(self, instance):
+        ads_qs = instance.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
+        return TVAdvertisementSerializer(ads_qs, many=True, context=self.context).data
+
+    def to_representation(self, instance):
+        """
+        Exclude new fields from representation if the outlet is NOT Dine Flash.
+        """
+        rep = super().to_representation(instance)
+        
+        # Check if it's Dine Flash
+        is_dine_flash = instance.admin_outlet and instance.admin_outlet.project_code == 'dine_flash'
+        
+        if not is_dine_flash:
+            # List of fields to exclude for non-Dine Flash variants
+            new_fields = [
+                "display_rows", "display_columns",
+                "token_font_size", "counter_font_size", "utility_font_size",
+                "token_text_color", "counter_text_color", "utility_text_color",
+                "show_customer_name", "show_phone_number", "show_order_details",
+                "audio_enabled", "announcement_language",
+                "blink_token", "blink_utility",
+                "qr_placement", "qr_base_url",
+                "enable_ads", "ad_position", "ad_interval", "video_ad_mode", "advertisements"
+                , "header_font_size", "header_font_style", "header_text_color", "footer_enabled", "footer_texts"
+            ]
+            for field in new_fields:
+                rep.pop(field, None)
+                
+        return rep

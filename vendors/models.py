@@ -518,6 +518,40 @@ class TVDeviceConfig(models.Model):
         ("right", "Right"),
     ]
 
+    QR_PLACEMENT_CHOICES = [
+        ("top-left", "Top Left"),
+        ("top-right", "Top Right"),
+        ("bottom-left", "Bottom Left"),
+        ("bottom-right", "Bottom Right"),
+    ]
+    AD_POSITION_CHOICES = [
+        ("right", "Right Side"),
+        ("left", "Left Side"),
+        ("bottom", "Bottom Strip"),
+        ("full_width", "Full Width Banner"),
+    ]
+    VIDEO_AD_MODE_CHOICES = [
+        ("play_full", "Play Full Video"),
+        ("respect_interval", "Respect Ad Interval"),
+    ]
+    HEADER_FONT_STYLE_CHOICES = [
+        ("regular", "Regular"),
+        ("medium", "Medium"),
+        ("bold", "Bold"),
+    ]
+
+    FONT_SIZE_CHOICES = [
+        ("small", "Small"),
+        ("medium", "Medium"),
+        ("large", "Large"),
+        ("extra-large", "Extra Large"),
+    ]
+
+    LANGUAGE_CHOICES = [
+        ("English", "English"),
+        ("Malayalam", "Malayalam"),
+    ]
+
     UTILITY_DISPLAY_KEY_CHOICES = [
         ("name", "Utility Name"),
         ("display_name", "Display Name"),
@@ -559,8 +593,57 @@ class TVDeviceConfig(models.Model):
         blank=True
     )
 
-    # 7. Config name
+    # 7. Dine Flash Specific Configuration (Extended)
+    # 7a. Display Settings
+    display_rows = models.PositiveIntegerField(default=1)
+    display_columns = models.PositiveIntegerField(default=1)
+    token_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="large")
+    counter_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="medium")
+    utility_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="small")
+    
+    token_text_color = models.CharField(max_length=7, default="#000000") # Hex color
+    counter_text_color = models.CharField(max_length=7, default="#000000")
+    utility_text_color = models.CharField(max_length=7, default="#000000")
+
+    # 7b. Visibility Settings
+    show_customer_name = models.BooleanField(default=True)
+    show_phone_number = models.BooleanField(default=True)
+    show_order_details = models.BooleanField(default=True)
+
+    # 7c. Audio Settings
+    audio_enabled = models.BooleanField(default=False)
+    announcement_language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, default="English")
+
+    # 7d. Animation Settings
+    blink_token = models.BooleanField(default=False)
+    blink_utility = models.BooleanField(default=False)
+
+    # 7e. QR Code Settings (Extended)
+    qr_placement = models.CharField(max_length=20, choices=QR_PLACEMENT_CHOICES, default="bottom-right")
+    qr_base_url = models.CharField(max_length=500, blank=True, null=True)
+    # How long a dynamically generated QR remains valid (Dine Flash only).
+    # QR encodes generation date+time; backend allows scans only within this window.
+    qr_expiry_minutes = models.PositiveSmallIntegerField(default=5)
+
+    # 8. Config name
     config_name = models.CharField(max_length=255,blank=True,null=True)
+
+    # 9. Dine Flash Ad Settings
+    enable_ads = models.BooleanField(default=False)
+    ad_position = models.CharField(max_length=20, choices=AD_POSITION_CHOICES, default="right")
+    ad_interval = models.PositiveSmallIntegerField(default=8)
+    video_ad_mode = models.CharField(max_length=20, choices=VIDEO_AD_MODE_CHOICES, default="play_full")
+    advertisements = models.ManyToManyField(
+        "TVAdvertisement",
+        related_name="tv_configs",
+        blank=True,
+    )
+    # 10. Dine Flash Token Header/Footer
+    header_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="large")
+    header_font_style = models.CharField(max_length=20, choices=HEADER_FONT_STYLE_CHOICES, default="bold")
+    header_text_color = models.CharField(max_length=7, default="#000000")
+    footer_enabled = models.BooleanField(default=False)
+    footer_texts = models.JSONField(default=list, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True,db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -580,6 +663,33 @@ class SiteConfig(models.Model):
 
     def __str__(self):
         return "Site Configuration"
+
+
+class TVAdvertisement(models.Model):
+    MEDIA_TYPE_CHOICES = [
+        ("image", "Image"),
+        ("video", "Video"),
+    ]
+
+    admin_outlet = models.ForeignKey(
+        AdminOutlet,
+        on_delete=models.CASCADE,
+        related_name="tv_advertisements",
+    )
+    title = models.CharField(max_length=120, blank=True, null=True)
+    media_file = models.FileField(upload_to="tv_ads/")
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES)
+    sequence = models.PositiveIntegerField(default=1, db_index=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        label = self.title or self.media_file.name
+        return f"{label} ({self.media_type})"
+
+    class Meta:
+        ordering = ["sequence", "created_at", "id"]
 
 class AdvertisementImage(models.Model):
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE, related_name='ad_images')

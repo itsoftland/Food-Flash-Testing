@@ -20,7 +20,7 @@
         <h1 class="page-title">TV Configurations</h1>
       </div>
       <div class="col-sm-6 text-end">
-        <a href="{% url 'company:android_tv_config' %}" class="btn-add-config">
+        <a href="{% url 'company:tv_configuration' %}" class="btn-add-config">
           <i class="fas fa-plus"></i> Add Configuration
         </a>
       </div>
@@ -84,7 +84,7 @@
           <i class="fas fa-inbox"></i>
           <h3>No configurations found</h3>
           <p>No configurations match your filters. Try adjusting your search criteria.</p>
-          <a href="{% url 'company:android_tv_config' %}" class="btn-create-config">
+          <a href="{% url 'company:tv_configuration' %}" class="btn-create-config">
             <i class="fas fa-plus"></i> Create Configuration
           </a>
         </div>
@@ -135,6 +135,16 @@
           <!-- Alert for validation errors -->
           <div id="edit-alert" class="alert" style="display: none;"></div>
 
+          <div class="form-section">
+            <h6 class="form-section-title">Basic Details</h6>
+            <div class="row g-3">
+              <div class="form-group col-lg-12">
+                <label for="edit-config-name" class="form-label">Configuration Name</label>
+                <input type="text" id="edit-config-name" name="config_name" class="form-control form-control-sm" />
+              </div>
+            </div>
+          </div>
+
           <!-- QR Settings -->
           <div class="form-section">
             <h6 class="form-section-title">QR Code & Display</h6>
@@ -146,12 +156,21 @@
                 </div>
               </div>
               <div class="form-group col-lg-6">
-                <label for="edit-qr-alignment" class="form-label">QR Alignment</label>
-                <select id="edit-qr-alignment" name="qr_alignment" class="form-select form-select-sm" disabled>
-                  <option value="">-- Select --</option>
-                  <option value="left">Left</option>
-                  <option value="right">Right</option>
+                <label for="edit-qr-placement" class="form-label">QR Placement</label>
+                <select id="edit-qr-placement" name="qr_placement" class="form-select form-select-sm">
+                  <option value="top-left">Top Left</option>
+                  <option value="top-right">Top Right</option>
+                  <option value="bottom-left">Bottom Left</option>
+                  <option value="bottom-right">Bottom Right</option>
                 </select>
+              </div>
+              <div class="form-group col-lg-6">
+                <label for="edit-qr-base-url" class="form-label">QR Base URL</label>
+                <input type="url" id="edit-qr-base-url" name="qr_base_url" class="form-control form-control-sm" />
+              </div>
+              <div class="form-group col-lg-6">
+                <label for="edit-qr-expiry-minutes" class="form-label">QR Expiry (minutes)</label>
+                <input type="number" id="edit-qr-expiry-minutes" name="qr_expiry_minutes" class="form-control form-control-sm" min="1" max="1440" value="5" />
               </div>
             </div>
           </div>
@@ -201,10 +220,87 @@
             </div>
           </div>
 
+          {% if PROJECT_NAME == "dine_flash" %}
+          <div class="form-section">
+            <h6 class="form-section-title">Display Settings</h6>
+            <div class="row g-3">
+              <div class="form-group col-lg-4">
+                <label for="edit-display-rows" class="form-label">Display Rows</label>
+                <input type="number" id="edit-display-rows" name="display_rows" class="form-control form-control-sm" min="1" max="10" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-display-columns" class="form-label">Display Columns</label>
+                <input type="number" id="edit-display-columns" name="display_columns" class="form-control form-control-sm" min="1" max="10" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-token-font-size" class="form-label">Token Font Size</label>
+                <select id="edit-token-font-size" name="token_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-counter-font-size" class="form-label">Counter Font Size</label>
+                <select id="edit-counter-font-size" name="counter_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-utility-font-size" class="form-label">Utility Font Size</label>
+                <select id="edit-utility-font-size" name="utility_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-header-font-size" class="form-label">Header Font Size</label>
+                <select id="edit-header-font-size" name="header_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-header-font-style" class="form-label">Header Font Style</label>
+                <select id="edit-header-font-style" name="header_font_style" class="form-select form-select-sm">
+                  <option value="regular">Regular</option>
+                  <option value="medium">Medium</option>
+                  <option value="bold">Bold</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-token-text-color" class="form-label">Token Text Color</label>
+                <input type="color" id="edit-token-text-color" name="token_text_color" class="form-control form-control-color" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-counter-text-color" class="form-label">Counter Text Color</label>
+                <input type="color" id="edit-counter-text-color" name="counter_text_color" class="form-control form-control-color" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-utility-text-color" class="form-label">Utility Text Color</label>
+                <input type="color" id="edit-utility-text-color" name="utility_text_color" class="form-control form-control-color" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-header-text-color" class="form-label">Header Text Color</label>
+                <input type="color" id="edit-header-text-color" name="header_text_color" class="form-control form-control-color" />
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
           <!-- Booking Fields -->
+          {% if PROJECT_NAME == "dine_flash" %}
           <div class="form-section">
             <h6 class="form-section-title">Fields to Display</h6>
-            <div class="booking-fields-container">
+            <div class="booking-fields-container d-flex flex-column gap-2 mt-2">
               <div class="form-check ps-0">
                 <input type="checkbox" id="edit-field-name" name="booking_fields" value="name"
                   class="form-check-input" />
@@ -222,6 +318,103 @@
               </div>
             </div>
           </div>
+
+          <div class="form-section">
+            <h6 class="form-section-title">Visibility, Audio and Ads</h6>
+            <div class="row g-3">
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-show-customer-name" name="show_customer_name" class="form-check-input" />
+                  <label class="form-check-label" for="edit-show-customer-name">Show Customer Name</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-show-phone-number" name="show_phone_number" class="form-check-input" />
+                  <label class="form-check-label" for="edit-show-phone-number">Show Phone Number</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-show-order-details" name="show_order_details" class="form-check-input" />
+                  <label class="form-check-label" for="edit-show-order-details">Show No of Packs</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-audio-enabled" name="audio_enabled" class="form-check-input" />
+                  <label class="form-check-label" for="edit-audio-enabled">Enable Audio</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <label for="edit-announcement-language" class="form-label">Announcement Language</label>
+                <select id="edit-announcement-language" name="announcement_language" class="form-select form-select-sm">
+                  <option value="English">English</option>
+                  <option value="Malayalam">Malayalam</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-blink-token" name="blink_token" class="form-check-input" />
+                  <label class="form-check-label" for="edit-blink-token">Blink Token</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-blink-utility" name="blink_utility" class="form-check-input" />
+                  <label class="form-check-label" for="edit-blink-utility">Blink Utility</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-enable-ads" name="enable_ads" class="form-check-input" />
+                  <label class="form-check-label" for="edit-enable-ads">Enable Ads</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-ad-interval" class="form-label">Ad Interval (seconds)</label>
+                <input type="number" id="edit-ad-interval" name="ad_interval" class="form-control form-control-sm" min="3" max="120" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-video-ad-mode" class="form-label">Video Playback Mode</label>
+                <select id="edit-video-ad-mode" name="video_ad_mode" class="form-select form-select-sm">
+                  <option value="play_full">Play Full Video</option>
+                  <option value="respect_interval">Respect Ad Interval</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-12">
+                <label for="edit-advertisements-list" class="form-label">Assigned Advertisements</label>
+                <select id="edit-advertisements-list" name="advertisement_ids" class="form-select form-select-sm" multiple></select>
+              </div>
+              <div class="form-group col-lg-8">
+                <label for="edit-ad-files" class="form-label">Upload Ad Media (image/video)</label>
+                <input type="file" id="edit-ad-files" class="form-control form-control-sm" accept="image/*,video/*" multiple>
+                <small class="text-muted">Upload image or video files (max 100MB each).</small>
+              </div>
+              <div class="form-group col-lg-4 d-flex align-items-end">
+                <button type="button" id="edit-upload-ads-btn" class="btn btn-outline-primary btn-sm w-100">
+                  <i class="fas fa-upload me-1"></i>Upload Ads
+                </button>
+              </div>
+              <div class="form-group col-lg-12">
+                <label class="form-label">Available Advertisements</label>
+                <div id="edit-ad-list" class="border rounded p-2 bg-light">
+                  <p class="text-muted mb-0">No advertisements uploaded.</p>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-footer-enabled" name="footer_enabled" class="form-check-input" />
+                  <label class="form-check-label" for="edit-footer-enabled">Enable Footer</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-9">
+                <label for="edit-footer-texts" class="form-label">Footer Texts (one per line)</label>
+                <textarea id="edit-footer-texts" name="footer_texts" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -247,36 +440,6 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" id="confirm-delete-btn" class="btn btn-danger">Delete</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- View Configuration Modal -->
-<div id="view-modal" class="modal fade" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Configuration Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-
-        <!-- Utilities -->
-        <div class="form-section">
-          <h6 class="form-section-title">Assigned Utilities</h6>
-          <div id="view-utilities" class="d-flex flex-wrap gap-2"></div>
-        </div>
-
-        <!-- Booking Fields -->
-        <div class="form-section">
-          <h6 class="form-section-title">Visible Booking Fields</h6>
-          <div id="view-booking-fields" class="d-flex flex-wrap gap-2"></div>
-        </div>
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

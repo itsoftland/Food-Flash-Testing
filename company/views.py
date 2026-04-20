@@ -3,6 +3,7 @@ import logging
 import random
 
 from django.db import transaction
+from django.db.models import Max
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -26,7 +27,8 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             ArchivedOrder,UserProfile,
                             AndroidAPK,VendorConfig,
                             OrderStatusHistory,ArchivedOrderStatusHistory,
-                            Utility,TVDeviceConfig,UtilityOption)
+                            Utility,TVDeviceConfig,UtilityOption,
+                            TVAdvertisement)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
@@ -45,7 +47,8 @@ from .serializers import (VendorSerializer,
                           DeviceSerializer,AndroidDeviceSerializer,
                           OrderSerializer,UserProfileCreateSerializer,
                           UserListDetailSerializer,ManagerDeviceSerializer,
-                          OrderStatusHistorySerializer,TVDeviceConfigSerializer
+                          OrderStatusHistorySerializer,TVDeviceConfigSerializer,
+                          TVAdvertisementSerializer
                           )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +99,10 @@ def android_tv_config(request):
 @login_required
 def tv_config_list_page(request):
     return render(request, 'company/tv_config_list.html')
+
+@login_required
+def tv_configuration_page(request):
+    return render(request, 'company/tv_configuration.html')
 
 @login_required
 def banners(request):
@@ -1502,7 +1509,7 @@ def create_utility(request):
 
         # ---- Utility Feature Check ----
         config = getattr(vendor, 'config', None)
-        if config.use_utilities is False and not is_buffet:
+        if config and config.use_utilities is False and not is_buffet:
             logger.warning(f"[UtilityCreate] Vendor {vendor_id} has utilities disabled")
             return Response(
                 {"error": "Utilities feature is disabled for this vendor"},
@@ -1614,31 +1621,87 @@ def tv_config_create(request):
         # Extract fields for duplicate check
         show_qr = data.get("show_qr")
         qr_alignment = data.get("qr_alignment")
+        qr_placement = data.get("qr_placement")
         booking_display_count = data.get("items_to_show")
         booking_fields = data.get("booking_fields") or []
         utility_name_mode = data.get("utility_name_mode")
         screen_orientation = data.get("screen_orientation")
         utility_ids = data.get("utilities") or []
+        enable_ads = data.get("enable_ads")
+        ad_position = data.get("ad_position")
+        ad_interval = data.get("ad_interval")
+        video_ad_mode = data.get("video_ad_mode")
+        header_font_size = data.get("header_font_size")
+        header_font_style = data.get("header_font_style")
+        header_text_color = data.get("header_text_color")
+        footer_enabled = data.get("footer_enabled")
+        footer_texts = data.get("footer_texts") or []
+        advertisement_ids = data.get("advertisement_ids") or []
+
+        def _sorted_int_ids(raw):
+            """Avoid TypeError from sorted() on lists with None or mixed types (e.g. JSON null)."""
+            if not raw:
+                return []
+            out = []
+            for x in raw:
+                if x is None:
+                    continue
+                try:
+                    out.append(int(x))
+                except (TypeError, ValueError):
+                    continue
+            return sorted(out)
+
+        utility_ids = _sorted_int_ids(utility_ids)
+        advertisement_ids = _sorted_int_ids(advertisement_ids)
+        data["utilities"] = utility_ids
+        data["advertisement_ids"] = advertisement_ids
+
+        if isinstance(booking_fields, (list, tuple)):
+            booking_fields = list(booking_fields)
+        else:
+            booking_fields = [booking_fields] if booking_fields not in (None, "") else []
+        data["booking_fields"] = booking_fields
+
         # ------------------------------------------------------
         #                 DUPLICATE CHECK
         # ------------------------------------------------------
-        existing_configs = TVDeviceConfig.objects.filter(
-            admin_outlet=admin_outlet,
-            show_qr=show_qr,
-            qr_alignment=qr_alignment,
-            items_to_show=booking_display_count,
-            utility_name_mode=utility_name_mode,
-            screen_orientation=screen_orientation,
-        )
+        filter_kwargs = {
+            "admin_outlet": admin_outlet,
+            "show_qr": show_qr,
+            "items_to_show": booking_display_count,
+            "utility_name_mode": utility_name_mode,
+            "screen_orientation": screen_orientation,
+            "enable_ads": enable_ads,
+            "ad_position": ad_position,
+            "ad_interval": ad_interval,
+            "video_ad_mode": video_ad_mode,
+            "header_font_size": header_font_size,
+            "header_font_style": header_font_style,
+            "header_text_color": header_text_color,
+            "footer_enabled": footer_enabled,
+        }
+        if qr_alignment is not None:
+            filter_kwargs["qr_alignment"] = qr_alignment
+        if qr_placement is not None:
+            filter_kwargs["qr_placement"] = qr_placement
+            
+        existing_configs = TVDeviceConfig.objects.filter(**filter_kwargs)
 
         for config in existing_configs:
             # Compare booking fields list
-            if sorted(config.booking_fields) != sorted(booking_fields):
+            db_booking_fields = config.booking_fields or []
+            if sorted(db_booking_fields) != sorted(booking_fields):
                 continue
 
             # Compare utilities list
             existing_util_ids = list(config.utilities.values_list("id", flat=True))
-            if sorted(existing_util_ids) != sorted(utility_ids):
+            if sorted(existing_util_ids) != utility_ids:
+                continue
+            existing_ad_ids = list(config.advertisements.values_list("id", flat=True))
+            if sorted(existing_ad_ids) != advertisement_ids:
+                continue
+            if (config.footer_texts or []) != (footer_texts or []):
                 continue
 
             # All params matched → duplicate
@@ -1689,7 +1752,7 @@ def tv_config_list(request):
         configs = (
             admin_outlet.tv_device_configs
                 .select_related("admin_outlet")
-                .prefetch_related("utilities")
+                .prefetch_related("utilities", "advertisements")
                 .order_by("-created_at")
         )
         serializer = TVDeviceConfigSerializer(configs, many=True)
@@ -1793,6 +1856,143 @@ def tv_config_delete(request, config_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+def _ensure_dine_flash_admin_outlet(request):
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return None, Response(
+            {"error": "User is not associated with any admin outlet."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if admin_outlet.project_code != "dine_flash":
+        return None, Response(
+            {"error": "This endpoint is available only for Dine Flash."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return admin_outlet, None
+
+
+MAX_TV_AD_FILE_BYTES = 100 * 1024 * 1024
+
+
+def _validate_tv_ad_media(media, media_type):
+    if media_type not in ("image", "video"):
+        return False, "Unsupported media type."
+    if media.size > MAX_TV_AD_FILE_BYTES:
+        return False, "File exceeds 100MB limit."
+    return True, None
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def tv_ads_list(request):
+    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    if error_response:
+        return error_response
+    ads = TVAdvertisement.objects.filter(admin_outlet=admin_outlet).order_by("sequence", "created_at", "id")
+    return Response({"ads": TVAdvertisementSerializer(ads, many=True, context={"request": request}).data}, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def tv_ads_upload(request):
+    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    if error_response:
+        return error_response
+
+    files = request.FILES.getlist("ads")
+    if not files:
+        return Response({"error": "No files uploaded."}, status=400)
+
+    validated = []
+    errors = []
+    for media in files:
+        content_type = (getattr(media, "content_type", "") or "").lower()
+        media_type = (
+            "image" if content_type.startswith("image/") else "video" if content_type.startswith("video/") else None
+        )
+        if not media_type:
+            errors.append(f"{getattr(media, 'name', 'file')}: only image and video files are allowed.")
+            continue
+        is_valid, reason = _validate_tv_ad_media(media, media_type)
+        if not is_valid:
+            errors.append(f"{getattr(media, 'name', 'file')}: {reason}")
+            continue
+        validated.append((media, media_type))
+
+    if errors:
+        return Response({"error": " ".join(errors)}, status=400)
+    if not validated:
+        return Response({"error": "No valid image/video files uploaded."}, status=400)
+
+    created_ads = []
+    next_sequence = (TVAdvertisement.objects.filter(admin_outlet=admin_outlet).aggregate(max_seq=Max("sequence"))["max_seq"] or 0) + 1
+    for media, media_type in validated:
+        created_ads.append(
+            TVAdvertisement.objects.create(
+                admin_outlet=admin_outlet,
+                title=request.data.get("title") or media.name,
+                media_file=media,
+                media_type=media_type,
+                sequence=next_sequence,
+            )
+        )
+        next_sequence += 1
+
+    payload = TVAdvertisementSerializer(created_ads, many=True, context={"request": request}).data
+    return Response({"message": "Advertisements uploaded.", "ads": payload}, status=201)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def tv_ads_update(request, ad_id):
+    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    if error_response:
+        return error_response
+
+    ad = get_object_or_404(TVAdvertisement, id=ad_id, admin_outlet=admin_outlet)
+    title = request.data.get("title")
+    is_active = request.data.get("is_active")
+    sequence = request.data.get("sequence")
+    update_fields = []
+
+    if title is not None:
+        ad.title = title
+        update_fields.append("title")
+    if is_active is not None:
+        ad.is_active = str(is_active).lower() in ("true", "1", "yes")
+        update_fields.append("is_active")
+    if sequence is not None:
+        try:
+            seq = int(sequence)
+            if seq < 1:
+                return Response({"error": "sequence must be >= 1."}, status=400)
+            ad.sequence = seq
+            update_fields.append("sequence")
+        except (TypeError, ValueError):
+            return Response({"error": "sequence must be an integer."}, status=400)
+    if update_fields:
+        ad.save(update_fields=update_fields + ["updated_at"])
+
+    return Response(
+        {"message": "Advertisement updated.", "ad": TVAdvertisementSerializer(ad, context={"request": request}).data},
+        status=200,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def tv_ads_delete(request, ad_id):
+    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    if error_response:
+        return error_response
+
+    ad = get_object_or_404(TVAdvertisement, id=ad_id, admin_outlet=admin_outlet)
+    ad.delete()
+    return Response({"message": "Advertisement deleted."}, status=200)
+
+
 # -------------------------
 # Assign config to device
 # POST /tv-config/assign/
@@ -1802,6 +2002,10 @@ def tv_config_delete(request, config_id):
 @permission_classes([IsAuthenticated])
 def tv_config_assign(request):
     try:
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+        if not admin_outlet:
+            return Response({"error": "Admin outlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+
         device_id = request.data.get("device_id")
         config_id = request.data.get("config_id")
 
@@ -1813,6 +2017,9 @@ def tv_config_assign(request):
         if not device:
             logger.warning(f"tv_config_assign: Invalid device_id '{device_id}'.")
             return Response({"error": "Invalid device_id."}, status=status.HTTP_404_NOT_FOUND)
+        if device.admin_outlet_id != admin_outlet.id:
+            logger.warning("tv_config_assign: User tried assigning config to unauthorized device.")
+            return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
 
         config = TVDeviceConfig.objects.filter(id=config_id).first()
         if not config:
@@ -1843,6 +2050,10 @@ def tv_config_assign(request):
 @permission_classes([IsAuthenticated])
 def tv_config_clear(request):
     try:
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+        if not admin_outlet:
+            return Response({"error": "Admin outlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+
         device_id = request.data.get("device_id")
         if not device_id:
             logger.warning("tv_config_clear: device_id missing in request.")
@@ -1852,6 +2063,9 @@ def tv_config_clear(request):
         if not device:
             logger.warning(f"tv_config_clear: Invalid device_id '{device_id}'.")
             return Response({"error": "Invalid device_id."}, status=status.HTTP_404_NOT_FOUND)
+        if device.admin_outlet_id != admin_outlet.id:
+            logger.warning("tv_config_clear: User tried clearing config from unauthorized device.")
+            return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
 
         device.tv_config = None
         device.save(update_fields=["tv_config", "updated_at"])

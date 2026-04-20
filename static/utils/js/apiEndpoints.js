@@ -101,6 +101,11 @@ export const API_ENDPOINTS = {
   UPDATE_TV_CONFIG: `${BASE}company/api/tv_config_update/{id}/`,
   DELETE_TV_CONFIG: `${BASE}company/api/tv_config_delete/{id}/`,
   ASSIGN_TV_CONFIG: `${BASE}company/api/tv_config_assign/`,
+  CLEAR_TV_CONFIG: `${BASE}company/api/tv_config_clear/`,
+  TV_ADS_LIST: `${BASE}company/api/tv_ads/list/`,
+  TV_ADS_UPLOAD: `${BASE}company/api/tv_ads/upload/`,
+  TV_ADS_UPDATE: `${BASE}company/api/tv_ads/{id}/update/`,
+  TV_ADS_DELETE: `${BASE}company/api/tv_ads/{id}/delete/`,
   REGISTER_COMPANY: `${BASE}companyadmin/api/register-company/`,
   UPDATE_ORDER: `${BASE}vendors/api/update-order/`,
   COMPANYADMIN_OUTLET_CREATION_DATA: `${BASE}companyadmin/api/get_outlet_creation_data/`,
@@ -121,6 +126,7 @@ export const API_ENDPOINTS = {
   //DINE FLASH SPECIFIC
   UTILITY_LIST: `${BASE}api/utility_list/`,
   TABLE_BOOKING: `${BASE}api/book_table/`,
+  DINE_FLASH_QR_EXCHANGE: `${BASE}api/dine_flash_qr_exchange/`,
 };
 
 // =======================

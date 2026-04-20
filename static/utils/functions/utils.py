@@ -1,10 +1,15 @@
 # static/utils/functions/utils.py
 from datetime import timedelta,datetime
+from django.conf import settings
 from django.utils import timezone
 import pytz
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _is_dine_flash_project():
+    return getattr(settings, "PROJECT_NAME", "").lower() in {"dine_flash", "dine_flash_buffet"}
 
 def get_time_ranges():
     now = timezone.now()
@@ -17,10 +22,30 @@ def get_time_ranges():
 def get_vendor_current_time(vendor):
     """
     Returns the vendor's current localized datetime.
-    Falls back to UTC if no timezone is configured.
+    Falls back to UTC only for Dine Flash when config/timezone is invalid.
     """
-    vendor_tz = getattr(vendor.config, "timezone", None) or "UTC"
-    tz = pytz.timezone(vendor_tz)
+    is_dine_flash = _is_dine_flash_project()
+    vendor_tz = "UTC"
+    cfg = None
+    try:
+        cfg = vendor.config
+    except Exception as exc:
+        if not is_dine_flash:
+            raise
+        logger.warning(
+            "get_vendor_current_time: missing VendorConfig for vendor pk=%s, using UTC (%s)",
+            getattr(vendor, "pk", None),
+            exc,
+        )
+    if cfg is not None:
+        vendor_tz = getattr(cfg, "timezone", None) or "UTC"
+    try:
+        tz = pytz.timezone(vendor_tz)
+    except pytz.UnknownTimeZoneError:
+        if not is_dine_flash:
+            raise
+        logger.warning("get_vendor_current_time: invalid timezone %r, using UTC", vendor_tz)
+        tz = pytz.UTC
     return timezone.now().astimezone(tz)
 
 def get_vendor_current_date(vendor):
@@ -40,20 +65,37 @@ def get_vendor_business_day_range(vendor):
     Returns:
         tuple: (start_datetime_utc, end_datetime_utc)
     """
-    # Gracefully handle null business_day_start_hour
-    start_time = vendor.config.business_day_start_hour
-    if start_time is None:
-        logger.info(
-            f"[get_vendor_business_day_range] business_day_start_hour is None for vendor_id={vendor.id}. "
-            "Defaulting to 00:00:00 (24/7 mode)."
+    is_dine_flash = _is_dine_flash_project()
+    config = None
+    try:
+        config = vendor.config
+    except Exception:
+        if not is_dine_flash:
+            raise
+        logger.warning(
+            "[get_vendor_business_day_range] no VendorConfig for vendor pk=%s; using UTC midnight window",
+            getattr(vendor, "pk", None),
         )
+
+    if config is None:
         start_time = datetime.strptime("00:00:00", "%H:%M:%S").time()
-  
-    vendor_tz = vendor.config.timezone or 'UTC'
+        vendor_tz = "UTC"
+    else:
+        start_time = config.business_day_start_hour
+        if start_time is None:
+            logger.info(
+                "[get_vendor_business_day_range] business_day_start_hour is None for vendor_id=%s. "
+                "Defaulting to 00:00:00 (24/7 mode).",
+                vendor.id,
+            )
+            start_time = datetime.strptime("00:00:00", "%H:%M:%S").time()
+        vendor_tz = config.timezone or "UTC"
 
     try:
         tz = pytz.timezone(vendor_tz)
     except pytz.UnknownTimeZoneError:
+        if not is_dine_flash:
+            raise
         logger.warning(
             f"[get_vendor_business_day_range] Invalid timezone '{vendor_tz}' "
             f"for vendor_id={vendor.id}, defaulting to UTC"

@@ -7,9 +7,10 @@
  * Opens a modal to assign a TV configuration to a device.
  * @param {number} deviceId - The ID of the Android TV device.
  * @param {string} macAddress - The MAC address of the device (for display).
+ * @param {boolean} hasConfig - Whether device already has config mapped.
  * @param {object} ctx - Context object containing API dependencies.
  */
-export async function openAssignConfigModal(deviceId, macAddress, ctx) {
+export async function openAssignConfigModal(deviceId, macAddress, hasConfig, ctx) {
     const { fetchWithAutoRefresh, API_ENDPOINTS, ModalService } = ctx;
 
     const modalBodyHTML = `
@@ -25,6 +26,11 @@ export async function openAssignConfigModal(deviceId, macAddress, ctx) {
         <button type="submit" class="btn btn-golden px-4 py-2 shadow-sm">
           <i class="fas fa-cog mr-2"></i> Assign Configuration
         </button>
+        ${hasConfig ? `
+          <button type="button" id="clear-config-btn" class="btn btn-outline-danger px-4 py-2 shadow-sm ms-2">
+            <i class="fas fa-unlink mr-2"></i> Unmap Configuration
+          </button>
+        ` : ''}
       </div>
     </form>
   `;
@@ -85,7 +91,7 @@ export async function openAssignConfigModal(deviceId, macAddress, ctx) {
                     } else {
                         const msg = result?.error || result?.message || 'Unable to assign configuration.';
                         setTimeout(() => {
-                            ModalService.showError(msg, () => openAssignConfigModal(deviceId, macAddress, ctx));
+                            ModalService.showError(msg, () => openAssignConfigModal(deviceId, macAddress, hasConfig, ctx));
                         }, 300);
                     }
                 } catch (err) {
@@ -96,11 +102,54 @@ export async function openAssignConfigModal(deviceId, macAddress, ctx) {
 
                     setTimeout(() => {
                         ModalService.showError('Unexpected error occurred during assignment.', () => {
-                            openAssignConfigModal(deviceId, macAddress, ctx);
+                            openAssignConfigModal(deviceId, macAddress, hasConfig, ctx);
                         });
                     }, 300);
                 }
             });
+
+            if (hasConfig) {
+                const clearBtn = document.getElementById('clear-config-btn');
+                clearBtn?.addEventListener('click', async () => {
+                    try {
+                        const res = await fetchWithAutoRefresh(API_ENDPOINTS.CLEAR_TV_CONFIG, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ device_id: parseInt(deviceId) }),
+                        });
+
+                        const result = await res.json();
+
+                        const modalElement = document.querySelector('.modal.show');
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) modalInstance.hide();
+
+                        if (res.ok) {
+                            setTimeout(() => {
+                                ModalService.showSuccess(`Configuration unmapped from device #${macAddress}.`, () => {
+                                    location.reload();
+                                });
+                            }, 300);
+                        } else {
+                            const msg = result?.error || result?.message || 'Unable to unmap configuration.';
+                            setTimeout(() => {
+                                ModalService.showError(msg, () => openAssignConfigModal(deviceId, macAddress, hasConfig, ctx));
+                            }, 300);
+                        }
+                    } catch (err) {
+                        console.error('Error clearing config:', err);
+                        const modalElement = document.querySelector('.modal.show');
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) modalInstance.hide();
+
+                        setTimeout(() => {
+                            ModalService.showError('Unexpected error occurred while unmapping configuration.', () => {
+                                openAssignConfigModal(deviceId, macAddress, hasConfig, ctx);
+                            });
+                        }, 300);
+                    }
+                });
+            }
         }
     });
 }

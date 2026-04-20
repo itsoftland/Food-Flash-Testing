@@ -805,6 +805,10 @@ onDOMReady(async function () {
             payload = { token_no: token, vendor_id: activeVendor };
             type = 'buffetstatus';
         }
+        else if (path.includes('/dine_flash/')) {
+            payload = { booking_id: bookingId || token, vendor_id: activeVendor };
+            type = 'dinestatus';
+        }
         else {
             payload = { token_no: token, vendor_id: activeVendor };
             type = 'foodstatus';

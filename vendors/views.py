@@ -38,7 +38,8 @@ from .utils import (
     send_push_notification,
     notify_web_push,
     build_tv_config_payload,
-    build_vendor_config_payload
+    build_vendor_config_payload,
+    build_dine_flash_tv_booking_snapshot,
 )
 from .mqtt_client import get_mqtt_config_for_vendor
 
@@ -538,8 +539,10 @@ def register_android_device(request):
 
     try:
         # Try to find existing device with related vendor/config and tv_config in one go
-        device = AndroidDevice.objects.select_related('vendor__config', 'tv_config') \
-            .filter(mac_address=mac_address, admin_outlet=customer).first()
+        device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').prefetch_related(
+            'tv_config__advertisements',
+            'tv_config__utilities',
+        ).filter(mac_address=mac_address, admin_outlet=customer).first()
 
         if device:
             # Only update token if changed
@@ -560,7 +563,10 @@ def register_android_device(request):
                 )
             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
             # fetch again with related objects to have vendor/config/tv_config available
-            device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').get(pk=device.pk)
+            device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').prefetch_related(
+                'tv_config__advertisements',
+                'tv_config__utilities',
+            ).get(pk=device.pk)
             created = True
 
     except Exception as e:
@@ -607,21 +613,77 @@ def register_android_device(request):
             logger.warning("Vendor configuration is Firebase (or unsupported): %s", mode)
             mqtt_config = None
 
+        is_dine_flash = getattr(customer, "project_code", None) == "dine_flash"
+        device_tv_config = getattr(device, "tv_config", None)
+
+        # Dine Flash only: do not use defaults if TV config is missing.
+        if is_dine_flash and not device_tv_config:
+            logger.info(
+                "Dine Flash TV config missing for device mac=%s, vendor_id=%s",
+                mac_address,
+                vendor.vendor_id,
+            )
+            return Response(
+                {
+                    "status": "configuration not added",
+                    "message": "configuration not added",
+                    "mapped": mapped,
+                    "vendor_id": vendor_id,
+                    "vendor_name": vendor_name,
+                    "mqtt_config": mqtt_config,
+                    "tv_config": None,
+                    "dine_flash": None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         # Build tv_config payload (use the reusable helper)
         try:
-            tv_config_data = build_tv_config_payload(getattr(device, 'tv_config', None))
+            tv_config_data = build_tv_config_payload(device_tv_config, request=request)
         except Exception as e:
             logger.error("Failed to build TV config payload: %s", str(e), exc_info=True)
             tv_config_data = None
 
-        return Response({
+        dine_flash_tv = None
+        try:
+            if is_dine_flash:
+                dine_flash_tv = build_dine_flash_tv_booking_snapshot(
+                    vendor, device_tv_config, request=request
+                )
+        except Exception as e:
+            logger.error("Failed to build Dine Flash TV snapshot: %s", str(e), exc_info=True)
+            # Keep Dine Flash API stable even when snapshot building fails.
+            dine_flash_tv = {
+                "display_mode": "table_booking",
+                "data_source": "dine_flash",
+                "vendor_id": vendor.vendor_id,
+                "location_id": getattr(vendor, "location_id", None),
+                "waiting": [],
+                "active_tables": [],
+                "ongoing_tables": [],
+                "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                "table_booking_url": None,
+                "tracking_qr_base_url": None,
+                "qr_expiry_minutes": None,
+                "qr_date_format": "%Y-%m-%d",
+                "qr_time_format": "%H:%M:%S",
+                "qr_date_part_digits": {"year": 4, "month": 2, "day": 2},
+                "qr_time_part_digits": {"hour": 2, "minute": 2, "second": 2},
+            }
+
+        response_body = {
             "status": "Device is mapped to vendor.",
             "mapped": mapped,
             "vendor_id": vendor_id,
             "vendor_name": vendor_name,
             "mqtt_config": mqtt_config,
-            "tv_config": tv_config_data
-        }, status=status.HTTP_200_OK)
+            "tv_config": tv_config_data,
+        }
+        if is_dine_flash:
+            response_body["dine_flash"] = dine_flash_tv
+
+        return Response(response_body, status=status.HTTP_200_OK)
 
     # Device created/updated but not mapped to any vendor
     logger.info("Device registered but not mapped to any vendor.")

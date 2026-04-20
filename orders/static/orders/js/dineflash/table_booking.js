@@ -57,10 +57,24 @@
    ==========================================================
 */
 document.addEventListener("DOMContentLoaded", async () => {
+    // Hard guard: this script must only run for Dine Flash.
+    // Even if another variant accidentally includes this file/template,
+    // exit immediately to avoid side effects.
+    const path = String(window.location?.pathname || "").toLowerCase();
+    const project = String(window.PROJECT_NAME || "").toLowerCase();
+    if (!path.includes("/dine_flash/") && project !== "dine_flash") {
+        return;
+    }
+
     // console.log("UTILITY ENABLED:",window.UTILITIES_ENABLED);
     const base = window.BASE || "/caller_on/";
 
     let apiEndpoints, ModalService, vendorId;
+    let qrDate = null;
+    let qrTime = null;
+    let qrSession = null;
+    let qrExpiresAtEpoch = null;
+    let expiryTimerInterval = null;
 
     // --------------------------
     // Load required modules
@@ -80,6 +94,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const urlVendorId = getParam("vendor_id");
+        qrDate = getParam("qr_date");
+        qrTime = getParam("qr_time");
+        qrSession = getParam("qr_session");
 
         // Vendor ID priority: URL -> stored
         if (urlVendorId) {
@@ -101,21 +118,109 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        // Clean URL: remove vendor_id param (keeps UX clean)
-        try {
-            const url = new URL(window.location.href);
-            if (url.searchParams.has("vendor_id")) {
-                url.searchParams.delete("vendor_id");
-                history.replaceState({}, document.title, url.toString());
-            }
-        } catch (err) {
-            // ignore history.replace errors
-            console.warn("Could not clean URL:", err);
-        }
+        // Keep vendor_id in URL for Dine Flash QR-gated workflow.
+        // Backend validation requires vendor_id + qr_date + qr_time.
 
     } catch (err) {
         console.error("Failed loading modules:", err);
         return;
+    }
+
+    function parseQrDateTimeLocal(qrDateStr, qrTimeStr) {
+        if (!qrDateStr || !qrTimeStr) return null;
+        const m = String(qrDateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const t = String(qrTimeStr).match(/^(\d{2}):(\d{2}):(\d{2})$/);
+        if (!m || !t) return null;
+        const year = Number(m[1]);
+        const month = Number(m[2]) - 1;
+        const day = Number(m[3]);
+        const hh = Number(t[1]);
+        const mm = Number(t[2]);
+        const ss = Number(t[3]);
+        const dt = new Date(year, month, day, hh, mm, ss);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function formatCountdown(secondsLeft) {
+        const s = Math.max(0, Math.floor(secondsLeft));
+        const mm = String(Math.floor(s / 60)).padStart(2, "0");
+        const ss = String(s % 60).padStart(2, "0");
+        return `${mm}:${ss}`;
+    }
+
+    function startExpiryCountdown() {
+        const expiryMinutes = Number(window.QR_EXPIRY_MINUTES || 0);
+        const banner = document.getElementById("qr-expiry-banner");
+        const timerEl = document.getElementById("qr-expiry-timer");
+        if (!banner || !timerEl || !expiryMinutes || expiryMinutes <= 0) return;
+
+        // Prefer server-issued expiry when available (qr_session exchange),
+        // otherwise fall back to local parse from qr_date/qr_time.
+        let expiryAtMs = null;
+        if (qrExpiresAtEpoch) {
+            expiryAtMs = Number(qrExpiresAtEpoch) * 1000;
+        } else {
+            const d = window.QR_DATE || qrDate;
+            const t = window.QR_TIME || qrTime;
+            const qrDt = parseQrDateTimeLocal(d, t);
+            if (!qrDt) return;
+            expiryAtMs = qrDt.getTime() + (expiryMinutes * 60 * 1000);
+        }
+
+        const tick = () => {
+            const now = Date.now();
+            const leftMs = expiryAtMs - now;
+            const leftSec = leftMs / 1000;
+            timerEl.textContent = formatCountdown(leftSec);
+            if (leftMs <= 0) {
+                clearInterval(expiryTimerInterval);
+                expiryTimerInterval = null;
+                banner.classList.remove("alert-warning");
+                banner.classList.add("alert-danger");
+                banner.textContent = "QR expired. Please scan the new QR code on the TV.";
+                const btn = document.getElementById("register-btn");
+                if (btn) btn.disabled = true;
+            }
+        };
+
+        tick();
+        expiryTimerInterval = setInterval(tick, 1000);
+    }
+
+    async function exchangeQrToSession() {
+        // If we already have a session token, nothing to do.
+        if (qrSession) return;
+        if (!vendorId || !qrDate || !qrTime) return;
+        if (!apiEndpoints?.DINE_FLASH_QR_EXCHANGE) return;
+
+        try {
+            const url = new URL(apiEndpoints.DINE_FLASH_QR_EXCHANGE, window.location.origin);
+            url.searchParams.set("vendor_id", String(vendorId));
+            url.searchParams.set("qr_date", String(qrDate));
+            url.searchParams.set("qr_time", String(qrTime));
+
+            const resp = await fetch(url.toString(), { method: "GET" });
+            const data = await resp.json();
+            if (!resp.ok) {
+                ModalService?.showError?.(data?.error || "QR expired. Please scan the new QR code on the TV.");
+                return;
+            }
+            qrSession = data.qr_session;
+            qrExpiresAtEpoch = data.expires_at_epoch;
+
+            // Encrypt URL (opaque token) after load
+            try {
+                const current = new URL(window.location.href);
+                current.searchParams.set("qr_session", qrSession);
+                current.searchParams.delete("qr_date");
+                current.searchParams.delete("qr_time");
+                history.replaceState({}, document.title, current.toString());
+            } catch (e) {
+                // ignore
+            }
+        } catch (e) {
+            // ignore network errors; backend will still enforce on submit
+        }
     }
 
     // --------------------------
@@ -140,7 +245,29 @@ document.addEventListener("DOMContentLoaded", async () => {
             const logoEl = document.getElementById("vendor-logo");
 
             if (nameEl) nameEl.textContent = vendor.name || vendor.alias_name || "Vendor";
-            if (logoEl && vendor.logo_url) logoEl.src = vendor.logo_url;
+            if (logoEl) {
+                // Avoid empty-src fetch to current page (shows broken icon)
+                logoEl.removeAttribute("src");
+
+                const rawUrl = vendor.logo_url ? String(vendor.logo_url) : "";
+                if (!rawUrl) return;
+
+                // Ensure URL is safely encoded (spaces etc.)
+                const safeUrl = rawUrl.replace(/ /g, "%20");
+
+                // Fallback: some deployments serve media at /media instead of /<project>/media
+                const project = (window.PROJECT_NAME || "dine_flash").trim();
+                const altUrl = safeUrl.includes(`/${project}/media/`)
+                    ? safeUrl.replace(`/${project}/media/`, "/media/")
+                    : safeUrl;
+
+                logoEl.onerror = () => {
+                    if (logoEl.src !== altUrl) {
+                        logoEl.src = altUrl;
+                    }
+                };
+                logoEl.src = safeUrl;
+            }
 
         } catch (err) {
             console.error("Error loading vendor info:", err);
@@ -248,6 +375,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             no_of_guests: guestsEl ? parseInt(guestsEl.value, 10) || 0 : 0,
             special_notes: notesEl ? notesEl.value.trim() : "",
             utility_id: utilityId,
+            // Dine Flash QR gate: carry opaque qr_session so user can't tamper.
+            qr_session: qrSession,
         };
         // console.log(payload)
         return payload;
@@ -265,6 +394,35 @@ document.addEventListener("DOMContentLoaded", async () => {
             .join(" ");
 
         return name;
+    }
+
+    function getCSRFToken() {
+        const cookie = document.cookie
+            .split(";")
+            .map((c) => c.trim())
+            .find((c) => c.startsWith("csrftoken="));
+        return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+    }
+
+    function extractReadableError(err) {
+        if (!err) return null;
+        if (typeof err === "string") return err;
+        if (Array.isArray(err)) {
+            const parts = err.map(extractReadableError).filter(Boolean);
+            return parts.length ? parts.join(", ") : null;
+        }
+        if (typeof err === "object") {
+            const entries = Object.entries(err);
+            if (!entries.length) return null;
+            const first = entries[0];
+            const field = String(first[0] || "error");
+            const message = extractReadableError(first[1]);
+            if (!message) return null;
+            return field === "non_field_errors" || field === "error"
+                ? message
+                : `${field}: ${message}`;
+        }
+        return String(err);
     }
 
     // --------------------------
@@ -356,7 +514,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const resp = await fetch(apiEndpoints.TABLE_BOOKING, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCSRFToken(),
+                },
+                credentials: "same-origin",
                 body: JSON.stringify(payload)
             });
 
@@ -406,7 +568,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             else {
-                ModalService.showError(data.error || "Something went wrong while booking the table.");
+                const backendError =
+                    extractReadableError(data?.error) ||
+                    extractReadableError(data?.detail) ||
+                    extractReadableError(data);
+                ModalService.showError(backendError || "Something went wrong while booking the table.");
             }
 
         } catch (err) {
@@ -451,4 +617,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     await loadVendorInfo();
     await loadUtilities();
+    await exchangeQrToSession();
+    startExpiryCountdown();
 });

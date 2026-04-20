@@ -150,6 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const statusLabel = utility.is_active ? 'Active' : 'Inactive';
 
       row.innerHTML = `
+        <td class="utility-id-cell">${escapeHtml(String(utility.id))}</td>
         <td>${escapeHtml(utility.utility_name)}</td>
         <td>${escapeHtml(utility.display_name)}</td>
         ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
@@ -251,12 +252,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         (statusValue === 'active' && utility.is_active) ||
         (statusValue === 'inactive' && !utility.is_active);
 
-      // Search filter (utility name, display name, display code)
+      // Search filter (id, utility name, display name, display code)
       const searchMatch =
         !searchTerm ||
+        String(utility.id).includes(searchTerm) ||
         utility.utility_name.toLowerCase().includes(searchTerm) ||
         utility.display_name.toLowerCase().includes(searchTerm) ||
-        utility.display_code.toLowerCase().includes(searchTerm);
+        (utility.display_code && utility.display_code.toLowerCase().includes(searchTerm));
 
       return statusMatch && searchMatch;
     });
@@ -339,6 +341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const details = `
       <div style="text-align: left;">
+        <p><strong>Utility ID:</strong> ${escapeHtml(String(utility.id))}</p>
         <p><strong>Utility Name:</strong> ${escapeHtml(utility.utility_name)}</p>
         <p><strong>Display Name:</strong> ${escapeHtml(utility.display_name)}</p>
         ${!isBuffet ? `

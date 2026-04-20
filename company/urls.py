@@ -13,6 +13,7 @@ urlpatterns = [
     path('android_tvs/', views.android_tvs, name='android_tvs'),
     path('android_tv_config/', views.android_tv_config, name='android_tv_config'),
     path('tv_config_list_page/', views.tv_config_list_page, name='tv_config_list_page'),
+    path('tv_configuration/', views.tv_configuration_page, name='tv_configuration'),
     path('configurations/', views.configurations, name='configurations'),
     path('new_profile/', views.new_profile, name='new_profile'),
     path('profile_list/', views.profile_list, name='profile_list'),
@@ -74,6 +75,11 @@ urlpatterns = [
     path('api/tv_config_detail/<int:config_id>/',views.tv_config_detail, name="tv_config_detail"),
     path('api/tv_config_update/<int:config_id>/',views.tv_config_update, name="tv_config_update"),
     path('api/tv_config_delete/<int:config_id>/',views.tv_config_delete, name="tv_config_delete"),
+    path('api/tv_config_clear/', views.tv_config_clear, name="tv_config_clear"),
+    path('api/tv_ads/list/', views.tv_ads_list, name='tv_ads_list'),
+    path('api/tv_ads/upload/', views.tv_ads_upload, name='tv_ads_upload'),
+    path('api/tv_ads/<int:ad_id>/update/', views.tv_ads_update, name='tv_ads_update'),
+    path('api/tv_ads/<int:ad_id>/delete/', views.tv_ads_delete, name='tv_ads_delete'),
     path('api/configurations/', views.vendor_configurations, name='vendor_configurations'), 
 ]
  

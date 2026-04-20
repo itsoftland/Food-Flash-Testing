@@ -91,6 +91,7 @@ function renderTable() {
 }
 
 function rowTemplate(c) {
+  const utilitiesCount = getDineFlashUtilitiesCount(c.utilities);
   return `
     <tr>
       <td><strong>${escapeHtml(c.config_name || 'Unnamed')}</strong></td>
@@ -116,7 +117,7 @@ function rowTemplate(c) {
 
       <td>
         <span class="utilities-count">
-          ${c.utilities.length}
+          ${utilitiesCount}
         </span>
       </td>
 
@@ -129,6 +130,23 @@ function rowTemplate(c) {
       </td>
     </tr>
   `;
+}
+
+function getDineFlashUtilitiesCount(utilities) {
+  if (window.PROJECT_NAME !== 'dine_flash') {
+    return Array.isArray(utilities) ? utilities.length : 0;
+  }
+
+  if (!Array.isArray(utilities)) return 0;
+
+  return utilities.filter((utility) => {
+    if (utility === null || utility === undefined) return false;
+    if (typeof utility === 'string') return utility.trim().toLowerCase() !== 'undefined';
+    if (typeof utility === 'object') {
+      return utility.id !== undefined || utility.display_name || utility.utility_name || utility.display_code;
+    }
+    return Number.isFinite(Number(utility));
+  }).length;
 }
 
 function showActionMenu(e, btn) {
@@ -174,12 +192,16 @@ function showActionMenu(e, btn) {
 
   el.actionMenuList.querySelectorAll('.action-menu-item')
     .forEach(item => item.onclick = ev => {
+      ev.preventDefault();
+      const action = ev.currentTarget?.dataset?.action;
+      if (!action) return;
       window.dispatchEvent(new CustomEvent('tv-config-action', {
         detail: {
-          action: ev.target.dataset.action,
+          action,
           id: btn.dataset.id
         }
       }));
+      el.actionMenu.style.display = 'none';
     });
 }
 

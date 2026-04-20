@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     style="cursor:pointer; text-decoration:underline;"
                     data-id="${device.id}"
                     data-mac_address="${device.mac_address}"
+                    data-has_config="${hasConfig}"
                     title="Click to ${hasConfig ? 'change' : 'assign'} configuration">
                 ${configName}
               </span>
@@ -149,8 +150,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       link.addEventListener('click', () => {
         const deviceId = link.dataset.id;
         const macAddress = link.dataset.mac_address;
+        const hasConfig = link.dataset.has_config === 'true';
 
-        openAssignConfigModal(deviceId, macAddress, {
+        openAssignConfigModal(deviceId, macAddress, hasConfig, {
           fetchWithAutoRefresh,
           API_ENDPOINTS,
           ModalService

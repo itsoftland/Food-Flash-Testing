@@ -55,6 +55,10 @@ print("PROJECT_NAME:", PROJECT_NAME)
 PROJECT_DISPLAY_NAME = os.getenv("PROJECT_DISPLAY_NAME")
 APP_VERSION = os.getenv("APP_VERSION")
 
+# Dine Flash TV: last-resort lookback (hours) only if business-day + calendar filters match no rows.
+# Set to 0 to disable. Default 24 limits stale rows vs the old 72h fallback.
+DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS = int(os.getenv("DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS", "24"))
+
 
 # === APPLICATIONS ===
 INSTALLED_APPS = [
@@ -318,6 +322,19 @@ LOGGING = {
         },
     },
 }
+
+# During local dev, also print WARNING+ from selected loggers to the runserver terminal
+# (they still go to files above). Snapshot fallback messages use vendors.utils.
+if DEBUG:
+    LOGGING["handlers"]["console"] = {
+        "level": "WARNING",
+        "class": "logging.StreamHandler",
+        "formatter": "verbose",
+    }
+    for _logger_name in ("vendors.utils", "static.utils.functions.utils"):
+        _lg = LOGGING["loggers"].get(_logger_name)
+        if _lg and "console" not in _lg["handlers"]:
+            _lg["handlers"] = list(_lg["handlers"]) + ["console"]
 
 
 # === PASSWORD VALIDATION ===

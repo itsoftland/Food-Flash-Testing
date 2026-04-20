@@ -222,6 +222,12 @@
                 <p>{{ LABELS.sidebar.configurations }}</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="{% url 'company:tv_configuration' %}" class="nav-link {% if request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
+                <i class="nav-icon fas fa-tv-alt"></i>
+                <p>TV Configuration</p>
+              </a>
+            </li>
             {% endif %}
             {% if SHOW_UTILITIES_SIDEBAR and PROJECT_NAME != "dine_flash_buffet" %}
             <li class="nav-item has-treeview {% if request.resolver_match.url_name in 'utilities_management,create_utility_page' %}menu-open{% endif %}">

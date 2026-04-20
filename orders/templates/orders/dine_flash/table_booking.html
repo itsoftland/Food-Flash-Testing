@@ -23,6 +23,17 @@
     ================================== -->
     <h4 class="form-section-title text-center mb-3">Begin Your Dining Experience</h4>
 
+    {% if IS_DINE_FLASH and QR_EXPIRY_MINUTES %}
+    <div class="row justify-content-center mb-3">
+        <div class="col-12 col-md-8">
+            <div id="qr-expiry-banner" class="alert alert-warning py-2 px-3 mb-0 text-center" role="alert"
+                style="border-radius: 12px;">
+                This page will expire in <strong><span id="qr-expiry-timer">--:--</span></strong>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ================================
          Booking Form Wrapper
     ================================== -->
@@ -121,6 +132,13 @@
 {% block extra_js %}
 <script>
     window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
+    {% if IS_DINE_FLASH %}
+    window.QR_EXPIRY_MINUTES = {{ QR_EXPIRY_MINUTES|default:0 }};
+    window.QR_DATE = "{{ QR_DATE }}";
+    window.QR_TIME = "{{ QR_TIME }}";
+    window.QR_SESSION = "{{ QR_SESSION|default:'' }}";
+    window.QR_EXPIRES_AT_EPOCH = {{ QR_EXPIRES_AT_EPOCH|default:0 }};
+    {% endif %}
 </script>
 
 <script src="{% static 'orders/js/dineflash/table_booking.js' %}?v={{ APP_VERSION }}"></script>
