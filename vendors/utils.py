@@ -303,10 +303,13 @@ def build_tv_config_payload(tv_config, request=None):
             "label": label_value,
         })
 
+    is_dine_flash = bool(
+        tv_config.admin_outlet and tv_config.admin_outlet.project_code == 'dine_flash'
+    )
+
     # Base payload compatible with all variants
     payload = {
         "show_qr": tv_config.show_qr,
-        "qr_alignment": tv_config.qr_alignment if tv_config.show_qr else None,
         "items_to_show": tv_config.items_to_show,
         "booking_fields": tv_config.booking_fields,
         "utility_name_mode": tv_config.utility_name_mode,
@@ -316,8 +319,12 @@ def build_tv_config_payload(tv_config, request=None):
         "updated_at": tv_config.updated_at,
     }
 
+    # Keep legacy left/right alignment for non-Dine Flash variants only.
+    if not is_dine_flash:
+        payload["qr_alignment"] = tv_config.qr_alignment if tv_config.show_qr else None
+
     # Dine Flash Specific Scope
-    if tv_config.admin_outlet and tv_config.admin_outlet.project_code == 'dine_flash':
+    if is_dine_flash:
         # Add Extended Display settings
         payload.update({
             "display_rows": tv_config.display_rows,
@@ -394,6 +401,7 @@ _DINE_FLASH_ACTIVE_TABLE_STATUSES = frozenset({"allocated", "occupied"})
 _DINE_FLASH_EXCLUDED_STATUSES = frozenset({"booking_cancelled", "operation_closed"})
 _DINE_FLASH_QR_DATE_FORMAT = "%Y-%m-%d"
 _DINE_FLASH_QR_TIME_FORMAT = "%H:%M:%S"
+_DINE_FLASH_QR_TIME_FORMAT_LABEL = "24_hour"
 _DINE_FLASH_QR_DATE_PART_DIGITS = {"year": 4, "month": 2, "day": 2}
 _DINE_FLASH_QR_TIME_PART_DIGITS = {"hour": 2, "minute": 2, "second": 2}
 
@@ -442,6 +450,7 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
             "qr_expiry_minutes": None,
             "qr_date_format": _DINE_FLASH_QR_DATE_FORMAT,
             "qr_time_format": _DINE_FLASH_QR_TIME_FORMAT,
+            "qr_time_format_label": _DINE_FLASH_QR_TIME_FORMAT_LABEL,
             "qr_date_part_digits": _DINE_FLASH_QR_DATE_PART_DIGITS,
             "qr_time_part_digits": _DINE_FLASH_QR_TIME_PART_DIGITS,
         }
@@ -610,6 +619,7 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         "qr_expiry_minutes": getattr(tv_config, "qr_expiry_minutes", None) if tv_config else None,
         "qr_date_format": _DINE_FLASH_QR_DATE_FORMAT,
         "qr_time_format": _DINE_FLASH_QR_TIME_FORMAT,
+        "qr_time_format_label": _DINE_FLASH_QR_TIME_FORMAT_LABEL,
         "qr_date_part_digits": _DINE_FLASH_QR_DATE_PART_DIGITS,
         "qr_time_part_digits": _DINE_FLASH_QR_TIME_PART_DIGITS,
     }
