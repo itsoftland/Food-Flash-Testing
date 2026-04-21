@@ -613,9 +613,14 @@ def register_android_device(request):
             logger.warning("Vendor configuration is Firebase (or unsupported): %s", mode)
             mqtt_config = None
 
-        project_code = getattr(customer, "project_code", None)
-        is_dine_flash = project_code == "dine_flash"
-        is_dine_flash_buffet = project_code == "dine_flash_buffet"
+        project_code = (getattr(customer, "project_code", "") or "").strip().lower()
+        current_project = (project_name or "").strip().lower()
+        # Use both outlet project_code and server project_name so Dine Flash payload
+        # remains available even when outlet metadata is missing/stale.
+        is_dine_flash = project_code == "dine_flash" or current_project == "dine_flash"
+        is_dine_flash_buffet = (
+            project_code == "dine_flash_buffet" or current_project == "dine_flash_buffet"
+        )
         device_tv_config = getattr(device, "tv_config", None)
 
         # Dine Flash variants: do not use defaults if TV config is missing.

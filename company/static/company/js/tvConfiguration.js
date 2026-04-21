@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async function () {
        Initialize Choices.js
     ------------------------------------ */
     function initializeChoices() {
+        if (!utilitiesSelect) return;
         if (choicesInstance) choicesInstance.destroy();
         choicesInstance = new Choices(utilitiesSelect, {
             removeItemButton: true,
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async function () {
        Load active utilities
     ------------------------------------ */
     async function loadActiveUtilities() {
+        if (!utilitiesSelect) return;
         try {
             const response = await fetchWithAutoRefresh(API_ENDPOINTS.GET_UTILITIES, {
                 method: 'GET',
@@ -302,10 +304,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             payload.display_columns = parseInt(formData.get('display_columns'));
         }
 
-        if (payload.utilities.length === 0) {
-            ModalService.showError('Please select at least one utility.');
-            return;
-        }
         if (payload.footer_texts.length > 8) {
             ModalService.showError('Maximum 8 footer texts are allowed.');
             return;

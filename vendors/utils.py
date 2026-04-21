@@ -412,8 +412,6 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     current business day, filtered by dashboard TV config (utilities, visibility,
     booking_fields, items_to_show). Does not apply to other project flavours.
     """
-    from datetime import timedelta
-
     from django.urls import reverse
     from django.utils import timezone as django_timezone
     from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_date
@@ -487,37 +485,18 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         created_date__in=date_keys,
     ).values_list("id", flat=True)
     order_ids = set(in_window) | set(by_calendar)
-    used_created_at_fallback = False
-
-    # Last resort only: misconfigured DB time, broken naive/aware compares, etc.
-    fallback_hours = int(getattr(settings, "DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS", 24) or 0)
-    if not order_ids and fallback_hours > 0:
-        used_created_at_fallback = True
-        order_ids = set(
-            Order.objects.filter(
-                vendor_id=vid,
-                created_at__gte=django_timezone.now() - timedelta(hours=fallback_hours),
-            ).values_list("id", flat=True)
-        )
-        # Single grep-friendly line for vendors.log / managers.log / runserver (DEBUG):
-        #   rg DINE_FLASH_TV_SNAPSHOT_FALLBACK
-        logger.warning(
-            "[DINE_FLASH_TV_SNAPSHOT_FALLBACK] vendor_pk=%s business_vendor_id=%s "
-            "lookback_hours=%s matched_order_ids=%s | primary_business_day+calendar returned 0 ids; "
-            "fix outlet timezone/DB or set DINE_FLASH_TV_SNAPSHOT_FALLBACK_HOURS=0 to disable",
-            vid,
-            getattr(vendor, "vendor_id", None),
-            fallback_hours,
-            len(order_ids),
-        )
-
     qs = (
         Order.objects.filter(id__in=order_ids)
         .exclude(status__in=_DINE_FLASH_EXCLUDED_STATUSES)
         .select_related("utility")
     )
 
-    if tv_config:
+    is_dine_flash_tv = bool(
+        tv_config
+        and getattr(getattr(tv_config, "admin_outlet", None), "project_code", None) == "dine_flash"
+    )
+
+    if tv_config and not is_dine_flash_tv:
         # All utilities linked to this TV config (snapshot must not drop rows if is_active is wrong in DB)
         utility_ids = list(tv_config.utilities.values_list("id", flat=True))
         if utility_ids:
@@ -623,11 +602,6 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         "qr_date_part_digits": _DINE_FLASH_QR_DATE_PART_DIGITS,
         "qr_time_part_digits": _DINE_FLASH_QR_TIME_PART_DIGITS,
     }
-    if used_created_at_fallback:
-        payload["meta"] = {
-            "created_at_fallback": True,
-            "fallback_hours": fallback_hours,
-        }
     return payload
 
 
