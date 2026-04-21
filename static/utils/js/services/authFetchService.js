@@ -1,13 +1,27 @@
 // static/utils/js/services/authFetchService.js
 
+// Match orders/static/orders/js/utils.js AppUtils.getPrefixedKey so login + fetch use the same keys.
+function authStorageKey(key) {
+  const project = (window.PROJECT_NAME || 'default').toLowerCase().trim();
+  return `${project}:${key}`;
+}
+
+function getStoredAuthValue(key) {
+  const primary = localStorage.getItem(authStorageKey(key));
+  if (primary && primary !== 'null' && primary !== 'undefined') return primary;
+  const legacy = localStorage.getItem(key);
+  if (legacy && legacy !== 'null' && legacy !== 'undefined') return legacy;
+  return null;
+}
+
 export async function fetchWithAutoRefresh(url, options = {}) {
   if (!window.BASE) {
     console.error("❌ window.BASE is not defined. Make sure PROJECT_NAME is set in base.html");
     throw new Error("BASE not defined");
   } 
 
-  const accessToken = localStorage.getItem('access_token');
-  const refreshToken = localStorage.getItem('refresh_token');
+  const accessToken = getStoredAuthValue('access_token');
+  const refreshToken = getStoredAuthValue('refresh_token');
 
   options.headers = options.headers || {};
   const hasAccessToken = !!accessToken && accessToken !== 'null' && accessToken !== 'undefined';
@@ -51,7 +65,7 @@ export async function fetchWithAutoRefresh(url, options = {}) {
 
     if (refreshResponse.ok) {
       const refreshData = await refreshResponse.json();
-      localStorage.setItem('access_token', refreshData.access);
+      localStorage.setItem(authStorageKey('access_token'), refreshData.access);
 
       // Retry original request with new token
       options.headers['Authorization'] = 'Bearer ' + refreshData.access;

@@ -613,29 +613,31 @@ def register_android_device(request):
             logger.warning("Vendor configuration is Firebase (or unsupported): %s", mode)
             mqtt_config = None
 
-        is_dine_flash = getattr(customer, "project_code", None) == "dine_flash"
+        project_code = getattr(customer, "project_code", None)
+        is_dine_flash = project_code == "dine_flash"
+        is_dine_flash_buffet = project_code == "dine_flash_buffet"
         device_tv_config = getattr(device, "tv_config", None)
 
-        # Dine Flash only: do not use defaults if TV config is missing.
-        if is_dine_flash and not device_tv_config:
+        # Dine Flash variants: do not use defaults if TV config is missing.
+        if (is_dine_flash or is_dine_flash_buffet) and not device_tv_config:
             logger.info(
-                "Dine Flash TV config missing for device mac=%s, vendor_id=%s",
+                "Dine Flash TV config missing for project=%s, device mac=%s, vendor_id=%s",
+                project_code,
                 mac_address,
                 vendor.vendor_id,
             )
-            return Response(
-                {
-                    "status": "configuration not added",
-                    "message": "configuration not added",
-                    "mapped": mapped,
-                    "vendor_id": vendor_id,
-                    "vendor_name": vendor_name,
-                    "mqtt_config": mqtt_config,
-                    "tv_config": None,
-                    "dine_flash": None,
-                },
-                status=status.HTTP_200_OK,
-            )
+            missing_config_response = {
+                "status": "configuration not added",
+                "message": "configuration not added",
+                "mapped": mapped,
+                "vendor_id": vendor_id,
+                "vendor_name": vendor_name,
+                "mqtt_config": mqtt_config,
+                "tv_config": None,
+            }
+            if is_dine_flash:
+                missing_config_response["dine_flash"] = None
+            return Response(missing_config_response, status=status.HTTP_200_OK)
 
         # Build tv_config payload (use the reusable helper)
         try:

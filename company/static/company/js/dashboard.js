@@ -20,7 +20,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function setupOutletGreeting() {
   const welcomeInfoContainer = document.getElementById('welcome-info');
-  const outletName = localStorage.getItem('customer_name') || 'Admin';
+  const project = (window.PROJECT_NAME || 'default').toLowerCase().trim();
+  const outletName =
+    localStorage.getItem(`${project}:customer_name`) ||
+    localStorage.getItem('customer_name') ||
+    'Admin';
   welcomeInfoContainer.innerHTML = `<span class="text-golden fw-bold">Welcome, ${outletName}</span>`;
 }
 

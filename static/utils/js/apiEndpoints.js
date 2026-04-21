@@ -142,7 +142,7 @@ export const WEB_ENDPOINTS = {
   COMPANY_OUTLETS: `${BASE}companyadmin/outlet_lists/`,
   UPDATE_OUTLET: `${BASE}company/update_outlet/`,
   DEVICE_LIST: `${BASE}company/device_list/`,
-  ANDROID_TV_LIST: `${BASE}company/android_tv_list/`,
+  ANDROID_TV_LIST: `${BASE}company/android_tvs/`,
   ORDER_LIST: `${BASE}company/order_list/`,
   USER_LIST: `${BASE}company/user_list/`,
   PROFILE_LIST: `${BASE}company/profile_list/`,
