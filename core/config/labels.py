@@ -199,7 +199,7 @@ DINE_FLASH = {
         "order_update": "Table Allot",
         "total_orders":"Total Bookings",
         "order_details":"Booking Details",
-        "configurations":"Configurations",
+        "configurations":"Settings",
         "utilities":"Utilities",
         "new_utility":"New Utility"
     },

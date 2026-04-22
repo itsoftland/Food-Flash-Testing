@@ -161,6 +161,21 @@
                                     <option value="portrait">Portrait</option>
                                 </select>
                             </div>
+                            {% if PROJECT_NAME == "dine_flash" %}
+                            <div class="form-group col-md-12">
+                                <label for="mapped-devices-select" class="form-label">Map Vendor Devices to This Configuration</label>
+                                <select id="mapped-devices-select" name="device_ids" class="form-select" multiple>
+                                    {% for device in mapped_android_devices %}
+                                    <option value="{{ device.id }}">
+                                        {{ device.mac_address|default:"Unknown MAC" }}{% if device.vendor %} - {{ device.vendor.name }}{% endif %}
+                                    </option>
+                                    {% empty %}
+                                    <option value="" disabled>No vendor-mapped devices available.</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Only Android TVs already mapped to a vendor in your admin outlet are listed.</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -356,11 +371,6 @@
                                 <label class="form-label">QR Base URL (Optional)</label>
                                 <input type="url" name="qr_base_url" class="form-control" placeholder="https://example.com/booking/">
                                 <small class="text-muted">Defaults to current domain if left empty. Parameters like vendor_id will be appended.</small>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">QR Expiry (minutes)</label>
-                                <input type="number" name="qr_expiry_minutes" class="form-control" value="5" min="1" max="1440" />
-                                <small class="text-muted">QR will stop working after this time.</small>
                             </div>
                         </div>
                     </div>

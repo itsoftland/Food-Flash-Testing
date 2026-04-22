@@ -136,12 +136,14 @@
                     <p>Android TV's</p>
                   </a>
                 </li>
+                {% if PROJECT_NAME != "dine_flash" %}
                 <li class="nav-item">
                   <a href="{% url 'company:android_tv_config' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tv_config' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Configure</p>
                   </a>
                 </li>
+                {% endif %}
                 <li class="nav-item">
                   <a href="{% url 'company:tv_config_list_page' %}" class="nav-link {% if request.resolver_match.url_name == 'tv_config_list_page' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>

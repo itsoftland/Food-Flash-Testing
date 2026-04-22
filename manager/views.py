@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Max
 from django.urls import reverse
 
 from rest_framework import status
@@ -15,7 +16,7 @@ from rest_framework.response import Response
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
-from vendors.models import ChatMessage, Order,Utility
+from vendors.models import ChatMessage, Order, Utility, OrderStatusHistory
 from vendors.serializers import OrdersSerializer
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
@@ -727,11 +728,26 @@ def get_allocated_booking_list(request):
 
         total_count = bookings_qs.count()
         serialized = BookingSerializer(bookings_qs, many=True, context={"request": request}).data
+        booking_ids = list(bookings_qs.values_list("id", flat=True))
+        allocated_time_map = {
+            row["order_id"]: row["allocated_time"]
+            for row in (
+                OrderStatusHistory.objects.filter(
+                    order_id__in=booking_ids,
+                    new_status="allocated",
+                )
+                .values("order_id")
+                .annotate(allocated_time=Max("changed_at"))
+            )
+        }
 
         grouped = {}
         for i, item in enumerate(serialized):
-            utility = bookings_qs[i].utility
+            booking = bookings_qs[i]
+            utility = booking.utility
             code = utility.display_code if utility else "Unassigned"
+            booked_time = item.pop("booked_time", None)
+            item["allocated_time"] = allocated_time_map.get(booking.id) or booked_time
 
             if code not in grouped:
                 grouped[code] = {"unread": 0, "bookings": []}

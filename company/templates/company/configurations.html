@@ -67,6 +67,25 @@
                 </div>
               </div>
             </div>
+            {% if is_dine_flash %}
+            <div class="row mt-3">
+              <div class="col-lg-6">
+                <label class="form-label" for="qr_expiry_minutes">
+                  <strong>QR Expiry (minutes)</strong>
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="qr_expiry_minutes"
+                  name="qr_expiry_minutes"
+                  value="5"
+                  min="1"
+                  max="1440"
+                >
+                <small class="text-muted">Applied to all TVs for the selected outlet.</small>
+              </div>
+            </div>
+            {% endif %}
           </div>
 
           <hr class="my-3">

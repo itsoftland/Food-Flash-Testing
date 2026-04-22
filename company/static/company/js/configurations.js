@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outletsSelect = document.getElementById('outlets');
   const phoneNumberEnabledEl = document.getElementById('phone_number_enabled');
   const utilitiesEnabledEl = document.getElementById('utilities_enabled');
+  const qrExpiryMinutesEl = document.getElementById('qr_expiry_minutes');
 
   if (!configForm || !outletsSelect) return;
 
@@ -91,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!vendorId) {
       phoneNumberEnabledEl.checked = false;
       utilitiesEnabledEl.checked = false;
+      if (qrExpiryMinutesEl) qrExpiryMinutesEl.value = 5;
       return;
     }
 
@@ -107,6 +109,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       utilitiesEnabledEl.checked = Boolean(vendorConfig.use_utilities);
     } else {
       utilitiesEnabledEl.checked = false;
+    }
+
+    if (qrExpiryMinutesEl) {
+      const value = Number.parseInt(vendorConfig?.qr_expiry_minutes, 10);
+      qrExpiryMinutesEl.value = Number.isFinite(value) && value > 0 ? value : 5;
     }
   };
 
@@ -149,6 +156,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       phone_number_enabled: Boolean(phoneNumberEnabledEl.checked),
       use_utilities: Boolean(utilitiesEnabledEl.checked)
     };
+    if (qrExpiryMinutesEl) {
+      payload.qr_expiry_minutes = Math.min(
+        1440,
+        Math.max(1, Number.parseInt(qrExpiryMinutesEl.value || '5', 10) || 5)
+      );
+    }
 
     try {
       const response = await fetchWithAutoRefresh(API_ENDPOINTS.CONFIG, {

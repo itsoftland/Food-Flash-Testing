@@ -46,10 +46,16 @@ project_name = getattr(settings, "PROJECT_NAME", "calleron")
 
 def _get_dine_flash_qr_expiry_minutes(vendor_id):
     """
-    Dine Flash only: resolve QR expiry minutes from the most recently updated
-    Android TV device config mapped to the given vendor_id.
+    Dine Flash only: resolve QR expiry minutes from vendor configuration.
+    Falls back to latest mapped TV config and then default 5.
     """
     try:
+        vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id).first()
+        if vendor and getattr(vendor, "config", None):
+            cfg_val = getattr(vendor.config, "qr_expiry_minutes", None)
+            if cfg_val:
+                return int(cfg_val)
+
         device = (
             AndroidDevice.objects.select_related("tv_config")
             .filter(vendor__vendor_id=vendor_id, tv_config__isnull=False)

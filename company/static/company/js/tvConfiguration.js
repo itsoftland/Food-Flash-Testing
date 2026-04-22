@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const footerEnabledCheckbox = document.getElementById('footer-enabled');
     const footerTextsInput = document.getElementById('footer-texts');
     const footerTextsGroup = document.getElementById('footer-texts-group');
+    const mappedDevicesSelect = document.getElementById('mapped-devices-select');
 
     let choicesInstance = null;
     let selectedAdIds = [];
@@ -278,7 +279,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             show_qr: showQrCheckbox.checked,
             qr_placement: formData.get('qr_placement'),
             qr_base_url: formData.get('qr_base_url') || null,
-            qr_expiry_minutes: parseInt(formData.get('qr_expiry_minutes') || '5', 10),
             items_to_show: parseInt(formData.get('items_to_show')),
             utility_name_mode: formData.get('utility_name_mode'),
             booking_fields: formData.getAll('booking_fields'),
@@ -296,6 +296,11 @@ document.addEventListener('DOMContentLoaded', async function () {
             footer_texts: footerTexts,
             advertisement_ids: selectedAdIds
         };
+        if (mappedDevicesSelect) {
+            payload.device_ids = Array.from(mappedDevicesSelect.selectedOptions)
+                .map((option) => parseInt(option.value, 10))
+                .filter((id) => Number.isFinite(id));
+        }
 
         if (formData.has('display_rows')) {
             payload.display_rows = parseInt(formData.get('display_rows'));
@@ -334,7 +339,16 @@ document.addEventListener('DOMContentLoaded', async function () {
                     window.location.href = `${window.BASE}company/tv_config_list_page/`;
                 });
             } else {
-                ModalService.showError(result.message || result.error || 'Failed to save configuration.');
+                let detailedError = result.message || result.error;
+                if (!detailedError && result.errors && typeof result.errors === 'object') {
+                    detailedError = Object.entries(result.errors)
+                        .map(([field, msgs]) => {
+                            const messageText = Array.isArray(msgs) ? msgs.join(', ') : String(msgs);
+                            return `${field}: ${messageText}`;
+                        })
+                        .join('\n');
+                }
+                ModalService.showError(detailedError || 'Failed to save configuration.');
             }
         } catch (error) {
             console.error('Error saving config:', error);

@@ -134,6 +134,8 @@ class VendorConfig(models.Model):
         null=True, blank=True,
         help_text="Set after how many hours orders should be auto-deleted (min 2 hours)")
     use_utilities = models.BooleanField(default=False)
+    # Dine Flash: one expiry setting per outlet/vendor, applied for all TV QR links.
+    qr_expiry_minutes = models.PositiveSmallIntegerField(default=5)
     # -----------------------------
     # 🔔 VIBRATION CONFIGURATION
     # -----------------------------

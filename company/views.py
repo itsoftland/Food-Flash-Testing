@@ -102,7 +102,18 @@ def tv_config_list_page(request):
 
 @login_required
 def tv_configuration_page(request):
-    return render(request, 'company/tv_configuration.html')
+    context = {}
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower() if admin_outlet else ""
+    current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
+    if admin_outlet and is_dine_flash:
+        context["mapped_android_devices"] = AndroidDevice.objects.filter(
+            admin_outlet=admin_outlet,
+            vendor__isnull=False,
+            tv_config__isnull=True,
+        ).select_related("vendor").order_by("-updated_at")
+    return render(request, 'company/tv_configuration.html', context)
 
 @login_required
 def banners(request):
@@ -126,7 +137,12 @@ def mapped_list(request):
 
 @login_required
 def configurations(request):
-    return render(request, "company/configurations.html")
+    current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    return render(
+        request,
+        "company/configurations.html",
+        {"is_dine_flash": current_project == "dine_flash"},
+    )
 
 @login_required
 def total_orders(request):
@@ -1864,7 +1880,10 @@ def _ensure_dine_flash_admin_outlet(request):
             {"error": "User is not associated with any admin outlet."},
             status=status.HTTP_403_FORBIDDEN,
         )
-    if admin_outlet.project_code != "dine_flash":
+    outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower()
+    current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
+    if not is_dine_flash:
         return None, Response(
             {"error": "This endpoint is available only for Dine Flash."},
             status=status.HTTP_403_FORBIDDEN,

@@ -27,6 +27,13 @@ class MqttServerConfigSerializer(serializers.ModelSerializer):
 class VendorConfigSerializer(serializers.ModelSerializer):
     mqtt_server = MqttServerConfigSerializer(read_only=True)
 
+    def get_fields(self):
+        fields = super().get_fields()
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        if current_project != "dine_flash":
+            fields.pop("qr_expiry_minutes", None)
+        return fields
+
     class Meta:
         model = VendorConfig
         fields = [
@@ -39,6 +46,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'auto_delete_hours',
             'use_utilities',
             'phone_number_enabled',
+            'qr_expiry_minutes',
         ]
 
 class VendorSerializer(serializers.ModelSerializer):
@@ -678,6 +686,13 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         write_only=True,
         source="advertisements",
     )
+    device_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=AndroidDevice.objects.all(),
+        required=False,
+        write_only=True,
+        source="devices",
+    )
     advertisements = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -725,6 +740,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             "footer_texts",
             "advertisements",
             "advertisement_ids",
+            "device_ids",
         ]
         read_only_fields = ("created_at", "updated_at", "id")
 
@@ -754,7 +770,9 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 except (AdminOutlet.DoesNotExist, ValueError, TypeError):
                     pass
         
-        is_dine_flash = admin_outlet and admin_outlet.project_code == 'dine_flash'
+        outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower() if admin_outlet else ""
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
         
         if not is_dine_flash:
             # Fields to remove for non-Dine Flash variants
@@ -770,7 +788,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 "video_ad_mode",
                 "header_font_size", "header_font_style", "header_text_color",
                 "footer_enabled", "footer_texts",
-                "advertisements", "advertisement_ids",
+                "advertisements", "advertisement_ids", "device_ids",
             ]
             for field in dine_flash_fields:
                 if field in self.fields:
@@ -821,6 +839,28 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+        devices = attrs.get("devices", None)
+        if devices is not None and admin_outlet:
+            invalid_devices = [
+                device.id for device in devices
+                if device.admin_outlet_id != admin_outlet.id or device.vendor_id is None
+            ]
+            if invalid_devices:
+                raise serializers.ValidationError(
+                    {"device_ids": f"Devices {invalid_devices} are not vendor-mapped devices of this outlet."}
+                )
+            already_assigned = []
+            for device in devices:
+                if not device.tv_config_id:
+                    continue
+                if self.instance and device.tv_config_id == self.instance.id:
+                    continue
+                already_assigned.append(device.id)
+            if already_assigned:
+                raise serializers.ValidationError(
+                    {"device_ids": f"Devices {already_assigned} are already mapped to a TV configuration."}
+                )
             invalid_ads = [ad.id for ad in advertisements if ad.admin_outlet_id != admin_outlet.id]
             if invalid_ads:
                 raise serializers.ValidationError(
@@ -856,17 +896,21 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         utilities = validated_data.pop("utilities", [])
         advertisements = validated_data.pop("advertisements", [])
+        devices = validated_data.pop("devices", [])
         config = TVDeviceConfig.objects.create(**validated_data)
         if utilities:
             config.utilities.set(utilities)
         if advertisements:
             config.advertisements.set(advertisements)
+        if devices:
+            AndroidDevice.objects.filter(id__in=[device.id for device in devices]).update(tv_config=config)
         return config
 
     @transaction.atomic
     def update(self, instance, validated_data):
         utilities = validated_data.pop("utilities", None)
         advertisements = validated_data.pop("advertisements", None)
+        devices = validated_data.pop("devices", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -874,6 +918,9 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             instance.utilities.set(utilities)
         if advertisements is not None:
             instance.advertisements.set(advertisements)
+        if devices is not None:
+            AndroidDevice.objects.filter(tv_config=instance).exclude(id__in=[device.id for device in devices]).update(tv_config=None)
+            AndroidDevice.objects.filter(id__in=[device.id for device in devices]).update(tv_config=instance)
         return instance
 
     def get_advertisements(self, instance):
