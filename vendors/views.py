@@ -9,7 +9,7 @@ from django.utils.timezone import now, localtime
 
 # Third-party
 from rest_framework import status, serializers
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from firebase_admin import messaging
@@ -495,6 +495,7 @@ def register_device(request):
 #     }, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def register_android_device(request):
     
@@ -646,7 +647,9 @@ def register_android_device(request):
 
         # Build tv_config payload (use the reusable helper)
         try:
-            tv_config_data = build_tv_config_payload(device_tv_config, request=request)
+            tv_config_data = build_tv_config_payload(
+                device_tv_config, request=request, omit_utilities=is_dine_flash
+            )
         except Exception as e:
             logger.error("Failed to build TV config payload: %s", str(e), exc_info=True)
             tv_config_data = None

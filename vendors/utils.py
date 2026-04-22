@@ -283,29 +283,31 @@ def archive_order(order):
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
 
-def build_tv_config_payload(tv_config, request=None):
+def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
     """
     Builds a standardized payload for TVDeviceConfig,
     dynamically resolving utility label based on utility_name_mode.
     Includes Dine Flash specific fields if applicable.
+
+    When omit_utilities is True (Dine Flash TV registration), the payload omits the
+    ``utilities`` key so the client does not receive utility lists or labels.
     """
     if not tv_config:
         return None
 
-    mode = tv_config.utility_name_mode  # utility_name / display_name / display_code
-
-    # Build utilities list based on mode
-    utilities_data = []
-    for u in tv_config.utilities.filter(is_active=True):
-        label_value = getattr(u, mode, None)  # dynamically pick field
-        utilities_data.append({
-            "id": u.id,
-            "label": label_value,
-        })
-
     is_dine_flash = bool(
         tv_config.admin_outlet and tv_config.admin_outlet.project_code == 'dine_flash'
     )
+
+    utilities_data = []
+    if not omit_utilities:
+        mode = tv_config.utility_name_mode  # utility_name / display_name / display_code
+        for u in tv_config.utilities.filter(is_active=True):
+            label_value = getattr(u, mode, None)  # dynamically pick field
+            utilities_data.append({
+                "id": u.id,
+                "label": label_value,
+            })
 
     # Base payload compatible with all variants
     payload = {
@@ -314,10 +316,11 @@ def build_tv_config_payload(tv_config, request=None):
         "booking_fields": tv_config.booking_fields,
         "utility_name_mode": tv_config.utility_name_mode,
         "screen_orientation": tv_config.screen_orientation,
-        "utilities": utilities_data,
         "created_at": tv_config.created_at,
         "updated_at": tv_config.updated_at,
     }
+    if not omit_utilities:
+        payload["utilities"] = utilities_data
 
     # Keep legacy left/right alignment for non-Dine Flash variants only.
     if not is_dine_flash:
@@ -409,8 +412,8 @@ _DINE_FLASH_QR_TIME_PART_DIGITS = {"hour": 2, "minute": 2, "second": 2}
 def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     """
     Initial TV payload for Dine Flash: waiting queue + seated/active tables for the
-    current business day, filtered by dashboard TV config (utilities, visibility,
-    booking_fields, items_to_show). Does not apply to other project flavours.
+    current business day for the vendor. Respects TV visibility settings
+    (booking_fields, items_to_show) but does not filter by utility.
     """
     from django.urls import reverse
     from django.utils import timezone as django_timezone
@@ -485,33 +488,8 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         created_date__in=date_keys,
     ).values_list("id", flat=True)
     order_ids = set(in_window) | set(by_calendar)
-    qs = (
-        Order.objects.filter(id__in=order_ids)
-        .exclude(status__in=_DINE_FLASH_EXCLUDED_STATUSES)
-        .select_related("utility")
-    )
+    qs = Order.objects.filter(id__in=order_ids).exclude(status__in=_DINE_FLASH_EXCLUDED_STATUSES)
 
-    is_dine_flash_tv = bool(
-        tv_config
-        and getattr(getattr(tv_config, "admin_outlet", None), "project_code", None) == "dine_flash"
-    )
-
-    if tv_config and not is_dine_flash_tv:
-        # All utilities linked to this TV config (snapshot must not drop rows if is_active is wrong in DB)
-        utility_ids = list(tv_config.utilities.values_list("id", flat=True))
-        if utility_ids:
-            before_utility = qs
-            qs = qs.filter(utility_id__in=utility_ids)
-            if before_utility.exists() and not qs.exists():
-                logger.warning(
-                    "build_dine_flash_tv_booking_snapshot: TV config id=%s utility_ids=%s "
-                    "excluded every candidate order; booking utility_id values=%s",
-                    tv_config.id,
-                    utility_ids,
-                    list(before_utility.values_list("utility_id", flat=True)[:50]),
-                )
-
-    mode = getattr(tv_config, "utility_name_mode", "display_name") if tv_config else "display_name"
     booking_fields = (
         list(tv_config.booking_fields)
         if tv_config and tv_config.booking_fields
@@ -524,21 +502,12 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     show_phone = getattr(tv_config, "show_phone_number", True) if tv_config else True
     show_order_details = getattr(tv_config, "show_order_details", True) if tv_config else True
 
-    def utility_label(order):
-        u = order.utility
-        if not u:
-            return None
-        return getattr(u, mode, None) or u.display_name or u.name
-
     def serialize_row(order):
         row = {
             "id": order.id,
             "status": order.status,
             "created_at": order.created_at.isoformat() if order.created_at else None,
         }
-        ul = utility_label(order)
-        if ul:
-            row["utility_label"] = ul
         if "name" in booking_fields and show_customer_name:
             row["customer_name"] = order.customer_name
         if "phone" in booking_fields and show_phone:
