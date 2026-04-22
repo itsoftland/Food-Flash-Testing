@@ -690,6 +690,72 @@ def get_booking_list(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_allocated_booking_list(request):
+    """
+    Dine Flash only: list allocated bookings for the current business day.
+    """
+    if project_name != "dine_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    logger.info("get_allocated_booking_list: API called.")
+
+    try:
+        vendor = get_manager_vendor(request.user)
+        logger.info(
+            "get_allocated_booking_list: Resolved vendor -> ID: %s, Name: %s",
+            vendor.id,
+            vendor.name,
+        )
+
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        if not start_dt or not end_dt:
+            logger.warning("Invalid date range for vendor_id=%s", vendor.id)
+            return Response({"error": "Invalid date range"}, status=status.HTTP_400_BAD_REQUEST)
+
+        bookings_qs = (
+            Order.objects.filter(
+                vendor=vendor,
+                status="allocated",
+                created_at__range=(start_dt, end_dt),
+            )
+            .select_related("utility")
+            .order_by("utility__display_name", "created_at")
+        )
+
+        total_count = bookings_qs.count()
+        serialized = BookingSerializer(bookings_qs, many=True, context={"request": request}).data
+
+        grouped = {}
+        for i, item in enumerate(serialized):
+            utility = bookings_qs[i].utility
+            code = utility.display_code if utility else "Unassigned"
+
+            if code not in grouped:
+                grouped[code] = {"unread": 0, "bookings": []}
+
+            grouped[code]["bookings"].append(item)
+            if item.get("new_notifications", 0) > 0:
+                grouped[code]["unread"] += 1
+
+        return Response(
+            {
+                "message": "Allocated bookings retrieved successfully.",
+                "count": total_count,
+                "detail": grouped,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception:
+        logger.exception("get_allocated_booking_list: Unexpected error")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_active_customers_list(request):
