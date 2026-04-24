@@ -187,37 +187,65 @@
                             <div class="col-md-4">
                                 <label class="form-label">Token Font Size</label>
                                 <select name="token_font_size" class="form-select">
+                                    {% if PROJECT_NAME == "dine_flash" %}
+                                    <option value="small">12</option>
+                                    <option value="medium">16</option>
+                                    <option value="large" selected>20</option>
+                                    <option value="extra-large">24</option>
+                                    {% else %}
                                     <option value="small">Small</option>
                                     <option value="medium">Medium</option>
                                     <option value="large" selected>Large</option>
                                     <option value="extra-large">Extra Large</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Counter Font Size</label>
                                 <select name="counter_font_size" class="form-select">
+                                    {% if PROJECT_NAME == "dine_flash" %}
+                                    <option value="small">12</option>
+                                    <option value="medium" selected>16</option>
+                                    <option value="large">20</option>
+                                    <option value="extra-large">24</option>
+                                    {% else %}
                                     <option value="small">Small</option>
                                     <option value="medium" selected>Medium</option>
                                     <option value="large">Large</option>
                                     <option value="extra-large">Extra Large</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Utility Font Size</label>
                                 <select name="utility_font_size" class="form-select">
+                                    {% if PROJECT_NAME == "dine_flash" %}
+                                    <option value="small" selected>12</option>
+                                    <option value="medium">16</option>
+                                    <option value="large">20</option>
+                                    <option value="extra-large">24</option>
+                                    {% else %}
                                     <option value="small" selected>Small</option>
                                     <option value="medium">Medium</option>
                                     <option value="large">Large</option>
                                     <option value="extra-large">Extra Large</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Header Font Size</label>
                                 <select name="header_font_size" class="form-select">
+                                    {% if PROJECT_NAME == "dine_flash" %}
+                                    <option value="small">12</option>
+                                    <option value="medium">16</option>
+                                    <option value="large" selected>20</option>
+                                    <option value="extra-large">24</option>
+                                    {% else %}
                                     <option value="small">Small</option>
                                     <option value="medium">Medium</option>
                                     <option value="large" selected>Large</option>
                                     <option value="extra-large">Extra Large</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-4">

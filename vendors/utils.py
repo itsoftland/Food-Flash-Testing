@@ -10,6 +10,21 @@ import logging
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
 
+_DINE_FLASH_FONT_SIZE_TO_INT = {
+    "small": 12,
+    "medium": 16,
+    "large": 20,
+    "extra-large": 24,
+}
+
+
+def _map_font_size_to_int(size_value):
+    """
+    Convert persisted enum size to Dine Flash integer size.
+    Falls back to medium size when value is missing/unknown.
+    """
+    return _DINE_FLASH_FONT_SIZE_TO_INT.get(str(size_value or "").strip().lower(), 16)
+
 def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stale=True):
     """
     Sends web push notifications sequentially (thread-safe).
@@ -330,9 +345,9 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False, inclu
         payload.update({
             "display_rows": tv_config.display_rows,
             "display_columns": tv_config.display_columns,
-            "token_font_size": tv_config.token_font_size,
-            "counter_font_size": tv_config.counter_font_size,
-            "utility_font_size": tv_config.utility_font_size,
+            "token_font_size": _map_font_size_to_int(tv_config.token_font_size),
+            "counter_font_size": _map_font_size_to_int(tv_config.counter_font_size),
+            "utility_font_size": _map_font_size_to_int(tv_config.utility_font_size),
             "token_text_color": tv_config.token_text_color,
             "counter_text_color": tv_config.counter_text_color,
             "utility_text_color": tv_config.utility_text_color,
@@ -345,7 +360,7 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False, inclu
             "blink_token": tv_config.blink_token,
             "blink_utility": tv_config.blink_utility,
             "enable_ads": tv_config.enable_ads,
-            "header_font_size": getattr(tv_config, "header_font_size", "large"),
+            "header_font_size": _map_font_size_to_int(getattr(tv_config, "header_font_size", "large")),
             "header_font_style": getattr(tv_config, "header_font_style", "bold"),
             "header_text_color": getattr(tv_config, "header_text_color", "#000000"),
             "footer_enabled": getattr(tv_config, "footer_enabled", False),
