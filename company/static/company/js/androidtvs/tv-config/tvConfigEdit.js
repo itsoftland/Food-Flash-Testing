@@ -498,7 +498,7 @@ function populateForm(config) {
   setValue('edit-header-text-color', config.header_text_color || '#000000');
   setChecked('edit-show-customer-name', config.show_customer_name);
   setChecked('edit-show-phone-number', config.show_phone_number);
-  setChecked('edit-show-order-details', config.show_order_details);
+  setChecked('edit-show-order-details', config.show_no_of_packs ?? config.show_order_details);
   setChecked('edit-audio-enabled', config.audio_enabled);
   setValue('edit-announcement-language', config.announcement_language || 'English');
   setChecked('edit-blink-token', config.blink_token);
@@ -510,11 +510,6 @@ function populateForm(config) {
   setValue('edit-footer-texts', Array.isArray(config.footer_texts) ? config.footer_texts.join('\n') : '');
   setMultiSelect('edit-advertisements-list', (config.advertisements || []).map(ad => String(ad.id)));
 
-  // Checkboxes for booking_fields
-  const fields = config.booking_fields || []; // e.g. ['name', 'token']
-  document.querySelectorAll('input[name="booking_fields"]').forEach(cb => {
-    cb.checked = fields.includes(cb.value);
-  });
 }
 
 async function handleEditSubmit(e, id, ctx) {
@@ -536,8 +531,6 @@ async function handleEditSubmit(e, id, ctx) {
     ? choicesInstance.getValue(true)
     : Array.from(utilsSelectEl?.selectedOptions || []).map((opt) => opt.value);
 
-  const bookingFields = Array.from(document.querySelectorAll('input[name="booking_fields"]:checked'))
-    .map(cb => cb.value);
   const advertisementIds = adSelectEl
     ? Array.from(adSelectEl.selectedOptions).map(opt => parseInt(opt.value, 10)).filter(Boolean)
     : [];
@@ -553,7 +546,8 @@ async function handleEditSubmit(e, id, ctx) {
     items_to_show: parseInt(itemsToShow),
     utility_name_mode: utilNameMode,
     screen_orientation: orientation,
-    booking_fields: bookingFields,
+    // Dine Flash display is controlled by visibility toggles in UI.
+    booking_fields: ['token'],
     display_rows: parseInt(document.getElementById('edit-display-rows')?.value, 10) || 1,
     display_columns: parseInt(document.getElementById('edit-display-columns')?.value, 10) || 1,
     token_font_size: document.getElementById('edit-token-font-size')?.value || 'large',
@@ -686,7 +680,6 @@ function buildDetailEntries(config, utilityLookup = {}) {
     ['Items to Show', escapeHtml(String(config.items_to_show ?? '-'))],
     ['Utility Name Mode', escapeHtml(formatField(config.utility_name_mode || '-'))],
     ['Utilities', formatList(utilities)],
-    ['Booking Fields', formatList(config.booking_fields || [], formatField)],
     ['Display Rows', escapeHtml(String(config.display_rows ?? '-'))],
     ['Display Columns', escapeHtml(String(config.display_columns ?? '-'))],
     ['Token Font Size', escapeHtml(formatField(config.token_font_size || '-'))],
@@ -700,7 +693,7 @@ function buildDetailEntries(config, utilityLookup = {}) {
     ['Header Text Color', escapeHtml(config.header_text_color || '-')],
     ['Show Customer Name', escapeHtml(formatBool(config.show_customer_name))],
     ['Show Phone Number', escapeHtml(formatBool(config.show_phone_number))],
-    ['Show No of Packs', escapeHtml(formatBool(config.show_order_details))],
+    ['Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
     ['Audio Enabled', escapeHtml(formatBool(config.audio_enabled))],
     ['Announcement Language', escapeHtml(config.announcement_language || '-')],
     ['Blink Token', escapeHtml(formatBool(config.blink_token))],

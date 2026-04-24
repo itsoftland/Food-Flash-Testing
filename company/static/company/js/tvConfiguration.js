@@ -305,7 +305,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             qr_base_url: formData.get('qr_base_url') || null,
             items_to_show: parseInt(formData.get('items_to_show')),
             utility_name_mode: formData.get('utility_name_mode'),
-            booking_fields: formData.getAll('booking_fields'),
+            // Dine Flash display is driven by visibility switches; keep a stable token field for API validation.
+            booking_fields: ['token'],
             utilities: choicesInstance
                 ? choicesInstance
                     .getValue()

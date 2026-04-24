@@ -283,7 +283,7 @@ def archive_order(order):
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
 
-def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
+def build_tv_config_payload(tv_config, request=None, omit_utilities=False, include_dine_flash_fields=False):
     """
     Builds a standardized payload for TVDeviceConfig,
     dynamically resolving utility label based on utility_name_mode.
@@ -295,9 +295,7 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
     if not tv_config:
         return None
 
-    is_dine_flash = bool(
-        tv_config.admin_outlet and tv_config.admin_outlet.project_code == 'dine_flash'
-    )
+    is_dine_flash = bool(include_dine_flash_fields)
 
     utilities_data = []
     if not omit_utilities:
@@ -322,12 +320,12 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
     if not omit_utilities:
         payload["utilities"] = utilities_data
 
-    # Keep legacy left/right alignment for non-Dine Flash variants only.
-    if not is_dine_flash:
-        payload["qr_alignment"] = tv_config.qr_alignment if tv_config.show_qr else None
+    # Keep qr_alignment in the response contract for all variants, including Dine Flash.
+    payload["qr_alignment"] = tv_config.qr_alignment if tv_config.show_qr else None
 
     # Dine Flash Specific Scope
     if is_dine_flash:
+        payload.pop("booking_fields", None)
         # Add Extended Display settings
         payload.update({
             "display_rows": tv_config.display_rows,
@@ -340,15 +338,13 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
             "utility_text_color": tv_config.utility_text_color,
             "show_customer_name": tv_config.show_customer_name,
             "show_phone_number": tv_config.show_phone_number,
-            "show_order_details": tv_config.show_order_details,
+            # Keep explicit toggle name expected by Android TV clients.
+            "show_no_of_packs": tv_config.show_order_details,
             "audio_enabled": tv_config.audio_enabled,
             "announcement_language": tv_config.announcement_language,
             "blink_token": tv_config.blink_token,
             "blink_utility": tv_config.blink_utility,
             "enable_ads": tv_config.enable_ads,
-            "ad_position": tv_config.ad_position,
-            "ad_interval": tv_config.ad_interval,
-            "video_ad_mode": getattr(tv_config, "video_ad_mode", "play_full"),
             "header_font_size": getattr(tv_config, "header_font_size", "large"),
             "header_font_style": getattr(tv_config, "header_font_style", "bold"),
             "header_text_color": getattr(tv_config, "header_text_color", "#000000"),
@@ -374,8 +370,13 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
             payload["qr_base_url"] = None
             payload["qr_expiry_minutes"] = None
 
-        ad_items = []
         if tv_config.enable_ads:
+            payload.update({
+                "ad_position": tv_config.ad_position,
+                "ad_interval": tv_config.ad_interval,
+                "video_ad_mode": getattr(tv_config, "video_ad_mode", "play_full"),
+            })
+            ad_items = []
             ad_queryset = tv_config.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
             for ad in ad_queryset:
                 if not ad.media_file:
@@ -392,7 +393,7 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False):
                     "display_seconds": tv_config.ad_interval if ad.media_type == "image" or not play_full_video else None,
                     "cache_key": int(ad.updated_at.timestamp()) if ad.updated_at else None,
                 })
-        payload["ad_items"] = ad_items
+            payload["ad_items"] = ad_items
 
     return payload
 
@@ -501,6 +502,7 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     show_customer_name = getattr(tv_config, "show_customer_name", True) if tv_config else True
     show_phone = getattr(tv_config, "show_phone_number", True) if tv_config else True
     show_order_details = getattr(tv_config, "show_order_details", True) if tv_config else True
+    show_no_of_packs = getattr(tv_config, "show_order_details", True) if tv_config else True
 
     def serialize_row(order):
         row = {
@@ -512,8 +514,10 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
             row["customer_name"] = order.customer_name
         if "phone" in booking_fields and show_phone:
             row["phone_number"] = order.phone_number
-        if "guest_count" in booking_fields and show_order_details:
+        if show_no_of_packs:
             row["guest_count"] = order.no_of_packs
+            row["no_of_packs"] = order.no_of_packs
+            row["packs"] = order.no_of_packs
         if "datetime" in booking_fields:
             row["booked_at"] = order.created_at.isoformat() if order.created_at else None
         if "token" in booking_fields:

@@ -642,13 +642,20 @@ def register_android_device(request):
                 "tv_config": None,
             }
             if is_dine_flash:
-                missing_config_response["dine_flash"] = None
+                empty_counts = {"waiting": 0, "active_tables": 0, "ongoing_tables": 0}
+                missing_config_response["dine_flash"] = {
+                    "counts": empty_counts,
+                    "displayed_counts": empty_counts.copy(),
+                }
             return Response(missing_config_response, status=status.HTTP_200_OK)
 
         # Build tv_config payload (use the reusable helper)
         try:
             tv_config_data = build_tv_config_payload(
-                device_tv_config, request=request, omit_utilities=is_dine_flash
+                device_tv_config,
+                request=request,
+                omit_utilities=is_dine_flash,
+                include_dine_flash_fields=is_dine_flash,
             )
         except Exception as e:
             logger.error("Failed to build TV config payload: %s", str(e), exc_info=True)
@@ -664,22 +671,8 @@ def register_android_device(request):
             logger.error("Failed to build Dine Flash TV snapshot: %s", str(e), exc_info=True)
             # Keep Dine Flash API stable even when snapshot building fails.
             dine_flash_tv = {
-                "display_mode": "table_booking",
-                "data_source": "dine_flash",
-                "vendor_id": vendor.vendor_id,
-                "location_id": getattr(vendor, "location_id", None),
-                "waiting": [],
-                "active_tables": [],
-                "ongoing_tables": [],
                 "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
                 "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
-                "table_booking_url": None,
-                "tracking_qr_base_url": None,
-                "qr_expiry_minutes": None,
-                "qr_date_format": "%Y-%m-%d",
-                "qr_time_format": "%H:%M:%S",
-                "qr_date_part_digits": {"year": 4, "month": 2, "day": 2},
-                "qr_time_part_digits": {"hour": 2, "minute": 2, "second": 2},
             }
 
         response_body = {
@@ -691,7 +684,22 @@ def register_android_device(request):
             "tv_config": tv_config_data,
         }
         if is_dine_flash:
-            response_body["dine_flash"] = dine_flash_tv
+            if isinstance(dine_flash_tv, dict):
+                response_body["dine_flash"] = {
+                    "counts": dine_flash_tv.get(
+                        "counts",
+                        {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                    ),
+                    "displayed_counts": dine_flash_tv.get(
+                        "displayed_counts",
+                        {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                    ),
+                }
+            else:
+                response_body["dine_flash"] = {
+                    "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                    "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
+                }
 
         return Response(response_body, status=status.HTTP_200_OK)
 

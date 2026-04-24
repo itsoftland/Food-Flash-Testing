@@ -987,13 +987,19 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         else:
             rep.pop("linked_tv_mac", None)
 
+        # Dine Flash API/UI contract: expose only show_no_of_packs in responses.
+        # Keep underlying DB field as show_order_details for backward-compatible writes.
+        if is_dine_flash and "show_order_details" in rep:
+            rep["show_no_of_packs"] = rep.get("show_order_details")
+            rep.pop("show_order_details", None)
+
         if not is_dine_flash:
             # List of fields to exclude for non-Dine Flash variants
             new_fields = [
                 "display_rows", "display_columns",
                 "token_font_size", "counter_font_size", "utility_font_size",
                 "token_text_color", "counter_text_color", "utility_text_color",
-                "show_customer_name", "show_phone_number", "show_order_details",
+                "show_customer_name", "show_phone_number", "show_order_details", "show_no_of_packs",
                 "audio_enabled", "announcement_language",
                 "blink_token", "blink_utility",
                 "qr_placement", "qr_base_url",
