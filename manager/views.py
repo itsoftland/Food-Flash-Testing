@@ -707,14 +707,18 @@ def get_allocated_booking_list(request):
         if request.user and request.user.is_authenticated:
             vendor = get_manager_vendor(request.user)
         else:
-            vendor_id = request.query_params.get("vendor_id")
+            vendor_id = (
+                request.query_params.get("vendor_id")
+                or request.headers.get("X-Vendor-Id")
+                or request.COOKIES.get("vendor_id")
+            )
             if not vendor_id:
                 return Response(
                     {"error": "vendor_id is required for public access."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                vendor = Vendor.objects.get(id=vendor_id)
+                vendor = Vendor.objects.get(vendor_id=int(vendor_id))
             except (ValueError, Vendor.DoesNotExist):
                 return Response(
                     {"error": "Invalid vendor_id."},
