@@ -1,6 +1,33 @@
 import { ConfirmModalService } from './services/confirmModalService.js';
 import { openAssignConfigModal } from './androidtvs/tvConfigAssignment.js';
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
+function normalizeMacAddress(mac) {
+  return String(mac || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
+}
+
+/** Dine Flash only: hide configuration column (mapping is on TV Configuration page). */
+function isAndroidTvsHideConfigurationColumn() {
+  const el = document.getElementById('android-tvs-page-flags');
+  if (el) {
+    try {
+      const parsed = JSON.parse(el.textContent);
+      if (parsed && typeof parsed.hideConfigurationColumn === 'boolean') {
+        return parsed.hideConfigurationColumn;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const raw = window.PROJECT_NAME != null ? String(window.PROJECT_NAME) : '';
+  return raw.trim().toLowerCase() === 'dine_flash';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Validate BASE exists
   if (!window.BASE) throw new Error('window.BASE is not defined');
@@ -20,64 +47,91 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tableBody = document.getElementById('android-tvs-table-body');
   const filterDropdown = document.getElementById('deviceFilter');
+  const macSuffixSearchInput = document.getElementById('macSuffixSearch');
+  let cachedDevices = [];
+  let currentDeviceFilter = 'all';
 
-  loadDevices('all');
+  loadDevices(currentDeviceFilter);
 
   filterDropdown.addEventListener('change', (e) => {
-    loadDevices(e.target.value);
+    currentDeviceFilter = e.target.value;
+    loadDevices(currentDeviceFilter);
   });
 
-  async function loadDevices(filter = 'all') {
-    try {
-      let url = API_ENDPOINTS.GET_ANDROID_TVS;
-      if (filter !== 'all') {
-        url += `?filter=${filter}`;
-      }
+  if (macSuffixSearchInput) {
+    macSuffixSearchInput.addEventListener('input', () => {
+      renderDevices(cachedDevices);
+    });
+  }
 
-      const res = await fetchWithAutoRefresh(url);
-      const data = await res.json();
-      const android_tvs = data.android_tvs;
+  function getMacSuffixSearchTerm() {
+    if (!macSuffixSearchInput) return '';
+    return String(macSuffixSearchInput.value || '')
+      .replace(/[^a-fA-F0-9]/g, '')
+      .toLowerCase()
+      .slice(0, 3);
+  }
 
-      tableBody.innerHTML = '';
+  function renderDevices(android_tvs = []) {
+    const hideConfigCol = isAndroidTvsHideConfigurationColumn();
+    const emptyColspan = hideConfigCol ? 5 : 6;
+    const macSuffixTerm = getMacSuffixSearchTerm();
+    const shouldApplyMacFilter = hideConfigCol && macSuffixTerm.length >= 2;
 
-      if (android_tvs.length === 0) {
-        tableBody.innerHTML = `
+    const visibleDevices = shouldApplyMacFilter
+      ? android_tvs.filter((device) => normalizeMacAddress(device.mac_address).endsWith(macSuffixTerm))
+      : android_tvs;
+
+    tableBody.innerHTML = '';
+
+    if (visibleDevices.length === 0) {
+      const emptyMessage = shouldApplyMacFilter
+        ? 'No devices match that MAC suffix.'
+        : 'No devices found.';
+      tableBody.innerHTML = `
           <tr>
-            <td colspan="5" class="text-center text-muted">No devices found.</td>
+            <td colspan="${emptyColspan}" class="text-center text-muted">${emptyMessage}</td>
           </tr>
         `;
-        return;
-      }
+      return;
+    }
 
-      android_tvs.forEach((device, index) => {
-        const Id = index + 1;
-        const isMapped = !!device.vendor;
-        const outletName = isMapped ? device.vendor.name : 'Unmapped';
-        const createdTime = new Date(device.created_at).toLocaleString();
+    visibleDevices.forEach((device, index) => {
+      const Id = index + 1;
+      const isMapped = !!device.vendor;
+      const outletName = isMapped ? device.vendor.name : 'Unmapped';
+      const createdTime = new Date(device.created_at).toLocaleString();
 
-        const iconClass = isMapped ? 'fa-link-slash' : 'fa-link';
-        const iconTitle = isMapped ? 'Unlink Device' : 'Link Device';
-        const outletClass = isMapped ? 'name' : 'text-muted';
+      const iconClass = isMapped ? 'fa-link-slash' : 'fa-link';
+      const iconTitle = isMapped ? 'Unlink Device' : 'Link Device';
+      const outletClass = isMapped ? 'name' : 'text-muted';
 
-        const hasConfig = !!device.tv_config;
-        const configName = hasConfig ? device.tv_config.config_name : 'Not Assigned';
-        const configClass = hasConfig ? 'text-success fw-semibold' : 'text-muted fst-italic';
+      const hasConfig = !!device.tv_config;
+      const configLabel = hasConfig
+        ? (device.tv_config.config_name || `Config #${device.tv_config.id}`)
+        : 'Not assigned';
+      const configClass = hasConfig ? 'text-success fw-semibold' : 'text-muted fst-italic';
+      const safeLabel = escapeHtml(configLabel);
 
-        const row = `
+      const configCell = hideConfigCol
+        ? ''
+        : `<td data-label="Configuration">
+              <span class="config-link ${configClass}"
+                    style="cursor:pointer; text-decoration:underline;"
+                    data-id="${device.id}"
+                    data-mac_address="${escapeHtml(device.mac_address)}"
+                    data-has_config="${hasConfig}"
+                    title="Click to ${hasConfig ? 'change' : 'assign'} configuration">
+                ${safeLabel}
+              </span>
+            </td>`;
+
+      const row = `
         <tr>
             <td class="text-muted text-center" data-label="ID">${Id}</td>
             <td class="name" data-label="MAC Address">${device.mac_address}</td>
             <td class="${outletClass}" data-label="Outlet Name">${outletName}</td>
-            <td data-label="Configuration">
-              <span class="config-link ${configClass}" 
-                    style="cursor:pointer; text-decoration:underline;"
-                    data-id="${device.id}"
-                    data-mac_address="${device.mac_address}"
-                    data-has_config="${hasConfig}"
-                    title="Click to ${hasConfig ? 'change' : 'assign'} configuration">
-                ${configName}
-              </span>
-            </td>
+            ${configCell}
             <td class="text-muted" data-label="Created Time">${createdTime}</td>
             <td class="text-center" data-label="Actions">
             <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
@@ -93,14 +147,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         </tr>
         `;
 
-        tableBody.insertAdjacentHTML('beforeend', row);
-      });
+      tableBody.insertAdjacentHTML('beforeend', row);
+    });
 
 
-      $('[data-toggle="tooltip"]').tooltip('dispose').tooltip();
+    $('[data-toggle="tooltip"]').tooltip('dispose').tooltip();
 
-      attachActionListeners(); // Rebind link/unlink handlers
-      attachConfigListeners(); // Rebind config assignment handlers
+    attachActionListeners(); // Rebind link/unlink handlers
+    if (!hideConfigCol) {
+      attachConfigListeners(); // Assign/change TV configuration (non–Dine Flash only)
+    }
+  }
+
+  async function loadDevices(filter = 'all') {
+    try {
+      let url = API_ENDPOINTS.GET_ANDROID_TVS;
+      if (filter !== 'all') {
+        url += `?filter=${filter}`;
+      }
+
+      const res = await fetchWithAutoRefresh(url);
+      const data = await res.json();
+      cachedDevices = Array.isArray(data.android_tvs) ? data.android_tvs : [];
+      renderDevices(cachedDevices);
     } catch (error) {
       console.error('Error loading devices:', error);
     }
@@ -116,26 +185,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         // console.log(API_ENDPOINTS.UNMAP_DEVICE);
 
         if (isMapped) {
-          const confirmed = await ConfirmModalService.show(`Are you sure you want to unlink device ${macAddress} from ${outletName}?`);
+          const isDineFlashDeleteFlow = isAndroidTvsHideConfigurationColumn();
+          const confirmed = await ConfirmModalService.show(
+            isDineFlashDeleteFlow
+              ? `Delete device ${macAddress}?<br><small>This will unlink and permanently delete the Android TV from Dine Flash.</small>`
+              : `Are you sure you want to unlink device ${macAddress} from ${outletName}?`
+          );
           if (!confirmed) return;
 
           try {
-            const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.UNMAP_ANDROID_TVS}${deviceId}/`, {
-              method: 'POST',
-            });
+            const endpoint = isDineFlashDeleteFlow
+              ? API_ENDPOINTS.UNMAP_AND_DELETE_ANDROID_TVS
+              : API_ENDPOINTS.UNMAP_ANDROID_TVS;
+            const res = await fetchWithAutoRefresh(`${endpoint}${deviceId}/`, { method: 'POST' });
 
             if (!res.ok) {
               const err = await res.json();
-              ModalService.showError(`Error: ${err.error || 'Unable to unlink device.'}`);
+              const message = err?.error || err?.detail || err?.message
+                || (isDineFlashDeleteFlow ? 'Unable to delete device.' : 'Unable to unlink device.');
+              ModalService.showError(`Error: ${message}`);
               return;
             }
 
-            ModalService.showSuccess(`Device #${macAddress} unlinked successfully.`, () => {
+            const successMessage = isDineFlashDeleteFlow
+              ? `Device #${macAddress} deleted successfully.`
+              : `Device #${macAddress} unlinked successfully.`;
+            ModalService.showSuccess(successMessage, () => {
               loadDevices(filterDropdown.value);
             });
           } catch (err) {
-            console.error('Error unlinking device:', err);
-            ModalService.showError(`Unexpected error occurred while unlinking device.`);
+            console.error('Error unlink/delete device:', err);
+            ModalService.showError(
+              isDineFlashDeleteFlow
+                ? 'Unexpected error occurred while deleting device.'
+                : 'Unexpected error occurred while unlinking device.'
+            );
           }
 
         } else {
@@ -146,6 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function attachConfigListeners() {
+    if (isAndroidTvsHideConfigurationColumn()) return;
     document.querySelectorAll('.config-link').forEach((link) => {
       link.addEventListener('click', () => {
         const deviceId = link.dataset.id;

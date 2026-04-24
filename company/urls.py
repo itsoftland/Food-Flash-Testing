@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/map_device/<int:device_id>/', views.map_device, name='map_device'),
     path('api/get_android_tvs/', views.get_android_tvs, name='get_android_tvs'),
     path('api/unmap_android_tvs/<int:device_id>/', views.unmap_android_tvs, name='unmap_android_tvs'),
+    path('api/unmap_and_delete_android_tvs/<int:device_id>/', views.unmap_and_delete_android_tvs, name='unmap_and_delete_android_tvs'),
     path('api/map_android_tvs/<int:device_id>/', views.map_android_tvs, name='map_android_tvs'),
     path('api/banner_upload/', views.upload_banner, name='upload_banner'),
     path('api/banner_list/', views.list_banners, name='list_banners'),

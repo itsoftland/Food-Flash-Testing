@@ -3,7 +3,7 @@ import logging
 import random
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -35,6 +35,7 @@ from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
+from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
 from .serializers import (VendorSerializer,
                           VendorDetailSerializer,
                           UnmappedVendorDetailSerializer,
@@ -53,6 +54,7 @@ from .serializers import (VendorSerializer,
 
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
+
 
 @login_required()
 @never_cache
@@ -113,7 +115,7 @@ def tv_configuration_page(request):
             vendor__isnull=False,
             tv_config__isnull=True,
         ).select_related("vendor").order_by("-updated_at")
-    return render(request, 'company/tv_configuration.html', context)
+    return render(request, "company/tv_configuration.html", context)
 
 @login_required
 def banners(request):
@@ -1215,6 +1217,49 @@ def unmap_android_tvs(request, device_id):
     except AndroidDevice.DoesNotExist:
         return Response({"error": "Android TV not found."}, status=status.HTTP_404_NOT_FOUND)
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unmap_and_delete_android_tvs(request, device_id):
+    """
+    Dine Flash-only action:
+    unlink (if needed) and permanently delete Android TV device.
+    """
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+    if not dine_flash_exclusive_tv_device_policy_applies(admin_outlet):
+        return Response(
+            {"error": "This action is available only for Dine Flash."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        android_tvs = AndroidDevice.objects.get(id=device_id)
+    except AndroidDevice.DoesNotExist:
+        return Response({"error": "Android TV not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if android_tvs.admin_outlet != admin_outlet:
+        return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        mac_address = android_tvs.mac_address
+        # Break links explicitly before delete; helps with legacy rows/migrations.
+        android_tvs.vendor = None
+        android_tvs.tv_config = None
+        android_tvs.save(update_fields=["vendor", "tv_config"])
+        android_tvs.delete()
+        return Response(
+            {"message": "Android TV unlinked and deleted successfully.", "mac_address": mac_address},
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        logger.exception("unmap_and_delete_android_tvs: failed for device_id=%s", device_id)
+        return Response(
+            {"error": f"Unable to delete device: {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def map_android_tvs(request, device_id):
@@ -1682,49 +1727,52 @@ def tv_config_create(request):
         # ------------------------------------------------------
         #                 DUPLICATE CHECK
         # ------------------------------------------------------
-        filter_kwargs = {
-            "admin_outlet": admin_outlet,
-            "show_qr": show_qr,
-            "items_to_show": booking_display_count,
-            "utility_name_mode": utility_name_mode,
-            "screen_orientation": screen_orientation,
-            "enable_ads": enable_ads,
-            "ad_position": ad_position,
-            "ad_interval": ad_interval,
-            "video_ad_mode": video_ad_mode,
-            "header_font_size": header_font_size,
-            "header_font_style": header_font_style,
-            "header_text_color": header_text_color,
-            "footer_enabled": footer_enabled,
-        }
-        if qr_alignment is not None:
-            filter_kwargs["qr_alignment"] = qr_alignment
-        if qr_placement is not None:
-            filter_kwargs["qr_placement"] = qr_placement
-            
-        existing_configs = TVDeviceConfig.objects.filter(**filter_kwargs)
+        # Dine Flash (table): each physical TV has its own config row; identical
+        # settings must be allowed so edits on one TV do not affect another.
+        if not dine_flash_exclusive_tv_device_policy_applies(admin_outlet):
+            filter_kwargs = {
+                "admin_outlet": admin_outlet,
+                "show_qr": show_qr,
+                "items_to_show": booking_display_count,
+                "utility_name_mode": utility_name_mode,
+                "screen_orientation": screen_orientation,
+                "enable_ads": enable_ads,
+                "ad_position": ad_position,
+                "ad_interval": ad_interval,
+                "video_ad_mode": video_ad_mode,
+                "header_font_size": header_font_size,
+                "header_font_style": header_font_style,
+                "header_text_color": header_text_color,
+                "footer_enabled": footer_enabled,
+            }
+            if qr_alignment is not None:
+                filter_kwargs["qr_alignment"] = qr_alignment
+            if qr_placement is not None:
+                filter_kwargs["qr_placement"] = qr_placement
 
-        for config in existing_configs:
-            # Compare booking fields list
-            db_booking_fields = config.booking_fields or []
-            if sorted(db_booking_fields) != sorted(booking_fields):
-                continue
+            existing_configs = TVDeviceConfig.objects.filter(**filter_kwargs)
 
-            # Compare utilities list
-            existing_util_ids = list(config.utilities.values_list("id", flat=True))
-            if sorted(existing_util_ids) != utility_ids:
-                continue
-            existing_ad_ids = list(config.advertisements.values_list("id", flat=True))
-            if sorted(existing_ad_ids) != advertisement_ids:
-                continue
-            if (config.footer_texts or []) != (footer_texts or []):
-                continue
+            for config in existing_configs:
+                # Compare booking fields list
+                db_booking_fields = config.booking_fields or []
+                if sorted(db_booking_fields) != sorted(booking_fields):
+                    continue
 
-            # All params matched → duplicate
-            return Response(
-                {"message": "A configuration with the same settings already exists."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                # Compare utilities list
+                existing_util_ids = list(config.utilities.values_list("id", flat=True))
+                if sorted(existing_util_ids) != utility_ids:
+                    continue
+                existing_ad_ids = list(config.advertisements.values_list("id", flat=True))
+                if sorted(existing_ad_ids) != advertisement_ids:
+                    continue
+                if (config.footer_texts or []) != (footer_texts or []):
+                    continue
+
+                # All params matched → duplicate
+                return Response(
+                    {"message": "A configuration with the same settings already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         # ------------------------------------------------------
         #                    CREATE NEW CONFIG
@@ -1768,7 +1816,7 @@ def tv_config_list(request):
         configs = (
             admin_outlet.tv_device_configs
                 .select_related("admin_outlet")
-                .prefetch_related("utilities", "advertisements")
+                .prefetch_related("utilities", "advertisements", "devices")
                 .order_by("-created_at")
         )
         serializer = TVDeviceConfigSerializer(configs, many=True)
@@ -1797,9 +1845,34 @@ def tv_config_list(request):
 def tv_config_detail(request, config_id):
     try:
         config = get_object_or_404(TVDeviceConfig, pk=config_id)
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+        if not admin_outlet or config.admin_outlet_id != admin_outlet.id:
+            return Response(
+                {"error": "You do not have permission to view this configuration."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = TVDeviceConfigSerializer(config)
+        payload = {"config": serializer.data}
+        if dine_flash_exclusive_tv_device_policy_applies(config.admin_outlet):
+            linkable = (
+                AndroidDevice.objects.filter(
+                    admin_outlet=config.admin_outlet,
+                    vendor__isnull=False,
+                )
+                .filter(Q(tv_config__isnull=True) | Q(tv_config=config))
+                .select_related("vendor")
+                .order_by("-updated_at")
+            )
+            payload["linkable_android_devices"] = [
+                {
+                    "id": d.id,
+                    "mac_address": d.mac_address or "",
+                    "vendor_name": d.vendor.name if d.vendor else "",
+                }
+                for d in linkable
+            ]
         logger.info(f"tv_config_detail: Returned config id={config_id}.")
-        return Response({"config": serializer.data}, status=status.HTTP_200_OK)
+        return Response(payload, status=status.HTTP_200_OK)
     except Exception:
         logger.exception("tv_config_detail: Unexpected server error.")
         return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1814,6 +1887,12 @@ def tv_config_detail(request, config_id):
 def tv_config_update(request, config_id):
     try:
         config = get_object_or_404(TVDeviceConfig, pk=config_id)
+        admin_outlet = getattr(request.user, "admin_outlet", None)
+        if not admin_outlet or config.admin_outlet_id != admin_outlet.id:
+            return Response(
+                {"error": "You do not have permission to update this configuration."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = TVDeviceConfigSerializer(config, data=request.data, partial=True)
         if serializer.is_valid():
             config = serializer.save()
@@ -2050,8 +2129,24 @@ def tv_config_assign(request):
             logger.warning(f"tv_config_assign: Mismatched admin_outlet for device {device_id} and config {config_id}.")
             return Response({"error": "Config does not belong to the same admin outlet as device."}, status=status.HTTP_400_BAD_REQUEST)
 
-        device.tv_config = config
-        device.save(update_fields=["tv_config", "updated_at"])
+        if dine_flash_exclusive_tv_device_policy_applies(config.admin_outlet):
+            with transaction.atomic():
+                TVDeviceConfig.objects.select_for_update().get(pk=config.id)
+                if AndroidDevice.objects.filter(tv_config=config).exclude(id=device.id).exists():
+                    return Response(
+                        {
+                            "error": (
+                                "This configuration is already linked to another TV. "
+                                "In Dine Flash each TV must use its own configuration."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                device.tv_config = config
+                device.save(update_fields=["tv_config", "updated_at"])
+        else:
+            device.tv_config = config
+            device.save(update_fields=["tv_config", "updated_at"])
         logger.info(f"tv_config_assign: Assigned config id={config_id} to device id={device_id}.")
         return Response({"message": "Configuration assigned to device.", "device_id": device_id, "config_id": config_id}, status=status.HTTP_200_OK)
 

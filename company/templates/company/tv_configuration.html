@@ -150,11 +150,7 @@
                     <div class="form-section">
                         <h6 class="form-section-title"><i class="fas fa-cog"></i>Basic Details</h6>
                         <div class="row g-3">
-                            <div class="form-group col-md-6">
-                                <label for="config-name" class="form-label">Configuration Name</label>
-                                <input type="text" id="config-name" name="config_name" class="form-control" placeholder="e.g. Main Dining Room" required />
-                            </div>
-                            <div class="form-group col-md-6">
+                            <div class="form-group col-md-6 col-lg-4">
                                 <label for="screen-orientation" class="form-label">Screen Orientation</label>
                                 <select id="screen-orientation" name="screen_orientation" class="form-select" required>
                                     <option value="landscape" selected>Landscape</option>
@@ -162,18 +158,22 @@
                                 </select>
                             </div>
                             {% if PROJECT_NAME == "dine_flash" %}
-                            <div class="form-group col-md-12">
-                                <label for="mapped-devices-select" class="form-label">Map Vendor Devices to This Configuration</label>
-                                <select id="mapped-devices-select" name="device_ids" class="form-select" multiple>
+                            <div class="form-group col-md-12 col-lg-8">
+                                {% if mapped_android_devices %}
+                                <label for="mapped-devices-select" class="form-label">Link to TV <span class="text-danger" title="Required">*</span></label>
+                                <select id="mapped-devices-select" name="device_ids" class="form-select" required>
+                                    <option value="" disabled selected>Select a TV…</option>
                                     {% for device in mapped_android_devices %}
                                     <option value="{{ device.id }}">
-                                        {{ device.mac_address|default:"Unknown MAC" }}{% if device.vendor %} - {{ device.vendor.name }}{% endif %}
+                                        {{ device.mac_address|default:"Unknown MAC" }}{% if device.vendor %} — {{ device.vendor.name }}{% endif %}
                                     </option>
-                                    {% empty %}
-                                    <option value="" disabled>No vendor-mapped devices available.</option>
                                     {% endfor %}
                                 </select>
-                                <small class="text-muted">Only Android TVs already mapped to a vendor in your admin outlet are listed.</small>
+                                <small class="text-muted">Required for Dine Flash. Link the TV here; the Android TVs page does not list configuration.</small>
+                                {% else %}
+                                <label class="form-label">Link to TV <span class="text-danger">*</span></label>
+                                <p class="text-warning mb-0 small">No unmapped vendor-linked TVs are available. On <strong>Android TVs</strong>, link a device to an outlet first, then return here.</p>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
@@ -487,6 +487,9 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if PROJECT_NAME == "dine_flash" %}
+<script type="application/json" id="tv-config-page-flags">{"requireLinkedTv": true, "hasLinkedTvChoices": {% if mapped_android_devices %}true{% else %}false{% endif %}}</script>
+{% endif %}
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script type="module" src="{% static 'company/js/tvConfiguration.js' %}"></script>
 {% endblock %}

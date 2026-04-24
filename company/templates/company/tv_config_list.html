@@ -59,7 +59,7 @@
         <table id="config-table" class="config-table">
           <thead>
             <tr>
-              <th>Config Name</th>
+              <th>{% if PROJECT_NAME == "dine_flash" %}Android TV (MAC){% else %}Config Name{% endif %}</th>
               <th>Utility Name Mode</th>
               <th>Items to Show</th>
               <th>QR Code</th>
@@ -138,10 +138,21 @@
           <div class="form-section">
             <h6 class="form-section-title">Basic Details</h6>
             <div class="row g-3">
+              {% if PROJECT_NAME != "dine_flash" %}
               <div class="form-group col-lg-12">
                 <label for="edit-config-name" class="form-label">Configuration Name</label>
                 <input type="text" id="edit-config-name" name="config_name" class="form-control form-control-sm" />
               </div>
+              {% endif %}
+              {% if PROJECT_NAME == "dine_flash" %}
+              <div class="form-group col-lg-12">
+                <label for="edit-mapped-device-select" class="form-label">Linked Android TV (MAC) <span class="text-danger">*</span></label>
+                <select id="edit-mapped-device-select" class="form-select form-select-sm" required>
+                  <option value="" disabled selected>Loading…</option>
+                </select>
+                <small class="text-muted">Required. Each configuration must be linked to one TV.</small>
+              </div>
+              {% endif %}
             </div>
           </div>
 
@@ -211,14 +222,15 @@
             </div>
           </div>
 
+          {% if PROJECT_NAME != "dine_flash" %}
           <!-- Associated Utilities -->
           <div class="form-section">
             <h6 class="form-section-title">Associated Utilities</h6>
             <div class="form-group">
-              <select id="edit-utilities-list" name="utilities" class="form-select form-select-sm" multiple
-                required></select>
+              <select id="edit-utilities-list" name="utilities" class="form-select form-select-sm" multiple></select>
             </div>
           </div>
+          {% endif %}
 
           {% if PROJECT_NAME == "dine_flash" %}
           <div class="form-section">
@@ -449,6 +461,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<script type="application/json" id="tv-config-list-page-flags">
+{"useMacFirstColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script type="module" src="{% static 'company/js/androidtvs/tv-config/tvConfigListManager.js' %}"></script>
 {% endblock %}

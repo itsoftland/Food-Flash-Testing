@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
   GET_ANDROID_TVS: `${BASE}company/api/get_android_tvs/`,
   MAP_ANDROID_TVS: `${BASE}company/api/map_android_tvs/`,
   UNMAP_ANDROID_TVS: `${BASE}company/api/unmap_android_tvs/`,
+  UNMAP_AND_DELETE_ANDROID_TVS: `${BASE}company/api/unmap_and_delete_android_tvs/`,
   ORDER_COUNTS_SUMMARY: `${BASE}company/api/order_counts_summary/`,
   FILTERED_ORDERS: `${BASE}company/api/filtered_orders/`,
   ORDER_TIMELINE: `${BASE}company/api/order_status_timeline/`,

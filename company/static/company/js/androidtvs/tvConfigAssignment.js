@@ -44,7 +44,14 @@ export async function openAssignConfigModal(deviceId, macAddress, hasConfig, ctx
             try {
                 const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_TV_CONFIG);
                 const data = await res.json();
-                const configs = data.configs || [];
+                let configs = data.configs || [];
+                if (window.PROJECT_NAME === 'dine_flash') {
+                    configs = configs.filter((c) => {
+                        const mapped = c.mapped_device_ids;
+                        if (!mapped || mapped.length === 0) return true;
+                        return mapped.length === 1 && Number(mapped[0]) === Number(deviceId);
+                    });
+                }
 
                 if (!configs.length) {
                     configSelect.innerHTML = `<option disabled>No configurations available</option>`;

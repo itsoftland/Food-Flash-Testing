@@ -25,7 +25,20 @@
     <div class="card shadow-sm border-0">
       <div class="card-body">
         <!-- Filter Dropdown -->
-        <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+        <div class="d-flex justify-content-end align-items-center gap-2 mb-3 flex-wrap">
+          {% if PROJECT_NAME == "dine_flash" %}
+          <div class="d-flex align-items-center gap-2 me-2">
+            <label for="macSuffixSearch" class="mb-0 fw-semibold">Search MAC:</label>
+            <input
+              id="macSuffixSearch"
+              type="text"
+              class="form-control"
+              placeholder="Last 2-3 digits"
+              maxlength="3"
+              autocomplete="off"
+            >
+          </div>
+          {% endif %}
           <label for="deviceFilter" class="mb-0 me-2 fw-semibold">Filter by:</label>
           <select id="deviceFilter" class="form-control w-auto">
             <option value="all">All Devices</option>
@@ -43,7 +56,9 @@
                 <th>Id</th>
                 <th>Mac Address</th>
                 <th>Outlet Name</th>
+                {% if PROJECT_NAME != "dine_flash" %}
                 <th>Configuration</th>
+                {% endif %}
                 <th>Created Time</th>
                 <th>Actions</th>
               </tr>
@@ -62,5 +77,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<script type="application/json" id="android-tvs-page-flags">
+{"hideConfigurationColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}}
+</script>
 <script type="module" src="{% static 'company/js/androidTvs.js' %}"></script>
 {% endblock %}

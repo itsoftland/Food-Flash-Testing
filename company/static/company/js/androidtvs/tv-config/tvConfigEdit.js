@@ -10,6 +10,49 @@ export function initEditHandlers(ctx) {
 
 import { loadConfigurations } from './tvConfigCore.js';
 
+function isTvConfigListDineFlash() {
+  const el = document.getElementById('tv-config-list-page-flags');
+  if (el) {
+    try {
+      const p = JSON.parse(el.textContent);
+      if (p && p.useMacFirstColumn === true) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  return String(window.PROJECT_NAME || '').trim().toLowerCase() === 'dine_flash';
+}
+
+function populateLinkedTvSelect(configResponse, config) {
+  const sel = document.getElementById('edit-mapped-device-select');
+  if (!sel || !isTvConfigListDineFlash()) return;
+  const devices = configResponse.linkable_android_devices || [];
+  const currentIds = Array.isArray(config.mapped_device_ids) ? config.mapped_device_ids : [];
+  const currentId = currentIds.length ? String(currentIds[0]) : '';
+  if (!devices.length) {
+    sel.innerHTML =
+      '<option value="" disabled selected>No linkable TVs — link a TV to an outlet on Android TVs first</option>';
+    sel.disabled = true;
+    sel.removeAttribute('required');
+    return;
+  }
+  sel.setAttribute('required', 'required');
+  sel.disabled = false;
+  sel.innerHTML = devices
+    .map((d) => {
+      const mac = escapeHtml(String(d.mac_address || 'Unknown MAC'));
+      const vn = d.vendor_name ? escapeHtml(String(d.vendor_name)) : '';
+      const label = vn ? `${mac} — ${vn}` : mac;
+      return `<option value="${Number(d.id)}">${label}</option>`;
+    })
+    .join('');
+  if (currentId && devices.some((d) => String(d.id) === currentId)) {
+    sel.value = currentId;
+  } else {
+    sel.selectedIndex = 0;
+  }
+}
+
 /* ALL your existing edit/view/delete code goes here
    WITHOUT changing logic or names — only moved */
 
@@ -193,39 +236,45 @@ async function openEditModal(id, ctx) {
       : [];
     const ads = Array.isArray(adsData.ads) ? adsData.ads : [];
 
-    // 2. Populate Utilities Dropdown
+    // 2. Populate Utilities Dropdown (non-Dine Flash edit modal only)
     const utilsSelect = document.getElementById('edit-utilities-list');
-    if (!utilsSelect) {
+    const isDineFlashList = isTvConfigListDineFlash();
+    if (!utilsSelect && !isDineFlashList) {
       throw new Error('Edit utilities field is missing from the page.');
     }
-    utilsSelect.innerHTML = utilities.map(u => {
-      const name = u.display_name || u.utility_name || u.name || `Utility #${u.id}`;
-      const code = u.display_code ? ` (${u.display_code})` : '';
-      return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(code)}</option>`;
-    }).join('');
+    if (utilsSelect) {
+      utilsSelect.innerHTML = utilities.map(u => {
+        const name = u.display_name || u.utility_name || u.name || `Utility #${u.id}`;
+        const code = u.display_code ? ` (${u.display_code})` : '';
+        return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(code)}</option>`;
+      }).join('');
+    }
     populateAdsSelect(ads);
 
     // 3. Set Config Values
     populateForm(config);
+    populateLinkedTvSelect(configData, config);
 
     // 4. Init Choices.js
     if (choicesInstance) {
       choicesInstance.destroy();
       choicesInstance = null;
     }
-    try {
-      choicesInstance = new Choices(utilsSelect, { removeItemButton: true, itemSelectText: '' });
-    } catch (error) {
-      console.error('Failed to initialize utilities multiselect:', error);
-      choicesInstance = null;
-    }
+    if (utilsSelect) {
+      try {
+        choicesInstance = new Choices(utilsSelect, { removeItemButton: true, itemSelectText: '' });
+      } catch (error) {
+        console.error('Failed to initialize utilities multiselect:', error);
+        choicesInstance = null;
+      }
 
-    // Set selected utilities
-    const selectedIds = (Array.isArray(config.utilities) ? config.utilities : []).map(u => u?.id || u).map(String);
-    if (choicesInstance) {
-      choicesInstance.setChoiceByValue(selectedIds);
-    } else {
-      setMultiSelect('edit-utilities-list', selectedIds);
+      // Set selected utilities
+      const selectedIds = (Array.isArray(config.utilities) ? config.utilities : []).map(u => u?.id || u).map(String);
+      if (choicesInstance) {
+        choicesInstance.setChoiceByValue(selectedIds);
+      } else {
+        setMultiSelect('edit-utilities-list', selectedIds);
+      }
     }
     refreshEditAdsUI(ads);
     bindEditAdsEvents();
@@ -482,9 +531,10 @@ async function handleEditSubmit(e, id, ctx) {
   const adSelectEl = document.getElementById('edit-advertisements-list');
   const footerTextsValue = document.getElementById('edit-footer-texts')?.value || '';
 
+  const utilsSelectEl = document.getElementById('edit-utilities-list');
   const utils = choicesInstance
     ? choicesInstance.getValue(true)
-    : Array.from(document.getElementById('edit-utilities-list')?.selectedOptions || []).map((opt) => opt.value);
+    : Array.from(utilsSelectEl?.selectedOptions || []).map((opt) => opt.value);
 
   const bookingFields = Array.from(document.querySelectorAll('input[name="booking_fields"]:checked'))
     .map(cb => cb.value);
@@ -503,7 +553,6 @@ async function handleEditSubmit(e, id, ctx) {
     items_to_show: parseInt(itemsToShow),
     utility_name_mode: utilNameMode,
     screen_orientation: orientation,
-    utilities: utils.map(v => parseInt(v, 10)).filter(Boolean),
     booking_fields: bookingFields,
     display_rows: parseInt(document.getElementById('edit-display-rows')?.value, 10) || 1,
     display_columns: parseInt(document.getElementById('edit-display-columns')?.value, 10) || 1,
@@ -531,6 +580,28 @@ async function handleEditSubmit(e, id, ctx) {
     footer_texts: footerTexts,
     advertisement_ids: advertisementIds
   };
+
+  if (utilsSelectEl) {
+    payload.utilities = utils.map(v => parseInt(v, 10)).filter(Boolean);
+  }
+
+  if (isTvConfigListDineFlash()) {
+    const sel = document.getElementById('edit-mapped-device-select');
+    if (sel) {
+      if (sel.disabled || !String(sel.value || '').trim()) {
+        ctx.ModalService.showError(
+          'No linkable Android TVs. Link a TV to an outlet on Android TVs first, then try again.'
+        );
+        return;
+      }
+      const vid = parseInt(sel.value, 10);
+      if (!Number.isFinite(vid)) {
+        ctx.ModalService.showError('Please select an Android TV to link.');
+        return;
+      }
+      payload.device_ids = [vid];
+    }
+  }
 
   try {
     const url = ctx.apiEndpoints.UPDATE_TV_CONFIG.replace('{id}', id);

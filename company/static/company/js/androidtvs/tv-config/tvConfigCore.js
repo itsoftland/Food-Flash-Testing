@@ -90,11 +90,39 @@ function renderTable() {
   });
 }
 
+/** Dine Flash list: first column is TV MAC (from template JSON; window.PROJECT_NAME can be wrong in some builds). */
+function useMacFirstColumnForTvConfigList() {
+  const el = document.getElementById('tv-config-list-page-flags');
+  if (el) {
+    try {
+      const parsed = JSON.parse(el.textContent);
+      if (parsed && typeof parsed.useMacFirstColumn === 'boolean') {
+        return parsed.useMacFirstColumn;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const raw = window.PROJECT_NAME != null ? String(window.PROJECT_NAME) : '';
+  return raw.trim().toLowerCase() === 'dine_flash';
+}
+
+function formatFirstColumnCell(c) {
+  if (!useMacFirstColumnForTvConfigList()) {
+    return `<strong>${escapeHtml(c.config_name || 'Unnamed')}</strong>`;
+  }
+  const mac = (c.linked_tv_mac && String(c.linked_tv_mac).trim()) || '';
+  if (mac) {
+    return `<strong class="font-monospace text-break">${escapeHtml(mac)}</strong>`;
+  }
+  return '<span class="text-muted fst-italic">Not linked</span>';
+}
+
 function rowTemplate(c) {
   const utilitiesCount = getDineFlashUtilitiesCount(c.utilities);
   return `
     <tr>
-      <td><strong>${escapeHtml(c.config_name || 'Unnamed')}</strong></td>
+      <td>${formatFirstColumnCell(c)}</td>
       <td>${escapeHtml(c.utility_name_mode)}</td>
 
       <td>
@@ -170,16 +198,18 @@ function showActionMenu(e, btn) {
   const spaceBelow = viewportHeight - rect.bottom;
 
   let top, left;
+  const isDineFlashVariant = useMacFirstColumnForTvConfigList();
 
   // If there's enough space below, show below; otherwise show above
   if (spaceBelow > menuHeight + 20) {
-    top = rect.bottom + window.scrollY + 4;
+    // Dine Flash dropdown is fixed-positioned; avoid scroll offsets to prevent clipping.
+    top = isDineFlashVariant ? rect.bottom + 4 : rect.bottom + window.scrollY + 4;
   } else {
-    top = rect.top + window.scrollY - menuHeight - 4;
+    top = isDineFlashVariant ? rect.top - menuHeight - 4 : rect.top + window.scrollY - menuHeight - 4;
   }
 
   // Align right edge of menu with right edge of button (shows to the left)
-  left = rect.right - 160 + window.scrollX;
+  left = isDineFlashVariant ? rect.right - 160 : rect.right - 160 + window.scrollX;
 
   // Ensure menu doesn't go off-screen on right side
   if (left + 160 > window.innerWidth) {
@@ -222,6 +252,7 @@ function renderPagination() {
 window.goToTVPage = p => {
   currentPage = p;
   renderTable();
+  renderPagination();
 };
 
 function escapeHtml(t) {

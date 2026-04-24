@@ -27,6 +27,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     const footerTextsGroup = document.getElementById('footer-texts-group');
     const mappedDevicesSelect = document.getElementById('mapped-devices-select');
 
+    function parseTvConfigPageFlags() {
+        const defaults = { requireLinkedTv: false, hasLinkedTvChoices: false };
+        const el = document.getElementById('tv-config-page-flags');
+        if (!el) return defaults;
+        try {
+            return { ...defaults, ...JSON.parse(el.textContent) };
+        } catch {
+            return defaults;
+        }
+    }
+
     let choicesInstance = null;
     let selectedAdIds = [];
 
@@ -252,13 +263,26 @@ document.addEventListener('DOMContentLoaded', async function () {
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
 
+        const tvFlags = parseTvConfigPageFlags();
+        if (tvFlags.requireLinkedTv) {
+            if (!tvFlags.hasLinkedTvChoices) {
+                ModalService.showError(
+                    'No unmapped vendor-linked TVs are available. Link a TV to an outlet on Android TVs, then return here.'
+                );
+                return;
+            }
+            if (mappedDevicesSelect && !String(mappedDevicesSelect.value || '').trim()) {
+                ModalService.showError('Please select a TV to link to this configuration.');
+                return;
+            }
+        }
+
         const formData = new FormData(form);
         const footerTexts = (footerTextsInput?.value || '')
             .split('\n')
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
         const payload = {
-            config_name: formData.get('config_name'),
             screen_orientation: formData.get('screen_orientation'),
             token_font_size: formData.get('token_font_size'),
             counter_font_size: formData.get('counter_font_size'),
@@ -297,9 +321,11 @@ document.addEventListener('DOMContentLoaded', async function () {
             advertisement_ids: selectedAdIds
         };
         if (mappedDevicesSelect) {
-            payload.device_ids = Array.from(mappedDevicesSelect.selectedOptions)
-                .map((option) => parseInt(option.value, 10))
-                .filter((id) => Number.isFinite(id));
+            const raw = mappedDevicesSelect.value;
+            const one = raw ? parseInt(raw, 10) : NaN;
+            if (Number.isFinite(one)) {
+                payload.device_ids = [one];
+            }
         }
 
         if (formData.has('display_rows')) {

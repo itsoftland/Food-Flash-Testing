@@ -14,9 +14,10 @@ import json
 import datetime
 from django.conf import settings
 from django.db import transaction
+from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
+
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
- 
 
 class MqttServerConfigSerializer(serializers.ModelSerializer):
     class Meta:
@@ -694,6 +695,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         source="devices",
     )
     advertisements = serializers.SerializerMethodField(read_only=True)
+    linked_tv_mac = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = TVDeviceConfig
@@ -741,6 +743,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             "advertisements",
             "advertisement_ids",
             "device_ids",
+            "linked_tv_mac",
         ]
         read_only_fields = ("created_at", "updated_at", "id")
 
@@ -861,11 +864,21 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"device_ids": f"Devices {already_assigned} are already mapped to a TV configuration."}
                 )
-            invalid_ads = [ad.id for ad in advertisements if ad.admin_outlet_id != admin_outlet.id]
-            if invalid_ads:
+            if dine_flash_exclusive_tv_device_policy_applies(admin_outlet) and len(devices) > 1:
                 raise serializers.ValidationError(
-                    {"advertisement_ids": f"Advertisements {invalid_ads} do not belong to this outlet."}
+                    {
+                        "device_ids": (
+                            "Dine Flash allows only one TV device per configuration. "
+                            "Create a separate configuration for each TV."
+                        )
+                    }
                 )
+            if advertisements is not None:
+                invalid_ads = [ad.id for ad in advertisements if ad.admin_outlet_id != admin_outlet.id]
+                if invalid_ads:
+                    raise serializers.ValidationError(
+                        {"advertisement_ids": f"Advertisements {invalid_ads} do not belong to this outlet."}
+                    )
 
         footer_enabled = attrs.get("footer_enabled", getattr(self.instance, "footer_enabled", False))
         footer_texts = attrs.get("footer_texts", getattr(self.instance, "footer_texts", []))
@@ -889,6 +902,30 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 {"footer_texts": "Add at least one footer text when footer is enabled."}
             )
         attrs["footer_texts"] = cleaned_footer_texts
+
+        admin_outlet_for_create = attrs.get("admin_outlet") or getattr(self.instance, "admin_outlet", None)
+        if self.instance is None and dine_flash_exclusive_tv_device_policy_applies(admin_outlet_for_create):
+            devices_for_create = attrs.get("devices")
+            if not devices_for_create:
+                raise serializers.ValidationError(
+                    {"device_ids": "Select a TV to link to this configuration."}
+                )
+
+        if self.instance is not None and admin_outlet and dine_flash_exclusive_tv_device_policy_applies(admin_outlet):
+            devices_in_attrs = attrs.get("devices")
+            if devices_in_attrs is not None and len(devices_in_attrs) == 0:
+                raise serializers.ValidationError(
+                    {"device_ids": "Select a TV to link; mapping cannot be cleared for Dine Flash."}
+                )
+            if not self.instance.devices.exists() and not devices_in_attrs:
+                raise serializers.ValidationError(
+                    {
+                        "device_ids": (
+                            "This configuration has no linked TV. Edit it, choose an Android TV "
+                            "under Linked Android TV (MAC), and save."
+                        )
+                    }
+                )
 
         return attrs
 
@@ -927,15 +964,29 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         ads_qs = instance.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
         return TVAdvertisementSerializer(ads_qs, many=True, context=self.context).data
 
+    def get_linked_tv_mac(self, obj):
+        if not obj.admin_outlet or not dine_flash_exclusive_tv_device_policy_applies(obj.admin_outlet):
+            return None
+        dev = obj.devices.first()
+        if not dev:
+            return None
+        mac = (getattr(dev, "mac_address", None) or "").strip()
+        return mac or None
+
     def to_representation(self, instance):
         """
         Exclude new fields from representation if the outlet is NOT Dine Flash.
         """
         rep = super().to_representation(instance)
         
-        # Check if it's Dine Flash
+        # Check if it's Dine Flash (strict outlet code for API field shape)
         is_dine_flash = instance.admin_outlet and instance.admin_outlet.project_code == 'dine_flash'
-        
+
+        if instance.admin_outlet and dine_flash_exclusive_tv_device_policy_applies(instance.admin_outlet):
+            rep["mapped_device_ids"] = list(instance.devices.values_list("id", flat=True))
+        else:
+            rep.pop("linked_tv_mac", None)
+
         if not is_dine_flash:
             # List of fields to exclude for non-Dine Flash variants
             new_fields = [
