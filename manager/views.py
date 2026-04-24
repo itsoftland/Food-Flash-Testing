@@ -1536,13 +1536,38 @@ def manager_booking_update(request):
             payload["status"] = "utility_transfer" if action_type == "utility_transfer" else booking.status
             payload["type"] = "dinestatus"
 
-            # For Android TV (Firebase) notify if configured
-            if vendor.config.tv_communication_mode == "Firebase":
-                android_tv_success, android_tv_info = notify_android_tv(vendor, data)
-                logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
+            tv_mode = str(getattr(vendor.config, "tv_communication_mode", "") or "").strip().upper()
+
+            # For Android TV (Firebase), push normalized booking payload.
+            # Normalize comparison so values like "firebase"/" Firebase " are handled.
+            if tv_mode == "FIREBASE":
+                tv_payload = {
+                    "action": action_type,
+                    "status": payload["status"],
+                    "booking_id": booking.id,
+                    "booking_no": booking.table_booking_no,
+                    "token_no": booking.token_no,
+                    "vendor_id": vendor.vendor_id,
+                    "location_id": vendor.location_id,
+                    "utility_id": target_utility.id,
+                    "utility_name": target_utility.display_name,
+                    "customer_name": booking.customer_name,
+                    "no_of_packs": booking.no_of_packs,
+                }
+                android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
+                logger.info(
+                    "📺 Android TV booking update sent | Action=%s | Booking=%s | Success=%s | Info=%s",
+                    action_type,
+                    booking.id,
+                    android_tv_success,
+                    android_tv_info,
+                )
+            else:
+                android_tv_success = False
+                android_tv_info = {"skipped": f"TV notification skipped: mode is {tv_mode or 'UNSET'}"}
 
             # If MQTT mode, ensure vendor has mqtt config and send update
-            if vendor.config.tv_communication_mode == "MQTT":
+            if tv_mode == "MQTT":
                 logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with booking_id {booking_id}")
                 if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
                     logger.warning(f"⚠️ Vendor {vendor.vendor_id} has no MQTT configuration.")
@@ -1556,7 +1581,7 @@ def manager_booking_update(request):
                     # we continue, but report failure
 
             # For Azure IoT
-            if vendor.config.tv_communication_mode == "AZURE_IOT":
+            if tv_mode == "AZURE_IOT":
                 logger.info(f"[utility_transfer] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
                 azure_iot = get_azure_devices(vendor)
                 logger.info(f"[utility_transfer] Azure IoT messages sent: {azure_iot}")
