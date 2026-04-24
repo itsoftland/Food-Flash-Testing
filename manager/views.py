@@ -10,13 +10,13 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
-from vendors.models import ChatMessage, Order, Utility, OrderStatusHistory
+from vendors.models import ChatMessage, Order, Utility, OrderStatusHistory, Vendor
 from vendors.serializers import OrdersSerializer
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
@@ -693,7 +693,7 @@ def get_booking_list(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_allocated_booking_list(request):
     """
     Dine Flash only: list allocated bookings for the current business day.
@@ -704,7 +704,22 @@ def get_allocated_booking_list(request):
     logger.info("get_allocated_booking_list: API called.")
 
     try:
-        vendor = get_manager_vendor(request.user)
+        if request.user and request.user.is_authenticated:
+            vendor = get_manager_vendor(request.user)
+        else:
+            vendor_id = request.query_params.get("vendor_id")
+            if not vendor_id:
+                return Response(
+                    {"error": "vendor_id is required for public access."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                vendor = Vendor.objects.get(id=vendor_id)
+            except (ValueError, Vendor.DoesNotExist):
+                return Response(
+                    {"error": "Invalid vendor_id."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
         logger.info(
             "get_allocated_booking_list: Resolved vendor -> ID: %s, Name: %s",
             vendor.id,
