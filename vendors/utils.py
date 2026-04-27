@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.db import transaction
 import json
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
@@ -24,6 +25,19 @@ def _map_font_size_to_int(size_value):
     Falls back to medium size when value is missing/unknown.
     """
     return _DINE_FLASH_FONT_SIZE_TO_INT.get(str(size_value or "").strip().lower(), 16)
+
+
+def _append_vendor_id_to_qr_url(url, vendor_id):
+    """Merge vendor_id into query string; no-op if url or vendor_id is empty."""
+    if not url or not vendor_id:
+        return url
+    parts = urlsplit(str(url).strip())
+    query_pairs = list(parse_qsl(parts.query, keep_blank_values=True))
+    merged = {k: v for k, v in query_pairs}
+    merged["vendor_id"] = str(vendor_id).strip()
+    new_query = urlencode(list(merged.items()))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+
 
 def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stale=True):
     """
@@ -298,7 +312,13 @@ def archive_order(order):
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
 
-def build_tv_config_payload(tv_config, request=None, omit_utilities=False, include_dine_flash_fields=False):
+def build_tv_config_payload(
+    tv_config,
+    request=None,
+    omit_utilities=False,
+    include_dine_flash_fields=False,
+    vendor_id=None,
+):
     """
     Builds a standardized payload for TVDeviceConfig,
     dynamically resolving utility label based on utility_name_mode.
@@ -373,7 +393,9 @@ def build_tv_config_payload(tv_config, request=None, omit_utilities=False, inclu
             if not qr_url and request:
                 # Default to dynamic project path if empty
                 qr_url = request.build_absolute_uri('/dine_flash/table_booking/')
-            
+            if vendor_id:
+                qr_url = _append_vendor_id_to_qr_url(qr_url, vendor_id)
+
             payload.update({
                 "qr_placement": tv_config.qr_placement,
                 "qr_base_url": qr_url,

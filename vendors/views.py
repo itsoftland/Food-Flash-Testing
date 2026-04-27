@@ -656,6 +656,7 @@ def register_android_device(request):
                 request=request,
                 omit_utilities=is_dine_flash,
                 include_dine_flash_fields=is_dine_flash,
+                vendor_id=vendor_id if is_dine_flash else None,
             )
         except Exception as e:
             logger.error("Failed to build TV config payload: %s", str(e), exc_info=True)
