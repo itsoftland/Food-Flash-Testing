@@ -418,24 +418,19 @@ def build_tv_config_payload(
                 "ad_interval": tv_config.ad_interval,
                 "video_ad_mode": getattr(tv_config, "video_ad_mode", "play_full"),
             })
-            ad_items = []
+            ad_urls = []
             ad_queryset = tv_config.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
             for ad in ad_queryset:
                 if not ad.media_file:
                     continue
                 media_url = request.build_absolute_uri(ad.media_file.url) if request else ad.media_file.url
-                play_full_video = getattr(tv_config, "video_ad_mode", "play_full") == "play_full"
-                ad_items.append({
-                    "id": ad.id,
-                    "title": ad.title,
-                    "media_type": ad.media_type,
-                    "media_url": media_url,
-                    "sequence": ad.sequence,
-                    "play_full_video": play_full_video if ad.media_type == "video" else None,
-                    "display_seconds": tv_config.ad_interval if ad.media_type == "image" or not play_full_video else None,
-                    "cache_key": int(ad.updated_at.timestamp()) if ad.updated_at else None,
-                })
-            payload["ad_items"] = ad_items
+                ad_urls.append(media_url)
+
+            # Contract for Android TV: each advertisement URL as a separate string.
+            # - multiple ads -> ["url1", "url2", ...]
+            # - single ad    -> ["url1"]
+            # - no ads       -> []
+            payload["ad_items"] = ad_urls
 
     return payload
 
