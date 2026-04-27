@@ -360,13 +360,17 @@ document.addEventListener('DOMContentLoaded', async function () {
                 body: JSON.stringify(payload)
             });
 
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
             if (response.ok) {
                 ModalService.showSuccess(result.message || 'Configuration created successfully!', () => {
                     window.location.href = `${window.BASE}company/tv_config_list_page/`;
                 });
             } else {
-                let detailedError = result.message || result.error;
+                let detailedError =
+                    result.message ||
+                    result.error ||
+                    result.detail ||
+                    (Array.isArray(result.non_field_errors) ? result.non_field_errors.join(', ') : result.non_field_errors);
                 if (!detailedError && result.errors && typeof result.errors === 'object') {
                     detailedError = Object.entries(result.errors)
                         .map(([field, msgs]) => {
@@ -374,6 +378,12 @@ document.addEventListener('DOMContentLoaded', async function () {
                             return `${field}: ${messageText}`;
                         })
                         .join('\n');
+                }
+                if (!detailedError && typeof result === 'string' && result.trim()) {
+                    detailedError = result.trim();
+                }
+                if (!detailedError) {
+                    detailedError = `Failed to save configuration (HTTP ${response.status}).`;
                 }
                 ModalService.showError(detailedError || 'Failed to save configuration.');
             }

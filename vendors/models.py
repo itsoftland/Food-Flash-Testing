@@ -547,7 +547,7 @@ class TVDeviceConfig(models.Model):
         ("medium", "Medium"),
         ("large", "Large"),
         ("extra-large", "Extra Large"),
-    ]
+    ] + [(str(size), str(size)) for size in range(1, 101)]
 
     LANGUAGE_CHOICES = [
         ("English", "English"),

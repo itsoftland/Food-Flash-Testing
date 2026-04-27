@@ -27,6 +27,30 @@ onDOMReady(async function () {
     const normalizeProjectName = (value) =>
         String(value || '').toLowerCase().replace(/[_-]/g, '').trim();
 
+    const lockDineFlashHomeOnBack = () => {
+        const path = (window.location?.pathname || "").toLowerCase();
+        const isDineFlashHome = path.includes("/dine_flash/home/");
+        if (!isDineFlashHome) return;
+
+        // Keep users on Dine Flash home when browser Back is pressed.
+        // Build a small same-URL history buffer and refill it on popstate.
+        const pushLockState = () => {
+            window.history.pushState({ stayOnDineFlashHome: Date.now() }, "", window.location.href);
+        };
+
+        for (let i = 0; i < 12; i += 1) {
+            pushLockState();
+        }
+
+        window.addEventListener("popstate", () => {
+            pushLockState();
+            pushLockState();
+        });
+    };
+
+    lockDineFlashHomeOnBack();
+    const isDineFlashHomePage = (window.location?.pathname || "").toLowerCase().includes("/dine_flash/home/");
+
     const inferProjectFromPath = () => {
         const path = (window.location?.pathname || '').toLowerCase();
         if (path.includes('/airline_flash') || path.includes('/airlineflash')) return 'airline_flash';
@@ -121,11 +145,15 @@ onDOMReady(async function () {
         locationId = AppUtils.get();
 
         if (!locationId )  {
-            // 3️⃣ Ask for it / show error / redirect
-            AppUtils.showToast("No location ID found");
-            // Optionally redirect to a location selection page
-            window.location.href = base;
-            throw new Error("Missing location ID");
+            // For Dine Flash home, do not force-redirect on missing location.
+            // Requirement: stay on /dine_flash/home/ when navigating back.
+            if (!isDineFlashHomePage) {
+                // 3️⃣ Ask for it / show error / redirect
+                AppUtils.showToast("No location ID found");
+                // Optionally redirect to a location selection page
+                window.location.href = base;
+                throw new Error("Missing location ID");
+            }
         }
     }
     if (vendorFromQR) {

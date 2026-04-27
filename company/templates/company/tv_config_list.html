@@ -191,14 +191,37 @@
             <h6 class="form-section-title">Items Display Settings</h6>
             <div class="row g-3">
               <div class="form-group col-lg-4">
-                <label for="edit-items-to-show" class="form-label">Items to Show (1-5)</label>
+                <label for="edit-items-to-show" class="form-label">{% if PROJECT_NAME == "dine_flash" %}Items to Show (1-20){% else %}Items to Show (1-5){% endif %}</label>
                 <select id="edit-items-to-show" name="items_to_show" class="form-select form-select-sm" required>
                   <option value="">-- Select --</option>
+                  {% if PROJECT_NAME == "dine_flash" %}
                   <option value="1">1 Item</option>
                   <option value="2">2 Items</option>
                   <option value="3">3 Items</option>
                   <option value="4">4 Items</option>
                   <option value="5">5 Items</option>
+                  <option value="6">6 Items</option>
+                  <option value="7">7 Items</option>
+                  <option value="8">8 Items</option>
+                  <option value="9">9 Items</option>
+                  <option value="10">10 Items</option>
+                  <option value="11">11 Items</option>
+                  <option value="12">12 Items</option>
+                  <option value="13">13 Items</option>
+                  <option value="14">14 Items</option>
+                  <option value="15">15 Items</option>
+                  <option value="16">16 Items</option>
+                  <option value="17">17 Items</option>
+                  <option value="18">18 Items</option>
+                  <option value="19">19 Items</option>
+                  <option value="20">20 Items</option>
+                  {% else %}
+                  <option value="1">1 Item</option>
+                  <option value="2">2 Items</option>
+                  <option value="3">3 Items</option>
+                  <option value="4">4 Items</option>
+                  <option value="5">5 Items</option>
+                  {% endif %}
                 </select>
               </div>
               <div class="form-group col-lg-4">
@@ -246,39 +269,19 @@
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-token-font-size" class="form-label">Token Font Size</label>
-                <select id="edit-token-font-size" name="token_font_size" class="form-select form-select-sm">
-                  <option value="small">12</option>
-                  <option value="medium">16</option>
-                  <option value="large">20</option>
-                  <option value="extra-large">24</option>
-                </select>
+                <input type="number" id="edit-token-font-size" name="token_font_size" class="form-control form-control-sm" min="1" max="100" value="20" />
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-counter-font-size" class="form-label">Counter Font Size</label>
-                <select id="edit-counter-font-size" name="counter_font_size" class="form-select form-select-sm">
-                  <option value="small">12</option>
-                  <option value="medium">16</option>
-                  <option value="large">20</option>
-                  <option value="extra-large">24</option>
-                </select>
+                <input type="number" id="edit-counter-font-size" name="counter_font_size" class="form-control form-control-sm" min="1" max="100" value="16" />
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-utility-font-size" class="form-label">Utility Font Size</label>
-                <select id="edit-utility-font-size" name="utility_font_size" class="form-select form-select-sm">
-                  <option value="small">12</option>
-                  <option value="medium">16</option>
-                  <option value="large">20</option>
-                  <option value="extra-large">24</option>
-                </select>
+                <input type="number" id="edit-utility-font-size" name="utility_font_size" class="form-control form-control-sm" min="1" max="100" value="12" />
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-header-font-size" class="form-label">Header Font Size</label>
-                <select id="edit-header-font-size" name="header_font_size" class="form-select form-select-sm">
-                  <option value="small">12</option>
-                  <option value="medium">16</option>
-                  <option value="large">20</option>
-                  <option value="extra-large">24</option>
-                </select>
+                <input type="number" id="edit-header-font-size" name="header_font_size" class="form-control form-control-sm" min="1" max="100" value="20" />
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-header-font-style" class="form-label">Header Font Style</label>

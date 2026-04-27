@@ -775,7 +775,11 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         
         outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower() if admin_outlet else ""
         current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-        is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
+        is_dine_flash = (
+            (admin_outlet and dine_flash_exclusive_tv_device_policy_applies(admin_outlet))
+            or outlet_project == "dine_flash"
+            or current_project == "dine_flash"
+        )
         
         if not is_dine_flash:
             # Fields to remove for non-Dine Flash variants
@@ -798,8 +802,31 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                     self.fields.pop(field)
 
     def validate_items_to_show(self, value):
-        if value < 1 or value > 5:
-            raise serializers.ValidationError("items_to_show must be between 1 and 5.")
+        admin_outlet = None
+        if self.instance is not None:
+            if hasattr(self.instance, "admin_outlet"):
+                admin_outlet = self.instance.admin_outlet
+            elif hasattr(self.instance, "first"):
+                first_instance = self.instance.first()
+                admin_outlet = getattr(first_instance, "admin_outlet", None) if first_instance else None
+            elif isinstance(self.instance, (list, tuple)):
+                first_instance = self.instance[0] if self.instance else None
+                admin_outlet = getattr(first_instance, "admin_outlet", None) if first_instance else None
+
+        if admin_outlet is None:
+            raw_outlet = self.initial_data.get("admin_outlet") if hasattr(self, "initial_data") else None
+            try:
+                admin_outlet = AdminOutlet.objects.filter(id=raw_outlet).first()
+            except (TypeError, ValueError):
+                admin_outlet = None
+
+        outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower() if admin_outlet else ""
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
+
+        max_items = 20 if is_dine_flash else 5
+        if value < 1 or value > max_items:
+            raise serializers.ValidationError(f"items_to_show must be between 1 and {max_items}.")
         return value
 
     def validate_booking_fields(self, value):
@@ -979,8 +1006,10 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         """
         rep = super().to_representation(instance)
         
-        # Check if it's Dine Flash (strict outlet code for API field shape)
-        is_dine_flash = instance.admin_outlet and instance.admin_outlet.project_code == 'dine_flash'
+        # Check if it's Dine Flash using the same policy helper used by views/validation.
+        is_dine_flash = bool(
+            instance.admin_outlet and dine_flash_exclusive_tv_device_policy_applies(instance.admin_outlet)
+        )
 
         if instance.admin_outlet and dine_flash_exclusive_tv_device_policy_applies(instance.admin_outlet):
             rep["mapped_device_ids"] = list(instance.devices.values_list("id", flat=True))

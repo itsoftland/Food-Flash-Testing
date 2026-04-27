@@ -26,9 +26,24 @@ function isTvConfigListDineFlash() {
 function populateLinkedTvSelect(configResponse, config) {
   const sel = document.getElementById('edit-mapped-device-select');
   if (!sel || !isTvConfigListDineFlash()) return;
-  const devices = configResponse.linkable_android_devices || [];
+  const devices = Array.isArray(configResponse.linkable_android_devices)
+    ? [...configResponse.linkable_android_devices]
+    : [];
   const currentIds = Array.isArray(config.mapped_device_ids) ? config.mapped_device_ids : [];
   const currentId = currentIds.length ? String(currentIds[0]) : '';
+  const currentMac = String(config.linked_tv_mac || '').trim();
+
+  // Keep currently-linked TV visible even when it is not in linkable pool.
+  // Without this, edit form can show a different TV than what was saved.
+  if (currentId && !devices.some((d) => String(d.id) === currentId)) {
+    devices.unshift({
+      id: Number(currentId),
+      mac_address: currentMac || `TV #${currentId}`,
+      vendor_name: '',
+      _currentLinked: true
+    });
+  }
+
   if (!devices.length) {
     sel.innerHTML =
       '<option value="" disabled selected>No linkable TVs — link a TV to an outlet on Android TVs first</option>';
@@ -42,7 +57,8 @@ function populateLinkedTvSelect(configResponse, config) {
     .map((d) => {
       const mac = escapeHtml(String(d.mac_address || 'Unknown MAC'));
       const vn = d.vendor_name ? escapeHtml(String(d.vendor_name)) : '';
-      const label = vn ? `${mac} — ${vn}` : mac;
+      const labelCore = vn ? `${mac} — ${vn}` : mac;
+      const label = d._currentLinked ? `${labelCore} (currently linked)` : labelCore;
       return `<option value="${Number(d.id)}">${label}</option>`;
     })
     .join('');

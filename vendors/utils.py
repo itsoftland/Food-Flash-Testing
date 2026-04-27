@@ -24,7 +24,12 @@ def _map_font_size_to_int(size_value):
     Convert persisted enum size to Dine Flash integer size.
     Falls back to medium size when value is missing/unknown.
     """
-    return _DINE_FLASH_FONT_SIZE_TO_INT.get(str(size_value or "").strip().lower(), 16)
+    raw_value = str(size_value or "").strip().lower()
+    if raw_value.isdigit():
+        parsed = int(raw_value)
+        if 1 <= parsed <= 100:
+            return parsed
+    return _DINE_FLASH_FONT_SIZE_TO_INT.get(raw_value, 16)
 
 
 def _append_vendor_id_to_qr_url(url, vendor_id):
