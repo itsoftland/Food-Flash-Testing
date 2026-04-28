@@ -33,6 +33,18 @@
     <!-- Control Bar -->
     <div class="config-control-bar">
       <div class="control-items">
+        {% if PROJECT_NAME == "dine_flash" %}
+        <div class="control-item">
+          <input
+            id="tvConfigMacSearch"
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="Search MAC (alphanumeric, up to 16)"
+            maxlength="16"
+            autocomplete="off"
+          />
+        </div>
+        {% endif %}
         <!-- Screen Orientation Filter -->
         <div class="control-item">
           <select id="orientation-filter" class="form-select form-select-sm" title="Filter by orientation">

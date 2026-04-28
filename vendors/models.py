@@ -469,6 +469,8 @@ class Feedback(models.Model):
 
 class AndroidDevice(models.Model):
     token = models.CharField(max_length=255)
+    # Optional dedicated FCM registration token for TV (longer / rotated separately from legacy `token`).
+    fcm_token = models.TextField(blank=True, null=True)
     mac_address = models.CharField(max_length=255, blank=True, null=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL,null=True, blank=True,related_name='android_devices')
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE,related_name='android_device')

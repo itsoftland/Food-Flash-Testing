@@ -7,10 +7,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function normalizeMacAddress(mac) {
-  return String(mac || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-}
-
 /** Dine Flash only: hide configuration column (mapping is on TV Configuration page). */
 function isAndroidTvsHideConfigurationColumn() {
   const el = document.getElementById('android-tvs-page-flags');
@@ -46,47 +42,65 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const tableBody = document.getElementById('android-tvs-table-body');
+  const paginationContainer = document.getElementById('pagination-container');
   const filterDropdown = document.getElementById('deviceFilter');
-  const macSuffixSearchInput = document.getElementById('macSuffixSearch');
+  const outletSearchInput = document.getElementById('outletSearch');
+  const macSearchInput = document.getElementById('macSuffixSearch');
   let cachedDevices = [];
   let currentDeviceFilter = 'all';
+  let currentPage = 1;
+  const itemsPerPage = 6;
 
   loadDevices(currentDeviceFilter);
 
   filterDropdown.addEventListener('change', (e) => {
     currentDeviceFilter = e.target.value;
+    currentPage = 1;
     loadDevices(currentDeviceFilter);
   });
 
-  if (macSuffixSearchInput) {
-    macSuffixSearchInput.addEventListener('input', () => {
-      renderDevices(cachedDevices);
+  if (macSearchInput) {
+    macSearchInput.addEventListener('input', () => {
+      currentPage = 1;
+      loadDevices(currentDeviceFilter, currentPage);
     });
   }
 
-  function getMacSuffixSearchTerm() {
-    if (!macSuffixSearchInput) return '';
-    return String(macSuffixSearchInput.value || '')
-      .replace(/[^a-fA-F0-9]/g, '')
-      .toLowerCase()
-      .slice(0, 3);
+  if (outletSearchInput) {
+    outletSearchInput.addEventListener('input', () => {
+      currentPage = 1;
+      loadDevices(currentDeviceFilter, currentPage);
+    });
   }
 
-  function renderDevices(android_tvs = []) {
+  function getMacSearchTerm() {
+    if (!macSearchInput) return '';
+    return String(macSearchInput.value || '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase()
+      .slice(0, 16);
+  }
+
+  function getOutletSearchTerm() {
+    if (!outletSearchInput) return '';
+    return String(outletSearchInput.value || '').trim().slice(0, 100);
+  }
+
+  function renderDevices(android_tvs = [], page = 1, total = 0) {
     const hideConfigCol = isAndroidTvsHideConfigurationColumn();
     const emptyColspan = hideConfigCol ? 5 : 6;
-    const macSuffixTerm = getMacSuffixSearchTerm();
-    const shouldApplyMacFilter = hideConfigCol && macSuffixTerm.length >= 2;
-
-    const visibleDevices = shouldApplyMacFilter
-      ? android_tvs.filter((device) => normalizeMacAddress(device.mac_address).endsWith(macSuffixTerm))
-      : android_tvs;
+    const startIndex = (page - 1) * itemsPerPage;
 
     tableBody.innerHTML = '';
 
-    if (visibleDevices.length === 0) {
-      const emptyMessage = shouldApplyMacFilter
-        ? 'No devices match that MAC suffix.'
+    if (android_tvs.length === 0) {
+      if (paginationContainer) {
+        paginationContainer.innerHTML = '';
+      }
+      const emptyMessage = getMacSearchTerm()
+        ? 'No devices match that search.'
+        : getOutletSearchTerm()
+          ? 'No devices match that outlet.'
         : 'No devices found.';
       tableBody.innerHTML = `
           <tr>
@@ -96,8 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    visibleDevices.forEach((device, index) => {
-      const Id = index + 1;
+    android_tvs.forEach((device, index) => {
+      const Id = startIndex + index + 1;
       const isMapped = !!device.vendor;
       const outletName = isMapped ? device.vendor.name : 'Unmapped';
       const createdTime = new Date(device.created_at).toLocaleString();
@@ -157,19 +171,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!hideConfigCol) {
       attachConfigListeners(); // Assign/change TV configuration (non–Dine Flash only)
     }
+    renderPagination(total);
   }
 
-  async function loadDevices(filter = 'all') {
+  function renderPagination(totalItems) {
+    if (!paginationContainer) return;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+
+    let html = '<div class="pagination-wrapper"><ul class="pagination">';
+    html += currentPage > 1
+      ? `<li><button class="page-btn" data-page="${currentPage - 1}" title="Previous page"><i class="fas fa-chevron-left"></i></button></li>`
+      : '<li><button class="page-btn" disabled title="Previous page"><i class="fas fa-chevron-left"></i></button></li>';
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+        const activeClass = i === currentPage ? 'active' : '';
+        html += `<li><button class="page-btn ${activeClass}" data-page="${i}">${i}</button></li>`;
+      } else if (i === 2 && currentPage > 3) {
+        html += '<li><span class="page-ellipsis">...</span></li>';
+      } else if (i === totalPages - 1 && currentPage < totalPages - 2) {
+        html += '<li><span class="page-ellipsis">...</span></li>';
+      }
+    }
+
+    html += currentPage < totalPages
+      ? `<li><button class="page-btn" data-page="${currentPage + 1}" title="Next page"><i class="fas fa-chevron-right"></i></button></li>`
+      : '<li><button class="page-btn" disabled title="Next page"><i class="fas fa-chevron-right"></i></button></li>';
+
+    html += '</ul></div>';
+    paginationContainer.innerHTML = html;
+
+    paginationContainer.querySelectorAll('.page-btn:not(:disabled)').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentPage = Number(btn.dataset.page);
+        loadDevices(currentDeviceFilter, currentPage);
+      });
+    });
+  }
+
+  async function loadDevices(filter = 'all', page = 1) {
     try {
-      let url = API_ENDPOINTS.GET_ANDROID_TVS;
+      const params = new URLSearchParams();
       if (filter !== 'all') {
-        url += `?filter=${filter}`;
+        params.set('filter', filter);
+      }
+      params.set('page', String(page));
+      params.set('page_size', String(itemsPerPage));
+      if (isAndroidTvsHideConfigurationColumn()) {
+        const outletSearchTerm = getOutletSearchTerm();
+        if (outletSearchTerm) {
+          params.set('outlet_search', outletSearchTerm);
+        }
+        const macSearchTerm = getMacSearchTerm();
+        if (macSearchTerm) {
+          params.set('mac_search', macSearchTerm);
+        }
       }
 
+      const url = `${API_ENDPOINTS.GET_ANDROID_TVS}?${params.toString()}`;
       const res = await fetchWithAutoRefresh(url);
       const data = await res.json();
       cachedDevices = Array.isArray(data.android_tvs) ? data.android_tvs : [];
-      renderDevices(cachedDevices);
+      const totalItems = Number(data?.meta?.total ?? data?.count ?? 0);
+      currentPage = Number(data?.meta?.page ?? page);
+      renderDevices(cachedDevices, currentPage, totalItems);
     } catch (error) {
       console.error('Error loading devices:', error);
     }

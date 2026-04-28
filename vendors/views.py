@@ -503,7 +503,7 @@ def register_android_device(request):
     Registers an Android device for a given customer.
 
     POST /api/register-android-device/
-    Payload: { "token": <string>, "customer_id": <int>, "mac_address": <string> }
+    Payload: { "token": <string>, "customer_id": <int>, "mac_address": <string> [, "fcm_token": <string>] }
     Returns:
     - Mapped: True if the device is mapped to a vendor; False otherwise
     - Vendor ID: The ID of the vendor the device is mapped to
@@ -516,9 +516,17 @@ def register_android_device(request):
     token = data.get('token')
     customer_id = data.get('customer_id')
     mac_address = data.get('mac_address')
+    fcm_token_in_payload = "fcm_token" in data
+    fcm_token_value = (data.get("fcm_token") or "").strip() or None if fcm_token_in_payload else None
 
     logger.info("Android Device Registration")
-    logger.debug("Incoming data — token=%s, customer_id=%s, mac_address=%s", token, customer_id, mac_address)
+    logger.debug(
+        "Incoming data — token=%s, customer_id=%s, mac_address=%s, fcm_token_present=%s",
+        token,
+        customer_id,
+        mac_address,
+        fcm_token_in_payload,
+    )
 
     # Validate required fields
     required_fields = ['customer_id', 'token', 'mac_address']
@@ -546,22 +554,31 @@ def register_android_device(request):
         ).filter(mac_address=mac_address, admin_outlet=customer).first()
 
         if device:
-            # Only update token if changed
+            update_fields = []
             if device.token != token:
                 logger.info("Device found for mac_address=%s. Updating token.", mac_address)
                 device.token = token
-                device.save(update_fields=['token', 'updated_at'])
+                update_fields.append("token")
+            if fcm_token_in_payload and device.fcm_token != fcm_token_value:
+                device.fcm_token = fcm_token_value
+                update_fields.append("fcm_token")
+            if update_fields:
+                update_fields.append("updated_at")
+                device.save(update_fields=update_fields)
             else:
-                logger.debug("Device found and token unchanged for mac_address=%s", mac_address)
+                logger.debug("Device found and registration fields unchanged for mac_address=%s", mac_address)
             created = False
         else:
             # create inside atomic block
+            create_kwargs = {
+                "token": token,
+                "mac_address": mac_address,
+                "admin_outlet": customer,
+            }
+            if fcm_token_in_payload:
+                create_kwargs["fcm_token"] = fcm_token_value
             with transaction.atomic():
-                device = AndroidDevice.objects.create(
-                    token=token,
-                    mac_address=mac_address,
-                    admin_outlet=customer
-                )
+                device = AndroidDevice.objects.create(**create_kwargs)
             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
             # fetch again with related objects to have vendor/config/tv_config available
             device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').prefetch_related(

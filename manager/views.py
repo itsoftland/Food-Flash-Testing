@@ -34,6 +34,7 @@ from .utils.utils import (get_manager_vendor, get_suggestion_messages,
 from .utils.booking_counts import get_booking_status_counts
 
 from static.utils.functions.notifications import notify_android_tv
+from vendors.dine_flash_tv_fcm import schedule_dine_flash_booking_allocated_fcm
 from static.utils.functions.queries import (update_existing_order_by_manager,
                                             update_existing_status_by_airlinemanager_bulk,
                                             update_booking_status_by_dinemanager,
@@ -1520,6 +1521,8 @@ def manager_booking_update(request):
                 return Response({"message": f"Utility with utility_id {utility_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
             booking.utility = target_utility
+
+            previous_booking_status = (booking.status or "").strip().lower() if action_type == "allocated" else None
             
             # 🛡️ FIX: If it is a transfer, do not overwrite the DB with "utility_transfer" as a status.
             # Preserve the existing valid status (e.g., 'allocated' or 'occupied').
@@ -1528,6 +1531,14 @@ def manager_booking_update(request):
 
             # Optionally update status if client provided a status that should apply
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
+
+            if action_type == "allocated":
+                new_booking_status = (updated_booking.status or "").strip().lower()
+                if (
+                    previous_booking_status != "allocated"
+                    and new_booking_status == "allocated"
+                ):
+                    schedule_dine_flash_booking_allocated_fcm(vendor.id, booking.id)
 
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
 

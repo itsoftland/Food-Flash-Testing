@@ -275,6 +275,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "vendors.dine_flash_tv_fcm": {
+            "handlers": ["vendors_file", "managers_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "orders.views": {
             "handlers": ["orders_file"],
             "level": "DEBUG",

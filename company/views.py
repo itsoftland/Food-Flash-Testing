@@ -1180,6 +1180,8 @@ def get_android_tvs(request):
         return Response({"error": "AdminOutlet not associated with this user."}, status=404)
 
     filter_type = request.GET.get('filter', 'all')  # Options: mapped, unmapped, all
+    mac_search = (request.GET.get('mac_search') or '').strip()
+    outlet_search = (request.GET.get('outlet_search') or '').strip()
 
     if filter_type == 'mapped':
         android_tvs = AndroidDevice.objects.filter(admin_outlet=admin_outlet,vendor__isnull=False)
@@ -1189,11 +1191,37 @@ def get_android_tvs(request):
         # Return both mapped (only for this admin_outlet) and unmapped devices
         android_tvs = AndroidDevice.objects.filter(admin_outlet=admin_outlet)
 
-    serializer = AndroidDeviceSerializer(android_tvs, many=True)
+    if mac_search:
+        normalized_search = ''.join(ch for ch in mac_search if ch.isalnum())
+        if normalized_search:
+            colon_mac = ':'.join(
+                normalized_search[i:i + 2] for i in range(0, len(normalized_search), 2)
+            )
+            hyphen_mac = '-'.join(
+                normalized_search[i:i + 2] for i in range(0, len(normalized_search), 2)
+            )
+            android_tvs = android_tvs.filter(
+                Q(mac_address__icontains=normalized_search) |
+                Q(mac_address__icontains=colon_mac) |
+                Q(mac_address__icontains=hyphen_mac)
+            )
+
+    if outlet_search:
+        android_tvs = android_tvs.filter(vendor__name__icontains=outlet_search)
+
+    android_tvs = android_tvs.order_by('-created_at')
+    paginated_data = get_paginated_data(android_tvs, request, AndroidDeviceSerializer)
     return Response({
         "message": "Android TV's fetched successfully.",
-        "android_tvs": serializer.data,
-        "count": android_tvs.count(),
+        "android_tvs": paginated_data["data"],
+        "count": paginated_data["total"],
+        "meta": {
+            "total": paginated_data["total"],
+            "page": paginated_data["page"],
+            "page_size": paginated_data["page_size"],
+            "has_next": paginated_data["has_next"],
+            "has_previous": paginated_data["has_previous"],
+        },
         }, status=status.HTTP_200_OK)
     
 

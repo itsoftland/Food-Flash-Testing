@@ -14,12 +14,20 @@ export function initCore(context) {
     configTbody: document.getElementById('config-tbody'),
     paginationContainer: document.getElementById('pagination-container'),
     emptyState: document.getElementById('empty-state'),
+    macSearchInput: document.getElementById('tvConfigMacSearch'),
     orientationFilter: document.getElementById('orientation-filter'),
     qrStatusFilter: document.getElementById('qr-filter'),
     actionMenu: document.getElementById('action-menu'),
     actionMenuList: document.getElementById('action-menu-list')
   };
 
+  el.macSearchInput?.addEventListener('input', () => {
+    const sanitized = normalizeAlphanumeric(el.macSearchInput.value).slice(0, 16);
+    if (el.macSearchInput.value !== sanitized) {
+      el.macSearchInput.value = sanitized;
+    }
+    applyFilters();
+  });
   el.orientationFilter?.addEventListener('change', applyFilters);
   el.qrStatusFilter?.addEventListener('change', applyFilters);
 
@@ -52,10 +60,16 @@ export async function loadConfigurations() {
 }
 
 function applyFilters() {
-  const o = el.orientationFilter.value;
-  const q = el.qrStatusFilter.value;
+  const o = el.orientationFilter?.value || 'all';
+  const q = el.qrStatusFilter?.value || 'all';
+  const macSearchTerm = getMacSearchTerm();
 
   filteredConfigs = configs.filter(c => {
+    if (macSearchTerm) {
+      const macCandidates = getMacSearchCandidates(c);
+      const matched = macCandidates.some((candidate) => candidate.includes(macSearchTerm));
+      if (!matched) return false;
+    }
     if (o !== 'all' && c.screen_orientation !== o) return false;
     if (q !== 'all' && c.show_qr !== (q === 'enabled')) return false;
     return true;
@@ -64,6 +78,39 @@ function applyFilters() {
   currentPage = 1;
   renderTable();
   renderPagination();
+}
+
+function getMacSearchTerm() {
+  if (!el.macSearchInput) return '';
+  return normalizeAlphanumeric(el.macSearchInput.value).slice(0, 16);
+}
+
+function normalizeAlphanumeric(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
+function getMacSearchCandidates(config) {
+  const candidates = [
+    config?.linked_tv_mac,
+    config?.linked_mac,
+    config?.mac_address,
+    config?.device_mac,
+    config?.tv_mac
+  ];
+
+  if (Array.isArray(config?.devices)) {
+    config.devices.forEach((device) => {
+      if (device && typeof device === 'object') {
+        candidates.push(device.mac_address, device.mac, device.device_mac);
+      } else {
+        candidates.push(device);
+      }
+    });
+  }
+
+  return candidates
+    .map(normalizeAlphanumeric)
+    .filter(Boolean);
 }
 
 function renderTable() {
