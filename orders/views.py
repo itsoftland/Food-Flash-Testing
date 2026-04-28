@@ -105,7 +105,11 @@ def _dine_flash_qr_session_cache_key(token: str) -> str:
 
 def _create_dine_flash_qr_session(vendor_id: str, qr_dt: datetime, expiry_minutes: int):
     token = secrets.token_urlsafe(24)
-    expires_at = qr_dt + timedelta(minutes=expiry_minutes)
+    # Booking/session window starts at successful QR exchange (scan time),
+    # not at QR generation time. QR freshness validation is still enforced
+    # separately in _validate_dine_flash_qr_time.
+    scan_dt = timezone.localtime(timezone.now())
+    expires_at = scan_dt + timedelta(minutes=expiry_minutes)
     ttl = max(1, int((expires_at - timezone.localtime(timezone.now())).total_seconds()))
     cache.set(
         _dine_flash_qr_session_cache_key(token),
