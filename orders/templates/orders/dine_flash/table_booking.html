@@ -14,8 +14,8 @@
          Vendor Branding
     ================================== -->
     <div class="vendor-branding text-center mt-3">
-        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="" alt="Vendor Logo">
-        <h2 id="vendor-name" class="vendor-name"></h2>
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="{{ VENDOR_LOGO_URL|default:'' }}" alt="Vendor Logo">
+        <h2 id="vendor-name" class="vendor-name">{{ VENDOR_NAME|default:'' }}</h2>
     </div>
 
     <!-- ================================

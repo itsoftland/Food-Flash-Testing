@@ -2,6 +2,7 @@ from rest_framework import serializers
 from vendors.models import Vendor, Feedback, Order
 from django.conf import settings
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash")
@@ -13,14 +14,32 @@ class VendorLogoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
+
+        def append_cache_buster(url, value):
+            """
+            Dine Flash only: ensure recently updated outlet logos bypass stale browser cache.
+            """
+            if not url or value is None:
+                return url
+            parts = urlsplit(url)
+            query = dict(parse_qsl(parts.query, keep_blank_values=True))
+            query["v"] = str(value)
+            return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
         try:
             if request and hasattr(instance.logo, 'url'):
                 url = request.build_absolute_uri(instance.logo.url)
                 # ✅ Force HTTPS only on non-local environments
                 if 'localhost' not in url and '127.0.0.1' not in url:
-                    data['logo_url'] = url.replace("http://", "https://")
+                    url = url.replace("http://", "https://")
                 else:
-                    data['logo_url'] = url
+                    url = url
+
+                if project_name == "dine_flash":
+                    updated_ts = int(instance.updated_at.timestamp()) if getattr(instance, "updated_at", None) else None
+                    url = append_cache_buster(url, updated_ts)
+
+                data['logo_url'] = url
             else:
                 data['logo_url'] = ''
         except Exception as e:

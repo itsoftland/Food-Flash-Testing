@@ -33,6 +33,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
+from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
 from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
@@ -1808,6 +1809,10 @@ def tv_config_create(request):
         serializer = TVDeviceConfigSerializer(data=data)
         if serializer.is_valid():
             config = serializer.save()
+            vendor_ids = list(
+                config.devices.exclude(vendor_id__isnull=True).values_list("vendor_id", flat=True).distinct()
+            )
+            schedule_dine_flash_configuration_updated_for_vendors(vendor_ids)
             return Response(
                 {
                     "message": "TV configuration created successfully.",
@@ -1924,6 +1929,10 @@ def tv_config_update(request, config_id):
         serializer = TVDeviceConfigSerializer(config, data=request.data, partial=True)
         if serializer.is_valid():
             config = serializer.save()
+            vendor_ids = list(
+                config.devices.exclude(vendor_id__isnull=True).values_list("vendor_id", flat=True).distinct()
+            )
+            schedule_dine_flash_configuration_updated_for_vendors(vendor_ids)
             logger.info(f"tv_config_update: Updated config id={config_id}.")
             return Response({"message": "Configuration updated.", "config": TVDeviceConfigSerializer(config).data}, status=status.HTTP_200_OK)
 
@@ -1965,7 +1974,11 @@ def tv_config_delete(request, config_id):
             )
         
         config_id_deleted = config.id
+        vendor_ids = list(
+            config.devices.exclude(vendor_id__isnull=True).values_list("vendor_id", flat=True).distinct()
+        )
         config.delete()
+        schedule_dine_flash_configuration_updated_for_vendors(vendor_ids)
         logger.info(f"tv_config_delete: Deleted config id={config_id_deleted}.")
         return Response(
             {"message": "Configuration deleted successfully."},
@@ -2175,6 +2188,7 @@ def tv_config_assign(request):
         else:
             device.tv_config = config
             device.save(update_fields=["tv_config", "updated_at"])
+        schedule_dine_flash_configuration_updated_for_vendors([device.vendor_id])
         logger.info(f"tv_config_assign: Assigned config id={config_id} to device id={device_id}.")
         return Response({"message": "Configuration assigned to device.", "device_id": device_id, "config_id": config_id}, status=status.HTTP_200_OK)
 
@@ -2209,8 +2223,10 @@ def tv_config_clear(request):
             logger.warning("tv_config_clear: User tried clearing config from unauthorized device.")
             return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
 
+        vendor_id = device.vendor_id
         device.tv_config = None
         device.save(update_fields=["tv_config", "updated_at"])
+        schedule_dine_flash_configuration_updated_for_vendors([vendor_id])
         logger.info(f"tv_config_clear: Cleared config for device id={device_id}.")
         return Response({"message": "Configuration cleared from device.", "device_id": device_id}, status=status.HTTP_200_OK)
 

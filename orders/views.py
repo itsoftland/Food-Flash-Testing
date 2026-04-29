@@ -274,6 +274,7 @@ def table_booking(request):
     utilities_enabled = False  # default fallback
     phone_number_enabled = False  # default fallback
 
+    vendor = None
     if vendor_id:
         vendor = Vendor.objects.filter(vendor_id=vendor_id).first()
         if vendor and hasattr(vendor, "config"):
@@ -285,6 +286,16 @@ def table_booking(request):
         "UTILITIES_ENABLED": utilities_enabled,
         "PHONE_NUMBER_ENABLED": phone_number_enabled,
     }
+    if project_name == "dine_flash" and vendor:
+        logo_url = ""
+        if getattr(vendor, "logo", None) and hasattr(vendor.logo, "url"):
+            logo_url = request.build_absolute_uri(vendor.logo.url)
+        context.update(
+            {
+                "VENDOR_NAME": vendor.name or vendor.alias_name or "",
+                "VENDOR_LOGO_URL": logo_url,
+            }
+        )
     context["IS_DINE_FLASH"] = project_name == "dine_flash"
     if project_name == "dine_flash":
         # Expose QR info for countdown + safe URL rewriting.

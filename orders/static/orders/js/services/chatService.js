@@ -139,6 +139,41 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
         if (replyBtn) replyBtn.remove();
     }
     chatContainer.appendChild(messageRow);
+
+    // Final logo hydration fallback for server cards:
+    // if the card logo is empty/broken, reuse the outlet logo already visible in header.
+    if (sender === 'server') {
+        const resolveFallbackLogo = () =>
+            (document.querySelector(".vendor-logo-wrapper.active img")?.src) ||
+            (document.querySelector(".vendor-logo-wrapper img")?.src) ||
+            (AppUtils.storageGet("activeVendorLogo")) ||
+            (localStorage.getItem("activeVendorLogo")) ||
+            "";
+
+        const hydrateLogo = (img) => {
+            if (!img) return;
+            const fallbackLogo = resolveFallbackLogo();
+            if (!fallbackLogo) return;
+            if (!img.getAttribute("src") || img.naturalWidth === 0) {
+                img.src = fallbackLogo;
+            }
+        };
+
+        messageRow.querySelectorAll("img.server-logo").forEach((img) => {
+            if (!img) return;
+
+            // Resolve fallback at error time (not at append time), because outlet logos
+            // may load after this message is first rendered.
+            img.onerror = () => hydrateLogo(img);
+
+            // Immediate attempt.
+            hydrateLogo(img);
+
+            // Delayed second attempt for races where outlet logos render slightly later.
+            setTimeout(() => hydrateLogo(img), 600);
+        });
+    }
+
     chatContainer.scrollTop = chatContainer.scrollHeight;
     AppUtils.adjustChatResponsePadding();
 }

@@ -34,6 +34,45 @@ const dineInPayloadStatusMap = {
   utility_transfer: 'Table Transferred',
 };
 
+function getActiveVendorLogo() {
+  try {
+    const prefixedLogo = window.AppUtils?.storageGet?.("activeVendorLogo");
+    if (prefixedLogo) return prefixedLogo;
+  } catch (e) {
+    // Ignore and fall back to legacy key.
+  }
+  return localStorage.getItem("activeVendorLogo") || "";
+}
+
+function getActiveLogoFromHeader() {
+  try {
+    const activeImg = document.querySelector(".vendor-logo-wrapper.active img");
+    if (activeImg && activeImg.src) return activeImg.src;
+    const firstImg = document.querySelector(".vendor-logo-wrapper img");
+    if (firstImg && firstImg.src) return firstImg.src;
+  } catch (e) {
+    // Ignore DOM lookup failures.
+  }
+  return "";
+}
+
+function resolveLogo(payload) {
+  const raw = (payload && payload.logo_url) || getActiveVendorLogo() || getActiveLogoFromHeader() || "";
+  const safe = raw ? String(raw).replace(/ /g, "%20") : "";
+  const project = (window.PROJECT_NAME || "dine_flash").trim();
+  const fallback = safe.includes(`/${project}/media/`)
+    ? safe.replace(`/${project}/media/`, "/media/")
+    : safe.includes("/media/")
+      ? safe.replace("/media/", `/${project}/media/`)
+      : safe;
+  return { primary: safe, fallback };
+}
+
+function buildLogoImg(payload) {
+  const { primary, fallback } = resolveLogo(payload);
+  return `<img src="${primary}" data-fallback-src="${fallback}" class="server-logo" alt="Logo" onerror="if(!this.dataset.fallbackApplied){this.dataset.fallbackApplied='1';this.src=this.dataset.fallbackSrc||'';}">`;
+}
+
 function buildThankYouMessage(payload) {
   const farewellMessage =
     payload.thank_you_note ||
@@ -41,7 +80,7 @@ function buildThankYouMessage(payload) {
 
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Thank You"}</span>
     </div>
 
@@ -63,7 +102,7 @@ function buildStatusMessage(payload) {
 
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
     </div>
     <div class="status">
@@ -82,7 +121,7 @@ function buildStatusMessage(payload) {
 function buildOfferMessage(payload) {
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
     </div>
     <div class="response-title">🔥 ${payload.title || ""}</div>
@@ -95,7 +134,7 @@ function buildOfferMessage(payload) {
 function buildManagerMessage(payload) {
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
     </div>
 
@@ -111,7 +150,7 @@ function buildManagerMessage(payload) {
 function buildAirlineManagerMessage(payload) {
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Airline Outlet"}</span>
     </div>
 
@@ -138,7 +177,7 @@ function buildFlightStatusMessage(payload) {
 
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Airline Service"}</span>
     </div>
 
@@ -211,7 +250,7 @@ function buildBuffetItemStatusMessage(payload) {
   
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
     </div>
     <div class="buffet-status-card">
@@ -229,7 +268,7 @@ function buildBuffetItemStatusMessage(payload) {
 function buildBuffetDeliveredMessage(payload) {
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
     </div>
     <div class="buffet-delivered-card">
@@ -259,7 +298,7 @@ function buildBookingStatusMessage(payload) {
 
   return `
     <div class="response-title">
-      <img src="${localStorage.getItem("activeVendorLogo")}" class="server-logo" alt="Logo">
+      ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || "Dine Service"}</span>
     </div>
 

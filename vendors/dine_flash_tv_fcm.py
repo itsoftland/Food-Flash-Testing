@@ -61,6 +61,37 @@ def _send_batches(fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
             logger.warning("[dine_flash_fcm] Send failed for token index %s: %s", idx, err)
 
 
+def _send_dine_flash_tv_data_fcm_sync(vendor_id: int, data: dict[str, str], label: str) -> None:
+    try:
+        try:
+            vendor = Vendor.objects.select_related("admin_outlet").get(pk=vendor_id)
+        except Vendor.DoesNotExist:
+            logger.warning("[dine_flash_fcm] Vendor id=%s not found; skip %s", vendor_id, label)
+            return
+
+        if not dine_flash_fcm_scope_applies(vendor):
+            return
+
+        fcm_tokens = collect_vendor_tv_fcm_tokens(vendor)
+        if not fcm_tokens:
+            logger.debug(
+                "[dine_flash_fcm] No FCM tokens for vendor_id=%s; skip %s",
+                vendor.vendor_id,
+                label,
+            )
+            return
+
+        _send_batches(fcm_tokens, data)
+        logger.info(
+            "[dine_flash_fcm] %s sent vendor_id=%s devices=%s",
+            label,
+            vendor.vendor_id,
+            len(fcm_tokens),
+        )
+    except Exception:
+        logger.exception("[dine_flash_fcm] Error during %s vendor_pk=%s", label, vendor_id)
+
+
 def _normalize_status(raw_status: str | None) -> str:
     return (raw_status or "").strip().lower()
 
@@ -87,45 +118,17 @@ def send_dine_flash_booking_status_fcm_sync(
     """
     Sends data-only FCM to all TV devices mapped to the vendor. Logs failures; never raises.
     """
-    try:
-        try:
-            vendor = Vendor.objects.select_related("admin_outlet").get(pk=vendor_id)
-        except Vendor.DoesNotExist:
-            logger.warning("[dine_flash_fcm] Vendor id=%s not found; skip FCM", vendor_id)
-            return
-
-        if not dine_flash_fcm_scope_applies(vendor):
-            return
-
-        fcm_tokens = collect_vendor_tv_fcm_tokens(vendor)
-        if not fcm_tokens:
-            logger.debug(
-                "[dine_flash_fcm] No FCM tokens for vendor_id=%s; skip",
-                vendor.vendor_id,
-            )
-            return
-
-        data = {
-            "type": "booking_update",
-            "status": _normalize_status(current_status),
-            "booking_id": str(booking_id),
-            "project": "dine_flash",
-        }
-
-        _send_batches(fcm_tokens, data)
-        logger.info(
-            "[dine_flash_fcm] Booking status trigger sent vendor_id=%s booking_id=%s status=%s devices=%s",
-            vendor.vendor_id,
-            booking_id,
-            data["status"],
-            len(fcm_tokens),
-        )
-    except Exception:
-        logger.exception(
-            "[dine_flash_fcm] Error vendor_pk=%s booking_id=%s",
-            vendor_id,
-            booking_id,
-        )
+    data = {
+        "type": "booking_update",
+        "status": _normalize_status(current_status),
+        "booking_id": str(booking_id),
+        "project": "dine_flash",
+    }
+    _send_dine_flash_tv_data_fcm_sync(
+        vendor_id=vendor_id,
+        data=data,
+        label=f"Booking status trigger booking_id={booking_id} status={data['status']}",
+    )
 
 
 def schedule_dine_flash_booking_status_fcm(
@@ -149,6 +152,55 @@ def schedule_dine_flash_booking_status_fcm(
     threading.Thread(
         target=_run,
         name=f"dine-flash-fcm-{booking_id}-{_normalize_status(current_status)}",
+        daemon=True,
+    ).start()
+
+
+def send_dine_flash_configuration_updated_fcm_sync(vendor_id: int) -> None:
+    data = {
+        "type": "configuration_updated",
+        "project": "dine_flash",
+    }
+    _send_dine_flash_tv_data_fcm_sync(
+        vendor_id=vendor_id,
+        data=data,
+        label="Configuration update trigger",
+    )
+
+
+def schedule_dine_flash_configuration_updated_for_vendors(vendor_ids: Sequence[int]) -> None:
+    """
+    Fire-and-forget notification for one or many vendors.
+    Dedupes vendor IDs to avoid unnecessary duplicate notifications for the same change.
+    """
+    deduped_vendor_ids = []
+    seen = set()
+    for raw in vendor_ids or []:
+        try:
+            vendor_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if vendor_id <= 0 or vendor_id in seen:
+            continue
+        seen.add(vendor_id)
+        deduped_vendor_ids.append(vendor_id)
+
+    if not deduped_vendor_ids:
+        return
+
+    def _run() -> None:
+        for vendor_id in deduped_vendor_ids:
+            try:
+                send_dine_flash_configuration_updated_fcm_sync(vendor_id)
+            except Exception:
+                logger.exception(
+                    "[dine_flash_fcm] Background configuration task failed vendor_id=%s",
+                    vendor_id,
+                )
+
+    threading.Thread(
+        target=_run,
+        name=f"dine-flash-config-fcm-{'-'.join(str(v) for v in deduped_vendor_ids)}",
         daemon=True,
     ).start()
 

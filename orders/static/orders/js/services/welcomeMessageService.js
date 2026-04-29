@@ -85,7 +85,7 @@ export const WelcomeMessageService = {
             messageRow.classList.add("message-row", "server");
 
             const logoImg = document.createElement("img");
-            logoImg.src = localStorage.getItem("activeVendorLogo");
+            logoImg.src = AppUtils.storageGet("activeVendorLogo") || localStorage.getItem("activeVendorLogo") || "";
             logoImg.alt = "Vendor Logo";
             logoImg.className = "server-logo";
 

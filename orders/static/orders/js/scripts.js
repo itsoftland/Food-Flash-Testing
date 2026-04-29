@@ -745,7 +745,7 @@ onDOMReady(async function () {
         messageRow.classList.add("message-row", "server");
 
         // Server logo
-        const activeLogo = localStorage.getItem("activeVendorLogo");
+        const activeLogo = AppUtils.storageGet("activeVendorLogo") || localStorage.getItem("activeVendorLogo");
         const logoImg = document.createElement("img");
         logoImg.src = activeLogo;
         logoImg.alt = "Vendor Logo";
@@ -860,6 +860,9 @@ onDOMReady(async function () {
                 const err = data.error || "Unknown server error";
                 appendMessage(`❌ ${err}`, 'server', null);
                 throw new Error(err);
+            }
+            if (type === 'dinestatus' && data?.logo_url) {
+                AppUtils.storageSet("activeVendorLogo", String(data.logo_url));
             }
             if (!replyText) {
                 if (type === 'buffetstatus' && data.items) {
