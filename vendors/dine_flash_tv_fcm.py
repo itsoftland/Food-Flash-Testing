@@ -1,5 +1,5 @@
 """
-Dine Flash: FCM data messages to Android TV devices on booking -> allocated transitions.
+Dine Flash: FCM data messages to Android TV devices on booking status transitions.
 
 Used only as a wake-up trigger; clients must refresh from APIs. Runs independently of
 MQTT / vendor tv_communication_mode so TVs that register an FCM token still receive pushes.
@@ -61,7 +61,29 @@ def _send_batches(fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
             logger.warning("[dine_flash_fcm] Send failed for token index %s: %s", idx, err)
 
 
-def send_dine_flash_booking_allocated_fcm_sync(vendor_id: int, booking_id: int) -> None:
+def _normalize_status(raw_status: str | None) -> str:
+    return (raw_status or "").strip().lower()
+
+
+def should_notify_dine_flash_booking_status_transition(
+    previous_status: str | None,
+    new_status: str | None,
+) -> bool:
+    """
+    Notify only when booking enters or leaves allocated.
+    """
+    prev = _normalize_status(previous_status)
+    new = _normalize_status(new_status)
+    return (prev != "allocated" and new == "allocated") or (
+        prev == "allocated" and new != "allocated"
+    )
+
+
+def send_dine_flash_booking_status_fcm_sync(
+    vendor_id: int,
+    booking_id: int,
+    current_status: str,
+) -> None:
     """
     Sends data-only FCM to all TV devices mapped to the vendor. Logs failures; never raises.
     """
@@ -85,16 +107,17 @@ def send_dine_flash_booking_allocated_fcm_sync(vendor_id: int, booking_id: int) 
 
         data = {
             "type": "booking_update",
-            "status": "allocated",
+            "status": _normalize_status(current_status),
             "booking_id": str(booking_id),
             "project": "dine_flash",
         }
 
         _send_batches(fcm_tokens, data)
         logger.info(
-            "[dine_flash_fcm] Allocated trigger sent vendor_id=%s booking_id=%s devices=%s",
+            "[dine_flash_fcm] Booking status trigger sent vendor_id=%s booking_id=%s status=%s devices=%s",
             vendor.vendor_id,
             booking_id,
+            data["status"],
             len(fcm_tokens),
         )
     except Exception:
@@ -105,21 +128,36 @@ def send_dine_flash_booking_allocated_fcm_sync(vendor_id: int, booking_id: int) 
         )
 
 
-def schedule_dine_flash_booking_allocated_fcm(vendor_id: int, booking_id: int) -> None:
+def schedule_dine_flash_booking_status_fcm(
+    vendor_id: int,
+    booking_id: int,
+    current_status: str,
+) -> None:
     """Fire-and-forget background send so booking HTTP flow is never blocked."""
 
     def _run() -> None:
         try:
-            send_dine_flash_booking_allocated_fcm_sync(vendor_id, booking_id)
+            send_dine_flash_booking_status_fcm_sync(vendor_id, booking_id, current_status)
         except Exception:
             logger.exception(
-                "[dine_flash_fcm] Background task failed vendor_id=%s booking_id=%s",
+                "[dine_flash_fcm] Background task failed vendor_id=%s booking_id=%s status=%s",
                 vendor_id,
                 booking_id,
+                current_status,
             )
 
     threading.Thread(
         target=_run,
-        name=f"dine-flash-fcm-{booking_id}",
+        name=f"dine-flash-fcm-{booking_id}-{_normalize_status(current_status)}",
         daemon=True,
     ).start()
+
+
+def send_dine_flash_booking_allocated_fcm_sync(vendor_id: int, booking_id: int) -> None:
+    """Backward-compatible wrapper for old callers."""
+    send_dine_flash_booking_status_fcm_sync(vendor_id, booking_id, "allocated")
+
+
+def schedule_dine_flash_booking_allocated_fcm(vendor_id: int, booking_id: int) -> None:
+    """Backward-compatible wrapper for old callers."""
+    schedule_dine_flash_booking_status_fcm(vendor_id, booking_id, "allocated")
