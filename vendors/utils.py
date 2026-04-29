@@ -378,6 +378,7 @@ def build_tv_config_payload(
             "utility_text_color": tv_config.utility_text_color,
             "show_customer_name": tv_config.show_customer_name,
             "show_phone_number": tv_config.show_phone_number,
+            "show_partially_masked_phone_number": getattr(tv_config, "show_partially_masked_phone_number", False),
             # Keep explicit toggle name expected by Android TV clients.
             "show_no_of_packs": tv_config.show_order_details,
             "audio_enabled": tv_config.audio_enabled,
@@ -388,6 +389,8 @@ def build_tv_config_payload(
             "header_font_size": _map_font_size_to_int(getattr(tv_config, "header_font_size", "large")),
             "header_font_style": getattr(tv_config, "header_font_style", "bold"),
             "header_text_color": getattr(tv_config, "header_text_color", "#000000"),
+            "footer_font_size": _map_font_size_to_int(getattr(tv_config, "footer_font_size", "16")),
+            "footer_text_color": getattr(tv_config, "footer_text_color", "#000000"),
             "footer_enabled": getattr(tv_config, "footer_enabled", False),
             "footer_texts": (tv_config.footer_texts or []) if getattr(tv_config, "footer_enabled", False) else [],
         })
@@ -536,8 +539,18 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     max_items = int(getattr(tv_config, "items_to_show", 5) or 5) if tv_config else 5
     max_items = max(1, min(max_items, 5))
 
+    def _mask_phone_number(phone):
+        raw = str(phone or "")
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if len(digits) < 4:
+            return raw
+        visible_tail = digits[-4:]
+        masked_prefix = "*" * max(len(digits) - 4, 0)
+        return f"{masked_prefix}{visible_tail}"
+
     show_customer_name = getattr(tv_config, "show_customer_name", True) if tv_config else True
     show_phone = getattr(tv_config, "show_phone_number", True) if tv_config else True
+    show_partial_phone = getattr(tv_config, "show_partially_masked_phone_number", False) if tv_config else False
     show_order_details = getattr(tv_config, "show_order_details", True) if tv_config else True
     show_no_of_packs = getattr(tv_config, "show_order_details", True) if tv_config else True
 
@@ -550,7 +563,7 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         if "name" in booking_fields and show_customer_name:
             row["customer_name"] = order.customer_name
         if "phone" in booking_fields and show_phone:
-            row["phone_number"] = order.phone_number
+            row["phone_number"] = _mask_phone_number(order.phone_number) if show_partial_phone else order.phone_number
         if show_no_of_packs:
             row["guest_count"] = order.no_of_packs
             row["no_of_packs"] = order.no_of_packs

@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     const footerTextsInput = document.getElementById('footer-texts');
     const footerTextsGroup = document.getElementById('footer-texts-group');
     const mappedDevicesSelect = document.getElementById('mapped-devices-select');
+    const showPhoneCheckbox = document.getElementById('show-phone');
+    const showMaskedPhoneCheckbox = document.getElementById('show-masked-phone');
+    const maskedPhoneGroup = document.getElementById('masked-phone-group');
 
     function parseTvConfigPageFlags() {
         const defaults = { requireLinkedTv: false, hasLinkedTvChoices: false };
@@ -43,6 +46,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     function getOppositeAdPosition(qrPlacement) {
         return String(qrPlacement || '').includes('right') ? 'left' : 'right';
+    }
+
+    function syncMaskedPhoneVisibility() {
+        if (!maskedPhoneGroup || !showPhoneCheckbox || !showMaskedPhoneCheckbox) return;
+        const canShowMasked = !!showPhoneCheckbox.checked;
+        maskedPhoneGroup.style.display = canShowMasked ? '' : 'none';
+        if (!canShowMasked) {
+            showMaskedPhoneCheckbox.checked = false;
+        }
     }
 
     /* ------------------------------------
@@ -200,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (!footerTextsGroup) return;
         footerTextsGroup.style.display = e.target.checked ? '' : 'none';
     });
+    showPhoneCheckbox?.addEventListener('change', syncMaskedPhoneVisibility);
 
     uploadAdsBtn?.addEventListener('click', uploadAds);
 
@@ -285,16 +298,19 @@ document.addEventListener('DOMContentLoaded', async function () {
         const payload = {
             screen_orientation: formData.get('screen_orientation'),
             token_font_size: formData.get('token_font_size'),
-            counter_font_size: formData.get('counter_font_size'),
+            counter_font_size: formData.get('counter_font_size') || 'medium',
             utility_font_size: formData.get('utility_font_size'),
             token_text_color: formData.get('token_text_color'),
-            counter_text_color: formData.get('counter_text_color'),
+            counter_text_color: formData.get('counter_text_color') || '#000000',
             utility_text_color: formData.get('utility_text_color'),
             header_font_size: formData.get('header_font_size'),
             header_font_style: formData.get('header_font_style'),
             header_text_color: formData.get('header_text_color'),
+            footer_font_size: formData.get('footer_font_size') || '16',
+            footer_text_color: formData.get('footer_text_color') || '#000000',
             show_customer_name: formData.get('show_customer_name') === 'on',
             show_phone_number: formData.get('show_phone_number') === 'on',
+            show_partially_masked_phone_number: (formData.get('show_phone_number') === 'on') && (formData.get('show_partially_masked_phone_number') === 'on'),
             show_order_details: formData.get('show_order_details') === 'on',
             audio_enabled: formData.get('audio_enabled') === 'on',
             announcement_language: formData.get('announcement_language'),
@@ -398,6 +414,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     ------------------------------------ */
     await loadActiveUtilities();
     await loadAds();
+    syncMaskedPhoneVisibility();
     if (footerTextsGroup && footerEnabledCheckbox && !footerEnabledCheckbox.checked) {
         footerTextsGroup.style.display = 'none';
     }

@@ -612,6 +612,7 @@ class TVDeviceConfig(models.Model):
     # 7b. Visibility Settings
     show_customer_name = models.BooleanField(default=True)
     show_phone_number = models.BooleanField(default=True)
+    show_partially_masked_phone_number = models.BooleanField(default=False)
     show_order_details = models.BooleanField(default=True)
 
     # 7c. Audio Settings
@@ -646,6 +647,8 @@ class TVDeviceConfig(models.Model):
     header_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="large")
     header_font_style = models.CharField(max_length=20, choices=HEADER_FONT_STYLE_CHOICES, default="bold")
     header_text_color = models.CharField(max_length=7, default="#000000")
+    footer_font_size = models.CharField(max_length=20, choices=FONT_SIZE_CHOICES, default="16")
+    footer_text_color = models.CharField(max_length=7, default="#000000")
     footer_enabled = models.BooleanField(default=False)
     footer_texts = models.JSONField(default=list, blank=True)
 

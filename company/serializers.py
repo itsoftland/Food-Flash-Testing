@@ -723,6 +723,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             "utility_text_color",
             "show_customer_name",
             "show_phone_number",
+            "show_partially_masked_phone_number",
             "show_order_details",
             "audio_enabled",
             "announcement_language",
@@ -738,6 +739,8 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             "header_font_size",
             "header_font_style",
             "header_text_color",
+            "footer_font_size",
+            "footer_text_color",
             "footer_enabled",
             "footer_texts",
             "advertisements",
@@ -787,14 +790,14 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 "display_rows", "display_columns",
                 "token_font_size", "counter_font_size", "utility_font_size",
                 "token_text_color", "counter_text_color", "utility_text_color",
-                "show_customer_name", "show_phone_number", "show_order_details",
+                "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details",
                 "audio_enabled", "announcement_language",
                 "blink_token", "blink_utility",
                 "qr_placement", "qr_base_url", "qr_expiry_minutes",
                 "enable_ads", "ad_position", "ad_interval",
                 "video_ad_mode",
                 "header_font_size", "header_font_style", "header_text_color",
-                "footer_enabled", "footer_texts",
+                "footer_font_size", "footer_text_color", "footer_enabled", "footer_texts",
                 "advertisements", "advertisement_ids", "device_ids",
             ]
             for field in dine_flash_fields:
@@ -1028,12 +1031,13 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
                 "display_rows", "display_columns",
                 "token_font_size", "counter_font_size", "utility_font_size",
                 "token_text_color", "counter_text_color", "utility_text_color",
-                "show_customer_name", "show_phone_number", "show_order_details", "show_no_of_packs",
+                "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details", "show_no_of_packs",
                 "audio_enabled", "announcement_language",
                 "blink_token", "blink_utility",
                 "qr_placement", "qr_base_url",
                 "enable_ads", "ad_position", "ad_interval", "video_ad_mode", "advertisements"
-                , "header_font_size", "header_font_style", "header_text_color", "footer_enabled", "footer_texts"
+                , "header_font_size", "header_font_style", "header_text_color",
+                "footer_font_size", "footer_text_color", "footer_enabled", "footer_texts"
             ]
             for field in new_fields:
                 rep.pop(field, None)

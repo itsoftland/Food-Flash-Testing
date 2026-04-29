@@ -284,10 +284,6 @@
                 <input type="number" id="edit-token-font-size" name="token_font_size" class="form-control form-control-sm" min="1" max="100" value="20" />
               </div>
               <div class="form-group col-lg-4">
-                <label for="edit-counter-font-size" class="form-label">Counter Font Size</label>
-                <input type="number" id="edit-counter-font-size" name="counter_font_size" class="form-control form-control-sm" min="1" max="100" value="16" />
-              </div>
-              <div class="form-group col-lg-4">
                 <label for="edit-utility-font-size" class="form-label">Utility Font Size</label>
                 <input type="number" id="edit-utility-font-size" name="utility_font_size" class="form-control form-control-sm" min="1" max="100" value="12" />
               </div>
@@ -306,10 +302,6 @@
               <div class="form-group col-lg-4">
                 <label for="edit-token-text-color" class="form-label">Token Text Color</label>
                 <input type="color" id="edit-token-text-color" name="token_text_color" class="form-control form-control-color" />
-              </div>
-              <div class="form-group col-lg-4">
-                <label for="edit-counter-text-color" class="form-label">Counter Text Color</label>
-                <input type="color" id="edit-counter-text-color" name="counter_text_color" class="form-control form-control-color" />
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-utility-text-color" class="form-label">Utility Text Color</label>
@@ -337,6 +329,12 @@
                 <div class="form-check ps-0">
                   <input type="checkbox" id="edit-show-phone-number" name="show_phone_number" class="form-check-input" />
                   <label class="form-check-label" for="edit-show-phone-number">Show Phone Number</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3" id="edit-masked-phone-group">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-show-masked-phone-number" name="show_partially_masked_phone_number" class="form-check-input" />
+                  <label class="form-check-label" for="edit-show-masked-phone-number">Show Partially Masked Phone Number</label>
                 </div>
               </div>
               <div class="form-group col-lg-3">
@@ -414,6 +412,16 @@
                 </div>
               </div>
               <div class="form-group col-lg-9">
+                <div class="row g-3">
+                  <div class="form-group col-lg-4">
+                    <label for="edit-footer-font-size" class="form-label">Footer Font Size</label>
+                    <input type="number" id="edit-footer-font-size" name="footer_font_size" class="form-control form-control-sm" min="1" max="100" value="16" />
+                  </div>
+                  <div class="form-group col-lg-4">
+                    <label for="edit-footer-text-color" class="form-label">Footer Text Color</label>
+                    <input type="color" id="edit-footer-text-color" name="footer_text_color" class="form-control form-control-color" />
+                  </div>
+                </div>
                 <label for="edit-footer-texts" class="form-label">Footer Texts (one per line)</label>
                 <textarea id="edit-footer-texts" name="footer_texts" class="form-control form-control-sm" rows="3"></textarea>
               </div>

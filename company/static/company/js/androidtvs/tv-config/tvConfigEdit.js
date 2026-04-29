@@ -187,6 +187,18 @@ function getQrAlignmentFromPlacement(qrPlacement) {
   return String(qrPlacement || '').includes('right') ? 'right' : 'left';
 }
 
+function syncEditMaskedPhoneVisibility() {
+  const showPhone = document.getElementById('edit-show-phone-number');
+  const showMasked = document.getElementById('edit-show-masked-phone-number');
+  const maskedGroup = document.getElementById('edit-masked-phone-group');
+  if (!showPhone || !showMasked || !maskedGroup) return;
+  const canShowMasked = !!showPhone.checked;
+  maskedGroup.style.display = canShowMasked ? '' : 'none';
+  if (!canShowMasked) {
+    showMasked.checked = false;
+  }
+}
+
 function cleanupBootstrapModalArtifacts() {
   document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
   document.body.classList.remove('modal-open');
@@ -270,6 +282,13 @@ async function openEditModal(id, ctx) {
     // 3. Set Config Values
     populateForm(config);
     populateLinkedTvSelect(configData, config);
+    if (isDineFlashList) {
+      const editShowPhoneCheckbox = document.getElementById('edit-show-phone-number');
+      if (editShowPhoneCheckbox) {
+        editShowPhoneCheckbox.onchange = syncEditMaskedPhoneVisibility;
+      }
+      syncEditMaskedPhoneVisibility();
+    }
 
     // 4. Init Choices.js
     if (choicesInstance) {
@@ -504,16 +523,18 @@ function populateForm(config) {
   setValue('edit-display-rows', config.display_rows);
   setValue('edit-display-columns', config.display_columns);
   setValue('edit-token-font-size', config.token_font_size);
-  setValue('edit-counter-font-size', config.counter_font_size);
   setValue('edit-utility-font-size', config.utility_font_size);
   setValue('edit-header-font-size', config.header_font_size);
   setValue('edit-header-font-style', config.header_font_style);
   setValue('edit-token-text-color', config.token_text_color || '#000000');
-  setValue('edit-counter-text-color', config.counter_text_color || '#000000');
   setValue('edit-utility-text-color', config.utility_text_color || '#000000');
   setValue('edit-header-text-color', config.header_text_color || '#000000');
+  setValue('edit-footer-font-size', config.footer_font_size || 16);
+  setValue('edit-footer-text-color', config.footer_text_color || '#000000');
   setChecked('edit-show-customer-name', config.show_customer_name);
   setChecked('edit-show-phone-number', config.show_phone_number);
+  setChecked('edit-show-masked-phone-number', config.show_partially_masked_phone_number);
+  syncEditMaskedPhoneVisibility();
   setChecked('edit-show-order-details', config.show_no_of_packs ?? config.show_order_details);
   setChecked('edit-audio-enabled', config.audio_enabled);
   setValue('edit-announcement-language', config.announcement_language || 'English');
@@ -567,16 +588,20 @@ async function handleEditSubmit(e, id, ctx) {
     display_rows: parseInt(document.getElementById('edit-display-rows')?.value, 10) || 1,
     display_columns: parseInt(document.getElementById('edit-display-columns')?.value, 10) || 1,
     token_font_size: document.getElementById('edit-token-font-size')?.value || 'large',
-    counter_font_size: document.getElementById('edit-counter-font-size')?.value || 'medium',
+    counter_font_size: 'medium',
     utility_font_size: document.getElementById('edit-utility-font-size')?.value || 'small',
     header_font_size: document.getElementById('edit-header-font-size')?.value || 'large',
     header_font_style: document.getElementById('edit-header-font-style')?.value || 'bold',
     token_text_color: document.getElementById('edit-token-text-color')?.value || '#000000',
-    counter_text_color: document.getElementById('edit-counter-text-color')?.value || '#000000',
+    counter_text_color: '#000000',
     utility_text_color: document.getElementById('edit-utility-text-color')?.value || '#000000',
     header_text_color: document.getElementById('edit-header-text-color')?.value || '#000000',
+    footer_font_size: document.getElementById('edit-footer-font-size')?.value || '16',
+    footer_text_color: document.getElementById('edit-footer-text-color')?.value || '#000000',
     show_customer_name: Boolean(document.getElementById('edit-show-customer-name')?.checked),
     show_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked),
+    show_partially_masked_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked) &&
+      Boolean(document.getElementById('edit-show-masked-phone-number')?.checked),
     show_order_details: Boolean(document.getElementById('edit-show-order-details')?.checked),
     audio_enabled: Boolean(document.getElementById('edit-audio-enabled')?.checked),
     announcement_language: document.getElementById('edit-announcement-language')?.value || 'English',
@@ -699,16 +724,17 @@ function buildDetailEntries(config, utilityLookup = {}) {
     ['Display Rows', escapeHtml(String(config.display_rows ?? '-'))],
     ['Display Columns', escapeHtml(String(config.display_columns ?? '-'))],
     ['Token Font Size', escapeHtml(formatField(config.token_font_size || '-'))],
-    ['Counter Font Size', escapeHtml(formatField(config.counter_font_size || '-'))],
     ['Utility Font Size', escapeHtml(formatField(config.utility_font_size || '-'))],
     ['Header Font Size', escapeHtml(formatField(config.header_font_size || '-'))],
     ['Header Font Style', escapeHtml(formatField(config.header_font_style || '-'))],
     ['Token Text Color', escapeHtml(config.token_text_color || '-')],
-    ['Counter Text Color', escapeHtml(config.counter_text_color || '-')],
     ['Utility Text Color', escapeHtml(config.utility_text_color || '-')],
     ['Header Text Color', escapeHtml(config.header_text_color || '-')],
+    ['Footer Font Size', escapeHtml(formatField(config.footer_font_size || '-'))],
+    ['Footer Text Color', escapeHtml(config.footer_text_color || '-')],
     ['Show Customer Name', escapeHtml(formatBool(config.show_customer_name))],
     ['Show Phone Number', escapeHtml(formatBool(config.show_phone_number))],
+    ['Show Partially Masked Phone Number', escapeHtml(formatBool(config.show_partially_masked_phone_number))],
     ['Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
     ['Audio Enabled', escapeHtml(formatBool(config.audio_enabled))],
     ['Announcement Language', escapeHtml(config.announcement_language || '-')],

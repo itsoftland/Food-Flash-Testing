@@ -197,19 +197,17 @@
                                 </select>
                                 {% endif %}
                             </div>
+                            {% if PROJECT_NAME != "dine_flash" %}
                             <div class="col-md-4">
                                 <label class="form-label">Counter Font Size</label>
-                                {% if PROJECT_NAME == "dine_flash" %}
-                                <input type="number" name="counter_font_size" class="form-control" min="1" max="100" value="16" />
-                                {% else %}
                                 <select name="counter_font_size" class="form-select">
                                     <option value="small">Small</option>
                                     <option value="medium" selected>Medium</option>
                                     <option value="large">Large</option>
                                     <option value="extra-large">Extra Large</option>
                                 </select>
-                                {% endif %}
                             </div>
+                            {% endif %}
                             <div class="col-md-4">
                                 <label class="form-label">Utility Font Size</label>
                                 {% if PROJECT_NAME == "dine_flash" %}
@@ -252,6 +250,7 @@
                                     <span class="text-muted small color-code">#000000</span>
                                 </div>
                             </div>
+                            {% if PROJECT_NAME != "dine_flash" %}
                             <div class="col-md-4">
                                 <label class="form-label">Counter Text Color</label>
                                 <div class="color-input-wrapper">
@@ -259,6 +258,7 @@
                                     <span class="text-muted small color-code">#000000</span>
                                 </div>
                             </div>
+                            {% endif %}
                             <div class="col-md-4">
                                 <label class="form-label">Utility Text Color</label>
                                 <div class="color-input-wrapper">
@@ -290,6 +290,12 @@
                                 <div class="form-check form-switch">
                                     <input type="checkbox" name="show_phone_number" class="form-check-input" id="show-phone" checked>
                                     <label class="form-check-label" for="show-phone">Show Phone Number</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4" id="masked-phone-group">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" name="show_partially_masked_phone_number" class="form-check-input" id="show-masked-phone">
+                                    <label class="form-check-label" for="show-masked-phone">Show Partially Masked Phone Number</label>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -354,6 +360,17 @@
                             </div>
                         </div>
                         <div class="row g-3" id="footer-texts-group">
+                            <div class="col-md-4">
+                                <label class="form-label">Footer Font Size</label>
+                                <input type="number" name="footer_font_size" class="form-control" min="1" max="100" value="16" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Footer Text Color</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="footer_text_color" value="#000000" class="color-picker">
+                                    <span class="text-muted small color-code">#000000</span>
+                                </div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Footer Texts (max 8, one per line)</label>
                                 <textarea id="footer-texts" class="form-control" rows="4" placeholder="Welcome to Dine Flash&#10;Please wait for your table&#10;Thank you for your patience"></textarea>
