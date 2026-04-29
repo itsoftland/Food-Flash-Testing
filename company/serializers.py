@@ -52,9 +52,25 @@ class VendorConfigSerializer(serializers.ModelSerializer):
 
 class VendorSerializer(serializers.ModelSerializer):
     config = VendorConfigSerializer(read_only=True)
+
     class Meta:
         model = Vendor
-        fields = ['id','vendor_id', 'name', 'location','config'] 
+        fields = ['id', 'vendor_id', 'name', 'location', 'config']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Buffet DBs may lag migrations and omit qr_expiry_minutes; loading full VendorConfig
+        # then raises OperationalError. Other projects keep the default nested field + ORM path.
+        if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash_buffet":
+            self.fields["config"] = serializers.SerializerMethodField()
+
+    def get_config(self, obj):
+        from vendors.models import VendorConfig
+
+        cfg = VendorConfig.objects.defer("qr_expiry_minutes").filter(vendor_id=obj.pk).first()
+        if not cfg:
+            return None
+        return VendorConfigSerializer(cfg, context=self.context).data
 
 class VendorDetailSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
