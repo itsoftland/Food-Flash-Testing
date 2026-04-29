@@ -639,6 +639,8 @@ def register_android_device(request):
         is_dine_flash_buffet = (
             project_code == "dine_flash_buffet" or current_project == "dine_flash_buffet"
         )
+        if is_dine_flash:
+            vendor_name = vendor.alias_name or vendor.name
         device_tv_config = getattr(device, "tv_config", None)
 
         # Dine Flash variants: do not use defaults if TV config is missing.

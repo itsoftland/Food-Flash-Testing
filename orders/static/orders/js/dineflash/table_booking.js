@@ -458,14 +458,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         // ------------------------------
-        // 2. Guests Count Validations
+        // 2. Pax Count Validations
         // ------------------------------
         if (!payload.no_of_guests || payload.no_of_guests <= 0) {
-            ModalService.showError("Please enter a valid number of guests.");
+            ModalService.showError("Please enter a valid number of pax.");
             return false;
         }
         if (payload.no_of_guests > 20) {
-            ModalService.showError("Maximum 20 guests can be booked online.");
+            ModalService.showError("Maximum 20 pax can be booked online.");
             return false;
         }
 
@@ -533,7 +533,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (detailsEl) {
                     detailsEl.innerHTML = `
                         <strong>${escapeHtml(data.customer_name || payload.customer_name)}</strong><br>
-                        Guests: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
+                        Pax: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
                         Token No: <strong>${data.token_no}</strong><br>
                         Booking ID: <strong>${data.table_booking_no}</strong><br>
                         ${data.special_notes ? `Notes: ${escapeHtml(data.special_notes)}` : ""}
@@ -554,7 +554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (detailsEl) {
                     detailsEl.innerHTML = `
                         <strong>${escapeHtml(data.customer_name || payload.customer_name)}</strong><br>
-                        Guests: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
+                        Pax: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
                         ${data.special_notes ? `Notes: ${escapeHtml(data.special_notes)}` : ""}
                     `;
                 }
