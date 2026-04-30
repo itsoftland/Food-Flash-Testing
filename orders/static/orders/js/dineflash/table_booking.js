@@ -27,7 +27,7 @@
  *        - vendor_id (resolved)
  *    - Submits payload to API endpoint: apiEndpoints.CREATE_TABLE_BOOKING
  *    - API response handling:
- *        - 201 → New booking created (show successModal)
+ *        - 201 → New booking created (show successModal — page-local, before ffGlobalSuccessModal in DOM)
  *        - 200 → Duplicate booking / already exists (show duplicateModal)
  *        - other → show error via ModalService
  *
@@ -44,7 +44,7 @@
  *         - modalService.js  (exports ModalService)
  *         - vendorStore.js   (exports setVendorId, getVendorId)
  *    - Template must include the success and duplicate modals with IDs:
- *         - successModal, duplicateModal
+ *         - successModal, duplicateModal (if present)
  *      and placeholders:
  *         - #success-details, #success-redirect-btn
  *         - #duplicate-details, #duplicate-redirect-btn
@@ -426,6 +426,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         return String(err);
     }
 
+    function escapeHtml(str) {
+        if (!str && str !== 0) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    /** True when public booking ref is the same value as internal token (e.g. int 90 vs string "90"). */
+    function bookingRefMatchesToken(tokenRaw, bookingRaw) {
+        if (tokenRaw === undefined || tokenRaw === null) return false;
+        if (bookingRaw === undefined || bookingRaw === null) return false;
+        const t = String(tokenRaw).trim();
+        const b = String(bookingRaw).trim();
+        if (t === b) return true;
+        const tn = Number(t);
+        const bn = Number(b);
+        return Number.isFinite(tn) && Number.isFinite(bn) && tn === bn;
+    }
+
+    /** Either "Token No" or "Booking ID", never both (same underlying value → token label only). */
+    function buildTableBookingIdentifierLine(data) {
+        const bookingNo = data.table_booking_no;
+        const tokenRaw = data.token_no;
+        if (bookingRefMatchesToken(tokenRaw, bookingNo)) {
+            const disp =
+                tokenRaw !== undefined && tokenRaw !== null && String(tokenRaw).trim() !== ""
+                    ? String(tokenRaw).trim()
+                    : String(bookingNo).trim();
+            return `Token No: <strong>${escapeHtml(disp)}</strong><br>`;
+        }
+        if (bookingNo !== undefined && bookingNo !== null && String(bookingNo).trim() !== "") {
+            return `Booking ID: <strong>${escapeHtml(String(bookingNo).trim())}</strong><br>`;
+        }
+        if (tokenRaw !== undefined && tokenRaw !== null && String(tokenRaw).trim() !== "") {
+            return `Token No: <strong>${escapeHtml(String(tokenRaw).trim())}</strong><br>`;
+        }
+        return "";
+    }
+
     // --------------------------
     // client-side validation
     // --------------------------
@@ -530,17 +572,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const finalCustomerName = data.customer_name || payload.customer_name;
                 AppUtils.setCustomerName(finalCustomerName);
 
-                const detailsEl = document.getElementById("success-details");
+                const detailsEl = document.querySelector(
+                    "#successModal.register-modal #success-details"
+                );
                 if (detailsEl) {
+                    const idLine = buildTableBookingIdentifierLine(data);
                     detailsEl.innerHTML = `
                         <strong>${escapeHtml(data.customer_name || payload.customer_name)}</strong><br>
                         Pax: ${escapeHtml(String(data.no_of_guests || payload.no_of_guests))}<br>
-                        Token No: <strong>${data.token_no}</strong><br>
-                        Booking ID: <strong>${data.table_booking_no}</strong><br>
+                        ${idLine}
                         ${data.special_notes ? `Notes: ${escapeHtml(data.special_notes)}` : ""}
                     `;
                 }
-                const redirectBtn = document.getElementById("success-redirect-btn");
+                const redirectBtn = document.querySelector(
+                    "#successModal.register-modal #success-redirect-btn"
+                );
                 if (redirectBtn) {
                     redirectBtn.onclick = () => {
                         if (data.tracking_url) window.location.href = data.tracking_url;
@@ -587,19 +633,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 registerBtnFinal.innerHTML = originalHTML || `<i class="fas fa-user-plus me-2"></i> Book Table`;
             }
         }
-    }
-
-    // --------------------------
-    // Escape helper for innerHTML insertion
-    // --------------------------
-    function escapeHtml(str) {
-        if (!str && str !== 0) return "";
-        return String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
     }
 
     // --------------------------

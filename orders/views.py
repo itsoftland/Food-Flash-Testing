@@ -4,12 +4,11 @@ from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.utils import timezone
 from datetime import datetime, timedelta
 import secrets
 from django.http import JsonResponse,HttpResponseBadRequest
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.views.decorators.cache import never_cache
 
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -27,8 +26,9 @@ from vendors.serializers import OrdersSerializer
 from .utils import send_to_managers
 from static.utils.functions.queries import get_vendor
 from static.utils.functions.utils import get_vendor_business_day_range
-from manager.utils.utils import reset_counters_if_new_business_day 
+from manager.utils.utils import reset_counters_if_new_business_day
 
+from .models import DineFlashQrSession
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -99,39 +99,53 @@ def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id):
     return True, None
 
 
-def _dine_flash_qr_session_cache_key(token: str) -> str:
-    return f"dine_flash:qr_session:{token}"
+def _purge_stale_dine_flash_qr_sessions():
+    """Best-effort trim so the table does not grow forever."""
+    cutoff = timezone.now()
+    stale_ids = list(
+        DineFlashQrSession.objects.filter(expires_at__lt=cutoff).values_list("id", flat=True)[:400]
+    )
+    if stale_ids:
+        DineFlashQrSession.objects.filter(id__in=stale_ids).delete()
 
 
 def _create_dine_flash_qr_session(vendor_id: str, qr_dt: datetime, expiry_minutes: int):
-    token = secrets.token_urlsafe(24)
     # Booking/session window starts at successful QR exchange (scan time),
     # not at QR generation time. QR freshness validation is still enforced
     # separately in _validate_dine_flash_qr_time.
+    _purge_stale_dine_flash_qr_sessions()
     scan_dt = timezone.localtime(timezone.now())
     expires_at = scan_dt + timedelta(minutes=expiry_minutes)
-    ttl = max(1, int((expires_at - timezone.localtime(timezone.now())).total_seconds()))
-    cache.set(
-        _dine_flash_qr_session_cache_key(token),
-        {
-            "vendor_id": str(vendor_id),
-            "expires_at_epoch": int(expires_at.timestamp()),
-        },
-        timeout=ttl,
-    )
-    return token, int(expires_at.timestamp())
+    vid = int(vendor_id)
+
+    for _ in range(6):
+        token = secrets.token_urlsafe(24)
+        try:
+            DineFlashQrSession.objects.create(
+                token=token,
+                vendor_id=vid,
+                expires_at=expires_at,
+            )
+            return token, int(expires_at.timestamp())
+        except IntegrityError:
+            continue
+
+    raise RuntimeError("Unable to allocate Dine Flash qr_session token")
 
 
 def _validate_dine_flash_qr_session(qr_session: str, vendor_id: str):
     if not qr_session:
         return False, "Invalid QR link."
-    payload = cache.get(_dine_flash_qr_session_cache_key(qr_session))
-    if not payload:
+    row = (
+        DineFlashQrSession.objects.filter(token=qr_session)
+        .only("vendor_id", "expires_at")
+        .first()
+    )
+    if not row:
         return False, "QR expired. Please scan the new QR code on the TV."
-    if str(payload.get("vendor_id")) != str(vendor_id):
+    if str(row.vendor_id) != str(vendor_id):
         return False, "Invalid QR link."
-    expires_at_epoch = int(payload.get("expires_at_epoch") or 0)
-    if expires_at_epoch <= int(timezone.localtime(timezone.now()).timestamp()):
+    if row.expires_at <= timezone.now():
         return False, "QR expired. Please scan the new QR code on the TV."
     return True, None
 
@@ -223,9 +237,6 @@ def home(request):
             # Manager-created booking links can open without QR session.
             if not _is_manager_created_booking_link(request, vendor_id):
                 return HttpResponseBadRequest("Invalid QR link.")
-    # Do not call cache.clear() here: it wipes the global cache (including every
-    # dine_flash:qr_session token). Multiple customers scanning the same TV QR,
-    # or one user refreshing home, would invalidate everyone else's sessions.
     return render(request, 'orders/index.html')
 
 def vibration_test(request):

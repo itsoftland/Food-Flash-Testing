@@ -28,8 +28,12 @@ export const ModalService = (() => {
 
 
   const showSuccess = (message = "Operation completed successfully.", onOkCallback = null) => {
-    const modalBody = document.getElementById('successModalBody');
-    const successModalEl = document.getElementById('successModal');
+    const modalBody = document.getElementById('ffGlobalSuccessModalBody');
+    const successModalEl = document.getElementById('ffGlobalSuccessModal');
+    if (!modalBody || !successModalEl || typeof bootstrap === "undefined" || !bootstrap.Modal) {
+      console.warn("[ModalService.showSuccess] Global success modal not in DOM.");
+      return;
+    }
     const successModal = new bootstrap.Modal(successModalEl, {
       backdrop: 'static',   // Prevent close on outside click
       keyboard: false       // Prevent close on ESC key

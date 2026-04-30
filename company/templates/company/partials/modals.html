@@ -128,16 +128,17 @@
   }
 </style>
 {% endif %}
-<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+<!-- Renamed from successModal so pages can use #successModal for flow-specific modals (e.g. table booking) without duplicate IDs. -->
+<div class="modal fade" id="ffGlobalSuccessModal" tabindex="-1" aria-labelledby="ffGlobalSuccessModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content success-modal-content">
       <div class="modal-header success-modal-header">
-        <h5 class="modal-title" id="successModalLabel">
+        <h5 class="modal-title" id="ffGlobalSuccessModalLabel">
           <i class="fas fa-check-circle success-icon"></i> Action Successful
         </h5>
         {% comment %} <button type="button" class="btn-close modal-close-btn" data-bs-dismiss="modal" aria-label="Close"></button> {% endcomment %}
       </div>
-      <div class="modal-body success-modal-body" id="successModalBody">
+      <div class="modal-body success-modal-body" id="ffGlobalSuccessModalBody">
         Your action was completed successfully.
       </div>
       <div class="modal-footer success-modal-footer">
