@@ -79,7 +79,11 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
     # Order model and token_no can collide for the same vendor, which would
     # notify the wrong flavour's browsers.
     subscriptions = list(
-        PushSubscription.objects.filter(tokens=order).distinct()
+        PushSubscription.objects
+        .filter(tokens=order)
+        .exclude(last_push_status="stale")
+        .order_by("-updated_at")
+        .distinct()
     )
     sub_count = len(subscriptions)
     logger.info(
@@ -93,59 +97,63 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
         return [msg]
 
     errors = []
+    push_timeout_seconds = int(getattr(settings, "WEB_PUSH_TIMEOUT_SECONDS", 5))
 
-    for sub in subscriptions:
-        try:
-            webpush(
-                subscription_info={
-                    "endpoint": sub.endpoint,
-                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
-                },
-                data=json.dumps(payload),
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
-                ttl=60,
-            )
+    def _send_one_subscription(sub):
+        webpush(
+            subscription_info={
+                "endpoint": sub.endpoint,
+                "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+            },
+            data=json.dumps(payload),
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+            ttl=60,
+            timeout=push_timeout_seconds,
+        )
+        return sub, None
 
-            # ✅ Mark as success
-            sub.mark_as_success()
-
-            # Save chat copy if applicable
+    max_workers = min(max(sub_count, 1), 6)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {executor.submit(_send_one_subscription, sub): sub for sub in subscriptions}
+        for future in as_completed(future_map):
+            sub = future_map[future]
             try:
-                save_server_chat_message(payload, vendor, sub, sequence_code)
-            except Exception as chat_err:
-                logger.warning(f"💬 Chat save failed: {chat_err}")
+                _, _ = future.result()
+                sub.mark_as_success()
+                try:
+                    save_server_chat_message(payload, vendor, sub, sequence_code)
+                except Exception as chat_err:
+                    logger.warning(f"💬 Chat save failed: {chat_err}")
+            except WebPushException as ex:
+                response_status = getattr(ex.response, "status_code", None)
+                response_text = getattr(ex.response, "text", str(ex))
 
-        except WebPushException as ex:
-            response_status = getattr(ex.response, "status_code", None)
-            response_text = getattr(ex.response, "text", str(ex))
+                if response_status in (404, 410):
+                    msg = (
+                        f"⚠️ Stale subscription detected (status {response_status}) "
+                        f"for endpoint={sub.endpoint}"
+                    )
+                    logger.warning(msg)
+                    sub.mark_as_stale(response_text)
 
-            if response_status in (404, 410):
-                msg = (
-                    f"⚠️ Stale subscription detected (status {response_status}) "
-                    f"for endpoint={sub.endpoint}"
-                )
-                logger.warning(msg)
-                sub.mark_as_stale(response_text)
+                    if auto_delete_stale:
+                        sub.delete()
+                        logger.info(f"🧹 Deleted stale subscription for {sub.browser_id}")
+                else:
+                    msg = (
+                        f"❌ Push failed (status={response_status}) for endpoint={sub.endpoint}: {ex}"
+                    )
+                    logger.error(msg)
+                    sub.last_push_status = 'failed'
+                    sub.last_push_response = response_text
+                    sub.save(update_fields=['last_push_status', 'last_push_response', 'updated_at'])
 
-                if auto_delete_stale:
-                    sub.delete()
-                    logger.info(f"🧹 Deleted stale subscription for {sub.browser_id}")
-            else:
-                msg = (
-                    f"❌ Push failed (status={response_status}) for endpoint={sub.endpoint}: {ex}"
-                )
-                logger.error(msg)
-                sub.last_push_status = 'failed'
-                sub.last_push_response = response_text
-                sub.save(update_fields=['last_push_status', 'last_push_response', 'updated_at'])
-
-            errors.append(msg)
-
-        except Exception as e:
-            msg = f"❌ Unexpected error sending push to {sub.endpoint}: {e}"
-            logger.exception(msg)
-            errors.append(msg)
+                errors.append(msg)
+            except Exception as e:
+                msg = f"❌ Unexpected error sending push to {sub.endpoint}: {e}"
+                logger.exception(msg)
+                errors.append(msg)
 
     logger.info(f"📬 Push complete: {sub_count - len(errors)} success, {len(errors)} failed.")
     return errors

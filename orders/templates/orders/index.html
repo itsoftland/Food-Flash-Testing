@@ -16,8 +16,8 @@
 {% endif %}
 {% if PROJECT_NAME == 'dine_flash'%}
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/booking_choice.css' %}">
-<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}">
-<link rel="stylesheet" href="{% static 'orders/css/dineflash/thank_you.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}?v={{ APP_VERSION }}">
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/thank_you.css' %}?v={{ APP_VERSION }}">
 {% endif %}
 
 {% endblock %}
@@ -97,5 +97,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}"></script>
+<script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}&cb=20260430_2"></script>
 {% endblock %}

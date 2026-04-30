@@ -295,6 +295,15 @@ function buildBookingStatusMessage(payload) {
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = dineInPayloadStatusMap[statusKey];
+  const seatNo =
+    (typeof payload?.seat_no === "string" && payload.seat_no.trim()) ||
+    (typeof payload?.seat_number === "string" && payload.seat_number.trim()) ||
+    (payload?.seat_no ?? payload?.seat_number ?? "");
+  const allocatedPlaceValue = payload?.utility_name || "-";
+  const allocatedPlaceWithSeat =
+    seatNo && String(seatNo).trim() !== ""
+      ? `${allocatedPlaceValue} (${String(seatNo).trim()})`
+      : allocatedPlaceValue;
 
   return `
     <div class="response-title">
@@ -302,46 +311,32 @@ function buildBookingStatusMessage(payload) {
       <span class="response-title-text">${payload.alias_name || "Dine Service"}</span>
     </div>
 
-    <div class="status">
-        Status:
-        <span class="${statusClass}">
-            ${payloadStatus || "Unknown"}
-        </span>
+    <div class="dine-status-row">
+      <span class="dine-status-label">Status:</span>
+      <span class="dine-status-value ${statusClass}">
+        ${payloadStatus || "Unknown"}
+      </span>
     </div>
 
-    <div class="flight-card-body">
-      <!-- Customer Name -->
-      <div class="flight-card-header">
-        <span class="passenger-icon" aria-hidden="true">👤</span>
-        <div class="passenger-name">${payload.customer_name || "-"}</div>
+    <div class="dine-body">
+      <div class="dine-card-header">
+        <span class="customer-icon" aria-hidden="true">👤</span>
+        <div class="customer-name">${payload.customer_name || "-"}</div>
       </div>
 
-      <!-- Booking No Display -->
-      <div class="sequence-code-row">
-        <span class="sequence-code-label">Booking No:</span>
-        <div class="sequence-code-display d-flex align-items-center">
-          <span class="sequence-code-text">
-            ${payload.booking_no || "-"}
-          </span>
-        </div>
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🧾</span>Booking No</span>
+        <span class="dine-value">${payload.booking_no || "-"}</span>
       </div>
 
-      <!-- Packs Row -->
-      <div class="flight-row">
-        <div class="flight-item">
-          <span class="flight-icon" aria-hidden="true">👥</span>
-          <span class="flight-label">Guest</span>
-          <span class="flight-badge seat-badge">${payload.no_of_packs || "-"}</span>
-        </div>
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">👥</span>Guest</span>
+        <span class="dine-value">${payload.no_of_packs || "-"}</span>
       </div>
 
-      <!-- Utility Row -->
-      <div class="pnr-zone-row">
-        <div class="pnr-item">
-          <span class="pnr-icon" aria-hidden="true">🪑</span>
-          <span class="flight-label">Allocated Place</span>
-          <span class="flight-badge pnr-badge">${payload.utility_name || "-"}</span>
-        </div>
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🪑</span>Allocated Place</span>
+        <span class="dine-value dine-badge">${allocatedPlaceWithSeat}</span>
       </div>
     </div>
   `;

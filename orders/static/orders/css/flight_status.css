@@ -188,6 +188,28 @@
   margin-right: 10px;
 }
 
+/* Dine Flash booking details rows */
+.booking-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.booking-info-label {
+  min-width: 110px;
+  color: #374151;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.booking-info-value {
+  color: #1f2937;
+  font-weight: 500;
+  word-break: break-word;
+}
+
 .btn-outline-primary {
   font-size: 12px;
 }

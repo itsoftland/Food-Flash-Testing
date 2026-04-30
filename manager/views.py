@@ -1547,6 +1547,13 @@ def manager_booking_update(request):
             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
 
         booking_no = booking.table_booking_no
+        utility_display = booking.utility.display_name if booking.utility else "-"
+        seat_display = (booking.seat_no or "").strip() if isinstance(booking.seat_no, str) else (booking.seat_no or "")
+        utility_with_seat = (
+            f"{utility_display} ({seat_display})"
+            if utility_display != "-" and seat_display
+            else utility_display
+        )
         # === Step 6: Prepare base push payload (unchanged) ===
         payload = {
             "title": "Booking Update by Manager",
@@ -1570,7 +1577,8 @@ def manager_booking_update(request):
             "booking_no": booking_no,
             "customer_name": booking.customer_name,
             "no_of_packs": booking.no_of_packs,
-            "utility_name": booking.utility.display_name if booking.utility else "",
+            "seat_no": booking.seat_no,
+            "utility_name": utility_with_seat,
             "vibration_pattern": vendor.config.vibration_pattern,
             "vibration_duration": vendor.config.vibration_duration
         }
@@ -1614,7 +1622,10 @@ def manager_booking_update(request):
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
 
             # Update payload fields for notifications
-            payload["utility_name"] = target_utility.display_name
+            target_utility_name = target_utility.display_name
+            payload["utility_name"] = (
+                f"{target_utility_name} ({seat_display})" if seat_display else target_utility_name
+            )
             payload["status"] = "utility_transfer" if action_type == "utility_transfer" else booking.status
             payload["type"] = "dinestatus"
 
@@ -1632,9 +1643,12 @@ def manager_booking_update(request):
                     "vendor_id": vendor.vendor_id,
                     "location_id": vendor.location_id,
                     "utility_id": target_utility.id,
-                    "utility_name": target_utility.display_name,
+                    "utility_name": (
+                        f"{target_utility.display_name} ({seat_display})" if seat_display else target_utility.display_name
+                    ),
                     "customer_name": booking.customer_name,
                     "no_of_packs": booking.no_of_packs,
+                    "seat_no": booking.seat_no,
                 }
                 android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
                 logger.info(
