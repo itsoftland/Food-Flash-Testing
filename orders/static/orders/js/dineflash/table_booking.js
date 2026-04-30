@@ -230,6 +230,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!vendorId) return;
 
         try {
+            const nameEl = document.getElementById("vendor-name");
+            const logoEl = document.getElementById("vendor-logo");
+            const hasServerRenderedName = Boolean(nameEl && String(nameEl.textContent || "").trim());
+            const hasServerRenderedLogo = Boolean(logoEl && logoEl.getAttribute("src") && String(logoEl.getAttribute("src")).trim());
+            if (hasServerRenderedName && hasServerRenderedLogo) {
+                return;
+            }
+
             const response = await fetch(apiEndpoints.VENDOR_LOGOS, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -240,9 +248,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (!data || !data.length) return;
 
             const vendor = data[0];
-
-            const nameEl = document.getElementById("vendor-name");
-            const logoEl = document.getElementById("vendor-logo");
 
             // Dine Flash requirement: show alias name first on table booking page.
             if (nameEl) nameEl.textContent = vendor.alias_name || vendor.name || "Vendor";
@@ -279,6 +284,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Load utilities (utility_list API)
     // --------------------------
     async function loadUtilities() {
+        const utilitiesEnabled = window.UTILITIES_ENABLED === true || window.UTILITIES_ENABLED === "true";
+        if (!utilitiesEnabled) return;
         if (!vendorId || !apiEndpoints || !apiEndpoints.UTILITY_LIST) {
             console.warn("Missing vendorId or UTILITY_LIST endpoint.");
             return;
@@ -713,8 +720,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     // Initialize page
     // --------------------------
-    await loadVendorInfo();
-    await loadUtilities();
-    await exchangeQrToSession();
+    await Promise.allSettled([
+        loadVendorInfo(),
+        loadUtilities(),
+        exchangeQrToSession(),
+    ]);
     startExpiryCountdown();
 });

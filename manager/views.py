@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction, close_old_connections
-from django.db.models import Max
+from django.db.models import Max, Count
 from django.urls import reverse
 
 from rest_framework import status
@@ -58,6 +58,27 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
+
+
+def _build_unread_notifications_map(vendor, booking_ids):
+    """
+    Build booking_id -> unread user message count in a single query.
+    """
+    if not booking_ids:
+        return {}
+
+    unread_rows = (
+        ChatMessage.objects
+        .filter(
+            vendor=vendor,
+            booking_id__in=booking_ids,
+            sender="user",
+            is_read=False,
+        )
+        .values("booking_id")
+        .annotate(unread_count=Count("id"))
+    )
+    return {row["booking_id"]: row["unread_count"] for row in unread_rows}
 
 
 def _send_manager_message_push_async(order, vendor, payload, chat_message_id):
@@ -673,17 +694,27 @@ def get_booking_list(request):
             .order_by("utility__display_name", "created_at")
         )
 
-        total_count = bookings_qs.count()
+        booking_list = list(bookings_qs)
+        total_count = len(booking_list)
         logger.info(f"get_booking_list: Retrieved {total_count} bookings")
 
+        unread_map = _build_unread_notifications_map(vendor, [booking.id for booking in booking_list])
+
         # 4. Serialize bookings
-        serialized = BookingSerializer(bookings_qs, many=True, context={"request": request}).data
+        serialized = BookingSerializer(
+            booking_list,
+            many=True,
+            context={
+                "request": request,
+                "unread_notifications_map": unread_map,
+            },
+        ).data
 
         # 5. Group by Utility (using queryset values, not serializer)
         grouped = {}
 
-        for i, item in enumerate(serialized):
-            utility = bookings_qs[i].utility
+        for booking, item in zip(booking_list, serialized):
+            utility = booking.utility
             code = utility.display_code if utility else "Unassigned"
 
             if code not in grouped:
@@ -774,9 +805,18 @@ def get_allocated_booking_list(request):
             .order_by("utility__display_name", "created_at")
         )
 
-        total_count = bookings_qs.count()
-        serialized = BookingSerializer(bookings_qs, many=True, context={"request": request}).data
-        booking_ids = list(bookings_qs.values_list("id", flat=True))
+        booking_list = list(bookings_qs)
+        total_count = len(booking_list)
+        booking_ids = [booking.id for booking in booking_list]
+        unread_map = _build_unread_notifications_map(vendor, booking_ids)
+        serialized = BookingSerializer(
+            booking_list,
+            many=True,
+            context={
+                "request": request,
+                "unread_notifications_map": unread_map,
+            },
+        ).data
         allocated_time_map = {
             row["order_id"]: row["allocated_time"]
             for row in (
@@ -790,8 +830,7 @@ def get_allocated_booking_list(request):
         }
 
         grouped = {}
-        for i, item in enumerate(serialized):
-            booking = bookings_qs[i]
+        for booking, item in zip(booking_list, serialized):
             utility = booking.utility
             code = utility.display_code if utility else "Unassigned"
             booked_time = item.pop("booked_time", None)
@@ -854,22 +893,31 @@ def get_active_customers_list(request):
             created_at__range=(start_dt, end_dt)
         ).filter(id__in=active_chat_sequences).select_related("utility").order_by("utility__display_name", "created_at")
 
-        total_count = customers_qs.count()
+        customer_list = list(customers_qs)
+        total_count = len(customer_list)
 
         logger.info(
             "[get_active_customers_list] Fetched passengers | vendor_id=%s | count=%s",
             vendor.id, total_count
         )
 
-        serialized_data = BookingSerializer(customers_qs, many=True, context={'request': request}).data
+        unread_map = _build_unread_notifications_map(vendor, [customer.id for customer in customer_list])
+        serialized_data = BookingSerializer(
+            customer_list,
+            many=True,
+            context={
+                'request': request,
+                "unread_notifications_map": unread_map,
+            },
+        ).data
         logger.debug(
             "[get_active_customers_list] Serialized passengers | count=%s", len(serialized_data)
         )
 
         grouped_data = {}
-        for i, item in enumerate(serialized_data):
-            utility = customers_qs[i].utility
-            code = utility.display_code
+        for customer, item in zip(customer_list, serialized_data):
+            utility = customer.utility
+            code = utility.display_code if utility else "Unassigned"
 
             if code not in grouped_data:
                 grouped_data[code] = {
@@ -884,7 +932,7 @@ def get_active_customers_list(request):
 
 
         # 6. Status counts
-        status_counts = get_booking_status_counts(customers_qs, serialized_data)
+        status_counts = get_booking_status_counts(customer_list, serialized_data)
 
         logger.info("get_booking_list: Returning success response.")
 

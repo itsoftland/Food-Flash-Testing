@@ -57,6 +57,10 @@ class BookingSerializer(serializers.ModelSerializer):
         return url
     
     def get_new_notifications(self, obj):
+        unread_map = self.context.get("unread_notifications_map")
+        if unread_map is not None:
+            return unread_map.get(obj.id, 0)
+
         return ChatMessage.objects.filter(
             vendor=obj.vendor,
             booking_no=obj.table_booking_no,

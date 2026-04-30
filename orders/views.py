@@ -1,4 +1,5 @@
 import json
+import threading
 
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -8,7 +9,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 import secrets
 from django.http import JsonResponse,HttpResponseBadRequest
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, transaction, close_old_connections
 from django.views.decorators.cache import never_cache
 
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -42,6 +43,22 @@ import logging
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
 project_name = getattr(settings, "PROJECT_NAME", "calleron")
+
+
+def _send_to_managers_async(vendor, data, title=None, body=None):
+    """
+    Fire-and-forget manager notification so customer-facing APIs do not block.
+    """
+    try:
+        close_old_connections()
+        send_to_managers(vendor, data, title, body)
+    except Exception:
+        logger.exception(
+            "[check_status] Async send_to_managers failed | vendor_id=%s",
+            getattr(vendor, "vendor_id", None),
+        )
+    finally:
+        close_old_connections()
 
 
 def _get_dine_flash_qr_expiry_minutes(vendor_id):
@@ -538,7 +555,11 @@ def check_status(request):
                 title = "Customer Message Received"
                 body = f"Customer {order.token_no} has sent a new message."
 
-        send_to_managers(order.vendor, data,title,body)
+        threading.Thread(
+            target=_send_to_managers_async,
+            args=(order.vendor, data, title, body),
+            daemon=True,
+        ).start()
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:
@@ -603,7 +624,11 @@ def check_status(request):
                     title = "Customer Connected"
                     body = f"Customer {identifier_value} has opened the order status page."
 
-                send_to_managers(vendor, data,title,body)
+                threading.Thread(
+                    target=_send_to_managers_async,
+                    args=(vendor, data, title, body),
+                    daemon=True,
+                ).start()
 
                 return Response(data, status=status.HTTP_201_CREATED)
             else:
