@@ -1,9 +1,10 @@
 import logging
+import threading
 from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from django.db import transaction
+from django.db import transaction, close_old_connections
 from django.db.models import Max
 from django.urls import reverse
 
@@ -57,6 +58,30 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
+
+
+def _send_manager_message_push_async(order, vendor, payload, chat_message_id):
+    """
+    Send manager chat push in background so API responses do not block on slow push endpoints.
+    """
+    try:
+        close_old_connections()
+        push_errors = notify_web_push(order, vendor, payload)
+        if push_errors:
+            logger.warning(
+                "❌ Async web push failed for booking %s | errors=%s",
+                getattr(order, "id", None),
+                push_errors,
+            )
+            ChatMessage.objects.filter(id=chat_message_id).update(is_send=False)
+    except Exception:
+        logger.exception(
+            "❌ Async web push exception for booking %s",
+            getattr(order, "id", None),
+        )
+        ChatMessage.objects.filter(id=chat_message_id).update(is_send=False)
+    finally:
+        close_old_connections()
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1657,6 +1682,11 @@ def manager_booking_update(request):
                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
 
         elif action_type == "message":
+            if project_name != "dine_flash":
+                return Response(
+                    {"message": "Manager message action is only supported for Dine Flash."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             MAX_MESSAGE_LENGTH = 200
             if status_to_update and len(status_to_update) > MAX_MESSAGE_LENGTH:
                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
@@ -1674,13 +1704,13 @@ def manager_booking_update(request):
             )
             payload["message_id"] = chat_message.id
             payload["status"] = status_to_update
-            push_errors = notify_web_push(booking, vendor, payload)
-            if push_errors:
-                logger.warning("❌ Failed web push for %s | Errors: %s", booking_id, push_errors)
-                chat_message.is_send = False
-                chat_message.save(update_fields=["is_send"])
-            else:
-                logger.info("📤 Web push sent successfully for %s", booking_id)
+            threading.Thread(
+                target=_send_manager_message_push_async,
+                args=(booking, vendor, payload, chat_message.id),
+                daemon=True,
+            ).start()
+            push_errors = []
+            logger.info("📤 Manager message push queued asynchronously for booking %s", booking_id)
 
         # === Step 8: Return final response ===
         return Response({
