@@ -244,7 +244,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const nameEl = document.getElementById("vendor-name");
             const logoEl = document.getElementById("vendor-logo");
 
-            if (nameEl) nameEl.textContent = vendor.name || vendor.alias_name || "Vendor";
+            // Dine Flash requirement: show alias name first on table booking page.
+            if (nameEl) nameEl.textContent = vendor.alias_name || vendor.name || "Vendor";
             if (logoEl) {
                 // Avoid empty-src fetch to current page (shows broken icon)
                 logoEl.removeAttribute("src");

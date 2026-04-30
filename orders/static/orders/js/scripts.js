@@ -68,6 +68,22 @@ onDOMReady(async function () {
         if (!e || !i) return false;
         return e === i || e.startsWith(i) || i.startsWith(e);
     };
+    const ACTIVE_DINE_BOOKING_KEY = "activeDineBookingId";
+    const normalizeBookingId = (value) => {
+        if (value === null || value === undefined) return null;
+        const trimmed = String(value).trim();
+        return trimmed || null;
+    };
+    const setActiveDineBookingId = (bookingValue) => {
+        if (!projectsMatch(currentProject(), "dine_flash")) return;
+        const normalized = normalizeBookingId(bookingValue);
+        if (!normalized) return;
+        AppUtils.storageSet(ACTIVE_DINE_BOOKING_KEY, normalized);
+    };
+    const getActiveDineBookingId = () => {
+        if (!projectsMatch(currentProject(), "dine_flash")) return null;
+        return normalizeBookingId(AppUtils.storageGet(ACTIVE_DINE_BOOKING_KEY));
+    };
 
     // -------------------------------------------------------------------------
     // 🚀 Auto-Resume Subscription & Health Check
@@ -173,6 +189,7 @@ onDOMReady(async function () {
     if (window.BASE && window.BASE.includes('/dine_flash/')) {
         // console.log("Initializing Booking Mapping Service for Dine Flash...");
         BookingMappingService.processBookingFromQR(tokenFromQR,bookingIdfromQR);
+        setActiveDineBookingId(bookingIdfromQR);
     }
     
     // Initialize the ad slider visibility 
@@ -316,6 +333,14 @@ onDOMReady(async function () {
                 // cross-flavour card updates.
                 if (!projectsMatch(expectedProject, incomingProject)) {
                     return;
+                }
+                if (projectsMatch(expectedProject, "dine_flash")) {
+                    const incomingBookingId = normalizeBookingId(pushData?.booking_id);
+                    const activeBookingId = getActiveDineBookingId();
+                    // Only process pushes for the currently active Dine booking.
+                    if (incomingBookingId && activeBookingId && incomingBookingId !== activeBookingId) {
+                        return;
+                    }
                 }
 
                 // Extra safety: Airline UI expects `sequence_code`.
@@ -716,6 +741,7 @@ onDOMReady(async function () {
 
                 // Otherwise continue normally
                 appendMessage(bookingNo, 'user', null, "chat", bookingId);
+                setActiveDineBookingId(bookingId);
             }
 
             else {
@@ -723,6 +749,7 @@ onDOMReady(async function () {
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 bookingId = BookingMappingService.getBookingId(message); 
+                setActiveDineBookingId(bookingId);
                 await saveChat(bookingNo, 'user', 'chat',bookingId);
                 await fetchOrderStatusOnce(bookingNo); // Use bookingNo as tokenNo
             }else{
@@ -801,6 +828,7 @@ onDOMReady(async function () {
 
                 // Add message to chat
                 appendMessage(item.booking_no, 'user', null, "chat", item.booking_id);
+                setActiveDineBookingId(item.booking_id);
                 await saveChat(item.booking_no, 'user', 'chat', item.booking_id);
 
                 // Trigger API call
@@ -836,6 +864,7 @@ onDOMReady(async function () {
         else if (path.includes('/dine_flash/')) {
             payload = { booking_id: bookingId || token, vendor_id: activeVendor };
             type = 'dinestatus';
+            setActiveDineBookingId(bookingId || token);
         }
         else {
             payload = { token_no: token, vendor_id: activeVendor };

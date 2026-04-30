@@ -66,23 +66,23 @@ export const STATUS_MESSAGE_MAP = {
     Kindly contact the airline staff.`,
 
   waiting: (data) => `
-    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.alias_name || data.name || 'the outlet'}</strong>
     is now <strong>waiting</strong> for allocation.`,
 
   allocated: (data) => `
-    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.alias_name || data.name || 'the outlet'}</strong>
     has been Allocated at <strong>${data.utility_name}</strong>.`,
 
   utility_transfer: (data) => `
-    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.alias_name || data.name || 'the outlet'}</strong>
     has been transferred to <strong>${data.utility_name}</strong>.`,
 
   occupied: (data) => `
-    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.alias_name || data.name || 'the outlet'}</strong>
     is now <strong>Occupied</strong>. Enjoy your meal!`,
 
   booking_cancelled: (data) => `
-    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.name}</strong>
+    Your Booking No <strong>${data.booking_no}</strong> for <strong>${data.alias_name || data.name || 'the outlet'}</strong>
     has been <strong>Cancelled</strong>.`,
 
   operation_closed: (data) => `

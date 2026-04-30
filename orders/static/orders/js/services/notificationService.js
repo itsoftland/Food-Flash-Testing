@@ -207,7 +207,7 @@ async function showNotificationModal(pushData, source) {
 
     // 🛎️ Override for push notification source
     if (source === 'notification') {
-        const outletName = pushData.name || "the outlet";
+        const outletName = pushData.alias_name || pushData.name || "the outlet";
         messageHtml = `🛎️ <strong>You’ve got a new message from ${outletName}</strong><br>View the chat for details.`;
     }
 

@@ -223,7 +223,9 @@ def home(request):
             # Manager-created booking links can open without QR session.
             if not _is_manager_created_booking_link(request, vendor_id):
                 return HttpResponseBadRequest("Invalid QR link.")
-    cache.clear()
+    # Do not call cache.clear() here: it wipes the global cache (including every
+    # dine_flash:qr_session token). Multiple customers scanning the same TV QR,
+    # or one user refreshing home, would invalidate everyone else's sessions.
     return render(request, 'orders/index.html')
 
 def vibration_test(request):
@@ -292,7 +294,7 @@ def table_booking(request):
             logo_url = request.build_absolute_uri(vendor.logo.url)
         context.update(
             {
-                "VENDOR_NAME": vendor.name or vendor.alias_name or "",
+                "VENDOR_NAME": vendor.alias_name or vendor.name or "",
                 "VENDOR_LOGO_URL": logo_url,
             }
         )
@@ -429,8 +431,12 @@ def check_status(request):
         vendor_serializer = VendorLogoSerializer(order.vendor, context={'request': request})
         logo_url = vendor_serializer.data.get('logo_url', '')
 
+        display_vendor_name = (
+            (order.vendor.alias_name or "").strip() if project_name == "dine_flash" else order.vendor.name
+        ) or order.vendor.name
+
         data = {
-            'name': order.vendor.name,
+            'name': display_vendor_name,
             'alias_name': order.vendor.alias_name,
             'vendor': order.vendor.id,
             'token_no': order.token_no,
