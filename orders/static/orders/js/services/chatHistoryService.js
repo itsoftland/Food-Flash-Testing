@@ -22,7 +22,7 @@ export const ChatHistoryService = (() => {
     const load = async (vendorId, browserId) => {
         try {
             const response = await fetch(
-                `${apiEndpoints.GET_CHAT}?vendor_id=${vendorId}&browser_id=${browserId}`, 
+                `${apiEndpoints.GET_CHAT}?vendor_id=${vendorId}&browser_id=${browserId}&limit=200`,
                 {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }

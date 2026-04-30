@@ -626,7 +626,14 @@ onDOMReady(async function () {
                 AppUtils.getNotificationHelpPath();
                 // console.log("📂 Notification help path loaded");
 
-                await handleToken();
+                const handleTokenPromise = handleToken().catch((err) => {
+                    console.error("❌ Error in deferred handleToken flow:", err);
+                    appendMessage(
+                        "⚠️ Live alerts initialization is taking longer than expected. Status updates will still load.",
+                        'server', null, 'error'
+                    );
+                    return null;
+                });
 
                 // ✅ Step 4: Fetch order status
                 try {
@@ -655,6 +662,9 @@ onDOMReady(async function () {
                         'server', null, 'error'
                     );
                 }
+
+                // Let live-alert setup continue in parallel; do not block status UX.
+                await handleTokenPromise;
 
                 // console.log("🎉 Permission flow and order fetch complete");
 

@@ -1005,6 +1005,7 @@ def webchat_messages(request):
     try:
         vendor_id = request.GET.get('vendor_id', None)
         browser_id = request.GET.get('browser_id', None)
+        limit_raw = request.GET.get("limit", "200")
         logger.info("📥 GET /webchat_messages")
         logger.info(f"IP: {request.META.get('REMOTE_ADDR')}, UA: {request.META.get('HTTP_USER_AGENT')}")
         logger.debug(f"Query Params: vendor={vendor_id} browser_id={browser_id}")
@@ -1021,14 +1022,30 @@ def webchat_messages(request):
 
         logger.info(f"✅ Vendor resolved: {vendor.name} ({vendor.vendor_id})")
 
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            limit = 200
+        limit = max(50, min(limit, 500))
+
         start_dt, end_dt = get_vendor_business_day_range(vendor)
-        messages = WebChatMessage.objects.filter(
-            vendor_id=vendor.id,
-            subscription=subscription.id,
-            timestamp__range=(start_dt, end_dt)
-        ).order_by('timestamp')
-        count = messages.count()
-        logger.info(f"💬 Retrieved {count} messages for vendor {vendor.name} for business day ({start_dt} to {end_dt}).")
+        recent_messages = list(
+            WebChatMessage.objects.filter(
+                vendor_id=vendor.id,
+                subscription=subscription.id,
+                timestamp__range=(start_dt, end_dt)
+            )
+            .order_by("-timestamp")[:limit]
+        )
+        messages = list(reversed(recent_messages))
+        logger.info(
+            "💬 Retrieved %s messages (limit=%s) for vendor %s for business day (%s to %s).",
+            len(messages),
+            limit,
+            vendor.name,
+            start_dt,
+            end_dt,
+        )
 
         serializer = WebChatMessageSerializer(messages, many=True)
         return Response({'messages': serializer.data}, status=status.HTTP_200_OK)
@@ -1500,7 +1517,7 @@ def utility_list(request):
         )
 
     try:
-        vendor = Vendor.objects.filter(vendor_id=vendor_id).first()
+        vendor = Vendor.objects.only("id").filter(vendor_id=vendor_id).first()
         if not vendor:
             logger.warning(f"utility_list: Invalid vendor_id '{vendor_id}'.")
             return Response(
@@ -1508,10 +1525,16 @@ def utility_list(request):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        utilities = Utility.objects.filter(
+        is_buffet = getattr(settings, 'PROJECT_NAME', '') == 'dine_flash_buffet'
+        utilities_qs = Utility.objects.filter(
             vendor=vendor,
             is_active=True
-        ).prefetch_related('options').order_by("id")
+        ).only(
+            "id", "utility_name", "display_name", "display_code", "token_mode", "prefix"
+        ).order_by("id")
+        if is_buffet:
+            utilities_qs = utilities_qs.prefetch_related("options")
+        utilities = list(utilities_qs)
 
         data = [
             {
@@ -1527,7 +1550,7 @@ def utility_list(request):
                         "name": opt.name,
                         "is_active": opt.is_active
                     } for opt in util.options.all() if opt.is_active
-                ] if getattr(settings, 'PROJECT_NAME', '') == 'dine_flash_buffet' else []
+                ] if is_buffet else []
             }
             for util in utilities
         ]
