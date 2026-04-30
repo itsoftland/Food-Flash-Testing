@@ -4,6 +4,17 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
 <link rel="stylesheet" href="{% static 'orders/css/passenger_register_modals.css' %}">
+<style>
+    .booking-identifier-blink {
+        animation: bookingIdentifierBlink 1s steps(2, start) infinite;
+    }
+
+    @keyframes bookingIdentifierBlink {
+        50% {
+            opacity: 0.15;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}

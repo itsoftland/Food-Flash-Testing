@@ -353,6 +353,57 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const successModal = getModal("successModal");
     const duplicateModal = getModal("duplicateModal");
+    let bookingBlinkInterval = null;
+
+    function stopBookingIdentifierBlink() {
+        if (bookingBlinkInterval) {
+            clearInterval(bookingBlinkInterval);
+            bookingBlinkInterval = null;
+        }
+        document.querySelectorAll(".booking-identifier-blink").forEach((el) => {
+            el.style.setProperty("visibility", "visible", "important");
+            el.style.setProperty("opacity", "1", "important");
+        });
+    }
+
+    function startBookingIdentifierBlink(container) {
+        stopBookingIdentifierBlink();
+        if (!container) return;
+        const elements = container.querySelectorAll(".booking-identifier-blink");
+        if (!elements.length) return;
+
+        elements.forEach((el) => {
+            el.style.setProperty("visibility", "visible", "important");
+            el.style.setProperty("opacity", "1", "important");
+        });
+
+        let dimmed = false;
+        bookingBlinkInterval = setInterval(() => {
+            dimmed = !dimmed;
+            elements.forEach((el) => {
+                el.style.setProperty("opacity", dimmed ? "0.45" : "1", "important");
+            });
+        }, 2000);
+    }
+
+    function forceWrapIdentifierForBlink(detailsEl) {
+        if (!detailsEl) return;
+        const html = detailsEl.innerHTML;
+        if (!html) return;
+
+        let updated = html.replace(
+            /(Token\s*No\s*:\s*)(<strong\b[^>]*>.*?<\/strong>)/i,
+            (_m, label, strongTag) => `${label}${strongTag.replace("<strong", '<strong class="booking-identifier-blink"')}`
+        );
+        updated = updated.replace(
+            /(Booking\s*ID\s*:\s*)(<strong\b[^>]*>.*?<\/strong>)/i,
+            (_m, label, strongTag) => `${label}${strongTag.replace("<strong", '<strong class="booking-identifier-blink"')}`
+        );
+
+        if (updated !== html) {
+            detailsEl.innerHTML = updated;
+        }
+    }
 
     // --------------------------
     // Build booking payload
@@ -450,6 +501,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     /** Either "Token No" or "Booking ID", never both (same underlying value → token label only). */
     function buildTableBookingIdentifierLine(data) {
+        const blinkValue = (value) => `<strong class="booking-identifier-blink">${escapeHtml(String(value).trim())}</strong>`;
         const bookingNo = data.table_booking_no;
         const tokenRaw = data.token_no;
         if (bookingRefMatchesToken(tokenRaw, bookingNo)) {
@@ -457,13 +509,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 tokenRaw !== undefined && tokenRaw !== null && String(tokenRaw).trim() !== ""
                     ? String(tokenRaw).trim()
                     : String(bookingNo).trim();
-            return `Token No: <strong>${escapeHtml(disp)}</strong><br>`;
+            return `Token No: ${blinkValue(disp)}<br>`;
         }
         if (bookingNo !== undefined && bookingNo !== null && String(bookingNo).trim() !== "") {
-            return `Booking ID: <strong>${escapeHtml(String(bookingNo).trim())}</strong><br>`;
+            return `Booking ID: ${blinkValue(bookingNo)}<br>`;
         }
         if (tokenRaw !== undefined && tokenRaw !== null && String(tokenRaw).trim() !== "") {
-            return `Token No: <strong>${escapeHtml(String(tokenRaw).trim())}</strong><br>`;
+            return `Token No: ${blinkValue(tokenRaw)}<br>`;
         }
         return "";
     }
@@ -583,6 +635,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         ${idLine}
                         ${data.special_notes ? `Notes: ${escapeHtml(data.special_notes)}` : ""}
                     `;
+                    forceWrapIdentifierForBlink(detailsEl);
+                    startBookingIdentifierBlink(detailsEl);
                 }
                 const redirectBtn = document.querySelector(
                     "#successModal.register-modal #success-redirect-btn"
@@ -644,6 +698,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             e.preventDefault();
             await submitBooking();
         });
+    }
+
+    const successModalEl = document.getElementById("successModal");
+    if (successModalEl) {
+        successModalEl.addEventListener("shown.bs.modal", () => {
+            const detailsEl = successModalEl.querySelector("#success-details");
+            forceWrapIdentifierForBlink(detailsEl);
+            startBookingIdentifierBlink(detailsEl);
+        });
+        successModalEl.addEventListener("hidden.bs.modal", stopBookingIdentifierBlink);
     }
 
     // --------------------------
