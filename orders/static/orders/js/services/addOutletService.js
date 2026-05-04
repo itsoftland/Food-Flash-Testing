@@ -1,3 +1,5 @@
+import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
+
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
 let apiEndpoints;
@@ -15,7 +17,7 @@ export const AddOutletService = (() => {
     
     const fetchOutlets = async () => {
         try {
-            const response = await fetch(
+            const response = await dineFlashCustomerFetch(
                 `${apiEndpoints.FETCH_OUTLETS}?location_id=${locationId}`
             );
             return response.ok ? await response.json() : [];

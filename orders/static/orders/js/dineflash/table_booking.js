@@ -86,12 +86,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Load required modules
     // --------------------------
     try {
-        const [endpointsModule, modalServiceModule, vendorStore, permissionModule] = await Promise.all([
-            import(`${base}static/utils/js/apiEndpoints.js`),
-            import(`${base}static/utils/js/services/modalService.js`),
-            import(`${base}static/orders/js/config/vendorStore.js`),
-            import(`${base}static/orders/js/services/permissionService.js`),
-        ]);
+        const [endpointsModule, modalServiceModule, vendorStore, permissionModule, dineFlashFetchMod] =
+            await Promise.all([
+                import(`${base}static/utils/js/apiEndpoints.js`),
+                import(`${base}static/utils/js/services/modalService.js`),
+                import(`${base}static/orders/js/config/vendorStore.js`),
+                import(`${base}static/orders/js/services/permissionService.js`),
+                import(`${base}static/orders/js/dineflash/dineFlashFetch.js`),
+            ]);
+
+        const dineFlashFetch = dineFlashFetchMod.dineFlashFetch;
 
         apiEndpoints = endpointsModule.API_ENDPOINTS;
         ModalService = modalServiceModule.ModalService;
@@ -224,7 +228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             url.searchParams.set("qr_date", String(qrDate));
             url.searchParams.set("qr_time", String(qrTime));
 
-            const resp = await fetch(url.toString(), { method: "GET" });
+            const resp = await dineFlashFetch(url.toString(), { method: "GET" });
             const data = await resp.json();
             if (!resp.ok) {
                 ModalService?.showError?.(data?.error || "QR expired. Please scan the new QR code on the TV.");
@@ -263,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            const response = await fetch(apiEndpoints.VENDOR_LOGOS, {
+            const response = await dineFlashFetch(apiEndpoints.VENDOR_LOGOS, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ vendor_ids: [vendorId] })
@@ -325,7 +329,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const url = `${apiEndpoints.UTILITY_LIST}?vendor_id=${encodeURIComponent(vendorId)}`;
 
-            const response = await fetch(url, {
+            const response = await dineFlashFetch(url, {
                 method: "GET",
                 headers: { "Accept": "application/json" }
             });
@@ -646,7 +650,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            const resp = await fetch(apiEndpoints.TABLE_BOOKING, {
+            const resp = await dineFlashFetch(apiEndpoints.TABLE_BOOKING, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

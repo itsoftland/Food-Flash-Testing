@@ -1,5 +1,6 @@
 // orders/static/js/services/chatHistoryService.js
 import { ChatTemplateService } from "./chatTemplateService.js?v=20260430_1";
+import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
@@ -21,7 +22,7 @@ export const ChatHistoryService = (() => {
      */
     const load = async (vendorId, browserId) => {
         try {
-            const response = await fetch(
+            const response = await dineFlashCustomerFetch(
                 `${apiEndpoints.GET_CHAT}?vendor_id=${vendorId}&browser_id=${browserId}&limit=200`,
                 {
                     method: 'GET',
@@ -102,7 +103,7 @@ export const ChatHistoryService = (() => {
                 payload.token_no = token_no;
             }
 
-            const response = await fetch(apiEndpoints.CREATE_CHAT, {
+            const response = await dineFlashCustomerFetch(apiEndpoints.CREATE_CHAT, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -123,7 +124,7 @@ export const ChatHistoryService = (() => {
 
     const markAsRead = async (vendorId) => {
         try {
-            const response = await fetch(`${apiEndpoints.READ_CHAT}${vendorId}/`, {
+            const response = await dineFlashCustomerFetch(`${apiEndpoints.READ_CHAT}${vendorId}/`, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': getCSRFToken() }
             });

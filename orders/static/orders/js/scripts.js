@@ -12,6 +12,7 @@ import { ChatTemplateService } from "./services/chatTemplateService.js?v=2026043
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";
+import { dineFlashFetch } from "./dineflash/dineFlashFetch.js";
 
 
 window.maskSequenceCode = maskSequenceCode
@@ -883,7 +884,8 @@ onDOMReady(async function () {
         if (replyText) payload.reply_text = replyText;
 
         try {
-            const resp = await fetch(apiEndpoints.CHECK_STATUS, {
+            const fetchImpl = type === 'dinestatus' ? dineFlashFetch : fetch;
+            const resp = await fetchImpl(apiEndpoints.CHECK_STATUS, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

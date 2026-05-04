@@ -1,3 +1,4 @@
+import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
 import { AdSliderService } from "./adSliderService.js";
 import { AddOutletService } from "./addOutletService.js";
 import { ChatRestoreService } from "./chatRestoreService.js";
@@ -41,7 +42,7 @@ export const VendorUIService = {
 
     async loadVendorLogos(vendorIds) {
         try {
-            const response = await fetch(apiEndpoints.VENDOR_LOGOS, {
+            const response = await dineFlashCustomerFetch(apiEndpoints.VENDOR_LOGOS, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

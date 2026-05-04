@@ -1,4 +1,5 @@
 import { appendMessage } from './chatService.js';
+import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
@@ -138,7 +139,7 @@ export const FeedbackService = (() => {
         submitBtn.disabled = true;
 
         try {
-            const response = await fetch(apiEndpoints.FEEDBACK, {
+            const response = await dineFlashCustomerFetch(apiEndpoints.FEEDBACK, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
