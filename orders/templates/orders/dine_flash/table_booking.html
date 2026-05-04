@@ -135,6 +135,43 @@
     </div>
 </div>
 
+{# Same permission flow as chat home so sound / notifications / vibration unlock without waiting on other scripts. #}
+<div class="modal fade" id="permissionModal" tabindex="-1" aria-labelledby="permissionModalLabel" aria-hidden="true"
+    data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-body">
+                <h5 class="">Please grant permissions to play sound, receive notifications, and enable vibration.</h5>
+            </div>
+            <div class="modal-footer d-flex flex-row justify-content-between">
+                <button type="button" class="btn btn-outline-primary flex-fill me-2" id="grant-permission">I’ll Do It</button>
+                <button type="button" class="btn btn-outline-primary flex-fill" id="deny-permission">No Thanks</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="notificationHelpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Enable Notifications</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>You've blocked notifications. To enable real-time alerts, please allow notifications in your browser
+                    settings.</p>
+                <ul>
+                    <li>Go to Site Settings</li>
+                    <li>Find "Notifications"</li>
+                    <li>Set to "Allow"</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-primary" data-bs-dismiss="modal">Okay</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% include "company/partials/modals.html" %}
 

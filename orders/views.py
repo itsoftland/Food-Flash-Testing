@@ -328,12 +328,24 @@ def table_booking(request):
         )
     context["IS_DINE_FLASH"] = project_name == "dine_flash"
     if project_name == "dine_flash":
+        qr_session_ctx = request.GET.get("qr_session") or ""
+        qr_expires_epoch = 0
+        if qr_session_ctx:
+            sess_row = (
+                DineFlashQrSession.objects.filter(token=qr_session_ctx)
+                .only("expires_at")
+                .first()
+            )
+            if sess_row and sess_row.expires_at:
+                qr_expires_epoch = int(sess_row.expires_at.timestamp())
         # Expose QR info for countdown + safe URL rewriting.
         context.update(
             {
                 "QR_DATE": request.GET.get("qr_date") or "",
                 "QR_TIME": request.GET.get("qr_time") or "",
                 "QR_EXPIRY_MINUTES": _get_dine_flash_qr_expiry_minutes(vendor_id),
+                "QR_SESSION": qr_session_ctx,
+                "QR_EXPIRES_AT_EPOCH": qr_expires_epoch,
             }
         )
 

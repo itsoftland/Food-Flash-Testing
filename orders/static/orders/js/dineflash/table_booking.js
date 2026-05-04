@@ -70,28 +70,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     const base = window.BASE || "/caller_on/";
 
     let apiEndpoints, ModalService, vendorId;
+    let PermissionService = null;
     let qrDate = null;
     let qrTime = null;
     let qrSession = null;
     let qrExpiresAtEpoch = null;
     let expiryTimerInterval = null;
 
+    function getParam(key) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(key);
+    }
+
     // --------------------------
     // Load required modules
     // --------------------------
     try {
-        const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);
-        const modalServiceModule = await import(`${base}static/utils/js/services/modalService.js`);
-        const vendorStore = await import(`${base}static/orders/js/config/vendorStore.js`);
+        const [endpointsModule, modalServiceModule, vendorStore, permissionModule] = await Promise.all([
+            import(`${base}static/utils/js/apiEndpoints.js`),
+            import(`${base}static/utils/js/services/modalService.js`),
+            import(`${base}static/orders/js/config/vendorStore.js`),
+            import(`${base}static/orders/js/services/permissionService.js`),
+        ]);
 
         apiEndpoints = endpointsModule.API_ENDPOINTS;
         ModalService = modalServiceModule.ModalService;
-
-        // Helper: read query param
-        function getParam(key) {
-            const params = new URLSearchParams(window.location.search);
-            return params.get(key);
-        }
+        PermissionService = permissionModule.PermissionService;
 
         const urlVendorId = getParam("vendor_id");
         qrDate = getParam("qr_date");
@@ -116,6 +120,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Vendor ID missing. Cannot continue.");
             ModalService && ModalService.showError && ModalService.showError("Missing vendor information.");
             return;
+        }
+
+        // Seed QR state from server-rendered globals (no network): correct countdown for qr_session links.
+        const tmplEpoch = Number(window.QR_EXPIRES_AT_EPOCH);
+        if (Number.isFinite(tmplEpoch) && tmplEpoch > 0) {
+            qrExpiresAtEpoch = tmplEpoch;
+        }
+        const tmplSession = typeof window.QR_SESSION === "string" ? window.QR_SESSION.trim() : "";
+        if (!qrSession && tmplSession) {
+            qrSession = tmplSession;
         }
 
         // Keep vendor_id in URL for Dine Flash QR-gated workflow.
@@ -187,6 +201,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         expiryTimerInterval = setInterval(tick, 1000);
     }
 
+    function restartExpiryCountdownFromServerEpoch(epochSec) {
+        const n = Number(epochSec);
+        if (!Number.isFinite(n) || n <= 0) return;
+        qrExpiresAtEpoch = n;
+        if (expiryTimerInterval) {
+            clearInterval(expiryTimerInterval);
+            expiryTimerInterval = null;
+        }
+        startExpiryCountdown();
+    }
+
     async function exchangeQrToSession() {
         // If we already have a session token, nothing to do.
         if (qrSession) return;
@@ -206,7 +231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
             qrSession = data.qr_session;
-            qrExpiresAtEpoch = data.expires_at_epoch;
+            restartExpiryCountdownFromServerEpoch(data.expires_at_epoch);
 
             // Encrypt URL (opaque token) after load
             try {
@@ -291,6 +316,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
+        const grid = document.getElementById("utility-grid");
+        if (grid && !grid.dataset.loaded) {
+            grid.innerHTML =
+                '<div class="col-12 text-muted small text-center py-2" id="utility-grid-loading">Loading areas…</div>';
+        }
+
         try {
             const url = `${apiEndpoints.UTILITY_LIST}?vendor_id=${encodeURIComponent(vendorId)}`;
 
@@ -308,6 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // console.log("Utility Data:",data)
 
             renderUtilities(data.utilities || []);
+            if (grid) grid.dataset.loaded = "1";
         }
         catch (err) {
             console.error("Error loading utilities:", err);
@@ -322,7 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const container = document.getElementById("utility-grid");
         if (!container) return;
 
-        container.innerHTML = ""; // clear previous
+        container.innerHTML = ""; // clear previous (removes loading placeholder)
 
         container.classList.add("utility-grid-2col");
 
@@ -718,12 +750,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // --------------------------
-    // Initialize page
+    // Initialize page: expiry + permissions first; network work in parallel
     // --------------------------
-    await Promise.allSettled([
-        loadVendorInfo(),
-        loadUtilities(),
-        exchangeQrToSession(),
-    ]);
     startExpiryCountdown();
+    if (PermissionService) {
+        PermissionService.init();
+        PermissionService.showModal();
+    }
+    void loadVendorInfo();
+    void loadUtilities();
+    void exchangeQrToSession();
 });
