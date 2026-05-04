@@ -705,16 +705,9 @@ def register_android_device(request):
         }
         if is_dine_flash:
             if isinstance(dine_flash_tv, dict):
-                response_body["dine_flash"] = {
-                    "counts": dine_flash_tv.get(
-                        "counts",
-                        {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
-                    ),
-                    "displayed_counts": dine_flash_tv.get(
-                        "displayed_counts",
-                        {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
-                    ),
-                }
+                # Full snapshot (waiting / active_tables / …) so TV can render booking rows,
+                # including table_booking_no_display and seat_no from build_dine_flash_tv_booking_snapshot.
+                response_body["dine_flash"] = dict(dine_flash_tv)
             else:
                 response_body["dine_flash"] = {
                     "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},

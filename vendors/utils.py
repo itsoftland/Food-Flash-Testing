@@ -562,12 +562,22 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
     show_order_details = getattr(tv_config, "show_order_details", True) if tv_config else True
     show_no_of_packs = getattr(tv_config, "show_order_details", True) if tv_config else True
 
+    def _seat_display(order):
+        raw = getattr(order, "seat_no", None)
+        if raw is None:
+            return ""
+        s = raw.strip() if isinstance(raw, str) else str(raw).strip()
+        return s
+
     def serialize_row(order):
         row = {
             "id": order.id,
             "status": order.status,
             "created_at": order.created_at.isoformat() if order.created_at else None,
         }
+        seat_display = _seat_display(order)
+        if seat_display:
+            row["seat_no"] = seat_display
         if "name" in booking_fields and show_customer_name:
             row["customer_name"] = order.customer_name
         if "phone" in booking_fields and show_phone:
@@ -581,6 +591,13 @@ def build_dine_flash_tv_booking_snapshot(vendor, tv_config, request=None):
         if "token" in booking_fields:
             row["table_booking_no"] = order.table_booking_no
             row["token_no"] = order.token_no
+            booking_no = (order.table_booking_no or "").strip() if order.table_booking_no else ""
+            if booking_no and seat_display:
+                row["table_booking_no_display"] = f"{booking_no} [{seat_display}]"
+            elif booking_no:
+                row["table_booking_no_display"] = booking_no
+            elif seat_display:
+                row["table_booking_no_display"] = f"[{seat_display}]"
         if show_order_details and order.remarks:
             row["remarks"] = order.remarks
         return row

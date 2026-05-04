@@ -29,6 +29,12 @@ class BookingSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if getattr(settings, "PROJECT_NAME", "").lower() == "dine_flash":
+            data["table_no"] = instance.seat_no
+        return data
+
     def get_utility_name(self, obj):
         return obj.utility.display_name if obj.utility else None
 
