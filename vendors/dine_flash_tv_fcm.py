@@ -13,7 +13,7 @@ from typing import List, Sequence
 from django.conf import settings
 from firebase_admin import messaging
 
-from vendors.models import AndroidDevice, Vendor
+from vendors.models import AndroidDevice, Order, Vendor
 
 logger = logging.getLogger(__name__)
 
@@ -117,13 +117,44 @@ def send_dine_flash_booking_status_fcm_sync(
 ) -> None:
     """
     Sends data-only FCM to all TV devices mapped to the vendor. Logs failures; never raises.
+    Includes booking_no / seat so TVs can update a row without a full HTTP refresh.
     """
-    data = {
+    data: dict[str, str] = {
         "type": "booking_update",
         "status": _normalize_status(current_status),
         "booking_id": str(booking_id),
         "project": "dine_flash",
+        "booking_no": "",
+        "seat_no": "",
+        "table_booking_no_display": "",
     }
+    try:
+        order = Order.objects.filter(pk=booking_id, vendor_id=vendor_id).only(
+            "table_booking_no", "seat_no"
+        ).first()
+        if order:
+            booking_no = (order.table_booking_no or "").strip() if order.table_booking_no else ""
+            raw_seat = order.seat_no
+            seat = (
+                raw_seat.strip()
+                if isinstance(raw_seat, str)
+                else (str(raw_seat).strip() if raw_seat is not None else "")
+            )
+            data["booking_no"] = booking_no
+            data["seat_no"] = seat
+            if booking_no and seat:
+                data["table_booking_no_display"] = f"{booking_no} [{seat}]"
+            elif booking_no:
+                data["table_booking_no_display"] = booking_no
+            elif seat:
+                data["table_booking_no_display"] = f"[{seat}]"
+    except Exception:
+        logger.exception(
+            "[dine_flash_fcm] Could not enrich booking_update booking_id=%s vendor_pk=%s",
+            booking_id,
+            vendor_id,
+        )
+
     _send_dine_flash_tv_data_fcm_sync(
         vendor_id=vendor_id,
         data=data,

@@ -32,7 +32,24 @@ class BookingSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if getattr(settings, "PROJECT_NAME", "").lower() == "dine_flash":
+            raw_seat = instance.seat_no
+            seat = (
+                raw_seat.strip()
+                if isinstance(raw_seat, str)
+                else (str(raw_seat).strip() if raw_seat is not None else "")
+            )
             data["table_no"] = instance.seat_no
+            # Explicit keys for TV / clients that expect seat_no or a single display string.
+            data["seat_no"] = instance.seat_no
+            booking_no = (instance.table_booking_no or "").strip() if instance.table_booking_no else ""
+            if booking_no and seat:
+                data["table_booking_no_display"] = f"{booking_no} [{seat}]"
+            elif booking_no:
+                data["table_booking_no_display"] = booking_no
+            elif seat:
+                data["table_booking_no_display"] = f"[{seat}]"
+            else:
+                data["table_booking_no_display"] = booking_no or None
         return data
 
     def get_utility_name(self, obj):
