@@ -28,7 +28,8 @@ from core.config.status_choices import STATUS_CHOICES_MAP
 
 from .serializers import ChatMessageSerializer
 from .serializer.booking_serializer import BookingSerializer
-from .utils.utils import (get_manager_vendor, get_suggestion_messages,
+from .utils.utils import (get_manager_vendor, get_manager_vendor_dine_flash,
+                          get_suggestion_messages,
                           get_order_counts, generate_sequence_code,
                           get_passenger_counts,notify_related_passengers,
                           create_bulk_chat_messages)
@@ -58,6 +59,19 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
+
+
+def _resolve_vendor_for_manager(request):
+    """
+    For Dine Flash deployments, resolve vendor in one DB round-trip.
+    Other projects keep the shared get_manager_vendor() behaviour.
+    """
+    if project_name == "dine_flash":
+        vendor = get_manager_vendor_dine_flash(request.user)
+        if not vendor:
+            raise NotFound("Vendor not found for this manager")
+        return vendor
+    return get_manager_vendor(request.user)
 
 
 def _build_unread_notifications_map(vendor, booking_ids):
@@ -115,7 +129,7 @@ def create_order_by_manager(request):
     logger.info("[create_order_by_manager] Started | user=%s | project=%s", request.user.username, project_name)
 
     # --- Step 1: Resolve vendor ---
-    vendor = get_manager_vendor(request.user)
+    vendor = _resolve_vendor_for_manager(request)
     logger.info("[create_order_by_manager] Vendor resolved | id=%s | name=%s", vendor.id, vendor.name)
 
     # --- Step 2: Field validation based on project ---
@@ -279,7 +293,7 @@ def book_table(request):
     # ------------------------------
     # 2. Vendor resolution (prefetch config)
     # ------------------------------
-    vendor = get_manager_vendor(request.user)  # existing helper
+    vendor = _resolve_vendor_for_manager(request)  # existing helper
     # Ensure vendor has config prefetched if possible (get_manager_vendor should ideally do this)
     vendor_config = getattr(vendor, "config", None)
     if vendor_config is None:
@@ -467,34 +481,40 @@ def manager_utility_list(request):
         # --------------------------------------------------------
         # 1. Resolve vendor from manager profile
         # --------------------------------------------------------
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
 
-        if not vendor:
-            logger.warning("[manager_utility_list] Vendor not found for manager.")
-            return Response(
-                {"error": "Vendor not associated with this manager."},
-                status=status.HTTP_404_NOT_FOUND
+        # --------------------------------------------------------
+        # 2. Fetch utilities (Dine Flash: lean query + dict rows)
+        # --------------------------------------------------------
+        if project_name == "dine_flash":
+            data = list(
+                Utility.objects.filter(vendor=vendor, is_active=True)
+                .order_by("id")
+                .values(
+                    "id",
+                    "utility_name",
+                    "display_name",
+                    "display_code",
+                    "token_mode",
+                    "prefix",
+                )
             )
-
-        # --------------------------------------------------------
-        # 2. Fetch utilities
-        # --------------------------------------------------------
-        utilities = Utility.objects.filter(
-            vendor=vendor,
-            is_active=True
-        ).order_by("id")
-        
-        data = [
-            {
-                "id": util.id,
-                "utility_name": util.utility_name,
-                "display_name": util.display_name,
-                "display_code": util.display_code,
-                "token_mode": util.token_mode,
-                "prefix": util.prefix,
-            }
-            for util in utilities
-        ]
+        else:
+            utilities = Utility.objects.filter(
+                vendor=vendor,
+                is_active=True,
+            ).order_by("id")
+            data = [
+                {
+                    "id": util.id,
+                    "utility_name": util.utility_name,
+                    "display_name": util.display_name,
+                    "display_code": util.display_code,
+                    "token_mode": util.token_mode,
+                    "prefix": util.prefix,
+                }
+                for util in utilities
+            ]
 
         logger.info(
             "[manager_utility_list] Returned %s utilities for vendor_id=%s",
@@ -510,6 +530,13 @@ def manager_utility_list(request):
                 "count": len(data),
             },
             status=status.HTTP_200_OK
+        )
+
+    except NotFound as nf:
+        logger.warning("[manager_utility_list] Vendor not found | %s", nf)
+        return Response(
+            {"error": "Vendor not associated with this manager."},
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     except Exception as e:
@@ -535,7 +562,7 @@ def get_today_orders(request):
         )
 
         # === Step 2: Resolve vendor for the logged-in manager ===
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_today_orders] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -610,7 +637,7 @@ def get_passengers_list(request):
             request.user.username, request.method, request.path
         )
 
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_passengers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -675,7 +702,7 @@ def get_booking_list(request):
 
     try:
         # 1. Identify vendor linked to manager
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(f"get_booking_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
 
         # 2. BUSINESS DAY FILTER
@@ -765,7 +792,7 @@ def get_allocated_booking_list(request):
 
     try:
         if request.user and request.user.is_authenticated:
-            vendor = get_manager_vendor(request.user)
+            vendor = _resolve_vendor_for_manager(request)
         else:
             vendor_id = (
                 request.query_params.get("vendor_id")
@@ -869,7 +896,7 @@ def get_active_customers_list(request):
             request.user.username, request.method, request.path
         )
 
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_active_customers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -967,7 +994,7 @@ def get_active_passengers_list(request):
             request.user.username, request.method, request.path
         )
 
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_active_passengers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -1045,7 +1072,7 @@ def get_suggestions(request):
             request.user.username, request.method, request.path
         )
         # === Step 2: Resolve vendor from manager user ===
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_suggestion_messages] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -1825,7 +1852,7 @@ def chat_history(request):
             return Response({"error": "Invalid token_no."}, status=status.HTTP_400_BAD_REQUEST)
 
     # ✅ 2. Resolve vendor efficiently
-    vendor = get_manager_vendor(request.user)
+    vendor = _resolve_vendor_for_manager(request)
     logger.info(f"[chat_history] Vendor resolved: id={vendor.id}, name={vendor.name}")
 
     # ✅ 3. Filter by vendor’s current business date
@@ -2014,7 +2041,7 @@ def get_recent_tokens(request):
         )
 
         # === Step 2: Resolve vendor from manager user ===
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(
             "[get_last_tokens] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -2072,7 +2099,7 @@ def get_contact_list(request):
 
     try:
         # 1. Get vendor mapped with manager
-        vendor = get_manager_vendor(request.user)
+        vendor = _resolve_vendor_for_manager(request)
         logger.info(f"get_contact_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
 
         # 2. BUSINESS DAY RANGE

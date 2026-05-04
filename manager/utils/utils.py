@@ -8,7 +8,7 @@ from django.db import models
 from rest_framework.exceptions import NotFound
 from django.utils import timezone
 
-from vendors.models import ArchivedOrder, ChatMessage, Order
+from vendors.models import ArchivedOrder, ChatMessage, Order, UserProfile
 from static.utils.functions.utils import (
     get_vendor_business_day_range,
     get_vendor_current_time,
@@ -26,6 +26,23 @@ def get_manager_vendor(user):
         logger.warning("No vendor found for manager user: %s", user)
         raise NotFound("Vendor not found for this manager")
     logger.debug("Found vendor %s for manager user %s", profile.vendor, user)
+    return profile.vendor
+
+
+def get_manager_vendor_dine_flash(user):
+    """
+    Dine Flash: resolve the manager's vendor in a single query (profile + vendor row).
+    Avoids user.profile_roles.first() which omits select_related and can add latency.
+    Returns None if there is no profile or no vendor linked.
+    """
+    profile = (
+        UserProfile.objects.filter(user=user)
+        .select_related("vendor")
+        .order_by("id")
+        .first()
+    )
+    if not profile or not profile.vendor_id:
+        return None
     return profile.vendor
 
 
