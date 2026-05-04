@@ -50,6 +50,9 @@ class BookingSerializer(serializers.ModelSerializer):
                 data["table_booking_no_display"] = f"[{seat}]"
             else:
                 data["table_booking_no_display"] = booking_no or None
+            # Show assigned table in the booking ref (URLs/notifications still use raw table_booking_no on the model).
+            if seat:
+                data["table_booking_no"] = f"{booking_no}[{seat}]" if booking_no else f"[{seat}]"
         return data
 
     def get_utility_name(self, obj):
