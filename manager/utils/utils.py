@@ -37,7 +37,7 @@ def get_manager_vendor_dine_flash(user):
     """
     profile = (
         UserProfile.objects.filter(user=user)
-        .select_related("vendor")
+        .select_related("vendor", "vendor__config")
         .order_by("id")
         .first()
     )

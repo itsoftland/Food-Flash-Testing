@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction, close_old_connections
-from django.db.models import Max, Count
+from django.db.models import Count, Exists, Max, OuterRef
 from django.urls import reverse
 
 from rest_framework import status
@@ -582,10 +582,14 @@ def get_today_orders(request):
         )
 
         # === Step 4: Fetch today's orders ===
-        todays_orders = Order.objects.filter(
-            vendor=vendor,
-            created_at__range=(start_dt, end_dt)
-        ).order_by('-updated_at')
+        todays_orders = (
+            Order.objects.filter(
+                vendor=vendor,
+                created_at__range=(start_dt, end_dt),
+            )
+            .select_related("vendor")
+            .order_by("-updated_at")
+        )
         logger.info(
             "[get_today_orders] Fetched orders | vendor_id=%s | count=%s",
             vendor.id, todays_orders.count()
@@ -717,7 +721,7 @@ def get_booking_list(request):
         bookings_qs = (
             Order.objects
             .filter(vendor=vendor, created_at__range=(start_dt, end_dt))
-            .select_related("utility")
+            .select_related("utility", "vendor")
             .order_by("utility__display_name", "created_at")
         )
 
@@ -805,7 +809,9 @@ def get_allocated_booking_list(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                vendor = Vendor.objects.get(vendor_id=int(vendor_id))
+                vendor = Vendor.objects.select_related("config").get(
+                    vendor_id=int(vendor_id)
+                )
             except (ValueError, Vendor.DoesNotExist):
                 return Response(
                     {"error": "Invalid vendor_id."},
@@ -828,7 +834,7 @@ def get_allocated_booking_list(request):
                 status="allocated",
                 created_at__range=(start_dt, end_dt),
             )
-            .select_related("utility")
+            .select_related("utility", "vendor")
             .order_by("utility__display_name", "created_at")
         )
 
@@ -914,11 +920,16 @@ def get_active_customers_list(request):
             vendor.id, start_dt, end_dt
         )
 
-        active_chat_sequences = ChatMessage.objects.filter(vendor=vendor).values_list("booking_id", flat=True).distinct()
-        customers_qs = Order.objects.filter(
-            vendor=vendor,
-            created_at__range=(start_dt, end_dt)
-        ).filter(id__in=active_chat_sequences).select_related("utility").order_by("utility__display_name", "created_at")
+        has_chat_message = ChatMessage.objects.filter(
+            vendor_id=vendor.id,
+            booking_id=OuterRef("pk"),
+        )
+        customers_qs = (
+            Order.objects.filter(vendor=vendor, created_at__range=(start_dt, end_dt))
+            .filter(Exists(has_chat_message))
+            .select_related("utility", "vendor")
+            .order_by("utility__display_name", "created_at")
+        )
 
         customer_list = list(customers_qs)
         total_count = len(customer_list)
@@ -2110,7 +2121,7 @@ def get_contact_list(request):
 
         logger.info(f"get_contact_list: Business day → Start: {start_dt}, End: {end_dt}")
 
-        # 3. Query only customers with phone numbers
+        # 3. Query only customers with phone numbers (single evaluation + vendor for serializer URLs)
         contacts_qs = (
             Order.objects
             .filter(
@@ -2123,31 +2134,22 @@ def get_contact_list(request):
             .order_by("utility__display_name", "created_at")
         )
 
-        total_count = contacts_qs.count()
+        orders = list(contacts_qs)
+        total_count = len(orders)
         logger.info(f"get_contact_list: Retrieved {total_count} contacts")
 
-        # 4. Prepare minimal response data
-        minimal_data = []
-        for order in contacts_qs:
-            minimal_data.append({
+        # 4–5. Build grouped payload in one pass (avoids count() + second full queryset scan)
+        grouped = {}
+        for order in orders:
+            item = {
                 "booking_id": order.id,
                 "customer_name": order.customer_name,
                 "booking_no": order.table_booking_no,
                 "phone_number": order.phone_number,
-            })
-
-        # 5. Group by Utility → display_code
-        grouped = {}
-        for idx, order in enumerate(contacts_qs):
+            }
             code = order.utility.display_code if order.utility else "NA"
-            item = minimal_data[idx]
-
             if code not in grouped:
-                grouped[code] = {
-                    "count": 0,
-                    "customers": []
-                }
-
+                grouped[code] = {"count": 0, "customers": []}
             grouped[code]["customers"].append(item)
             grouped[code]["count"] += 1
 
