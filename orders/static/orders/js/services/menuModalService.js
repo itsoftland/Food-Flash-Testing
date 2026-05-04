@@ -1,5 +1,3 @@
-import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
-
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
 let apiEndpoints;
@@ -128,7 +126,7 @@ export const MenuModalService = (() => {
                         return;
                     }
 
-                    dineFlashCustomerFetch(apiEndpoints.MENU, {
+                    fetch(apiEndpoints.MENU, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",

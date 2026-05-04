@@ -1,5 +1,3 @@
-import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
-
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
 let apiEndpoints;
@@ -19,7 +17,7 @@ export const AdSliderService = (() => {
      */
     const fetchAds = async (vendorIds) => {
         try {
-            const response = await dineFlashCustomerFetch(`${apiEndpoints.GET_BANNERS}?vendor_ids=${JSON.stringify(vendorIds)}`, {
+            const response = await fetch(`${apiEndpoints.GET_BANNERS}?vendor_ids=${JSON.stringify(vendorIds)}`, {
                 method: "GET",
             });
 

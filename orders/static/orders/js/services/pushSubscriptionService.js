@@ -1,6 +1,5 @@
 // orders/static/orders/js/services/PushSubscriptionService.js
 import { appendMessage } from "./chatService.js";
-import { dineFlashCustomerFetch } from "../dineflash/dineFlashFetch.js";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
@@ -83,7 +82,7 @@ export const PushSubscriptionService = (() => {
                 vendor_id: vendor_id
             };
 
-            const response = await dineFlashCustomerFetch(apiEndpoints.SAVE_SUBSCRIPTION, {
+            const response = await fetch(apiEndpoints.SAVE_SUBSCRIPTION, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

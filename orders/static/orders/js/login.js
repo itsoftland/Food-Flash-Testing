@@ -1,5 +1,3 @@
-import { dineFlashCustomerFetch } from "./dineflash/dineFlashFetch.js";
-
 /**
  * ==========================================================
  * 📘 Dynamic Login Page Script
@@ -141,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             // 🔸 Send login request to backend API
-            const response = await dineFlashCustomerFetch(apiEndpoints.LOGIN, {
+            const response = await fetch(apiEndpoints.LOGIN, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

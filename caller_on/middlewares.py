@@ -24,7 +24,8 @@ class CacheControlMiddleware:
         response = self.get_response(request)
         
         # Prevent caching for authenticated users or paths that should be protected
-        if request.user.is_authenticated:
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
             response["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
             response["Pragma"] = "no-cache"
             response["Expires"] = "0"
