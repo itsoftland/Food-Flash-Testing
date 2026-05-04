@@ -1645,6 +1645,16 @@ def manager_booking_update(request):
 
             booking.utility = target_utility
 
+            if "table_number" in data or "table_no" in data:
+                raw_table = data.get("table_number")
+                if raw_table is None:
+                    raw_table = data.get("table_no")
+                if raw_table is None:
+                    booking.seat_no = None
+                else:
+                    s = str(raw_table).strip()
+                    booking.seat_no = (s[:10] or None) if s else None
+
             # 🛡️ FIX: If it is a transfer, do not overwrite the DB with "utility_transfer" as a status.
             # Preserve the existing valid status (e.g., 'allocated' or 'occupied').
             if action_type == "utility_transfer":
@@ -1658,6 +1668,13 @@ def manager_booking_update(request):
                 schedule_dine_flash_booking_status_fcm(vendor.id, booking.id, new_booking_status)
 
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
+
+            seat_display = (
+                (updated_booking.seat_no or "").strip()
+                if isinstance(updated_booking.seat_no, str)
+                else (updated_booking.seat_no or "")
+            )
+            payload["seat_no"] = updated_booking.seat_no
 
             # Update payload fields for notifications
             target_utility_name = target_utility.display_name
