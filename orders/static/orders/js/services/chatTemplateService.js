@@ -304,6 +304,21 @@ function buildBookingStatusMessage(payload) {
     seatNo && String(seatNo).trim() !== ""
       ? `${allocatedPlaceValue} (${String(seatNo).trim()})`
       : allocatedPlaceValue;
+  const tableNumberRaw =
+    payload?.table_number ??
+    payload?.table_no ??
+    payload?.table_num ??
+    payload?.table_id ??
+    "";
+  const tableNumber = String(tableNumberRaw).trim();
+  const tableNumberRow =
+    tableNumber !== ""
+      ? `
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🔢</span>Table Number</span>
+        <span class="dine-value dine-badge">${tableNumber}</span>
+      </div>`
+      : "";
 
   return `
     <div class="response-title">
@@ -338,6 +353,7 @@ function buildBookingStatusMessage(payload) {
         <span class="dine-label"><span class="dine-icon">🪑</span>Allocated Place</span>
         <span class="dine-value dine-badge">${allocatedPlaceWithSeat}</span>
       </div>
+      ${tableNumberRow}
     </div>
   `;
 }
