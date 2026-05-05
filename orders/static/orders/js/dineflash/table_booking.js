@@ -748,9 +748,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     startExpiryCountdown();
     if (PermissionService) {
         PermissionService.init({ dineFlashFastPermissionUX: true });
+
+        const permissionModalEl = document.getElementById("permissionModal");
+        if (permissionModalEl) {
+            permissionModalEl.addEventListener(
+                "shown.bs.modal",
+                () => {
+                    try {
+                        const ss = window.speechSynthesis;
+                        if (!ss) return;
+                        ss.getVoices();
+                        ss.addEventListener("voiceschanged", () => ss.getVoices(), { once: true });
+                    } catch (_) {
+                        /* noop */
+                    }
+                },
+                false,
+            );
+        }
+
         const openPermissionWhenIdle = () => {
             if (typeof requestIdleCallback === "function") {
-                requestIdleCallback(() => PermissionService.showModal(), { timeout: 2000 });
+                requestIdleCallback(() => PermissionService.showModal(), { timeout: 300 });
             } else {
                 setTimeout(() => PermissionService.showModal(), 1);
             }

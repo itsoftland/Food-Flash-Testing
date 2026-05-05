@@ -73,6 +73,18 @@ export const PermissionService = (() => {
         // console.log("🧩 [PermissionService] Deferred callback set.");
     };
 
+    const finalizeAgreeGranted = async (granted, logDenyReason) => {
+        if (granted) {
+            AppUtils.showToast("Notifications enabled");
+            if (typeof deferredCallback === "function") {
+                await deferredCallback();
+                deferredCallback = null;
+            }
+        } else if (logDenyReason) {
+            console.warn("⚠️ [PermissionService] Permission request denied by user or browser.");
+        }
+    };
+
     const handleAgree = async () => {
         // console.log("👍 [PermissionService] User agreed to enable notifications.");
         localStorage.setItem("permissionStatus", "granted");
@@ -81,32 +93,45 @@ export const PermissionService = (() => {
         const permissionModalEl = document.getElementById("permissionModal");
         const bsModalInstance = bootstrap.Modal.getInstance(permissionModalEl);
 
-        if (fast) {
-            // Dismiss UI immediately so the tap does not sit on a "stuck" button while
-            // unlockNotificationSound() waits (e.g. Android speechSynthesis voices load).
-            document.getElementById("grant-permission")?.blur();
-            bsModalInstance?.hide();
-            cleanupBackdrop();
-            void AppUtils.unlockNotificationSound();
-        } else {
+        if (!fast) {
             await AppUtils.unlockNotificationSound();
-            // console.log("🔊 [PermissionService] Notification sound unlocked.");
             bsModalInstance?.hide();
             cleanupBackdrop();
+            const granted = await requestPermissions();
+            await finalizeAgreeGranted(granted, true);
+            return;
         }
 
-        const granted = await requestPermissions();
+        const currentPerm = Notification.permission;
 
-        if (granted) {
-            AppUtils.showToast("Notifications enabled");
-            // console.log("✅ [PermissionService] Permission granted, executing deferred callback...");
-            if (typeof deferredCallback === "function") {
-                await deferredCallback();
-                deferredCallback = null;
-            }
-        } else {
-            console.warn("⚠️ [PermissionService] Permission request denied by user or browser.");
+        /** Native prompt must run with almost no preceding work so the gesture chain stays “hot”. */
+        let permissionPromise = null;
+        if (currentPerm === "default") {
+            permissionPromise = Notification.requestPermission();
         }
+
+        document.getElementById("grant-permission")?.blur();
+        bsModalInstance?.hide();
+        cleanupBackdrop();
+
+        queueMicrotask(() => {
+            void AppUtils.unlockNotificationSound();
+        });
+
+        let granted = false;
+        if (currentPerm === "granted") {
+            granted = true;
+        } else if (currentPerm === "default" && permissionPromise) {
+            const result = await permissionPromise;
+            granted = result === "granted";
+        } else if (currentPerm === "denied") {
+            showDeniedModal();
+        }
+
+        await finalizeAgreeGranted(
+            granted,
+            currentPerm === "default",
+        );
     };
 
     const handleDeny = () => {
