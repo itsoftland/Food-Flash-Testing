@@ -292,18 +292,13 @@ function maskSequenceCode(sequenceCode) {
 }
 
 function buildBookingStatusMessage(payload) {
+  const path = String(window.location?.pathname || "").toLowerCase();
+  const project = String(window.PROJECT_NAME || "").toLowerCase();
+  const isDineFlash = path.includes("/dine_flash/") || project === "dine_flash";
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = dineInPayloadStatusMap[statusKey];
-  const seatNo =
-    (typeof payload?.seat_no === "string" && payload.seat_no.trim()) ||
-    (typeof payload?.seat_number === "string" && payload.seat_number.trim()) ||
-    (payload?.seat_no ?? payload?.seat_number ?? "");
   const allocatedPlaceValue = payload?.utility_name || "-";
-  const allocatedPlaceWithSeat =
-    seatNo && String(seatNo).trim() !== ""
-      ? `${allocatedPlaceValue} (${String(seatNo).trim()})`
-      : allocatedPlaceValue;
   const tableNumberRaw =
     payload?.table_number ??
     payload?.table_no ??
@@ -312,7 +307,7 @@ function buildBookingStatusMessage(payload) {
     "";
   const tableNumber = String(tableNumberRaw).trim();
   const tableNumberRow =
-    tableNumber !== ""
+    isDineFlash && tableNumber !== ""
       ? `
       <div class="dine-row">
         <span class="dine-label"><span class="dine-icon">🔢</span>Table Number</span>
@@ -351,7 +346,7 @@ function buildBookingStatusMessage(payload) {
 
       <div class="dine-row">
         <span class="dine-label"><span class="dine-icon">🪑</span>Allocated Place</span>
-        <span class="dine-value dine-badge">${allocatedPlaceWithSeat}</span>
+        <span class="dine-value dine-badge">${allocatedPlaceValue}</span>
       </div>
       ${tableNumberRow}
     </div>
