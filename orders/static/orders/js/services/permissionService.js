@@ -85,53 +85,77 @@ export const PermissionService = (() => {
         }
     };
 
+    let isAgreeInProgress = false;
+
+    const resetGrantButtonVisualState = (btn) => {
+        if (!btn) return;
+        btn.blur();
+        btn.disabled = false;
+        btn.style.pointerEvents = "";
+    };
+
     const handleAgree = async () => {
+        if (isAgreeInProgress) return;
+        isAgreeInProgress = true;
         // console.log("👍 [PermissionService] User agreed to enable notifications.");
         localStorage.setItem("permissionStatus", "granted");
 
         const fast = flowOptions.dineFlashFastPermissionUX === true;
         const permissionModalEl = document.getElementById("permissionModal");
         const bsModalInstance = bootstrap.Modal.getInstance(permissionModalEl);
+        const grantBtn = document.getElementById("grant-permission");
 
-        if (!fast) {
-            await AppUtils.unlockNotificationSound();
+        // Immediately clear pressed/active state before any async prompt appears.
+        // This avoids the sticky "selected/loading" visual if user taps quickly.
+        if (grantBtn) {
+            grantBtn.blur();
+            grantBtn.disabled = true;
+            grantBtn.style.pointerEvents = "none";
+        }
+
+        try {
+            if (!fast) {
+                await AppUtils.unlockNotificationSound();
+                bsModalInstance?.hide();
+                cleanupBackdrop();
+                const granted = await requestPermissions();
+                await finalizeAgreeGranted(granted, true);
+                return;
+            }
+
+            const currentPerm = Notification.permission;
+
+            /** Native prompt must run with almost no preceding work so the gesture chain stays “hot”. */
+            let permissionPromise = null;
+            if (currentPerm === "default") {
+                permissionPromise = Notification.requestPermission();
+            }
+
             bsModalInstance?.hide();
             cleanupBackdrop();
-            const granted = await requestPermissions();
-            await finalizeAgreeGranted(granted, true);
-            return;
+
+            queueMicrotask(() => {
+                void AppUtils.unlockNotificationSound();
+            });
+
+            let granted = false;
+            if (currentPerm === "granted") {
+                granted = true;
+            } else if (currentPerm === "default" && permissionPromise) {
+                const result = await permissionPromise;
+                granted = result === "granted";
+            } else if (currentPerm === "denied") {
+                showDeniedModal();
+            }
+
+            await finalizeAgreeGranted(
+                granted,
+                currentPerm === "default",
+            );
+        } finally {
+            resetGrantButtonVisualState(grantBtn);
+            isAgreeInProgress = false;
         }
-
-        const currentPerm = Notification.permission;
-
-        /** Native prompt must run with almost no preceding work so the gesture chain stays “hot”. */
-        let permissionPromise = null;
-        if (currentPerm === "default") {
-            permissionPromise = Notification.requestPermission();
-        }
-
-        document.getElementById("grant-permission")?.blur();
-        bsModalInstance?.hide();
-        cleanupBackdrop();
-
-        queueMicrotask(() => {
-            void AppUtils.unlockNotificationSound();
-        });
-
-        let granted = false;
-        if (currentPerm === "granted") {
-            granted = true;
-        } else if (currentPerm === "default" && permissionPromise) {
-            const result = await permissionPromise;
-            granted = result === "granted";
-        } else if (currentPerm === "denied") {
-            showDeniedModal();
-        }
-
-        await finalizeAgreeGranted(
-            granted,
-            currentPerm === "default",
-        );
     };
 
     const handleDeny = () => {
