@@ -195,6 +195,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         startExpiryCountdown();
     }
 
+    /** Stop countdown and hide the banner once booking succeeded (or duplicate handled). */
+    function stopQrExpiryCountdown() {
+        if (expiryTimerInterval) {
+            clearInterval(expiryTimerInterval);
+            expiryTimerInterval = null;
+        }
+        const banner = document.getElementById("qr-expiry-banner");
+        if (banner) {
+            banner.classList.add("d-none");
+            banner.setAttribute("aria-hidden", "true");
+        }
+        const timerEl = document.getElementById("qr-expiry-timer");
+        if (timerEl) {
+            timerEl.textContent = "";
+        }
+    }
+
     async function exchangeQrToSession() {
         // If we already have a session token, nothing to do.
         if (qrSession) return;
@@ -652,6 +669,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await resp.json();
 
             if (resp.status === 201) {
+                stopQrExpiryCountdown();
                 // New booking
                 const finalCustomerName = data.customer_name || payload.customer_name;
                 AppUtils.setCustomerName(finalCustomerName);
@@ -682,6 +700,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             else if (resp.status === 200) {
+                stopQrExpiryCountdown();
                 // Duplicate or existing booking
                 const detailsEl = document.getElementById("duplicate-details");
                 if (detailsEl) {

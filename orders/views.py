@@ -222,6 +222,27 @@ def _is_manager_created_booking_link(request, vendor_id):
     return False
 
 
+def _is_dine_flash_order_tracking_link(request, vendor_id):
+    """
+    Dine Flash: allow opening tracking home with booking id/no (no QR session).
+    Matches URLs returned after a successful customer table booking.
+    """
+    booking_id = request.GET.get("booking_id")
+    booking_no = request.GET.get("booking_no")
+
+    if not booking_id and not booking_no:
+        return False
+
+    qs = Order.objects.filter(vendor__vendor_id=vendor_id)
+    if booking_id:
+        try:
+            return qs.filter(id=int(booking_id)).exists()
+        except (TypeError, ValueError):
+            return False
+
+    return qs.filter(table_booking_no=str(booking_no)).exists()
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def dine_flash_qr_exchange(request):
@@ -279,13 +300,16 @@ def home(request):
         if not vendor_id:
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
         qr_session = request.GET.get("qr_session")
+        fallback_ok = (
+            _is_manager_created_booking_link(request, vendor_id)
+            or _is_dine_flash_order_tracking_link(request, vendor_id)
+        )
         if qr_session:
             ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id)
-            if not ok:
+            if not ok and not fallback_ok:
                 return HttpResponseBadRequest(msg)
         else:
-            # Manager-created booking links can open without QR session.
-            if not _is_manager_created_booking_link(request, vendor_id):
+            if not fallback_ok:
                 return HttpResponseBadRequest("Invalid QR link.")
     return render(request, 'orders/index.html')
 
@@ -1551,7 +1575,8 @@ def book_table(request):
                 f"&booking_no={booking_no}"
                 f"&booking_id={booking_obj.id}"
             )
-            if qr_session:
+            # Dine Flash: tracking no longer relies on qr_session TTL after booking succeeds.
+            if qr_session and project_name != "dine_flash":
                 tracking_url = f"{tracking_url}&qr_session={qr_session}"
 
             resp_data = serializer.data
