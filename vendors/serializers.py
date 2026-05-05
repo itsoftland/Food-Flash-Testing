@@ -57,6 +57,14 @@ class OrdersSerializer(serializers.ModelSerializer):
 
         return fields
     def get_new_notifications(self, obj):
+        unread_by_booking = self.context.get("unread_notifications_map")
+        if unread_by_booking is not None:
+            return unread_by_booking.get(obj.id, 0)
+
+        unread_by_sequence = self.context.get("unread_notifications_map_by_sequence")
+        if unread_by_sequence is not None:
+            return unread_by_sequence.get(obj.sequence_code, 0)
+
         if project_name == "airline_flash":
             return ChatMessage.objects.filter(
                 vendor=obj.vendor,

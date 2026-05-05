@@ -95,6 +95,27 @@ def _build_unread_notifications_map(vendor, booking_ids):
     return {row["booking_id"]: row["unread_count"] for row in unread_rows}
 
 
+def _build_unread_notifications_map_by_sequence(vendor, sequence_codes):
+    """
+    Build sequence_code -> unread user message count in one query.
+    """
+    if not sequence_codes:
+        return {}
+
+    unread_rows = (
+        ChatMessage.objects
+        .filter(
+            vendor=vendor,
+            sequence_code__in=sequence_codes,
+            sender="user",
+            is_read=False,
+        )
+        .values("sequence_code")
+        .annotate(unread_count=Count("id"))
+    )
+    return {row["sequence_code"]: row["unread_count"] for row in unread_rows}
+
+
 def _send_manager_message_push_async(order, vendor, payload, chat_message_id):
     """
     Send manager chat push in background so API responses do not block on slow push endpoints.
@@ -590,14 +611,22 @@ def get_today_orders(request):
             .select_related("vendor")
             .order_by("-updated_at")
         )
+        order_list = list(todays_orders)
         logger.info(
             "[get_today_orders] Fetched orders | vendor_id=%s | count=%s",
-            vendor.id, todays_orders.count()
+            vendor.id, len(order_list)
         )
-        
 
         # === Step 5: Serialize orders ===
-        data = OrdersSerializer(todays_orders, many=True, context={'request': request}).data
+        unread_map = (
+            _build_unread_notifications_map(vendor, [order.id for order in order_list])
+            if project_name in {"dine_flash", "dine_flash_buffet"}
+            else None
+        )
+        serializer_context = {"request": request}
+        if unread_map is not None:
+            serializer_context["unread_notifications_map"] = unread_map
+        data = OrdersSerializer(order_list, many=True, context=serializer_context).data
         logger.debug(
             "[get_today_orders] Serialized orders | vendor_id=%s | serialized_count=%s",
             vendor.id, len(data)
@@ -610,7 +639,7 @@ def get_today_orders(request):
         )
         
         # Compute counts (including unread based on new_notifications)
-        status_counts = get_order_counts(todays_orders, data)
+        status_counts = get_order_counts(order_list, data)
         # Merge counts into response
         response_data = {
             "message": "Today's orders retrieved successfully.",
@@ -647,13 +676,29 @@ def get_passengers_list(request):
             vendor.id, vendor.name, request.user.username
         )
 
-        passengers_qs = Order.objects.filter(vendor=vendor).order_by('flight_no', 'zone', 'seat_no')
+        passengers_qs = (
+            Order.objects.filter(vendor=vendor)
+            .select_related("vendor")
+            .order_by('flight_no', 'zone', 'seat_no')
+        )
+        passenger_list = list(passengers_qs)
         logger.info(
             "[get_passengers_list] Fetched passengers | vendor_id=%s | count=%s",
-            vendor.id, passengers_qs.count()
+            vendor.id, len(passenger_list)
         )
 
-        serialized_data = OrdersSerializer(passengers_qs, many=True, context={'request': request}).data
+        unread_map = _build_unread_notifications_map_by_sequence(
+            vendor,
+            [p.sequence_code for p in passenger_list if p.sequence_code],
+        )
+        serialized_data = OrdersSerializer(
+            passenger_list,
+            many=True,
+            context={
+                "request": request,
+                "unread_notifications_map_by_sequence": unread_map,
+            },
+        ).data
         logger.debug(
             "[get_passengers_list] Serialized passengers | count=%s", len(serialized_data)
         )
@@ -676,7 +721,7 @@ def get_passengers_list(request):
                 grouped_data[flight_no][zone]["unread"] += 1
 
         # Aggregate overall counts
-        status_counts = get_passenger_counts(passengers_qs, serialized_data)
+        status_counts = get_passenger_counts(passenger_list, serialized_data)
 
         response_data = {
             "message": "Passengers retrieved successfully.",
@@ -1016,17 +1061,36 @@ def get_active_passengers_list(request):
             "[get_active_passengers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
         )
-        active_chat_sequences = ChatMessage.objects.filter(vendor=vendor).values_list("sequence_code", flat=True).distinct()
-        passengers_qs = Order.objects.filter(
-            vendor=vendor
-        ).filter(sequence_code__in=active_chat_sequences).order_by(
-            'flight_no', 'zone', 'seat_no')
+        active_chat_sequences = (
+            ChatMessage.objects
+            .filter(vendor=vendor)
+            .values_list("sequence_code", flat=True)
+            .distinct()
+        )
+        passengers_qs = (
+            Order.objects.filter(vendor=vendor)
+            .filter(sequence_code__in=active_chat_sequences)
+            .select_related("vendor")
+            .order_by('flight_no', 'zone', 'seat_no')
+        )
+        passenger_list = list(passengers_qs)
         logger.info(
             "[get_active_passengers_list] Fetched passengers | vendor_id=%s | count=%s",
-            vendor.id, passengers_qs.count()
+            vendor.id, len(passenger_list)
         )
 
-        serialized_data = OrdersSerializer(passengers_qs, many=True, context={'request': request}).data
+        unread_map = _build_unread_notifications_map_by_sequence(
+            vendor,
+            [p.sequence_code for p in passenger_list if p.sequence_code],
+        )
+        serialized_data = OrdersSerializer(
+            passenger_list,
+            many=True,
+            context={
+                "request": request,
+                "unread_notifications_map_by_sequence": unread_map,
+            },
+        ).data
         logger.debug(
             "[get_active_passengers_list] Serialized passengers | count=%s", len(serialized_data)
         )
@@ -1049,7 +1113,7 @@ def get_active_passengers_list(request):
                 grouped_data[flight_no][zone]["unread"] += 1
 
         # Aggregate overall counts
-        status_counts = get_passenger_counts(passengers_qs, serialized_data)
+        status_counts = get_passenger_counts(passenger_list, serialized_data)
 
         response_data = {
             "message": "Passengers retrieved successfully.",
