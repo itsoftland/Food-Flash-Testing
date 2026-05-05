@@ -231,6 +231,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    void exchangeQrToSession();
+
     // --------------------------
     // Load vendor branding
     // --------------------------
@@ -622,6 +624,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         registerBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Processing...`;
 
         try {
+            await exchangeQrToSession();
+            if ((qrDate && qrTime || (window.QR_DATE && window.QR_TIME)) && !qrSession) {
+                ModalService.showError(
+                    "Unable to verify your QR session. Check your connection, refresh the page, or scan the TV code again."
+                );
+                return;
+            }
+
             const payload = buildPayload();
             // console.log("Payload:",payload)
 
@@ -738,9 +748,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     startExpiryCountdown();
     if (PermissionService) {
         PermissionService.init();
-        PermissionService.showModal();
+        const openPermissionWhenIdle = () => {
+            if (typeof requestIdleCallback === "function") {
+                requestIdleCallback(() => PermissionService.showModal(), { timeout: 2000 });
+            } else {
+                setTimeout(() => PermissionService.showModal(), 1);
+            }
+        };
+        openPermissionWhenIdle();
     }
     void loadVendorInfo();
     void loadUtilities();
-    void exchangeQrToSession();
 });

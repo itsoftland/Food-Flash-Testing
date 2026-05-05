@@ -9,7 +9,9 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 import secrets
 from django.http import JsonResponse,HttpResponseBadRequest
+from django.core.cache import cache
 from django.db import IntegrityError, transaction, close_old_connections
+from django.db.models import Max
 from django.views.decorators.cache import never_cache
 
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -61,13 +63,22 @@ def _send_to_managers_async(vendor, data, title=None, body=None):
         close_old_connections()
 
 
-def _get_dine_flash_qr_expiry_minutes(vendor_id):
+def _get_dine_flash_qr_expiry_minutes(vendor_id, vendor_prefetched=None):
     """
     Dine Flash only: resolve QR expiry minutes from vendor configuration.
     Falls back to latest mapped TV config and then default 5.
+
+    vendor_prefetched:
+        Optional Vendor instance already loaded (e.g. select_related(\"config\")) to skip a duplicate query.
     """
     try:
-        vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id).first()
+        vendor = None
+        if vendor_prefetched is not None and str(getattr(vendor_prefetched, "vendor_id", "")) == str(
+            vendor_id
+        ):
+            vendor = vendor_prefetched
+        if vendor is None:
+            vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id).first()
         if vendor and getattr(vendor, "config", None):
             cfg_val = getattr(vendor.config, "qr_expiry_minutes", None)
             if cfg_val:
@@ -86,10 +97,13 @@ def _get_dine_flash_qr_expiry_minutes(vendor_id):
     return 5
 
 
-def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id):
+def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id, expiry_minutes=None):
     """
     Validate that the QR date+time represent a *current* QR within the configured window.
     Returns (ok: bool, error_msg: str|None).
+
+    expiry_minutes:
+        When provided, avoids a second vendor/TV lookup (callers already computed expiry).
     """
     if not qr_date or not qr_time:
         return False, "Invalid QR link. Date and time are required."
@@ -103,7 +117,10 @@ def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id):
 
     now_dt = timezone.localtime(timezone.now())
 
-    expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+    if expiry_minutes is None:
+        expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+    else:
+        expiry_min = max(1, int(expiry_minutes))
     max_age = timedelta(minutes=expiry_min)
 
     # Allow small client clock skew into the future.
@@ -126,11 +143,27 @@ def _purge_stale_dine_flash_qr_sessions():
         DineFlashQrSession.objects.filter(id__in=stale_ids).delete()
 
 
+_DINE_FLASH_QR_PURGE_COOLDOWN_KEY = "dine_flash_qr_session_purge_cooldown"
+
+
+def _maybe_purge_stale_dine_flash_qr_sessions():
+    """
+    Throttle purges: running a bulk delete on every scan adds latency under load.
+    One purge attempt per cooldown window across the cache namespace (typically per-process).
+    """
+    try:
+        if not cache.add(_DINE_FLASH_QR_PURGE_COOLDOWN_KEY, 1, timeout=180):
+            return
+    except Exception:
+        pass
+    _purge_stale_dine_flash_qr_sessions()
+
+
 def _create_dine_flash_qr_session(vendor_id: str, qr_dt: datetime, expiry_minutes: int):
     # Booking/session window starts at successful QR exchange (scan time),
     # not at QR generation time. QR freshness validation is still enforced
     # separately in _validate_dine_flash_qr_time.
-    _purge_stale_dine_flash_qr_sessions()
+    _maybe_purge_stale_dine_flash_qr_sessions()
     scan_dt = timezone.localtime(timezone.now())
     expires_at = scan_dt + timedelta(minutes=expiry_minutes)
     vid = int(vendor_id)
@@ -205,13 +238,13 @@ def dine_flash_qr_exchange(request):
     if not vendor_id:
         return Response({"error": "vendor_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    ok, msg = _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id)
+    expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+    ok, msg = _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id, expiry_minutes=expiry_min)
     if not ok:
         return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
 
     naive = datetime.strptime(f"{qr_date} {qr_time}", "%Y-%m-%d %H:%M:%S")
     qr_dt = timezone.make_aware(naive, timezone.get_current_timezone())
-    expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
 
     token, expires_at_epoch = _create_dine_flash_qr_session(vendor_id, qr_dt, expiry_min)
     return Response(
@@ -285,6 +318,9 @@ def table_booking(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
 
+    vendor_prefetch = None
+    qr_expiry_minutes = 0
+
     if project_name == "dine_flash":
         vendor_id_from_qr = request.GET.get("vendor_id")
         qr_date = request.GET.get("qr_date")
@@ -292,10 +328,18 @@ def table_booking(request):
         qr_session = request.GET.get("qr_session")
         if not vendor_id_from_qr:
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+        vendor_prefetch = Vendor.objects.select_related("config").filter(
+            vendor_id=vendor_id_from_qr
+        ).first()
+        qr_expiry_minutes = max(
+            1, _get_dine_flash_qr_expiry_minutes(vendor_id_from_qr, vendor_prefetched=vendor_prefetch)
+        )
         if qr_session:
             ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id_from_qr)
         else:
-            ok, msg = _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id_from_qr)
+            ok, msg = _validate_dine_flash_qr_time(
+                qr_date, qr_time, vendor_id_from_qr, expiry_minutes=qr_expiry_minutes
+            )
         if not ok:
             return HttpResponseBadRequest(msg)
 
@@ -306,7 +350,14 @@ def table_booking(request):
 
     vendor = None
     if vendor_id:
-        vendor = Vendor.objects.filter(vendor_id=vendor_id).first()
+        if (
+            project_name == "dine_flash"
+            and vendor_prefetch is not None
+            and str(vendor_prefetch.vendor_id) == str(vendor_id)
+        ):
+            vendor = vendor_prefetch
+        else:
+            vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id).first()
         if vendor and hasattr(vendor, "config"):
             utilities_enabled = vendor.config.use_utilities
             phone_number_enabled = vendor.config.phone_number_enabled
@@ -341,15 +392,14 @@ def table_booking(request):
         elif request.GET.get("qr_date") and request.GET.get("qr_time"):
             # Match _create_dine_flash_qr_session: countdown is from load/exchange time,
             # not TV qr_date/qr_time + window (avoids wrong timer until qr_exchange returns).
-            expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
-            expires_at = timezone.localtime(timezone.now()) + timedelta(minutes=expiry_min)
+            expires_at = timezone.localtime(timezone.now()) + timedelta(minutes=qr_expiry_minutes)
             qr_expires_epoch = int(expires_at.timestamp())
         # Expose QR info for countdown + safe URL rewriting.
         context.update(
             {
                 "QR_DATE": request.GET.get("qr_date") or "",
                 "QR_TIME": request.GET.get("qr_time") or "",
-                "QR_EXPIRY_MINUTES": _get_dine_flash_qr_expiry_minutes(vendor_id),
+                "QR_EXPIRY_MINUTES": qr_expiry_minutes,
                 "QR_SESSION": qr_session_ctx,
                 "QR_EXPIRES_AT_EPOCH": qr_expires_epoch,
             }
@@ -1375,7 +1425,7 @@ def book_table(request):
             vendor_id_int = int(vendor_id)
         except (ValueError, TypeError):
             return Response({"error": "Invalid vendor_id"}, status=status.HTTP_400_BAD_REQUEST)
-        vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
+        vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id_int).first()
 
     if not vendor:
         logger.warning("[book_table] Vendor not found | vendor_id=%s ", vendor_id)
@@ -1438,8 +1488,8 @@ def book_table(request):
         # -------------------------------
         # Token number (vendor-wide)
         # -------------------------------
-        last_booking = Order.objects.filter(vendor=vendor).order_by("-token_no").first()
-        token_no = (last_booking.token_no + 1) if last_booking else 1
+        max_token = Order.objects.filter(vendor=vendor).aggregate(m=Max("token_no")).get("m")
+        token_no = (max_token + 1) if max_token is not None else 1
 
         # -------------------------------
         # Booking number logic
