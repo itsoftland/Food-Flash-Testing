@@ -868,6 +868,12 @@ def get_allocated_booking_list(request):
             code = utility.display_code if utility else "Unassigned"
             booked_time = item.pop("booked_time", None)
             item["allocated_time"] = allocated_time_map.get(booking.id) or booked_time
+            table_no = item.get("table_no")
+            booking_no = item.get("table_booking_no")
+            if booking_no is not None and table_no is not None:
+                table_no_text = str(table_no).strip()
+                if table_no_text:
+                    item["table_booking_no"] = f"{booking_no}[{table_no_text}]"
 
             if code not in grouped:
                 grouped[code] = {"unread": 0, "bookings": []}
