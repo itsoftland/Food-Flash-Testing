@@ -1,6 +1,9 @@
 // orders/static/orders/js/services/PermissionService.js
 export const PermissionService = (() => {
 
+    /** Options set via init(); only Dine Flash enables dineFlashFastPermissionUX. */
+    let flowOptions = { dineFlashFastPermissionUX: false };
+
     const showModal = (forceShow = false) => {
         const modalElement = document.getElementById("permissionModal");
 
@@ -74,14 +77,23 @@ export const PermissionService = (() => {
         // console.log("👍 [PermissionService] User agreed to enable notifications.");
         localStorage.setItem("permissionStatus", "granted");
 
-        await AppUtils.unlockNotificationSound();
-        // console.log("🔊 [PermissionService] Notification sound unlocked.");
+        const fast = flowOptions.dineFlashFastPermissionUX === true;
+        const permissionModalEl = document.getElementById("permissionModal");
+        const bsModalInstance = bootstrap.Modal.getInstance(permissionModalEl);
 
-        const modal = bootstrap.Modal.getInstance(document.getElementById("permissionModal"));
-        modal?.hide();
-
-        // Force cleanup in case Bootstrap doesn't remove backdrop
-        cleanupBackdrop();
+        if (fast) {
+            // Dismiss UI immediately so the tap does not sit on a "stuck" button while
+            // unlockNotificationSound() waits (e.g. Android speechSynthesis voices load).
+            document.getElementById("grant-permission")?.blur();
+            bsModalInstance?.hide();
+            cleanupBackdrop();
+            void AppUtils.unlockNotificationSound();
+        } else {
+            await AppUtils.unlockNotificationSound();
+            // console.log("🔊 [PermissionService] Notification sound unlocked.");
+            bsModalInstance?.hide();
+            cleanupBackdrop();
+        }
 
         const granted = await requestPermissions();
 
@@ -106,7 +118,11 @@ export const PermissionService = (() => {
         showDeniedModal();
     };
 
-    const bindEvents = () => {
+    const bindEvents = (options = {}) => {
+        flowOptions = {
+            dineFlashFastPermissionUX: false,
+            ...options,
+        };
         // console.log("⚙️ [PermissionService] Binding button events...");
         document.getElementById("grant-permission")?.addEventListener("click", handleAgree);
         document.getElementById("deny-permission")?.addEventListener("click", handleDeny);

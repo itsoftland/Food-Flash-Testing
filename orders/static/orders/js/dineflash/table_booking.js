@@ -747,7 +747,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     startExpiryCountdown();
     if (PermissionService) {
-        PermissionService.init();
+        PermissionService.init({ dineFlashFastPermissionUX: true });
         const openPermissionWhenIdle = () => {
             if (typeof requestIdleCallback === "function") {
                 requestIdleCallback(() => PermissionService.showModal(), { timeout: 2000 });
