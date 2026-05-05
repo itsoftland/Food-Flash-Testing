@@ -298,7 +298,10 @@ function escapeRegExp(value) {
 function buildBookingStatusMessage(payload) {
   const path = String(window.location?.pathname || "").toLowerCase();
   const project = String(window.PROJECT_NAME || "").toLowerCase();
-  const isDineFlash = path.includes("/dine_flash/") || project === "dine_flash";
+  const isDineFlashCustomerSurface =
+    project === "dine_flash" &&
+    path.includes("/dine_flash/") &&
+    !path.includes("/manager/");
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = dineInPayloadStatusMap[statusKey];
@@ -311,14 +314,14 @@ function buildBookingStatusMessage(payload) {
     "";
   const tableNumber = String(tableNumberRaw).trim();
   const sanitizedAllocatedPlace =
-    isDineFlash && tableNumber && allocatedPlaceValue
+    isDineFlashCustomerSurface && tableNumber && allocatedPlaceValue
       ? String(allocatedPlaceValue)
           .replace(new RegExp(`\\(\\s*${escapeRegExp(tableNumber)}\\s*\\)`, "gi"), "")
           .replace(/\s{2,}/g, " ")
           .trim()
       : allocatedPlaceValue;
   const tableNumberRow =
-    isDineFlash && tableNumber !== ""
+    isDineFlashCustomerSurface && tableNumber !== ""
       ? `
       <div class="dine-row">
         <span class="dine-label"><span class="dine-icon">🔢</span>Table Number</span>

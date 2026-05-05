@@ -585,18 +585,13 @@ def check_status(request):
             data['flight_no'] = order.flight_no
         elif project_name == "dine_flash":
             utility_display = order.utility.display_name if order.utility else "-"
-            seat_display = (order.seat_no or "").strip() if isinstance(order.seat_no, str) else (order.seat_no or "")
-            utility_with_seat = (
-                f"{utility_display} ({seat_display})"
-                if utility_display != "-" and seat_display
-                else utility_display
-            )
             data['booking_no'] = order.table_booking_no
             data['booking_id'] = order.id
             data['customer_name'] = order.customer_name
             data['no_of_packs'] = order.no_of_packs
             data['seat_no'] = order.seat_no
-            data['utility_name'] = utility_with_seat
+            data['table_number'] = order.seat_no
+            data['utility_name'] = utility_display
             data['remarks'] = order.remarks
         elif project_name == "dine_flash_buffet":
             data['booking_no'] = order.table_booking_no
