@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from datetime import timedelta
 
 from django.conf import settings
@@ -114,6 +115,25 @@ def _build_unread_notifications_map_by_sequence(vendor, sequence_codes):
         .annotate(unread_count=Count("id"))
     )
     return {row["sequence_code"]: row["unread_count"] for row in unread_rows}
+
+
+def _log_slow_manager_api(endpoint, started_at, threshold_ms=800, **segments):
+    total_ms = int((time.perf_counter() - started_at) * 1000)
+    if total_ms < threshold_ms:
+        return
+    segment_parts = []
+    for key, value in segments.items():
+        if key in {"count"}:
+            segment_parts.append(f"{key}={int(value)}")
+        else:
+            segment_parts.append(f"{key}_ms={int(value)}")
+    segment_str = " ".join(segment_parts)
+    logger.warning(
+        "[perf] endpoint=%s total_ms=%s %s",
+        endpoint,
+        total_ms,
+        segment_str,
+    )
 
 
 def _send_manager_message_push_async(order, vendor, payload, chat_message_id):
@@ -498,15 +518,19 @@ def manager_utility_list(request):
     Returns active utilities for the vendor associated with the logged-in manager.
     """
 
+    started_at = time.perf_counter()
     try:
+        t0 = time.perf_counter()
         # --------------------------------------------------------
         # 1. Resolve vendor from manager profile
         # --------------------------------------------------------
         vendor = _resolve_vendor_for_manager(request)
+        t_vendor_ms = (time.perf_counter() - t0) * 1000
 
         # --------------------------------------------------------
         # 2. Fetch utilities (Dine Flash: lean query + dict rows)
         # --------------------------------------------------------
+        t1 = time.perf_counter()
         if project_name == "dine_flash":
             data = list(
                 Utility.objects.filter(vendor=vendor, is_active=True)
@@ -536,10 +560,18 @@ def manager_utility_list(request):
                 }
                 for util in utilities
             ]
+        t_query_ms = (time.perf_counter() - t1) * 1000
 
         logger.info(
             "[manager_utility_list] Returned %s utilities for vendor_id=%s",
             len(data), vendor.vendor_id
+        )
+        _log_slow_manager_api(
+            "manager_utility_list",
+            started_at,
+            vendor=t_vendor_ms,
+            query=t_query_ms,
+            count=len(data),
         )
 
         # --------------------------------------------------------
@@ -575,6 +607,7 @@ def get_today_orders(request):
     - Returns order details only.
     """
 
+    started_at = time.perf_counter()
     try:
         # === Step 1: Request start log ===
         logger.info(
@@ -583,7 +616,9 @@ def get_today_orders(request):
         )
 
         # === Step 2: Resolve vendor for the logged-in manager ===
+        t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
+        t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(
             "[get_today_orders] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -603,6 +638,7 @@ def get_today_orders(request):
         )
 
         # === Step 4: Fetch today's orders ===
+        t1 = time.perf_counter()
         todays_orders = (
             Order.objects.filter(
                 vendor=vendor,
@@ -612,12 +648,14 @@ def get_today_orders(request):
             .order_by("-updated_at")
         )
         order_list = list(todays_orders)
+        t_query_ms = (time.perf_counter() - t1) * 1000
         logger.info(
             "[get_today_orders] Fetched orders | vendor_id=%s | count=%s",
             vendor.id, len(order_list)
         )
 
         # === Step 5: Serialize orders ===
+        t2 = time.perf_counter()
         unread_map = (
             _build_unread_notifications_map(vendor, [order.id for order in order_list])
             if project_name in {"dine_flash", "dine_flash_buffet"}
@@ -627,6 +665,7 @@ def get_today_orders(request):
         if unread_map is not None:
             serializer_context["unread_notifications_map"] = unread_map
         data = OrdersSerializer(order_list, many=True, context=serializer_context).data
+        t_serialize_ms = (time.perf_counter() - t2) * 1000
         logger.debug(
             "[get_today_orders] Serialized orders | vendor_id=%s | serialized_count=%s",
             vendor.id, len(data)
@@ -640,6 +679,14 @@ def get_today_orders(request):
         
         # Compute counts (including unread based on new_notifications)
         status_counts = get_order_counts(order_list, data)
+        _log_slow_manager_api(
+            "get_today_orders",
+            started_at,
+            vendor=t_vendor_ms,
+            query=t_query_ms,
+            serialize=t_serialize_ms,
+            count=len(data),
+        )
         # Merge counts into response
         response_data = {
             "message": "Today's orders retrieved successfully.",
@@ -749,9 +796,12 @@ def get_passengers_list(request):
 def get_booking_list(request):
     logger.info("🔵 get_booking_list: API called.")
 
+    started_at = time.perf_counter()
     try:
         # 1. Identify vendor linked to manager
+        t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
+        t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(f"get_booking_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
 
         # 2. BUSINESS DAY FILTER
@@ -763,6 +813,7 @@ def get_booking_list(request):
         logger.info(f"get_booking_list: Business day range → Start: {start_dt}, End: {end_dt}")
 
         # 3. Query bookings
+        t1 = time.perf_counter()
         bookings_qs = (
             Order.objects
             .filter(vendor=vendor, created_at__range=(start_dt, end_dt))
@@ -771,9 +822,11 @@ def get_booking_list(request):
         )
 
         booking_list = list(bookings_qs)
+        t_query_ms = (time.perf_counter() - t1) * 1000
         total_count = len(booking_list)
         logger.info(f"get_booking_list: Retrieved {total_count} bookings")
 
+        t2 = time.perf_counter()
         unread_map = _build_unread_notifications_map(vendor, [booking.id for booking in booking_list])
 
         # 4. Serialize bookings
@@ -785,8 +838,10 @@ def get_booking_list(request):
                 "unread_notifications_map": unread_map,
             },
         ).data
+        t_serialize_ms = (time.perf_counter() - t2) * 1000
 
         # 5. Group by Utility (using queryset values, not serializer)
+        t2 = time.perf_counter()
         grouped = {}
 
         for booking, item in zip(booking_list, serialized):
@@ -807,6 +862,14 @@ def get_booking_list(request):
 
         # 6. Status counts
         status_counts = get_booking_status_counts(bookings_qs, serialized)
+        _log_slow_manager_api(
+            "get_booking_list",
+            started_at,
+            vendor=t_vendor_ms,
+            query=t_query_ms,
+            serialize=t_serialize_ms,
+            count=total_count,
+        )
 
         logger.info("get_booking_list: Returning success response.")
 
@@ -947,13 +1010,16 @@ def get_allocated_booking_list(request):
 @permission_classes([IsAuthenticated])
 def get_active_customers_list(request):
     
+    started_at = time.perf_counter()
     try:
         logger.info(
             "[get_active_customers_list] Request started | user=%s | method=%s | path=%s",
             request.user.username, request.method, request.path
         )
 
+        t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
+        t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(
             "[get_active_customers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
             vendor.id, vendor.name, request.user.username
@@ -971,6 +1037,7 @@ def get_active_customers_list(request):
             vendor.id, start_dt, end_dt
         )
 
+        t1 = time.perf_counter()
         has_chat_message = ChatMessage.objects.filter(
             vendor_id=vendor.id,
             booking_id=OuterRef("pk"),
@@ -983,6 +1050,7 @@ def get_active_customers_list(request):
         )
 
         customer_list = list(customers_qs)
+        t_query_ms = (time.perf_counter() - t1) * 1000
         total_count = len(customer_list)
 
         logger.info(
@@ -990,6 +1058,7 @@ def get_active_customers_list(request):
             vendor.id, total_count
         )
 
+        t2 = time.perf_counter()
         unread_map = _build_unread_notifications_map(vendor, [customer.id for customer in customer_list])
         serialized_data = BookingSerializer(
             customer_list,
@@ -999,6 +1068,7 @@ def get_active_customers_list(request):
                 "unread_notifications_map": unread_map,
             },
         ).data
+        t_serialize_ms = (time.perf_counter() - t2) * 1000
         logger.debug(
             "[get_active_customers_list] Serialized passengers | count=%s", len(serialized_data)
         )
@@ -1022,6 +1092,14 @@ def get_active_customers_list(request):
 
         # 6. Status counts
         status_counts = get_booking_status_counts(customer_list, serialized_data)
+        _log_slow_manager_api(
+            "get_active_customers_list",
+            started_at,
+            vendor=t_vendor_ms,
+            query=t_query_ms,
+            serialize=t_serialize_ms,
+            count=total_count,
+        )
 
         logger.info("get_booking_list: Returning success response.")
 
@@ -2188,9 +2266,12 @@ def get_recent_tokens(request):
 def get_contact_list(request):
     logger.info("📘 get_contact_list: API called.")
 
+    started_at = time.perf_counter()
     try:
         # 1. Get vendor mapped with manager
+        t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
+        t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(f"get_contact_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
 
         # 2. BUSINESS DAY RANGE
@@ -2214,7 +2295,9 @@ def get_contact_list(request):
             .order_by("utility__display_name", "created_at")
         )
 
+        t1 = time.perf_counter()
         orders = list(contacts_qs)
+        t_query_ms = (time.perf_counter() - t1) * 1000
         total_count = len(orders)
         logger.info(f"get_contact_list: Retrieved {total_count} contacts")
 
@@ -2232,7 +2315,16 @@ def get_contact_list(request):
                 grouped[code] = {"count": 0, "customers": []}
             grouped[code]["customers"].append(item)
             grouped[code]["count"] += 1
+        t_build_ms = (time.perf_counter() - t2) * 1000
 
+        _log_slow_manager_api(
+            "get_contact_list",
+            started_at,
+            vendor=t_vendor_ms,
+            query=t_query_ms,
+            build=t_build_ms,
+            count=total_count,
+        )
         logger.info("get_contact_list: Success response prepared.")
 
         return Response(
