@@ -291,6 +291,10 @@ function maskSequenceCode(sequenceCode) {
   return parts.join("-");
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function buildBookingStatusMessage(payload) {
   const path = String(window.location?.pathname || "").toLowerCase();
   const project = String(window.PROJECT_NAME || "").toLowerCase();
@@ -306,6 +310,13 @@ function buildBookingStatusMessage(payload) {
     payload?.table_id ??
     "";
   const tableNumber = String(tableNumberRaw).trim();
+  const sanitizedAllocatedPlace =
+    isDineFlash && tableNumber && allocatedPlaceValue
+      ? String(allocatedPlaceValue)
+          .replace(new RegExp(`\\(\\s*${escapeRegExp(tableNumber)}\\s*\\)`, "gi"), "")
+          .replace(/\s{2,}/g, " ")
+          .trim()
+      : allocatedPlaceValue;
   const tableNumberRow =
     isDineFlash && tableNumber !== ""
       ? `
@@ -346,7 +357,7 @@ function buildBookingStatusMessage(payload) {
 
       <div class="dine-row">
         <span class="dine-label"><span class="dine-icon">🪑</span>Allocated Place</span>
-        <span class="dine-value dine-badge">${allocatedPlaceValue}</span>
+        <span class="dine-value dine-badge">${sanitizedAllocatedPlace || "-"}</span>
       </div>
       ${tableNumberRow}
     </div>
