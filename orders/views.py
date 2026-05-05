@@ -338,6 +338,12 @@ def table_booking(request):
             )
             if sess_row and sess_row.expires_at:
                 qr_expires_epoch = int(sess_row.expires_at.timestamp())
+        elif request.GET.get("qr_date") and request.GET.get("qr_time"):
+            # Match _create_dine_flash_qr_session: countdown is from load/exchange time,
+            # not TV qr_date/qr_time + window (avoids wrong timer until qr_exchange returns).
+            expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
+            expires_at = timezone.localtime(timezone.now()) + timedelta(minutes=expiry_min)
+            qr_expires_epoch = int(expires_at.timestamp())
         # Expose QR info for countdown + safe URL rewriting.
         context.update(
             {

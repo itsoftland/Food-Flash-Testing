@@ -140,21 +140,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    function parseQrDateTimeLocal(qrDateStr, qrTimeStr) {
-        if (!qrDateStr || !qrTimeStr) return null;
-        const m = String(qrDateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        const t = String(qrTimeStr).match(/^(\d{2}):(\d{2}):(\d{2})$/);
-        if (!m || !t) return null;
-        const year = Number(m[1]);
-        const month = Number(m[2]) - 1;
-        const day = Number(m[3]);
-        const hh = Number(t[1]);
-        const mm = Number(t[2]);
-        const ss = Number(t[3]);
-        const dt = new Date(year, month, day, hh, mm, ss);
-        return Number.isNaN(dt.getTime()) ? null : dt;
-    }
-
     function formatCountdown(secondsLeft) {
         const s = Math.max(0, Math.floor(secondsLeft));
         const mm = String(Math.floor(s / 60)).padStart(2, "0");
@@ -174,11 +159,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (qrExpiresAtEpoch) {
             expiryAtMs = Number(qrExpiresAtEpoch) * 1000;
         } else {
-            const d = window.QR_DATE || qrDate;
-            const t = window.QR_TIME || qrTime;
-            const qrDt = parseQrDateTimeLocal(d, t);
-            if (!qrDt) return;
-            expiryAtMs = qrDt.getTime() + (expiryMinutes * 60 * 1000);
+            // Session expiry is scan/load time + window (server: _create_dine_flash_qr_session),
+            // not TV qr_date/qr_time + window. Approximate until QR_EXPIRES_AT_EPOCH / exchange.
+            expiryAtMs = Date.now() + expiryMinutes * 60 * 1000;
         }
 
         const tick = () => {
