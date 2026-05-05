@@ -407,7 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             elements.forEach((el) => {
                 el.style.setProperty("opacity", dimmed ? "0.45" : "1", "important");
             });
-        }, 2000);
+        }, 700);
     }
 
     function forceWrapIdentifierForBlink(detailsEl) {
