@@ -21,7 +21,8 @@ from .models import (
     ChatMessage,
     WebChatMessage,
     IoTDeviceCredential,
-    Utility,OrderStatusHistory
+    Utility,OrderStatusHistory,
+    UtilityOption
 )
 
 #
@@ -304,3 +305,27 @@ class ArchivedOrderStatusHistoryAdmin(admin.ModelAdmin):
     list_filter = ("new_status", "changed_by")
     search_fields = ("archived_order__id", "previous_status", "new_status", "changed_by")
     ordering = ("-changed_at",)
+
+@admin.register(UtilityOption)
+class UtilityOptionAdmin(admin.ModelAdmin):
+    list_display = (
+        'name',
+        'utility',
+        'is_active',
+        'created_at',
+        'updated_at'
+    )
+    list_filter = (
+        'is_active',
+        'utility',
+    )
+    search_fields = (
+        'name',
+        'utility__display_name',
+        'utility__utility_name',
+    )
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+    )
+    ordering = ('-created_at',)

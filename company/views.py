@@ -578,7 +578,11 @@ def update_vendor(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_user(request):
-    serializer = UserProfileCreateSerializer(data=request.data)
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    serializer_kwargs = {"data": request.data}
+    if project == "dine_flash_buffet":
+        serializer_kwargs["context"] = {"request": request}
+    serializer = UserProfileCreateSerializer(**serializer_kwargs)
     
     if serializer.is_valid():
         result = serializer.save()
@@ -604,6 +608,12 @@ def create_user(request):
         }, status=status.HTTP_201_CREATED)
 
     # If validation fails
+    if project == "dine_flash_buffet":
+        logger.warning(
+            "Create user validation failed for user %s: %s",
+            request.user,
+            serializer.errors,
+        )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])

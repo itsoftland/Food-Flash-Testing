@@ -593,6 +593,20 @@ class UserProfileCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Some utilities are invalid or do not belong to this vendor.")
             data['validated_utilities'] = utilities
 
+        project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        if project == "dine_flash_buffet":
+            role = data.get("role")
+            vendor = data.get("vendor")
+            admin_outlet = data.get("admin_outlet")
+            if role in ("utility_user", "outlet_manager") and not vendor:
+                raise serializers.ValidationError(
+                    {"vendor_id": ["Select an outlet for this role."]}
+                )
+            if vendor and admin_outlet and vendor.admin_outlet_id != admin_outlet.id:
+                raise serializers.ValidationError(
+                    {"vendor_id": ["Selected outlet does not belong to your account."]}
+                )
+
         return data
 
     def create(self, validated_data):

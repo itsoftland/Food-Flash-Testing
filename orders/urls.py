@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/utility_list/',views.utility_list,name='utility_list'),
     # DineFlash Buffet System URLs
     path('api/buffet_submit_order/', buffet_views.buffet_submit_order, name='buffet_submit_order'),
+    path('api/buffet/utility-login/', buffet_views.buffet_utility_login, name='buffet_utility_login'),
     path('buffet/table_booking/', buffet_views.buffet_table_booking, name='buffet_table_booking'),
     path('buffet/utility_selection/', buffet_views.buffet_utility_selection, name='buffet_utility_selection'),
     path('buffet/combined_options/', buffet_views.buffet_combined_options, name='buffet_combined_options'),
