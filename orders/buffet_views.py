@@ -307,6 +307,7 @@ def buffet_utility_login(request):
             "refresh": str(refresh),
             "device_approved": True,
             "utility_mapped": utility_mapped,
+            "utilities": utilities,
             "user": {
                 "username": user.username,
                 "role": "Utility User",
