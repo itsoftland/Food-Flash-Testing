@@ -105,12 +105,21 @@
                 </li>
               </ul>
             </li>
+            {% if PROJECT_NAME == "dine_flash_buffet" %}
+            <li class="nav-item">
+              <a href="{% url 'company:utility_user_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'utility_user_devices' %}active{% endif %}">
+                <i class="nav-icon fas fa-mobile-retro"></i>
+                <p>Utility User Devices</p>
+              </a>
+            </li>
+            {% else %}
             <li class="nav-item">
               <a href="{% url 'company:manager_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'manager_devices' %}active{% endif %}">
                 <i class="nav-icon fas fa-mobile-retro"></i>
                 <p>Manager Devices(Dev)</p>
               </a>
             </li>
+            {% endif %}
             {% if PROJECT_NAME != "airline_flash" %}
             {% if PROJECT_NAME != "dine_flash" %}
 

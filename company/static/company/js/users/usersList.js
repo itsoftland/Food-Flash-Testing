@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async() => {
             return;
         }
 
-        users.forEach((user, index) => {
+        users.forEach((user) => {
             const createdTime = formatDate(user.created_at);
             const mappedVendor = user.vendor_name ? user.vendor_name : 'Unassigned';
             const isMapped = !!user.vendor_name;
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async() => {
 
             const row = `
             <tr>
-                <td class="text-center">${index + 1}</td>
+                <td class="text-center">${user.id}</td>
                 <td>${user.name || '-'}</td>
                 <td>${formatRoles(user.roles)}</td>
                 <td class="${outletClass}">${mappedVendor}</td>

@@ -499,7 +499,7 @@ class AndroidDevice(models.Model):
         ]
 
 class AndroidAPK(models.Model):
-    token = models.CharField(max_length=255, unique=True)
+    token = models.CharField(max_length=255)
     apk_version = models.CharField(max_length=255, blank=True, null=True)
     mac_address = models.CharField(max_length=255, blank=True, null=True)
     admin_outlet = models.ForeignKey(AdminOutlet, on_delete=models.CASCADE,related_name='admin_outlet_apks')

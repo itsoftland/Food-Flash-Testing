@@ -94,6 +94,19 @@ export const PermissionService = (() => {
         btn.style.pointerEvents = "";
     };
 
+    const waitForPermissionWithTimeout = async (permissionPromise, timeoutMs = 2500) => {
+        if (!permissionPromise) return null;
+        const timeoutResult = "__permission_timeout__";
+        const result = await Promise.race([
+            permissionPromise,
+            new Promise((resolve) => setTimeout(() => resolve(timeoutResult), timeoutMs)),
+        ]);
+        if (result === timeoutResult) {
+            return null;
+        }
+        return result;
+    };
+
     const handleAgree = async () => {
         if (isAgreeInProgress) return;
         isAgreeInProgress = true;
@@ -142,8 +155,16 @@ export const PermissionService = (() => {
             if (currentPerm === "granted") {
                 granted = true;
             } else if (currentPerm === "default" && permissionPromise) {
-                const result = await permissionPromise;
-                granted = result === "granted";
+                const result = await waitForPermissionWithTimeout(permissionPromise, 2500);
+                if (result === "granted") {
+                    granted = true;
+                } else if (result === "denied") {
+                    showDeniedModal();
+                } else {
+                    // Some browsers may keep the permission promise unresolved for a long time.
+                    // Don't keep the UI in a blocked state; proceed and rely on future checks.
+                    granted = Notification.permission === "granted";
+                }
             } else if (currentPerm === "denied") {
                 showDeniedModal();
             }

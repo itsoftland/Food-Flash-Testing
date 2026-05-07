@@ -13,6 +13,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ModalService = modalModule.ModalService;
     const getFriendlyFieldLabels = labelModule.default;
 
+    /** DRF 400 bodies are nested objects; buffet shows these instead of a blank legacy parser result */
+    function flattenDrfErrorPayload(payload) {
+        if (!payload || typeof payload !== 'object') return '';
+        if (typeof payload.detail === 'string') return payload.detail;
+        const parts = [];
+        const walk = (node) => {
+            if (!node) return;
+            if (typeof node === 'string') {
+                parts.push(node);
+                return;
+            }
+            if (Array.isArray(node)) {
+                node.forEach(walk);
+                return;
+            }
+            if (typeof node === 'object') {
+                Object.values(node).forEach(walk);
+            }
+        };
+        walk(payload);
+        return parts.filter(Boolean).join(' ');
+    }
+
     const outletSelect = document.getElementById('outlet');
     const roleSelect = document.getElementById('role');
     const createUserForm = document.getElementById('create-user-form');
@@ -89,9 +112,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 password,
                 confirm_password: confirmPassword,
                 role,
-                customer_id: parseInt(customerId),
-                vendor_id: vendorId ? parseInt(vendorId) : null
+                vendor_id: vendorId ? parseInt(vendorId, 10) : null
             };
+            if (window.PROJECT_NAME === 'dine_flash_buffet') {
+                const hiddenCust = document.querySelector('input[name="customer_id"]');
+                const rawCust =
+                    localStorage.getItem('customer_id') || (hiddenCust && hiddenCust.value);
+                const n =
+                    rawCust != null && String(rawCust).trim() !== ''
+                        ? parseInt(String(rawCust).trim(), 10)
+                        : NaN;
+                payload.customer_id = Number.isFinite(n) ? n : null;
+            } else {
+                payload.customer_id = parseInt(customerId, 10);
+            }
 
             const res = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_USER, {
                 method: 'POST',
@@ -107,7 +141,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 toggleOutletBasedOnRole(); // reset outlet state if needed
             } else {
                 console.log('Error response data:', resData);
-                const userFriendlyMessage = getFriendlyFieldLabels(resData);
+                let userFriendlyMessage = '';
+                if (window.PROJECT_NAME === 'dine_flash_buffet') {
+                    userFriendlyMessage =
+                        flattenDrfErrorPayload(resData) || getFriendlyFieldLabels(resData);
+                } else {
+                    userFriendlyMessage = getFriendlyFieldLabels(resData);
+                }
                 console.log ('User friendly message:', userFriendlyMessage);
                 ModalService.showError(userFriendlyMessage || 'Failed to create user.');
             }

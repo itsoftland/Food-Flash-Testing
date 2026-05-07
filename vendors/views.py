@@ -4,7 +4,7 @@ import logging
 
 # Django
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils.timezone import now, localtime
 
 # Third-party
@@ -741,7 +741,10 @@ def register_android_apk(request):
     customer_id = request.data.get('customer_id')
     mac_address = request.data.get('mac_address')
     apk_version = request.data.get('apk_version')
+    is_dine_flash_buffet = (project_name or "").strip().lower() == "dine_flash_buffet"
     manager_id = request.data.get('manager_id')
+    if is_dine_flash_buffet and not manager_id:
+        manager_id = request.data.get('utility_manager_id')
 
     logger.debug(
         "[register_android_apk] Incoming data — token=%s, customer_id=%s, mac=%s, version=%s, manager_id=%s",
@@ -761,16 +764,22 @@ def register_android_apk(request):
 
     try:
         # === Step 2: Validate Customer ===
-        admin_outlet = AdminOutlet.objects.get(customer_id=customer_id)
+        admin_outlet = AdminOutlet.objects.filter(customer_id=customer_id).order_by("-id").first()
+        if not admin_outlet:
+            logger.error("[register_android_apk] Customer ID not found: %s", customer_id)
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
         logger.info("[register_android_apk] Validated customer_id=%s", customer_id)
 
         user_profile = None
         # === Step 3: Validate Manager if Provided ===
         if manager_id:
             try:
+                allowed_roles = ['outlet_manager', 'admin_manager', 'order_manager']
+                if is_dine_flash_buffet:
+                    allowed_roles.append('utility_user')
                 user_profile = UserProfile.objects.get(
                     id=manager_id,
-                    role__in=['outlet_manager', 'admin_manager', 'order_manager'],
+                    role__in=allowed_roles,
                     admin_outlet=admin_outlet
                 )
                 logger.info("[register_android_apk] Validated manager_id=%s for customer_id=%s", manager_id, customer_id)
@@ -778,7 +787,7 @@ def register_android_apk(request):
                 logger.warning("[register_android_apk] Invalid manager_id=%s for customer_id=%s", manager_id, customer_id)
                 return Response({"error": "Invalid manager ID for this customer."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # === Step 4: Check Device by MAC and Manager ===
+        # === Step 4: Check Device by MAC and token ===
         device = AndroidAPK.objects.filter(
             mac_address=mac_address,
             admin_outlet=admin_outlet,
@@ -789,6 +798,7 @@ def register_android_apk(request):
         ).first() or AndroidAPK.objects.filter(
             mac_address=mac_address
         ).first()
+
         if device:
             logger.info(
                 "[register_android_apk] Device already exists. Updating token and version — MAC=%s, manager=%s",
@@ -811,15 +821,40 @@ def register_android_apk(request):
                 )
             device.token = token
             device.apk_version = apk_version
-            device.save()
+            device.mac_address = mac_address
+            device.admin_outlet = admin_outlet
+            if is_dine_flash_buffet:
+                device.user_profile = user_profile
+            try:
+                device.save()
+            except IntegrityError:
+                logger.exception(
+                    "[register_android_apk] IntegrityError while updating device — token=%s, mac=%s",
+                    token, mac_address
+                )
+                return Response(
+                    {"error": "Device registration conflict. Please contact admin."},
+                    status=status.HTTP_409_CONFLICT
+                )
         else:
             logger.info("[register_android_apk] Registering new device — MAC=%s", mac_address)
-            device = AndroidAPK.objects.create(
-                token=token,
-                mac_address=mac_address,
-                apk_version=apk_version,
-                admin_outlet=admin_outlet,
-            )
+            try:
+                device = AndroidAPK.objects.create(
+                    token=token,
+                    mac_address=mac_address,
+                    apk_version=apk_version,
+                    admin_outlet=admin_outlet,
+                    user_profile=user_profile if is_dine_flash_buffet else None
+                )
+            except IntegrityError:
+                logger.exception(
+                    "[register_android_apk] IntegrityError while creating device — token=%s, mac=%s",
+                    token, mac_address
+                )
+                return Response(
+                    {"error": "Device registration conflict. Please contact admin."},
+                    status=status.HTTP_409_CONFLICT
+                )
 
         # === Step 5: Return Mapping Status ===
         if device.user_profile:

@@ -88,6 +88,10 @@ def manager_devices(request):
     return render(request, 'company/manager_devices.html')
 
 @login_required
+def utility_user_devices(request):
+    return render(request, 'company/utility_user_devices.html')
+
+@login_required
 def keypad_devices(request):
     return render(request, 'company/keypad_devices.html')
 
@@ -578,7 +582,11 @@ def update_vendor(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_user(request):
-    serializer = UserProfileCreateSerializer(data=request.data)
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    serializer_kwargs = {"data": request.data}
+    if project == "dine_flash_buffet":
+        serializer_kwargs["context"] = {"request": request}
+    serializer = UserProfileCreateSerializer(**serializer_kwargs)
     
     if serializer.is_valid():
         result = serializer.save()
@@ -604,6 +612,12 @@ def create_user(request):
         }, status=status.HTTP_201_CREATED)
 
     # If validation fails
+    if project == "dine_flash_buffet":
+        logger.warning(
+            "Create user validation failed for user %s: %s",
+            request.user,
+            serializer.errors,
+        )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
@@ -666,6 +680,33 @@ def get_manager_devices(request):
         "count": devices.count(),
         }, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_utility_user_devices(request):
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not associated with this user."}, status=404)
+
+    filter_type = request.GET.get('filter', 'all')  # Options: mapped, unmapped, all
+    base_qs = AndroidAPK.objects.filter(admin_outlet=admin_outlet)
+    utility_role_q = Q(user_profile__role='utility_user')
+
+    if filter_type == 'mapped':
+        devices = base_qs.filter(utility_role_q)
+    elif filter_type == 'unmapped':
+        # Keep only devices without any user mapping.
+        devices = base_qs.filter(user_profile__isnull=True)
+    else:  # 'all' or invalid filter
+        # Utility devices and unmapped devices are manageable from this page.
+        devices = base_qs.filter(utility_role_q | Q(user_profile__isnull=True))
+
+    serializer = ManagerDeviceSerializer(devices, many=True)
+    return Response({
+        "message": "Utility user devices fetched successfully.",
+        "devices": serializer.data,
+        "count": devices.count(),
+    }, status=status.HTTP_200_OK)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def unmap_manager_devices(request, device_id):
@@ -685,6 +726,24 @@ def unmap_manager_devices(request, device_id):
 
     except AndroidAPK.DoesNotExist:
         return Response({"error": "Manager Device not found."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unmap_utility_user_devices(request, device_id):
+    try:
+        utility_device = AndroidAPK.objects.get(id=device_id)
+
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if utility_device.admin_outlet != admin_outlet:
+            return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+        utility_device.user_profile = None
+        utility_device.save(update_fields=['user_profile'])
+
+        return Response({"message": "Utility user unmapped from device successfully."}, status=status.HTTP_200_OK)
+
+    except AndroidAPK.DoesNotExist:
+        return Response({"error": "Utility user device not found."}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -718,6 +777,41 @@ def map_manager_devices(request, device_id):
     manager_devices.save(update_fields=['user_profile'])
 
     return Response({"message": "Manager mapped to Device successfully."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def map_utility_user_devices(request, device_id):
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_id = request.data.get('utility_user_id')
+    if not user_id:
+        return Response({"error": "utility_user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        utility_device = AndroidAPK.objects.get(id=device_id)
+    except AndroidAPK.DoesNotExist:
+        return Response({"error": "Utility user device not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if utility_device.admin_outlet != admin_outlet:
+        return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        utility_user = UserProfile.objects.get(id=user_id)
+    except UserProfile.DoesNotExist:
+        return Response({"error": "Utility user not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if utility_user.admin_outlet != admin_outlet:
+        return Response({"error": "Utility user does not belong to your admin outlet."}, status=status.HTTP_403_FORBIDDEN)
+
+    if utility_user.role != 'utility_user':
+        return Response({"error": "Selected user is not a utility user."}, status=status.HTTP_400_BAD_REQUEST)
+
+    utility_device.user_profile = utility_user
+    utility_device.save(update_fields=['user_profile'])
+
+    return Response({"message": "Utility user mapped to device successfully."}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

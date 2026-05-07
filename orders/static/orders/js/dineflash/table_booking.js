@@ -62,7 +62,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // exit immediately to avoid side effects.
     const path = String(window.location?.pathname || "").toLowerCase();
     const project = String(window.PROJECT_NAME || "").toLowerCase();
-    if (!path.includes("/dine_flash/") && project !== "dine_flash") {
+    const hasDineFlashQrTimer = Boolean(document.getElementById("qr-expiry-timer"));
+    if (!path.includes("/dine_flash/") && project !== "dine_flash" && !hasDineFlashQrTimer) {
         return;
     }
 
@@ -151,7 +152,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const expiryMinutes = Number(window.QR_EXPIRY_MINUTES || 0);
         const banner = document.getElementById("qr-expiry-banner");
         const timerEl = document.getElementById("qr-expiry-timer");
-        if (!banner || !timerEl || !expiryMinutes || expiryMinutes <= 0) return;
+        if (!banner || !timerEl) return;
+        if (!expiryMinutes || expiryMinutes <= 0) {
+            banner.classList.add("d-none");
+            banner.setAttribute("aria-hidden", "true");
+            return;
+        }
 
         // Prefer server-issued expiry when available (qr_session exchange),
         // otherwise fall back to local parse from qr_date/qr_time.
@@ -259,11 +265,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const nameEl = document.getElementById("vendor-name");
             const logoEl = document.getElementById("vendor-logo");
-            const hasServerRenderedName = Boolean(nameEl && String(nameEl.textContent || "").trim());
-            const hasServerRenderedLogo = Boolean(logoEl && logoEl.getAttribute("src") && String(logoEl.getAttribute("src")).trim());
-            if (hasServerRenderedName && hasServerRenderedLogo) {
-                return;
-            }
 
             const response = await fetch(apiEndpoints.VENDOR_LOGOS, {
                 method: "POST",
