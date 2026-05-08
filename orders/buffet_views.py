@@ -181,8 +181,8 @@ def buffet_utility_login(request):
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    admin_outlet = AdminOutlet.objects.filter(customer_id=customer_id).first()
-    if not admin_outlet:
+    admin_outlets_qs = AdminOutlet.objects.filter(customer_id=customer_id).order_by("id")
+    if not admin_outlets_qs.exists():
         return Response(
             {"error": "Invalid customer_id."},
             status=status.HTTP_404_NOT_FOUND,
@@ -194,15 +194,16 @@ def buffet_utility_login(request):
         .filter(
             user=user,
             role="utility_user",
-            admin_outlet=admin_outlet,
+            admin_outlet__in=admin_outlets_qs,
         )
         .first()
     )
     if not utility_profile:
         return Response(
-            {"error": "Utility user mapping not found for this customer."},
+            {"error": "Utility user mapping not found for this customer.", "device_approved": False},
             status=status.HTTP_403_FORBIDDEN,
         )
+    admin_outlet = utility_profile.admin_outlet
     if utility_profile.vendor is None:
         return Response(
             {
