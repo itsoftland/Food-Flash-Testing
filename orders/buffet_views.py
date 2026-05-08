@@ -1,6 +1,7 @@
 import logging
 from django.conf import settings
 from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
 from django.contrib.auth import authenticate
@@ -192,9 +193,16 @@ def buffet_utility_login(request):
         UserProfile.objects.select_related("vendor", "admin_outlet")
         .prefetch_related("assigned_utilities")
         .filter(
-            user=user,
-            role="utility_user",
-            admin_outlet__in=admin_outlets_qs,
+            Q(
+                user=user,
+                role="utility_user",
+                admin_outlet__in=admin_outlets_qs,
+            )
+            | Q(
+                user=user,
+                role="utility_user",
+                vendor__admin_outlet__in=admin_outlets_qs,
+            )
         )
         .first()
     )
@@ -204,6 +212,8 @@ def buffet_utility_login(request):
             status=status.HTTP_403_FORBIDDEN,
         )
     admin_outlet = utility_profile.admin_outlet
+    if utility_profile.vendor and utility_profile.vendor.admin_outlet_id in admin_outlets_qs.values_list("id", flat=True):
+        admin_outlet = utility_profile.vendor.admin_outlet
     if utility_profile.vendor is None:
         return Response(
             {
