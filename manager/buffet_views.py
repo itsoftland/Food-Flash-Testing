@@ -1,5 +1,6 @@
 import logging
 import json
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
@@ -7,13 +8,94 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from vendors.models import BuffetOrderItem, Order, ChatMessage
+from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile
 from manager.utils.utils import get_manager_vendor
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
 from static.utils.functions.utils import get_vendor_business_day_range
 
 logger = logging.getLogger(__name__)
+project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+
+
+def _serialize_buffet_utility(utility):
+    return {
+        "id": utility.id,
+        "utility_name": utility.utility_name,
+        "display_name": utility.display_name,
+        "display_code": utility.display_code,
+        "token_mode": utility.token_mode,
+        "prefix": utility.prefix,
+        "options": [
+            {
+                "id": option.id,
+                "name": option.name,
+                "is_active": option.is_active,
+            }
+            for option in utility.options.all()
+            if option.is_active
+        ],
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_assigned_buffet_utilities(request):
+    """
+    Returns active buffet utilities assigned to the logged-in utility user.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        utility_profile = (
+            UserProfile.objects.select_related("vendor", "admin_outlet")
+            .prefetch_related("assigned_utilities__options")
+            .filter(user=request.user, role="utility_user")
+            .order_by("id")
+            .first()
+        )
+
+        if not utility_profile:
+            return Response(
+                {"error": "Utility user profile not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not utility_profile.vendor_id:
+            return Response(
+                {"error": "Utility user is not mapped to any vendor."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        utilities = sorted(
+            (
+                utility
+                for utility in utility_profile.assigned_utilities.all()
+                if utility.vendor_id == utility_profile.vendor_id and utility.is_active
+            ),
+            key=lambda utility: utility.id,
+        )
+        data = [_serialize_buffet_utility(utility) for utility in utilities]
+
+        return Response(
+            {
+                "utilities": data,
+                "count": len(data),
+                "utility_mapped": bool(data),
+                "user": {
+                    "manager_id": utility_profile.id,
+                    "manager_name": utility_profile.name,
+                    "vendor_id": utility_profile.vendor.vendor_id,
+                    "customer_id": utility_profile.vendor.admin_outlet.customer_id,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        logger.exception("[get_assigned_buffet_utilities] Error: %s", e)
+        return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
