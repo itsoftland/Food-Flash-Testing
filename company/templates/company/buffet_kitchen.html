@@ -7,6 +7,46 @@
         <h2>Buffet Kitchen Processing</h2>
         <span class="badge bg-primary fs-6" id="last-updated">Last Updated: Just now</span>
     </div>
+
+    <div class="card shadow-sm border-primary mt-3 mb-2" id="buffet-ready-notify-panel">
+        <div class="card-header bg-primary bg-opacity-10 fw-semibold text-primary">
+            Notify web customer (selected utilities + line status)
+        </div>
+        <div class="card-body py-3">
+            <p class="text-muted small mb-2">
+                Enter the order token and select utilities. The guest receives each line’s
+                <strong>current status</strong> for those stations (all statuses by default). Optionally tick
+                specific statuses below to limit what is included.
+            </p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-0" for="buffet-notify-token">Token no.</label>
+                    <input type="number" class="form-control" id="buffet-notify-token" min="1" placeholder="e.g. 42">
+                </div>
+                <div class="col-md-5">
+                    <span class="form-label small d-block mb-1">Utilities to include</span>
+                    <div id="buffet-notify-utilities" class="d-flex flex-wrap gap-2 border rounded p-2 bg-light" style="min-height: 44px;">
+                        <span class="text-muted small">Loading your stations…</span>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-primary w-100" id="buffet-send-ready-notify-btn">Send alert</button>
+                </div>
+            </div>
+            <div class="mt-3">
+                <span class="form-label small d-block mb-1">Limit by line status (optional — leave all unchecked to send every status)</span>
+                <div id="buffet-notify-statuses" class="d-flex flex-wrap gap-3 small">
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="created"> Created</label>
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="preparing"> Preparing</label>
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="ready"> Ready</label>
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="delivered"> Delivered</label>
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="cancelled"> Cancelled</label>
+                    <label class="form-check m-0"><input type="checkbox" class="form-check-input buffet-notify-status-cb" value="operation_closed"> Operation closed</label>
+                </div>
+            </div>
+            <div id="buffet-ready-notify-feedback" class="small mt-2" aria-live="polite"></div>
+        </div>
+    </div>
     
     <div id="kitchen-container" class="mt-4">
         <div class="row flex-row flex-nowrap overflow-auto" id="kitchen-grid" style="min-height: 400px; padding-bottom: 20px;">
@@ -59,7 +99,104 @@
     document.addEventListener("DOMContentLoaded", function() {
         fetchKitchenItems();
         setInterval(fetchKitchenItems, 10000); 
+        loadBuffetNotifyUtilities();
+        document.getElementById("buffet-send-ready-notify-btn").addEventListener("click", sendBuffetReadyUtilitiesNotification);
     });
+
+    function loadBuffetNotifyUtilities() {
+        const box = document.getElementById("buffet-notify-utilities");
+        fetch("{% url 'manager:buffet_assigned_utilities' %}")
+            .then((res) => res.json())
+            .then((data) => {
+                box.innerHTML = "";
+                const utilities = (data && data.utilities) ? data.utilities : [];
+                if (!utilities.length) {
+                    box.innerHTML = '<span class="text-muted small">No stations assigned to this login.</span>';
+                    return;
+                }
+                utilities.forEach((u) => {
+                    const id = u.id;
+                    const label = (u.display_name || u.utility_name || "Station");
+                    const wrap = document.createElement("div");
+                    wrap.className = "form-check form-check-inline m-0";
+                    wrap.innerHTML = `
+                        <input class="form-check-input buffet-notify-utility-cb" type="checkbox" value="${id}" id="buffet-ut-${id}">
+                        <label class="form-check-label small" for="buffet-ut-${id}">${label}</label>
+                    `;
+                    box.appendChild(wrap);
+                });
+            })
+            .catch(() => {
+                box.innerHTML = '<span class="text-danger small">Could not load stations.</span>';
+            });
+    }
+
+    function sendBuffetReadyUtilitiesNotification() {
+        const feedback = document.getElementById("buffet-ready-notify-feedback");
+        const tokenInput = document.getElementById("buffet-notify-token");
+        const tokenVal = (tokenInput.value || "").trim();
+        feedback.textContent = "";
+        feedback.className = "small mt-2";
+
+        const checked = Array.from(document.querySelectorAll(".buffet-notify-utility-cb:checked"))
+            .map((el) => parseInt(el.value, 10))
+            .filter((n) => !Number.isNaN(n));
+
+        if (!tokenVal) {
+            feedback.classList.add("text-danger");
+            feedback.textContent = "Enter the order token number.";
+            return;
+        }
+        if (!checked.length) {
+            feedback.classList.add("text-danger");
+            feedback.textContent = "Select at least one utility to include.";
+            return;
+        }
+
+        const btn = document.getElementById("buffet-send-ready-notify-btn");
+        btn.disabled = true;
+        const statusChecked = Array.from(document.querySelectorAll(".buffet-notify-status-cb:checked")).map(
+            (el) => el.value
+        );
+        const payload = { token_no: parseInt(tokenVal, 10), utility_ids: checked };
+        if (statusChecked.length) {
+            payload.statuses = statusChecked;
+        }
+        fetch("{% url 'manager:buffet_send_ready_utilities_notification' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify(payload)
+        })
+        .then((res) => res.json().then((body) => ({ ok: res.ok, body })))
+        .then(({ ok, body }) => {
+            if (ok && body.message) {
+                feedback.classList.add("text-success");
+                const utilBlocks = body.utilities || [];
+                const summary = utilBlocks
+                    .map((u) => {
+                        const bits = (u.lines || [])
+                            .map((ln) => `${ln.status}${ln.quantity > 1 ? " ×" + ln.quantity : ""}`)
+                            .join(", ");
+                        return `${u.name}: ${bits}`;
+                    })
+                    .join("; ");
+                feedback.textContent = summary ? `${body.message} (${summary})` : body.message;
+            } else {
+                feedback.classList.add("text-danger");
+                feedback.textContent = body.error || "Request failed.";
+            }
+        })
+        .catch(() => {
+            feedback.classList.add("text-danger");
+            feedback.textContent = "Network error.";
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+    }
 
     function fetchKitchenItems() {
         fetch("{% url 'manager:buffet_kitchen_items' %}")
@@ -116,13 +253,13 @@
     }
 
     function markReady(itemId) {
-        fetch("{% url 'manager:buffet_mark_item_ready' %}", {
+        fetch("{% url 'manager:buffet_update_item_status' %}", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "X-CSRFToken": getCookie("csrftoken")
             },
-            body: JSON.stringify({ item_id: itemId })
+            body: JSON.stringify({ item_id: itemId, status: "ready" })
         })
         .then(res => res.json())
         .then(data => {

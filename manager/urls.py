@@ -25,9 +25,15 @@ urlpatterns = [
     # DineFlash Buffet System URLs
     path('api/buffet_assigned_utilities/', buffet_views.get_assigned_buffet_utilities, name='buffet_assigned_utilities'),
     path('api/buffet_kitchen_items/', buffet_views.get_buffet_kitchen_items, name='buffet_kitchen_items'),
-    path('api/buffet_mark_item_preparing/', buffet_views.mark_buffet_item_preparing, name='buffet_mark_item_preparing'),
-    path('api/buffet_mark_item_ready/', buffet_views.mark_buffet_item_ready, name='buffet_mark_item_ready'),
-    path('api/buffet_mark_item_cancelled/', buffet_views.mark_buffet_item_cancelled, name='buffet_mark_item_cancelled'),
-    path('api/buffet_mark_item_delivered/', buffet_views.mark_buffet_item_delivered, name='buffet_mark_item_delivered'),
+    path(
+        'api/buffet_update_item_status/',
+        buffet_views.buffet_update_item_status,
+        name='buffet_update_item_status',
+    ),
     path('api/buffet_mark_booking_delivered/', buffet_views.mark_booking_delivered, name='buffet_mark_booking_delivered'),
+    path(
+        'api/buffet_send_ready_utilities_notification/',
+        buffet_views.buffet_send_ready_utilities_notification,
+        name='buffet_send_ready_utilities_notification',
+    ),
 ]

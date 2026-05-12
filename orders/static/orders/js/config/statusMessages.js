@@ -26,6 +26,31 @@ export const STATUS_MESSAGE_MAP = {
   item_ready: (data) => STATUS_MESSAGE_MAP.ready(data),
   buffet_item_ready: (data) => STATUS_MESSAGE_MAP.ready(data),
 
+  buffet_utilities_ready: (data) => STATUS_MESSAGE_MAP.buffet_utilities_status(data),
+
+  buffet_utilities_status: (data) => {
+    let blocks = Array.isArray(data.utilities) ? data.utilities : [];
+    if (!blocks.length && Array.isArray(data.ready_utilities)) {
+      blocks = data.ready_utilities.map((x) => ({
+        name: x.name,
+        lines: [{ status: "ready", quantity: 1 }],
+      }));
+    }
+    const parts = blocks.map((b) => {
+      const name = (b && b.name) || "Station";
+      const bits = (Array.isArray(b.lines) ? b.lines : []).map((ln) => {
+        const st = ln.status || "?";
+        const qty = ln.quantity != null ? Number(ln.quantity) : 1;
+        const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
+        return `${st}${q}`;
+      });
+      return `<strong>${name}</strong> (${bits.join(", ") || "—"})`;
+    });
+    return `
+    Update for order <strong>${data.token_no}</strong>:<br>
+    ${parts.join("<br>")}`;
+  },
+
   cancelled: (data) => `
     Unfortunately, your order <strong>${data.token_no}</strong> for <strong>${data.item_name || data.name || 'your item'}</strong> 
     has been cancelled. Please contact staff for assistance.`,
@@ -38,6 +63,9 @@ export const STATUS_MESSAGE_MAP = {
     has been delivered. Thank you for choosing us!`,
   item_delivered: (data) => STATUS_MESSAGE_MAP.delivered(data),
   order_delivered: (data) => STATUS_MESSAGE_MAP.delivered(data),
+  item_operation_closed: (data) => `
+    Your order <strong>${data.token_no}</strong> for <strong>${data.item_name || data.name || "this station"}</strong>:
+    this service is <strong>closed</strong> for now. Thank you for choosing us today.`,
 
   buffetstatus: (data) => `
     Your order has been received, token no : <strong>${data.token_no}</strong>`,

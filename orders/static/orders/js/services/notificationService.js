@@ -181,27 +181,56 @@ async function showNotificationModal(pushData, source) {
     if (isBuffetFlavour) {
       const statusKey = String(modalPayload.status || "").toLowerCase();
       const typeKey = String(modalPayload.type || "").toLowerCase();
-      const isReadyLike =
-        statusKey.includes("ready") ||
-        typeKey.includes("ready");
 
-      if (isReadyLike && modalPayload.token_no != null && String(modalPayload.token_no) !== "") {
-        // Prefer item name first so buffet ready copy matches other status wording.
-        const itemLabel =
-          (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
-            ? modalPayload.item_name.trim()
-            : null) ||
-          (typeof modalPayload.name === "string" && modalPayload.name.trim() !== ""
-            ? modalPayload.name.trim()
-            : null) ||
-          (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
-            ? modalPayload.utility_name.trim()
-            : null) ||
-          "your item";
-
+      if (
+        (typeKey === "buffet_utilities_status" || typeKey === "buffet_utilities_ready") &&
+        (Array.isArray(modalPayload.utilities) || Array.isArray(modalPayload.ready_utilities))
+      ) {
+        const blocks =
+          Array.isArray(modalPayload.utilities) && modalPayload.utilities.length
+            ? modalPayload.utilities
+            : (Array.isArray(modalPayload.ready_utilities) ? modalPayload.ready_utilities : []).map(
+                (x) => ({
+                  name: x.name,
+                  lines: [{ status: "ready", quantity: 1 }],
+                })
+              );
+        const lines = blocks.map((b) => {
+          const name = (b && b.name) || "Station";
+          const bits = (Array.isArray(b.lines) ? b.lines : []).map((ln) => {
+            const st = ln.status || "?";
+            const qty = ln.quantity != null ? Number(ln.quantity) : 1;
+            const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
+            return `${st}${q}`;
+          });
+          return `${name}: ${bits.join(", ") || "—"}`;
+        });
         messageHtml = `
+          Order <strong>${modalPayload.token_no}</strong> station update:<br>
+          ${lines.join("<br>")}`;
+      } else {
+        const isReadyLike =
+          statusKey.includes("ready") ||
+          typeKey.includes("ready");
+
+        if (isReadyLike && modalPayload.token_no != null && String(modalPayload.token_no) !== "") {
+          // Prefer item name first so buffet ready copy matches other status wording.
+          const itemLabel =
+            (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
+              ? modalPayload.item_name.trim()
+              : null) ||
+            (typeof modalPayload.name === "string" && modalPayload.name.trim() !== ""
+              ? modalPayload.name.trim()
+              : null) ||
+            (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
+              ? modalPayload.utility_name.trim()
+              : null) ||
+            "your item";
+
+          messageHtml = `
           Your Order <strong>${modalPayload.token_no}</strong> for <strong>${itemLabel}</strong> is now <strong>ready</strong>.<br>
           Please collect it.`;
+        }
       }
     }
 

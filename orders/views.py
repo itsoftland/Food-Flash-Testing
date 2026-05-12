@@ -40,6 +40,8 @@ from .serializers import (
     VendorMenuSerializer
 )
 
+from collections import OrderedDict
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -609,6 +611,23 @@ def check_status(request):
                     'updated_at': item.updated_at.isoformat()
                 } for item in buffet_items
             ]
+            util_groups = OrderedDict()
+            for item in order.buffet_items.select_related('utility').all().order_by('utility_id', 'id'):
+                if not item.utility_id or not item.utility:
+                    continue
+                uid = item.utility_id
+                if uid not in util_groups:
+                    util_groups[uid] = {
+                        'id': uid,
+                        'name': item.utility.display_name if item.utility else 'Generic',
+                        'lines': [],
+                    }
+                util_groups[uid]['lines'].append({
+                    'status': item.status,
+                    'quantity': item.quantity,
+                    'item_id': item.id,
+                })
+            data['utilities_status'] = list(util_groups.values())
 
 
         if reply_text:

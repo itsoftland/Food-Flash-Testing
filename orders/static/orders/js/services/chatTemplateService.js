@@ -1,5 +1,6 @@
 
 const statusClassMap = {
+  created: 'unknown-color',
   preparing: 'preparing-color',
   ready: 'ready-color',
   allocated: 'ready-color',
@@ -243,6 +244,102 @@ function buildFlightStatusMessage(payload) {
   `;
 }
 
+function normalizeBuffetUtilitiesBlocks(payload) {
+  const u = payload.utilities;
+  if (Array.isArray(u) && u.length) {
+    return u;
+  }
+  const legacy = payload.ready_utilities;
+  if (Array.isArray(legacy) && legacy.length) {
+    return legacy.map((x) => ({
+      id: x.id,
+      name: x.name,
+      lines: [{ status: "ready", quantity: 1, item_id: null }],
+    }));
+  }
+  return [];
+}
+
+function formatBuffetUtilityLinesHtml(lines) {
+  const arr = Array.isArray(lines) ? lines : [];
+  if (!arr.length) {
+    return '<span class="text-muted">No lines</span>';
+  }
+  return arr
+    .map((ln) => {
+      const st = String(ln.status || "unknown").toLowerCase();
+      const cls = statusClassMap[st] || "unknown-color";
+      const qty = ln.quantity != null ? Number(ln.quantity) : 1;
+      const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
+      return `<span class="buffet-status-badge ${cls} me-1 mb-1 d-inline-block">${st.toUpperCase()}${q}</span>`;
+    })
+    .join(" ");
+}
+
+function buildBuffetUtilitiesStationCard(payload) {
+  const blocks = normalizeBuffetUtilitiesBlocks(payload);
+  const rows = blocks
+    .map((b) => {
+      const name = (b && b.name) ? String(b.name) : "Station";
+      const linesHtml = formatBuffetUtilityLinesHtml(b.lines);
+      return `
+        <div class="buffet-station-row mb-2 pb-2 border-bottom border-light">
+          <div class="fw-bold text-dark mb-1">${name}</div>
+          <div>${linesHtml}</div>
+        </div>`;
+    })
+    .join("");
+
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-status-card buffet-utilities-ready-card">
+        <div class="buffet-item-header">
+            <span class="buffet-item-name">Station update</span>
+        </div>
+        <div class="buffet-status-body">
+            ${rows || '<span class="text-muted">No stations</span>'}
+        </div>
+        <div class="buffet-status-body small text-muted mt-2">
+            Order <strong>#${payload.token_no ?? ""}</strong>
+        </div>
+    </div>
+  `;
+}
+
+function buildBuffetUtilitiesStatusSummary(payload) {
+  const blocks = normalizeBuffetUtilitiesBlocks(payload);
+  const summary = blocks
+    .map((b) => {
+      const name = (b && b.name) ? String(b.name) : "Station";
+      const bits = (Array.isArray(b.lines) ? b.lines : []).map((ln) => {
+        const st = ln.status || "?";
+        const qty = ln.quantity != null ? Number(ln.quantity) : 1;
+        const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
+        return `${st}${q}`;
+      });
+      return `<strong>${name}</strong>: ${bits.join(", ") || "—"}`;
+    })
+    .join("<br>");
+
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-status-card buffet-ready-summary-card">
+        <div class="buffet-item-header">
+            <span class="buffet-item-name">Stations (current status)</span>
+        </div>
+        <div class="buffet-status-body small">
+            ${summary || "—"}
+        </div>
+    </div>
+  `;
+}
+
 function buildBuffetItemStatusMessage(payload) {
   const statusKey = String(payload.status || 'unknown').toLowerCase();
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
@@ -375,7 +472,12 @@ function resolveMessageKind(message) {
       ? String(message.text.type).toLowerCase()
       : "";
   // Prefer nested payload type for item/buffet events (WebChat may truncate outer `type` in DB).
-  if (inner.startsWith("item_") || inner.startsWith("buffet_item")) {
+  if (
+    inner.startsWith("item_") ||
+    inner.startsWith("buffet_item") ||
+    inner === "buffet_utilities_ready" ||
+    inner === "buffet_utilities_status"
+  ) {
     return inner;
   }
   return outer || inner;
@@ -390,6 +492,12 @@ export const ChatTemplateService = {
 
     const type = resolveMessageKind(message);
     switch (type) {
+      case "buffet_utilities_status":
+      case "buffet_utilities_ready":
+        return buildBuffetUtilitiesStationCard(payload);
+      case "buffet_utilities_status_summary":
+      case "buffet_ready_utilities_summary":
+        return buildBuffetUtilitiesStatusSummary(payload);
       case "buffet_item_update":
       case "buffet_item_preparing":
       case "buffet_item_ready":
@@ -399,6 +507,7 @@ export const ChatTemplateService = {
       case "item_delivered":
       case "buffet_item_delivered":
       case "item_cancelled":
+      case "item_operation_closed":
         return buildBuffetItemStatusMessage(payload);
       case "order_delivered":
         return buildBuffetDeliveredMessage(payload);

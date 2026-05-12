@@ -1,5 +1,7 @@
 import logging
 import json
+from collections import OrderedDict
+
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -8,7 +10,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile
+from rest_framework.exceptions import NotFound
+
+from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile, Utility
 from manager.utils.utils import get_manager_vendor
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
@@ -16,6 +20,16 @@ from static.utils.functions.utils import get_vendor_business_day_range
 
 logger = logging.getLogger(__name__)
 project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+
+# BuffetOrderItem.status values (see core.config.status_choices "dine_flash_buffet")
+_BUFFET_LINE_STATUSES = frozenset(
+    {"created", "preparing", "ready", "delivered", "cancelled", "operation_closed"}
+)
+
+# Allowed targets for POST api/buffet_update_item_status/ (manager kitchen)
+_BUFFET_ITEM_STATUS_UPDATE_ACTIONS = frozenset(
+    {"preparing", "ready", "cancelled", "delivered", "operation_closed"}
+)
 
 
 def _serialize_buffet_utility(utility):
@@ -183,11 +197,19 @@ def _notify_item_update(vendor, item, status_text):
     elif status_text == "delivered":
         verb = "delivered"
         suffix = "Thank you for choosing us!"
+    elif status_text == "operation_closed":
+        verb = "closed for this service"
+        suffix = "Thank you for choosing us today."
     else:
-        verb = status_text
+        verb = status_text.replace("_", " ")
         suffix = ""
 
     message_body = f"Your Order {order.token_no} for {item_name} is now {verb}. {suffix}".strip()
+
+    if status_text == "operation_closed":
+        push_title = "Close operation"
+    else:
+        push_title = f"Order {status_text.capitalize()}"
 
     push_payload = {
         "type": f"item_{status_text}",
@@ -197,7 +219,7 @@ def _notify_item_update(vendor, item, status_text):
         "item_id": item.id,
         "item_name": item_name,
         "status": status_text,
-        "title": f"Order {status_text.capitalize()}",
+        "title": push_title,
         "body": message_body,
         "message": message_body
     }
@@ -205,25 +227,332 @@ def _notify_item_update(vendor, item, status_text):
     send_order_update(vendor, push_payload)
     notify_web_push(order, vendor, push_payload)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def mark_buffet_item_preparing(request):
-    return _update_buffet_item_status(request, 'preparing')
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def mark_buffet_item_ready(request):
-    return _update_buffet_item_status(request, 'ready')
+def _group_buffet_lines_by_utility(queryset):
+    """Build [{id, name, lines: [{status, quantity, item_id}]}] preserving utility order."""
+    groups = OrderedDict()
+    for row in queryset:
+        if not row.utility_id or not row.utility:
+            continue
+        uid = row.utility_id
+        if uid not in groups:
+            groups[uid] = {
+                "id": row.utility.id,
+                "name": row.utility.display_name or row.utility.utility_name,
+                "lines": [],
+            }
+        groups[uid]["lines"].append(
+            {"status": row.status, "quantity": row.quantity, "item_id": row.id}
+        )
+    return list(groups.values())
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def mark_buffet_item_cancelled(request):
-    return _update_buffet_item_status(request, 'cancelled')
 
-@api_view(['POST'])
+def _buffet_selected_utilities_status_payload(order, utility_ids, statuses_filter):
+    """
+    Returns (utilities list | None, error str | None).
+    utilities: [{id, name, lines: [{status, quantity, item_id}]}, ...]
+
+    statuses_filter: None → all line statuses; non-empty list → only those statuses.
+    """
+    if not utility_ids:
+        return None, "No utility ids."
+
+    qs = (
+        BuffetOrderItem.objects.filter(order=order, utility_id__in=utility_ids)
+        .select_related("utility")
+        .order_by("utility_id", "id")
+    )
+
+    if statuses_filter is not None:
+        if len(statuses_filter) == 0:
+            return None, "statuses, when provided, must be a non-empty list of status strings."
+        unknown = [s for s in statuses_filter if s not in _BUFFET_LINE_STATUSES]
+        if unknown:
+            return None, f"Invalid status value(s): {unknown}"
+        qs = qs.filter(status__in=list(statuses_filter))
+
+    utilities = _group_buffet_lines_by_utility(qs)
+    if not utilities:
+        return None, "No buffet items match the selected utilities and status filter."
+    return utilities, None
+
+
+def _strip_delivered_lines_from_utilities(utilities):
+    """Return a deep copy of utilities blocks with `delivered` lines removed; drop empty blocks."""
+    out = []
+    for block in utilities or []:
+        lines = [ln for ln in (block.get("lines") or []) if (ln.get("status") or "").lower() != "delivered"]
+        if not lines:
+            continue
+        out.append({**block, "lines": lines})
+    return out
+
+
+def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
+    """
+    BuffetOrderItem rows for the vendor business day, scoped by role / assigned_utilities
+    (same idea as get_buffet_kitchen_items).
+    """
+    qs = BuffetOrderItem.objects.filter(
+        order__vendor=vendor,
+        order__created_at__range=(start_dt, end_dt),
+    ).select_related("order", "utility")
+
+    assigned = list(user_profile.assigned_utilities.all())
+    if user_profile.role == "utility_user":
+        allowed = [u for u in assigned if u.vendor_id == vendor.id]
+        if not allowed:
+            return qs.none()
+        return qs.filter(utility_id__in=[u.id for u in allowed])
+
+    if assigned:
+        return qs.filter(utility__in=assigned)
+    return qs
+
+
+def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
+    """
+    Build [{token_no, booking_id, utilities: [...]}, ...] for today's orders that still
+    have at least one visible line after optional delivered stripping.
+    """
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    base_qs = _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile)
+    order_ids = base_qs.values_list("order_id", flat=True).distinct()
+    if not order_ids:
+        return []
+
+    orders_payload = []
+    for order in (
+        Order.objects.filter(id__in=order_ids, vendor=vendor)
+        .order_by("token_no", "id")
+    ):
+        qs = base_qs.filter(order_id=order.id).order_by("utility_id", "id")
+        utilities = _group_buffet_lines_by_utility(qs)
+        if hide_delivered:
+            utilities = _strip_delivered_lines_from_utilities(utilities)
+        if not utilities:
+            continue
+        orders_payload.append(
+            {
+                "token_no": order.token_no,
+                "booking_id": order.id,
+                "utilities": utilities,
+            }
+        )
+    return orders_payload
+
+
+def _human_buffet_status_message(order, utilities_payload):
+    """Single paragraph for push body / chat."""
+    parts = []
+    for block in utilities_payload:
+        name = block.get("name") or "Station"
+        line_bits = []
+        for ln in block.get("lines") or []:
+            st = ln.get("status") or "unknown"
+            qty = ln.get("quantity")
+            try:
+                q = int(qty)
+            except (TypeError, ValueError):
+                q = 1
+            suffix = f" ×{q}" if q and q != 1 else ""
+            line_bits.append(f"{st}{suffix}")
+        parts.append(f"{name}: {', '.join(line_bits)}" if line_bits else name)
+    return f"Your Order {order.token_no} — " + "; ".join(parts)
+
+
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def mark_buffet_item_delivered(request):
-    return _update_buffet_item_status(request, 'delivered')
+def buffet_send_ready_utilities_notification(request):
+    """
+    Dine Flash Buffet:
+
+    - GET, or POST with no `utility_ids` / `token_no`: returns all tokens (orders)
+      for the business day assigned to the caller. Utility users do not see lines
+      with status ``delivered``. Outlet / admin managers see every line status.
+      No body or query parameters are required.
+
+    - POST with ``utility_ids`` (non-empty list) and ``token_no``: legacy behaviour —
+      sends web push and chat for that order and utilities. Optional ``statuses``
+      filters which line statuses are included in the notification.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        vendor = get_manager_vendor(request.user)
+    except NotFound:
+        return Response({"error": "Vendor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    user_profile = (
+        UserProfile.objects.select_related("vendor")
+        .prefetch_related("assigned_utilities")
+        .filter(user=request.user, vendor=vendor)
+        .order_by("id")
+        .first()
+    )
+    if not user_profile:
+        return Response({"error": "User profile not found"}, status=status.HTTP_403_FORBIDDEN)
+
+    raw_ids = request.data.get("utility_ids")
+    token_no = request.data.get("token_no")
+    legacy_notify = isinstance(raw_ids, list) and len(raw_ids) > 0 and token_no is not None
+
+    if not legacy_notify:
+        if user_profile.role == "utility_user":
+            hide_delivered = True
+        elif user_profile.role in ("outlet_manager", "admin_manager"):
+            hide_delivered = False
+        else:
+            return Response(
+                {"error": "This summary is only available for utility users or outlet managers."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        orders_payload = _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered)
+        return Response(
+            {
+                "message": "Buffet utilities summary.",
+                "orders": orders_payload,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    try:
+        utility_ids = sorted({int(x) for x in raw_ids})
+    except (TypeError, ValueError):
+        return Response(
+            {"error": "utility_ids must contain integers."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        token_no = int(token_no)
+    except (TypeError, ValueError):
+        return Response({"error": "token_no must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+    assigned = list(user_profile.assigned_utilities.all())
+    if assigned:
+        allowed = {u.id for u in assigned if u.vendor_id == vendor.id}
+        bad = [uid for uid in utility_ids if uid not in allowed]
+        if bad:
+            return Response(
+                {"error": "You are not authorized for one or more utilities.", "invalid_utility_ids": bad},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+    else:
+        existing = set(
+            Utility.objects.filter(vendor=vendor, id__in=utility_ids).values_list("id", flat=True)
+        )
+        if existing != set(utility_ids):
+            return Response(
+                {"error": "One or more utilities are invalid for this vendor."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    order = (
+        Order.objects.filter(
+            vendor=vendor,
+            token_no=token_no,
+            created_at__range=(start_dt, end_dt),
+        )
+        .first()
+    )
+    if not order:
+        return Response({"error": "Order not found for this token today."}, status=status.HTTP_404_NOT_FOUND)
+
+    raw_statuses = request.data.get("statuses", None)
+    statuses_filter = None
+    if raw_statuses is not None:
+        if not isinstance(raw_statuses, list):
+            return Response(
+                {"error": "statuses must be an array of status strings, or omitted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            statuses_filter = [str(s).strip().lower() for s in raw_statuses if str(s).strip()]
+        except TypeError:
+            statuses_filter = []
+
+    utilities_payload, err_msg = _buffet_selected_utilities_status_payload(
+        order, utility_ids, statuses_filter
+    )
+    if err_msg:
+        return Response(
+            {"error": err_msg, "utility_ids": utility_ids},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    message_body = _human_buffet_status_message(order, utilities_payload)
+
+    chat_payload = {
+        "type": "buffet_utilities_status",
+        "utilities": utilities_payload,
+        "token_no": order.token_no,
+        "booking_id": order.id,
+    }
+
+    push_payload = {
+        "type": "buffet_utilities_status",
+        "vendor_id": vendor.vendor_id,
+        "token_no": order.token_no,
+        "booking_id": order.id,
+        "utilities": utilities_payload,
+        "title": "Buffet station update",
+        "body": message_body,
+        "message": message_body,
+    }
+
+    try:
+        ChatMessage.objects.create(
+            vendor=vendor,
+            token_no=order.token_no,
+            booking_no=order.table_booking_no,
+            booking_id=order.id,
+            created_date=timezone.now().date(),
+            sender="system",
+            is_send=True,
+            message_text=json.dumps(chat_payload),
+        )
+        send_order_update(vendor, push_payload)
+        notify_web_push(order, vendor, push_payload)
+    except Exception as e:
+        logger.exception("[buffet_send_ready_utilities_notification] Error: %s", e)
+        return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(
+        {
+            "message": "Station notification sent.",
+            "utilities": utilities_payload,
+            "token_no": order.token_no,
+            "booking_id": order.id,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def buffet_update_item_status(request):
+    """
+    Dine Flash Buffet: set a single BuffetOrderItem line status.
+    Body: {"item_id": <int>, "status": "preparing"|"ready"|"cancelled"|"delivered"|"operation_closed"}
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    raw = request.data.get("status")
+    new_status = (raw or "").strip().lower() if isinstance(raw, str) else ""
+    if new_status not in _BUFFET_ITEM_STATUS_UPDATE_ACTIONS:
+        return Response(
+            {
+                "error": "Invalid or missing status.",
+                "allowed": sorted(_BUFFET_ITEM_STATUS_UPDATE_ACTIONS),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return _update_buffet_item_status(request, new_status)
+
 
 def _update_buffet_item_status(request, new_status):
     try:
@@ -292,8 +621,10 @@ def mark_booking_delivered(request):
                 logger.warning(f"[mark_booking_delivered] Booking {booking_id} not found (exists_elsewhere={exists_elsewhere})")
                 return Response({"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            # Validation: All non-cancelled items must be ready or delivered
-            pending_items = order.buffet_items.exclude(status__in=['ready', 'cancelled', 'delivered']).exists()
+            # Lines in terminal states (incl. operation_closed) do not block whole-booking delivery
+            pending_items = order.buffet_items.exclude(
+                status__in=['ready', 'cancelled', 'delivered', 'operation_closed']
+            ).exists()
             if pending_items:
                 logger.warning(f"[mark_booking_delivered] Cannot deliver Order {order.id}: pending items exist.")
                 return Response({"error": "Cannot deliver: some items are still pending"}, status=status.HTTP_400_BAD_REQUEST)

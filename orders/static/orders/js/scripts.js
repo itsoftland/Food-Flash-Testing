@@ -398,10 +398,13 @@ onDOMReady(async function () {
                     case 'item_ready':
                     case 'item_cancelled':
                     case 'item_delivered':
+                    case 'item_operation_closed':
                     case 'buffet_item_preparing':
                     case 'buffet_item_ready':
                     case 'buffet_item_cancelled':
                     case 'buffet_item_delivered':
+                    case 'buffet_utilities_status':
+                    case 'buffet_utilities_ready':
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
                         appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
@@ -918,6 +921,23 @@ onDOMReady(async function () {
                             }
                         });
                         appendMessage(itemHTML, 'server', null, 'buffet_item_update', data.token_no);
+                    }
+                    if (Array.isArray(data.utilities_status) && data.utilities_status.length > 0) {
+                        const summaryHtml = ChatTemplateService.build({
+                            type: 'buffet_utilities_status_summary',
+                            text: {
+                                utilities: data.utilities_status,
+                                alias_name: data.alias_name,
+                                token_no: data.token_no,
+                            },
+                        });
+                        appendMessage(
+                            summaryHtml,
+                            'server',
+                            null,
+                            'buffet_utilities_status_summary',
+                            data.token_no
+                        );
                     }
                 } else {
                     const messageHTML = ChatTemplateService.build({

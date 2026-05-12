@@ -21,6 +21,7 @@ from vendors.models import (
     AndroidAPK,
 )
 from manager.utils.utils import reset_counters_if_new_business_day
+from core.config.status_choices import STATUS_CHOICES_MAP
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "").strip().lower()
@@ -310,6 +311,11 @@ def buffet_utility_login(request):
         for util in mapped_utilities_qs
     ]
 
+    buffet_status_choices = STATUS_CHOICES_MAP.get("dine_flash_buffet", [])
+    possible_statuses = [
+        {"value": value, "label": label} for value, label in buffet_status_choices
+    ]
+
     refresh = RefreshToken.for_user(user)
     return Response(
         {
@@ -318,6 +324,9 @@ def buffet_utility_login(request):
             "refresh": str(refresh),
             "device_approved": True,
             "utility_mapped": utility_mapped,
+            "outlet_id": admin_outlet.id,
+            "outlet_name": admin_outlet.customer_name or "",
+            "possible_statuses": possible_statuses,
             "user": {
                 "username": user.username,
                 "role": "Utility User",

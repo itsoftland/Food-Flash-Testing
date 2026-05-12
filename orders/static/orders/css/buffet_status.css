@@ -86,3 +86,39 @@
     color: #ffffff;
     font-size: 1.05rem;
 }
+
+.buffet-ready-utilities-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.buffet-ready-utility-chip {
+    display: inline-block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #a5d6a7;
+}
+
+.buffet-utilities-ready-card,
+.buffet-ready-summary-card {
+    border-left: 4px solid #1565c0;
+}
+
+.unknown-color,
+.buffet-status-badge.unknown-color {
+    background-color: #eceff1;
+    color: #37474f;
+    border: 1px solid #cfd8dc;
+}
+
+.buffet-station-row:last-child {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
