@@ -313,8 +313,8 @@ def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
 
 def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
     """
-    Build [{token_no, booking_id, utilities: [...]}, ...] for today's orders that still
-    have at least one visible line after optional delivered stripping.
+    Build [{token_no, booking_id, submitted_at, utilities: [...]}, ...] for today's orders
+    that still have at least one visible line after optional delivered stripping.
     """
     start_dt, end_dt = get_vendor_business_day_range(vendor)
     base_qs = _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile)
@@ -337,6 +337,7 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
             {
                 "token_no": order.token_no,
                 "booking_id": order.id,
+                "submitted_at": order.created_at.isoformat(),
                 "utilities": utilities,
             }
         )
