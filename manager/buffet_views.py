@@ -363,9 +363,9 @@ def _human_buffet_status_message(order, utilities_payload):
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def buffet_send_ready_utilities_notification(request):
+def buffet_utilities_orders_summary(request):
     """
-    Dine Flash Buffet:
+    Dine Flash Buffet — utilities / kitchen orders summary API.
 
     - GET, or POST with no `utility_ids` / `token_no`: returns all tokens (orders)
       for the business day assigned to the caller. Utility users do not see lines
@@ -517,7 +517,7 @@ def buffet_send_ready_utilities_notification(request):
         send_order_update(vendor, push_payload)
         notify_web_push(order, vendor, push_payload)
     except Exception as e:
-        logger.exception("[buffet_send_ready_utilities_notification] Error: %s", e)
+        logger.exception("[buffet_utilities_orders_summary] Error: %s", e)
         return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(
@@ -536,7 +536,11 @@ def buffet_send_ready_utilities_notification(request):
 def buffet_update_item_status(request):
     """
     Dine Flash Buffet: set a single BuffetOrderItem line status.
-    Body: {"item_id": <int>, "status": "preparing"|"ready"|"cancelled"|"delivered"|"operation_closed"}
+
+    Body (either):
+      - {"item_id": <int>, "status": ...}
+      - {"token_no": <int>, "utility_id": <int>, "status": ...}
+        (order is resolved for the current vendor business day, same as kitchen list)
     """
     if project_name != "dine_flash_buffet":
         return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -557,35 +561,109 @@ def buffet_update_item_status(request):
 def _update_buffet_item_status(request, new_status):
     try:
         item_id = request.data.get("item_id")
-        if not item_id:
-            return Response({"error": "item_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
+        token_no = request.data.get("token_no")
+        utility_id = request.data.get("utility_id")
+
+        has_item_id = item_id not in (None, "")
+        has_token_pair = token_no not in (None, "") and utility_id not in (None, "")
+
+        if not has_item_id and not has_token_pair:
+            return Response(
+                {
+                    "error": "Either item_id or both token_no and utility_id are required.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if has_item_id and has_token_pair:
+            return Response(
+                {"error": "Provide item_id or token_no with utility_id, not both."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         vendor = get_manager_vendor(request.user)
         user_profile = request.user.profile_roles.first()
-        
+
         if not user_profile:
-             return Response({"error": "User profile not found"}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "User profile not found"}, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
-            item = BuffetOrderItem.objects.select_for_update().filter(id=item_id, order__vendor=vendor).first()
-            if not item:
-                return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Responsibility check: Utility User must be assigned to the item's utility
-            assigned_utilities = user_profile.assigned_utilities.all()
-            if assigned_utilities.exists() and item.utility not in assigned_utilities:
-                return Response({"error": "You are not authorized to update this item"}, status=status.HTTP_403_FORBIDDEN)
+            if has_item_id:
+                try:
+                    item_id_int = int(item_id)
+                except (ValueError, TypeError):
+                    return Response({"error": "item_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+                items = list(
+                    BuffetOrderItem.objects.select_for_update()
+                    .select_related("utility", "order")
+                    .filter(id=item_id_int, order__vendor=vendor)
+                )
+            else:
+                try:
+                    token_no_int = int(token_no)
+                    utility_id_int = int(utility_id)
+                except (ValueError, TypeError):
+                    return Response(
+                        {"error": "token_no and utility_id must be integers"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                start_dt, end_dt = get_vendor_business_day_range(vendor)
+                order = (
+                    Order.objects.select_for_update()
+                    .filter(
+                        token_no=token_no_int,
+                        vendor=vendor,
+                        created_at__range=(start_dt, end_dt),
+                    )
+                    .first()
+                )
+                if not order:
+                    return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
+                items = list(
+                    BuffetOrderItem.objects.select_for_update()
+                    .select_related("utility", "order")
+                    .filter(order=order, utility_id=utility_id_int)
+                )
 
-            # Idempotency check: Don't send duplicate notifications
-            if item.status == new_status:
-                return Response({"message": f"Item is already {new_status}"}, status=status.HTTP_200_OK)
-                
-            item.status = new_status
-            item.save(update_fields=['status'])
-            
-            _notify_item_update(vendor, item, new_status)
-                
-        return Response({"message": f"Item marked as {new_status} successfully"}, status=status.HTTP_200_OK)
+            if not items:
+                return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            assigned_utilities = user_profile.assigned_utilities.all()
+            for item in items:
+                if assigned_utilities.exists() and item.utility not in assigned_utilities:
+                    return Response(
+                        {"error": "You are not authorized to update this item"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+            updated_any = False
+            for item in items:
+                if item.status == new_status:
+                    continue
+                item.status = new_status
+                item.save(update_fields=["status"])
+                _notify_item_update(vendor, item, new_status)
+                updated_any = True
+
+            if not updated_any:
+                ref = items[0]
+                return Response(
+                    {
+                        "message": f"Item is already {new_status}",
+                        "utility_id": ref.utility_id,
+                        "token_no": ref.order.token_no,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+        ref = items[0]
+        return Response(
+            {
+                "message": f"Item marked as {new_status} successfully",
+                "utility_id": ref.utility_id,
+                "token_no": ref.order.token_no,
+            },
+            status=status.HTTP_200_OK,
+        )
     except Exception as e:
         logger.exception(f"[_update_buffet_item_status] Error: %s", e)
         return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

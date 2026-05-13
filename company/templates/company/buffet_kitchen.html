@@ -162,7 +162,7 @@
         if (statusChecked.length) {
             payload.statuses = statusChecked;
         }
-        fetch("{% url 'manager:buffet_send_ready_utilities_notification' %}", {
+        fetch("{% url 'manager:buffet_utilities_orders_summary' %}", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

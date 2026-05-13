@@ -32,8 +32,8 @@ urlpatterns = [
     ),
     path('api/buffet_mark_booking_delivered/', buffet_views.mark_booking_delivered, name='buffet_mark_booking_delivered'),
     path(
-        'api/buffet_send_ready_utilities_notification/',
-        buffet_views.buffet_send_ready_utilities_notification,
-        name='buffet_send_ready_utilities_notification',
+        'api/buffet_utilities_orders_summary/',
+        buffet_views.buffet_utilities_orders_summary,
+        name='buffet_utilities_orders_summary',
     ),
 ]
