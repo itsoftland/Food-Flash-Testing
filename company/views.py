@@ -16,7 +16,7 @@ from collections import defaultdict
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -34,6 +34,7 @@ from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
+from vendors.utils import validate_buffet_utility_image_upload, buffet_utility_image_absolute_url
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
 from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
@@ -1600,6 +1601,7 @@ def license_check(request):
 
 # DINEFLASH SPECIFIC API: Create Utility
 @api_view(["POST"])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 @permission_classes([IsAuthenticated])
 def create_utility(request):
     """
@@ -1738,31 +1740,51 @@ def create_utility(request):
         is_active = bool(int(is_active)) if isinstance(is_active, (int, str)) else bool(is_active)
 
         print("is_active:", is_active)
+
+        buffet_upload = None
+        if is_buffet:
+            buffet_upload = request.FILES.get("buffet_utility_image")
+            if buffet_upload:
+                upload_err = validate_buffet_utility_image_upload(buffet_upload)
+                if upload_err:
+                    return Response(
+                        {"error": upload_err},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
         # ---- Create Utility ----
-        utility = Utility.objects.create(
+        create_kwargs = dict(
             vendor=vendor,
             utility_name=utility_name,
             display_name=display_name,
             display_code=display_code,
             token_mode=token_mode,
             prefix=prefix,
-            is_active=is_active
+            is_active=is_active,
         )
+        if is_buffet and buffet_upload:
+            create_kwargs["buffet_utility_image"] = buffet_upload
+
+        utility = Utility.objects.create(**create_kwargs)
 
         logger.info(f"[UtilityCreate] Utility created successfully | ID={utility.id}")
+
+        utility_payload = {
+            "id": utility.id,
+            "utility_name": utility.utility_name,
+            "display_name": utility.display_name,
+            "display_code": utility.display_code,
+            "token_mode": utility.token_mode,
+            "prefix": utility.prefix,
+            "is_active": utility.is_active,
+        }
+        if is_buffet:
+            utility_payload["image_url"] = buffet_utility_image_absolute_url(request, utility)
 
         return Response(
             {
                 "message": "Utility created successfully",
-                "utility": {
-                    "id": utility.id,
-                    "utility_name": utility.utility_name,
-                    "display_name": utility.display_name,
-                    "display_code": utility.display_code,
-                    "token_mode": utility.token_mode,
-                    "prefix": utility.prefix,
-                    "is_active": utility.is_active
-                },
+                "utility": utility_payload,
             },
             status=status.HTTP_201_CREATED
         )
@@ -2481,6 +2503,22 @@ def get_utilities(request):
 
         # Get vendor_id from query parameter
         vendor_id = request.query_params.get('vendor_id')
+        is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+        utility_fields = [
+            'id',
+            'utility_name',
+            'display_name',
+            'display_code',
+            'prefix',
+            'token_mode',
+            'is_active',
+            'vendor__id',
+            'vendor__vendor_id',
+            'vendor__name',
+            'vendor__location',
+        ]
+        if is_buffet:
+            utility_fields.append('buffet_utility_image')
 
         if vendor_id:
             try:
@@ -2489,23 +2527,11 @@ def get_utilities(request):
                 utilities = Utility.objects.filter(
                     vendor__vendor_id=vendor_id,
                     vendor__admin_outlet=admin_outlet
-                ).values(
-                    'id',
-                    'utility_name',
-                    'display_name',
-                    'display_code',
-                    'prefix',
-                    'token_mode',
-                    'is_active',
-                    'vendor__id',
-                    'vendor__vendor_id',
-                    'vendor__name',
-                    'vendor__location'
-                )
+                ).values(*utility_fields)
 
                 utilities_list = []
                 for util in utilities:
-                    utilities_list.append({
+                    row = {
                         'id': util['id'],
                         'utility_name': util['utility_name'],
                         'display_name': util['display_name'],
@@ -2517,7 +2543,15 @@ def get_utilities(request):
                         'vendor_id': util['vendor__vendor_id'],
                         'vendor_name': util['vendor__name'],
                         'vendor_location': util['vendor__location']
-                    })
+                    }
+                    if is_buffet:
+                        path = util.get('buffet_utility_image')
+                        row['image_url'] = (
+                            request.build_absolute_uri(default_storage.url(path))
+                            if path
+                            else ''
+                        )
+                    utilities_list.append(row)
 
                 # Attach options
                 utility_ids = [u['id'] for u in utilities_list]
@@ -2551,23 +2585,11 @@ def get_utilities(request):
             # Fetch all utilities for all vendors of this admin outlet
             utilities = Utility.objects.filter(
                 vendor__admin_outlet=admin_outlet
-            ).values(
-                'id',
-                'utility_name',
-                'display_name',
-                'display_code',
-                'prefix',
-                'token_mode',
-                'is_active',
-                'vendor__id',
-                'vendor__vendor_id',
-                'vendor__name',
-                'vendor__location'
-            )
+            ).values(*utility_fields)
 
             utilities_list = []
             for util in utilities:
-                utilities_list.append({
+                row = {
                     'id': util['id'],
                     'utility_name': util['utility_name'],
                     'display_name': util['display_name'],
@@ -2579,7 +2601,15 @@ def get_utilities(request):
                     'vendor_id': util['vendor__vendor_id'],
                     'vendor_name': util['vendor__name'],
                     'vendor_location': util['vendor__location']
-                })
+                }
+                if is_buffet:
+                    path = util.get('buffet_utility_image')
+                    row['image_url'] = (
+                        request.build_absolute_uri(default_storage.url(path))
+                        if path
+                        else ''
+                    )
+                utilities_list.append(row)
 
             # Attach options
             utility_ids = [u['id'] for u in utilities_list]
@@ -2696,6 +2726,7 @@ def update_utility_status(request):
 
 
 @api_view(['PATCH'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 @permission_classes([IsAuthenticated])
 def update_utility(request):
     """
@@ -2792,20 +2823,51 @@ def update_utility(request):
         utility.display_code = display_code
         utility.token_mode = token_mode
         utility.prefix = prefix
+
+        if is_buffet:
+            clear_img = str(request.data.get("clear_buffet_image", "")).lower() in (
+                "1", "true", "yes", "on"
+            )
+            upload = request.FILES.get("buffet_utility_image")
+            if clear_img and upload:
+                return Response(
+                    {
+                        "error": "Cannot remove image and upload a new file in the same request."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if upload:
+                upload_err = validate_buffet_utility_image_upload(upload)
+                if upload_err:
+                    return Response(
+                        {"error": upload_err},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            if clear_img:
+                if utility.buffet_utility_image:
+                    utility.buffet_utility_image.delete(save=False)
+                utility.buffet_utility_image = None
+            elif upload:
+                utility.buffet_utility_image.save(upload.name, upload, save=False)
+
         utility.save()
+
+        utility_response = {
+            "id": utility.id,
+            "utility_name": utility.utility_name,
+            "display_name": utility.display_name,
+            "display_code": utility.display_code,
+            "token_mode": utility.token_mode,
+            "prefix": utility.prefix,
+            "is_active": utility.is_active,
+        }
+        if is_buffet:
+            utility_response["image_url"] = buffet_utility_image_absolute_url(request, utility)
 
         return Response({
             "success": True,
             "message": "Utility updated successfully",
-            "utility": {
-                "id": utility.id,
-                "utility_name": utility.utility_name,
-                "display_name": utility.display_name,
-                "display_code": utility.display_code,
-                "token_mode": utility.token_mode,
-                "prefix": utility.prefix,
-                "is_active": utility.is_active
-            }
+            "utility": utility_response,
         }, status=status.HTTP_200_OK)
 
     except Exception as e:

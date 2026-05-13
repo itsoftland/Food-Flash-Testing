@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const displayCodeInput = document.querySelector('input[name="display_code"]');
   const tokenModeSelect = document.querySelector('select[name="token_mode"]');
   const prefixInput = document.querySelector('input[name="prefix"]');
+  const buffetImageInput = document.querySelector('input[name="buffet_utility_image"]');
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
 
   if (!createUtilityForm || !vendorSelect) return;
@@ -134,26 +135,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Prepare payload
-    const payload = {
-      vendor_id: vendorId,
-      utility_name: utilityName,
-      display_name: displayName,
-      display_code: displayCode,
-      token_mode: tokenMode,
-      prefix: prefix,
-      is_active: isActive
+    // Prepare request (buffet: multipart with optional image file)
+    let fetchOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': AppUtils.getCSRFToken()
+      },
+      body: JSON.stringify({
+        vendor_id: vendorId,
+        utility_name: utilityName,
+        display_name: displayName,
+        display_code: displayCode,
+        token_mode: tokenMode,
+        prefix: prefix,
+        is_active: isActive
+      })
     };
 
-    try {
-      const response = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_UTILITY, {
+    if (isBuffet) {
+      const fd = new FormData();
+      fd.append('vendor_id', vendorId);
+      fd.append('utility_name', utilityName);
+      fd.append('display_name', displayName);
+      fd.append('display_code', displayCode);
+      fd.append('token_mode', tokenMode);
+      fd.append('prefix', prefix === null || prefix === undefined ? '' : prefix);
+      fd.append('is_active', isActive ? 'true' : 'false');
+      if (buffetImageInput && buffetImageInput.files && buffetImageInput.files[0]) {
+        fd.append('buffet_utility_image', buffetImageInput.files[0]);
+      }
+      fetchOptions = {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'X-CSRFToken': AppUtils.getCSRFToken()
         },
-        body: JSON.stringify(payload)
-      });
+        body: fd
+      };
+    }
+
+    try {
+      const response = await fetchWithAutoRefresh(API_ENDPOINTS.CREATE_UTILITY, fetchOptions);
 
       const result = await response.json();
 

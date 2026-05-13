@@ -15,7 +15,7 @@ from rest_framework.exceptions import NotFound
 from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile, Utility
 from manager.utils.utils import get_manager_vendor
 from vendors.services.order_service import send_order_update
-from vendors.utils import notify_web_push
+from vendors.utils import notify_web_push, buffet_utility_image_absolute_url
 from static.utils.functions.utils import get_vendor_business_day_range
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ _BUFFET_ITEM_STATUS_UPDATE_ACTIONS = frozenset(
 )
 
 
-def _serialize_buffet_utility(utility):
+def _serialize_buffet_utility(request, utility):
     return {
         "id": utility.id,
         "utility_name": utility.utility_name,
@@ -40,6 +40,7 @@ def _serialize_buffet_utility(utility):
         "display_code": utility.display_code,
         "token_mode": utility.token_mode,
         "prefix": utility.prefix,
+        "image_url": buffet_utility_image_absolute_url(request, utility),
         "options": [
             {
                 "id": option.id,
@@ -90,7 +91,7 @@ def get_assigned_buffet_utilities(request):
             ),
             key=lambda utility: utility.id,
         )
-        data = [_serialize_buffet_utility(utility) for utility in utilities]
+        data = [_serialize_buffet_utility(request, utility) for utility in utilities]
 
         return Response(
             {

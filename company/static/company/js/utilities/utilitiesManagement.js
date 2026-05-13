@@ -379,6 +379,21 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
 
+        ${window.PROJECT_NAME === 'dine_flash_buffet' ? `
+        <div class="row g-2">
+          <div class="form-group col-12 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Utility image <span class="text-muted fw-normal">(optional)</span></label>
+            ${utility.image_url ? `<div class="mb-2"><img src="${escapeHtml(utility.image_url)}" alt="" style="max-height:72px;border-radius:4px;border:1px solid #dee2e6;" /></div>` : ''}
+            <input type="file" id="edit-buffet-image" name="buffet_utility_image" class="form-control form-control-sm" accept="image/jpeg,image/png,image/gif,image/webp" />
+            <div class="form-check mt-2">
+              <input type="checkbox" class="form-check-input" id="clear-buffet-image" />
+              <label class="form-check-label" for="clear-buffet-image" style="font-size: 0.85rem;">Remove image</label>
+            </div>
+            <small class="form-text text-muted" style="font-size: 0.75rem;">JPEG, PNG, GIF or WebP, max 2 MB. APIs continue to expose this as image_url.</small>
+          </div>
+        </div>
+        ` : ''}
+
         ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
         <!-- Row 2: Display Code & Token Mode -->
         <div class="row g-2">
@@ -457,22 +472,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!isBuffet && !['continuous','utility_specific'].includes(tmode)) return showInlineError('Invalid token mode');
 
+        if (isBuffet) {
+          const clearEl = document.getElementById('clear-buffet-image');
+          const fileEl = document.getElementById('edit-buffet-image');
+          if (clearEl && clearEl.checked && fileEl && fileEl.files && fileEl.files[0]) {
+            return showInlineError('Uncheck "Remove image" or clear the chosen file.');
+          }
+        }
+
         try {
-          const response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_UTILITY, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': window.AppUtils.getCSRFToken()
-            },
-            body: JSON.stringify({
-              utility_id: utility.id,
-              utility_name: name,
-              display_name: dname,
-              display_code: dcode,
-              token_mode: tmode,
-              prefix: pref
-            })
-          });
+          let response;
+          if (isBuffet) {
+            const fd = new FormData();
+            fd.append('utility_id', String(utility.id));
+            fd.append('utility_name', name);
+            fd.append('display_name', dname);
+            fd.append('display_code', dcode);
+            fd.append('token_mode', tmode);
+            fd.append('prefix', pref);
+            const clearEl = document.getElementById('clear-buffet-image');
+            const fileEl = document.getElementById('edit-buffet-image');
+            if (clearEl && clearEl.checked) {
+              fd.append('clear_buffet_image', 'true');
+            }
+            if (fileEl && fileEl.files && fileEl.files[0]) {
+              fd.append('buffet_utility_image', fileEl.files[0]);
+            }
+            response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_UTILITY, {
+              method: 'PATCH',
+              headers: {
+                'X-CSRFToken': window.AppUtils.getCSRFToken()
+              },
+              body: fd
+            });
+          } else {
+            response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_UTILITY, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.AppUtils.getCSRFToken()
+              },
+              body: JSON.stringify({
+                utility_id: utility.id,
+                utility_name: name,
+                display_name: dname,
+                display_code: dcode,
+                token_mode: tmode,
+                prefix: pref
+              })
+            });
+          }
 
           const result = await response.json();
 

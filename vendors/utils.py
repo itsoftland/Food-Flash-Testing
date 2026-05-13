@@ -19,6 +19,47 @@ _DINE_FLASH_FONT_SIZE_TO_INT = {
 }
 
 
+_BUFFET_UTILITY_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+_BUFFET_IMAGE_CONTENT_TYPES = frozenset(
+    {"image/jpeg", "image/png", "image/gif", "image/webp"}
+)
+
+
+def validate_buffet_utility_image_upload(upload_file):
+    """
+    Optional uploaded image for Dine Flash Buffet utilities.
+    Returns an error message string if invalid, otherwise None.
+    """
+    if not upload_file:
+        return None
+    try:
+        size = upload_file.size
+    except Exception:
+        return "Invalid image upload."
+    if size > _BUFFET_UTILITY_IMAGE_MAX_BYTES:
+        return "Image must be at most 2 MB."
+    ct = (getattr(upload_file, "content_type", None) or "").lower()
+    if ct and ct not in _BUFFET_IMAGE_CONTENT_TYPES:
+        return "Image must be JPEG, PNG, GIF, or WebP."
+    return None
+
+
+def buffet_utility_image_absolute_url(request, utility):
+    """
+    Absolute URL for Utility.buffet_utility_image, or empty string if unset.
+    """
+    field = getattr(utility, "buffet_utility_image", None)
+    if not field or not getattr(field, "name", None):
+        return ""
+    try:
+        path = field.url
+    except ValueError:
+        return ""
+    if request:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def _map_font_size_to_int(size_value):
     """
     Convert persisted enum size to Dine Flash integer size.

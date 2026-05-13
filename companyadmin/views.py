@@ -23,7 +23,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -41,6 +41,8 @@ from vendors.models import (
     Vendor,
     VendorConfig,
 )
+
+from vendors.utils import validate_buffet_utility_image_upload, buffet_utility_image_absolute_url
 
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
@@ -373,7 +375,7 @@ def get_all_utilities(request):
                 'is_active': opt.is_active
             } for opt in options]
             
-            utilities_list.append({
+            row = {
                 'id': util.id,
                 'utility_name': util.utility_name,
                 'display_name': util.display_name,
@@ -386,7 +388,10 @@ def get_all_utilities(request):
                 'vendor_location': util.vendor.location,
                 'company_name': util.vendor.admin_outlet.customer_name if util.vendor.admin_outlet else 'N/A',
                 'options': options_list
-            })
+            }
+            if PROJECT_NAME == "dine_flash_buffet":
+                row['image_url'] = buffet_utility_image_absolute_url(request, util)
+            utilities_list.append(row)
 
         return Response({
             "success": True,
@@ -792,6 +797,7 @@ def update_utility_status_sa(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PATCH'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 @permission_classes([IsAuthenticated])
 def update_utility_sa(request):
     """
@@ -811,7 +817,33 @@ def update_utility_sa(request):
         utility.display_code = request.data.get('display_code', utility.display_code)
         utility.token_mode = request.data.get('token_mode', utility.token_mode)
         utility.prefix = request.data.get('prefix', utility.prefix)
-        
+
+        if PROJECT_NAME == "dine_flash_buffet":
+            clear_img = str(request.data.get("clear_buffet_image", "")).lower() in (
+                "1", "true", "yes", "on"
+            )
+            upload = request.FILES.get("buffet_utility_image")
+            if clear_img and upload:
+                return Response(
+                    {
+                        "error": "Cannot remove image and upload a new file in the same request."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if upload:
+                upload_err = validate_buffet_utility_image_upload(upload)
+                if upload_err:
+                    return Response(
+                        {"error": upload_err},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            if clear_img:
+                if utility.buffet_utility_image:
+                    utility.buffet_utility_image.delete(save=False)
+                utility.buffet_utility_image = None
+            elif upload:
+                utility.buffet_utility_image.save(upload.name, upload, save=False)
+
         utility.save()
         return Response({"message": "Utility updated successfully"}, status=status.HTTP_200_OK)
     except Exception as e:

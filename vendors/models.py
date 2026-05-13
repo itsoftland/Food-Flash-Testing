@@ -1,7 +1,7 @@
 from django.db import models
 import json
 from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from django.utils import timezone
 import uuid
 import pytz
@@ -215,6 +215,18 @@ class Utility(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    buffet_utility_image = models.ImageField(
+        upload_to="buffet_utilities/%Y/%m",
+        blank=True,
+        null=True,
+        help_text="Uploaded image for Dine Flash Buffet utility display",
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]
+            )
+        ],
+    )
 
     class Meta:
         constraints = [

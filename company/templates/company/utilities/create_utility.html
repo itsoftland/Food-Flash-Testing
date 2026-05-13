@@ -64,6 +64,16 @@
                     </div>
                     {% endif %}
 
+                    {% if PROJECT_NAME == "dine_flash_buffet" %}
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label class="form-label" for="utility-buffet-image">Utility image <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="file" id="utility-buffet-image" name="buffet_utility_image" class="form-control" accept="image/jpeg,image/png,image/gif,image/webp">
+                            <small class="form-text text-muted">JPEG, PNG, GIF or WebP, max 2 MB. The saved file is served as a URL to kitchen apps (assigned utilities API).</small>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="mb-3 form-check">
                         <input type="checkbox" name="is_active" class="form-check-input" id="isActive" checked>
                         <label class="form-check-label" for="isActive">Is Active</label>
