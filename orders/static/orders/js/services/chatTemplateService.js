@@ -314,13 +314,14 @@ function buildBuffetUtilitiesStatusSummary(payload) {
   const summary = blocks
     .map((b) => {
       const name = (b && b.name) ? String(b.name) : "Station";
-      const bits = (Array.isArray(b.lines) ? b.lines : []).map((ln) => {
-        const st = ln.status || "?";
+      const lines = Array.isArray(b.lines) ? b.lines : [];
+      let total = 0;
+      for (const ln of lines) {
         const qty = ln.quantity != null ? Number(ln.quantity) : 1;
-        const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
-        return `${st}${q}`;
-      });
-      return `<strong>${name}</strong>: ${bits.join(", ") || "—"}`;
+        total += Number.isFinite(qty) ? qty : 1;
+      }
+      const display = lines.length ? String(total) : "—";
+      return `<strong>${name}</strong>: ${display}`;
     })
     .join("<br>");
 
@@ -333,6 +334,11 @@ function buildBuffetUtilitiesStatusSummary(payload) {
         <div class="buffet-item-header">
             <span class="buffet-item-name">Stations (current status)</span>
         </div>
+        ${
+          String(payload.status || "").toLowerCase() === "created"
+            ? `<div class="buffet-status-body small fw-semibold mb-2 pb-2 border-bottom border-light">order created</div>`
+            : ""
+        }
         <div class="buffet-status-body small">
             ${summary || "—"}
         </div>

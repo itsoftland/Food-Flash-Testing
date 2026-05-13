@@ -931,6 +931,7 @@ onDOMReady(async function () {
                                 utilities: data.utilities_status,
                                 alias_name: data.alias_name,
                                 token_no: data.token_no,
+                                status: data.status,
                             },
                         });
                         appendMessage(
