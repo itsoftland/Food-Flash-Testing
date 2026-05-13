@@ -55,6 +55,7 @@
     <div class="d-flex">
         <input type="tel" id="chat-input" class="form-control rounded-pill me-2" placeholder="{% if PROJECT_NAME == 'airline_flash' %}Enter your Sequence Code
                     {% elif PROJECT_NAME == 'dine_flash' %}Enter your Booking No
+                    {% elif PROJECT_NAME == 'dine_flash_buffet' %}Enter your token or bill number
                     {% else %}Enter Your Token Number
                     {% endif %}">
         <button id="send-button" class="btn rounded-pill d-flex align-items-center justify-content-center">

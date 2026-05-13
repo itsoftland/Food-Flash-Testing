@@ -42,6 +42,11 @@ export const WelcomeMessageService = {
             dine_flash: [
                 "Hi {customerName}, Welcome to {outletName}!",
                 "Kindly enter your booking number to check your table allocation status."
+            ],
+            // Public buffet tracking page: wording matches token/bill entry (not Food Flash defaults).
+            dine_flash_buffet: [
+                "Hi {customerName}, Good Day! Welcome to {outletName}.",
+                "Kindly enter your token or bill number and send so we can track your order."
             ]
         };
 
@@ -56,6 +61,11 @@ export const WelcomeMessageService = {
         let customerName = "";
         if (typeof AppUtils !== "undefined" && typeof AppUtils.getCustomerName === "function") {
             customerName = AppUtils.getCustomerName() || "";
+        }
+        // Buffet home is a shared customer URL; do not personalize with names left over
+        // from staff sessions (e.g. admin cookies on the same browser).
+        if (projectKey === "dine_flash_buffet") {
+            customerName = "";
         }
 
         // Replace placeholders dynamically

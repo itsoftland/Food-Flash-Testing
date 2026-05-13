@@ -30,7 +30,8 @@ onDOMReady(async function () {
     const lockDineFlashHomeOnBack = () => {
         const path = (window.location?.pathname || "").toLowerCase();
         const isDineFlashHome = path.includes("/dine_flash/home/");
-        if (!isDineFlashHome) return;
+        const isDineFlashBuffetHome = path.includes("/dine_flash_buffet/home/");
+        if (!isDineFlashHome && !isDineFlashBuffetHome) return;
 
         // Keep users on Dine Flash home when browser Back is pressed.
         // Build a small same-URL history buffer and refill it on popstate.
@@ -50,6 +51,7 @@ onDOMReady(async function () {
 
     lockDineFlashHomeOnBack();
     const isDineFlashHomePage = (window.location?.pathname || "").toLowerCase().includes("/dine_flash/home/");
+    const isDineFlashBuffetHomePage = (window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet/home/");
 
     const inferProjectFromPath = () => {
         const path = (window.location?.pathname || '').toLowerCase();
@@ -161,9 +163,9 @@ onDOMReady(async function () {
         locationId = AppUtils.get();
 
         if (!locationId )  {
-            // For Dine Flash home, do not force-redirect on missing location.
-            // Requirement: stay on /dine_flash/home/ when navigating back.
-            if (!isDineFlashHomePage) {
+            // For Dine Flash / Dine Flash Buffet home, do not force-redirect on missing location.
+            // Requirement: stay on .../home/ when navigating back (same-origin kiosk browsers).
+            if (!isDineFlashHomePage && !isDineFlashBuffetHomePage) {
                 // 3️⃣ Ask for it / show error / redirect
                 AppUtils.showToast("No location ID found");
                 // Optionally redirect to a location selection page
