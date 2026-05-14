@@ -207,6 +207,41 @@ def save_subscription(request):
             elif project_name == "dine_flash":
                 order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
+            elif (project_name or "").strip().lower() == "dine_flash_buffet":
+                # Link push subscription to the buffet order: token_no, primary key, or bill / table ref.
+                raw = token_number
+                order = None
+                if raw not in (None, ""):
+                    try:
+                        n = int(raw)
+                    except (TypeError, ValueError):
+                        n = None
+                    if n is not None:
+                        order = (
+                            Order.objects.filter(token_no=n, vendor=vendor)
+                            .order_by("-created_at")
+                            .first()
+                        )
+                        if not order:
+                            order = (
+                                Order.objects.filter(id=n, vendor=vendor)
+                                .order_by("-created_at")
+                                .first()
+                            )
+                    if not order:
+                        order = (
+                            Order.objects.filter(
+                                table_booking_no=str(raw).strip(),
+                                vendor=vendor,
+                            )
+                            .order_by("-created_at")
+                            .first()
+                        )
+                logger.info(
+                    "🔍 [dine_flash_buffet] save_subscription token_number=%r -> order_id=%s",
+                    raw,
+                    getattr(order, "id", None),
+                )
             else:
                 order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via token_no for food flash: {token_number}")

@@ -70,6 +70,9 @@ onDOMReady(async function () {
         if (!e || !i) return false;
         return e === i || e.startsWith(i) || i.startsWith(e);
     };
+    /** Buffet flavour only — `projectsMatch(x, "dine_flash")` is true for buffet because names share a prefix. */
+    const isDineFlashBuffetProject = () =>
+        normalizeProjectName(currentProject()) === "dineflashbuffet";
     const ACTIVE_DINE_BOOKING_KEY = "activeDineBookingId";
     const normalizeBookingId = (value) => {
         if (value === null || value === undefined) return null;
@@ -78,12 +81,14 @@ onDOMReady(async function () {
     };
     const setActiveDineBookingId = (bookingValue) => {
         if (!projectsMatch(currentProject(), "dine_flash")) return;
+        if (isDineFlashBuffetProject()) return;
         const normalized = normalizeBookingId(bookingValue);
         if (!normalized) return;
         AppUtils.storageSet(ACTIVE_DINE_BOOKING_KEY, normalized);
     };
     const getActiveDineBookingId = () => {
         if (!projectsMatch(currentProject(), "dine_flash")) return null;
+        if (isDineFlashBuffetProject()) return null;
         return normalizeBookingId(AppUtils.storageGet(ACTIVE_DINE_BOOKING_KEY));
     };
 
@@ -336,7 +341,12 @@ onDOMReady(async function () {
                 if (!projectsMatch(expectedProject, incomingProject)) {
                     return;
                 }
-                if (projectsMatch(expectedProject, "dine_flash")) {
+                // Table-booking Dine Flash only: buffet shares the "dine_flash" prefix in
+                // `projectsMatch`, so exclude buffet or utility-ready pushes get dropped.
+                if (
+                    projectsMatch(expectedProject, "dine_flash") &&
+                    normalizeProjectName(expectedProject) !== "dineflashbuffet"
+                ) {
                     const incomingBookingId = normalizeBookingId(pushData?.booking_id);
                     const activeBookingId = getActiveDineBookingId();
                     // Only process pushes for the currently active Dine booking.
