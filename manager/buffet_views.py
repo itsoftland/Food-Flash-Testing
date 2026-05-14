@@ -21,6 +21,25 @@ from static.utils.functions.utils import get_vendor_business_day_range
 logger = logging.getLogger(__name__)
 project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
 
+
+def _buffet_vendor_chat_alias(vendor):
+    """
+    Header label for Dine Flash Buffet customer chat / push payloads.
+    Aligns with CHECK_STATUS: vendor.alias_name when set; otherwise outlet name, then vendor.name.
+    """
+    if not vendor:
+        return ""
+    alias = (getattr(vendor, "alias_name", None) or "").strip()
+    if alias:
+        return alias
+    ao = getattr(vendor, "admin_outlet", None)
+    if ao is not None:
+        cn = (getattr(ao, "customer_name", None) or "").strip()
+        if cn:
+            return cn
+    return (getattr(vendor, "name", None) or "").strip()
+
+
 # BuffetOrderItem.status values (see core.config.status_choices "dine_flash_buffet")
 _BUFFET_LINE_STATUSES = frozenset(
     {"created", "preparing", "ready", "delivered", "cancelled", "operation_closed"}
@@ -180,7 +199,8 @@ def _notify_item_update(vendor, item, status_text):
             "item_id": item.id,
             "item_name": item.utility.display_name if item.utility else "Unknown",
             "status": status_text,
-            "type": "buffet_item_update"
+            "type": "buffet_item_update",
+            "alias_name": _buffet_vendor_chat_alias(vendor),
         })
     )
     
@@ -224,7 +244,8 @@ def _notify_item_update(vendor, item, status_text):
         "status": status_text,
         "title": push_title,
         "body": message_body,
-        "message": message_body
+        "message": message_body,
+        "alias_name": _buffet_vendor_chat_alias(vendor),
     }
     
     send_order_update(vendor, push_payload)
@@ -495,11 +516,13 @@ def buffet_utilities_orders_summary(request):
 
     message_body = _human_buffet_status_message(order, utilities_payload)
 
+    chat_alias = _buffet_vendor_chat_alias(vendor)
     chat_payload = {
         "type": "buffet_utilities_status",
         "utilities": utilities_payload,
         "token_no": order.token_no,
         "booking_id": order.id,
+        "alias_name": chat_alias,
     }
 
     push_payload = {
@@ -511,6 +534,7 @@ def buffet_utilities_orders_summary(request):
         "title": "Buffet station update",
         "body": message_body,
         "message": message_body,
+        "alias_name": chat_alias,
     }
 
     try:
@@ -785,8 +809,10 @@ def mark_booking_delivered(request):
                 "vendor_id": vendor.vendor_id,
                 "token_no": order.token_no,
                 "booking_id": order.id,
-                "message": "Your order has been delivered. Thank you!"
+                "message": "Your order has been delivered. Thank you!",
             }
+            if project_name == "dine_flash_buffet":
+                push_payload["alias_name"] = _buffet_vendor_chat_alias(vendor)
             send_order_update(vendor, push_payload)
             notify_web_push(order, vendor, push_payload)
                 
