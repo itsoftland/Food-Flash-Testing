@@ -246,20 +246,24 @@
                 <div class="mb-4">
                     ${item.remarks ? `<div class="alert alert-warning py-2 px-3 mb-0"><strong>Note:</strong> ${item.remarks}</div>` : '<p class="text-muted small italic">No special instructions</p>'}
                 </div>
-                <button class="btn btn-lg btn-success ready-btn w-100 shadow-sm" onclick="markReady(${item.id})">Mark as Ready</button>
+                <button class="btn btn-lg btn-success ready-btn w-100 shadow-sm" onclick="markReady(${item.id}, ${item.token_no}, ${item.utility_id == null ? 'null' : item.utility_id})">Mark as Ready</button>
             `;
             grid.appendChild(card);
         });
     }
 
-    function markReady(itemId) {
+    function markReady(itemId, tokenNo, utilityId) {
+        const body = { item_id: itemId, token_no: tokenNo, status: "ready" };
+        if (utilityId !== null && utilityId !== undefined) {
+            body.utility_id = utilityId;
+        }
         fetch("{% url 'manager:buffet_update_item_status' %}", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "X-CSRFToken": getCookie("csrftoken")
             },
-            body: JSON.stringify({ item_id: itemId, status: "ready" })
+            body: JSON.stringify(body)
         })
         .then(res => res.json())
         .then(data => {

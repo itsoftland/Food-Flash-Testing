@@ -89,6 +89,25 @@
             return;
         }
 
+        /**
+         * Session data from utility_selection can miss `options` (stale tab, old builds, or
+         * server returning empty options earlier). Re-sync from utility_list so predefined
+         * options match the server (Dine Flash Buffet flow only — this template is buffet-only).
+         */
+        const mergePredefinedOptionsFromServer = (data) => {
+            const byId = {};
+            (data.utilities || []).forEach((u) => {
+                byId[String(u.id)] = u.options || [];
+            });
+            selectedUtilities.forEach((u) => {
+                const sid = String(u.id);
+                if (Object.prototype.hasOwnProperty.call(byId, sid)) {
+                    u.options = byId[sid];
+                }
+            });
+        };
+
+        const startUi = () => {
         const container = document.getElementById("options-container");
         
         const generateCheckboxes = (idPrefix, options) => {
@@ -251,6 +270,13 @@
                 submitBtn.innerText = "Submit Order";
             });
         });
+        };
+
+        fetch(`{% url 'utility_list' %}?vendor_id=${encodeURIComponent(vendorId)}`)
+            .then((res) => res.json())
+            .then((data) => mergePredefinedOptionsFromServer(data))
+            .catch((err) => console.error(err))
+            .finally(() => startUi());
     });
 </script>
 {% endblock %}

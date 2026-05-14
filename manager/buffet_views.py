@@ -144,6 +144,8 @@ def get_buffet_kitchen_items(request):
         for item in items:
             data.append({
                 "id": item.id,
+                "item_id": item.id,
+                "utility_id": item.utility_id,
                 "order_id": item.order.id,
                 "token_no": item.order.token_no,
                 "table_number": item.order.table_booking_no,
@@ -545,10 +547,16 @@ def buffet_update_item_status(request):
     """
     Dine Flash Buffet: set a single BuffetOrderItem line status.
 
-    Body (either):
+    Preferred body:
       - {"item_id": <int>, "status": ...}
+      Optional disambiguation / validation on the same request:
+      - {"token_no": <int>, "item_id": <int>, "status": ...}
+      - {"token_no": <int>, "utility_id": <int>, "item_id": <int>, "status": ...}
+
+    Legacy (only when exactly one line exists for that token + utility today):
       - {"token_no": <int>, "utility_id": <int>, "status": ...}
-        (order is resolved for the current vendor business day, same as kitchen list)
+        If multiple lines share the same utility on that order, the API returns 400 and
+        lists ``item_ids`` so the client must send ``item_id``.
     """
     if project_name != "dine_flash_buffet":
         return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -573,18 +581,18 @@ def _update_buffet_item_status(request, new_status):
         utility_id = request.data.get("utility_id")
 
         has_item_id = item_id not in (None, "")
-        has_token_pair = token_no not in (None, "") and utility_id not in (None, "")
+        has_token = token_no not in (None, "")
+        has_utility = utility_id not in (None, "")
+        has_token_utility_pair = has_token and has_utility
 
-        if not has_item_id and not has_token_pair:
+        if not has_item_id and not has_token_utility_pair:
             return Response(
                 {
-                    "error": "Either item_id or both token_no and utility_id are required.",
+                    "error": (
+                        "Send item_id (recommended), or both token_no and utility_id "
+                        "only when a single buffet line exists for that pair."
+                    ),
                 },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if has_item_id and has_token_pair:
-            return Response(
-                {"error": "Provide item_id or token_no with utility_id, not both."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -593,6 +601,8 @@ def _update_buffet_item_status(request, new_status):
 
         if not user_profile:
             return Response({"error": "User profile not found"}, status=status.HTTP_403_FORBIDDEN)
+
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
 
         with transaction.atomic():
             if has_item_id:
@@ -605,6 +615,41 @@ def _update_buffet_item_status(request, new_status):
                     .select_related("utility", "order")
                     .filter(id=item_id_int, order__vendor=vendor)
                 )
+                if not items:
+                    return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
+                ref_item = items[0]
+                if not (start_dt <= ref_item.order.created_at <= end_dt):
+                    return Response(
+                        {"error": "Buffet item not found for the current business day."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+                if has_token:
+                    try:
+                        token_no_int = int(token_no)
+                    except (ValueError, TypeError):
+                        return Response(
+                            {"error": "token_no must be an integer"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if ref_item.order.token_no != token_no_int:
+                        return Response(
+                            {"error": "token_no does not match this buffet line."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                if has_utility:
+                    try:
+                        utility_id_int = int(utility_id)
+                    except (ValueError, TypeError):
+                        return Response(
+                            {"error": "utility_id must be an integer"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if ref_item.utility_id != utility_id_int:
+                        return Response(
+                            {"error": "utility_id does not match this buffet line."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                items = [ref_item]
             else:
                 try:
                     token_no_int = int(token_no)
@@ -614,7 +659,6 @@ def _update_buffet_item_status(request, new_status):
                         {"error": "token_no and utility_id must be integers"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                start_dt, end_dt = get_vendor_business_day_range(vendor)
                 order = (
                     Order.objects.select_for_update()
                     .filter(
@@ -631,6 +675,17 @@ def _update_buffet_item_status(request, new_status):
                     .select_related("utility", "order")
                     .filter(order=order, utility_id=utility_id_int)
                 )
+                if len(items) > 1:
+                    return Response(
+                        {
+                            "error": (
+                                "Multiple buffet lines share this token and utility. "
+                                "Include item_id in the request to update exactly one line."
+                            ),
+                            "item_ids": [row.id for row in items],
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             if not items:
                 return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -657,6 +712,7 @@ def _update_buffet_item_status(request, new_status):
                 return Response(
                     {
                         "message": f"Item is already {new_status}",
+                        "item_id": ref.id,
                         "utility_id": ref.utility_id,
                         "token_no": ref.order.token_no,
                     },
@@ -667,6 +723,7 @@ def _update_buffet_item_status(request, new_status):
         return Response(
             {
                 "message": f"Item marked as {new_status} successfully",
+                "item_id": ref.id,
                 "utility_id": ref.utility_id,
                 "token_no": ref.order.token_no,
             },

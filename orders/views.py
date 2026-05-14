@@ -1633,7 +1633,7 @@ def utility_list(request):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        is_buffet = getattr(settings, 'PROJECT_NAME', '') == 'dine_flash_buffet'
+        is_buffet = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash_buffet"
         utilities_qs = Utility.objects.filter(
             vendor=vendor,
             is_active=True
