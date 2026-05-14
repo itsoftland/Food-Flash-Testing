@@ -969,8 +969,26 @@ onDOMReady(async function () {
                 PushHealthMonitorService.startMonitor(bookingId, data.vendor_id);
             }
             else {
-                await PushSubscriptionService.subscribe(tokenFromQR, data.vendor_id);
+                // Dine Flash Buffet: customers often open the page without QR params, so
+                // `tokenFromQR` is empty while `token` / `data.token_no` hold the order token.
+                // Linking the push subscription must use that token or web push finds no rows.
+                let subscribeToken = tokenFromQR;
+                if (type === "buffetstatus") {
+                    const fromResponse = data?.token_no;
+                    subscribeToken =
+                        fromResponse != null && String(fromResponse).trim() !== ""
+                            ? fromResponse
+                            : token;
+                }
+                const resolved =
+                    subscribeToken != null && String(subscribeToken).trim() !== ""
+                        ? subscribeToken
+                        : token;
+                await PushSubscriptionService.subscribe(resolved, data.vendor_id);
                 PushHealthMonitorService.startMonitor(token, data.vendor_id);
+                if (type === "buffetstatus" && resolved != null && String(resolved).trim() !== "") {
+                    await AppUtils.setToken(String(resolved));
+                }
             }
             return data;  // << important: return the fetched data
         } catch (err) {
