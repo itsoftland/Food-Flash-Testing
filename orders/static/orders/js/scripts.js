@@ -219,7 +219,17 @@ onDOMReady(async function () {
 
     MenuModalService.init();
     FeedbackService.init();
-    PermissionService.init();
+    // Dine Flash Buffet: same fast permission UX as table_booking — keeps the native
+    // notification prompt in the user-gesture chain (helps mobile / strict browsers).
+    const isDineFlashBuffetSurface =
+        (typeof window.PROJECT_NAME === "string" &&
+            window.PROJECT_NAME.trim().toLowerCase() === "dine_flash_buffet") ||
+        (window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
+    if (isDineFlashBuffetSurface) {
+        PermissionService.init({ dineFlashFastPermissionUX: true });
+    } else {
+        PermissionService.init();
+    }
     PermissionService.showModal();
     
     // Example usage: Get the last active vendor ID
