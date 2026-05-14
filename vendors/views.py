@@ -146,6 +146,16 @@ def save_subscription(request):
             is_match = (v_project_norm.startswith(server_project_norm) or 
                         server_project_norm.startswith(v_project_norm))
 
+            # Dine Flash Buffet: outlets often keep food_flash (or foodflash*) project_code while
+            # the customer PWA runs on dine_flash_buffet — same vendor/orders, stricter server slug.
+            v_compact = v_project_norm.replace(" ", "")
+            if (
+                not is_match
+                and (project_name or "").strip().lower() == "dine_flash_buffet"
+                and v_compact.startswith("foodflash")
+            ):
+                is_match = True
+
             if not is_match:
                 logger.warning("🚫 Cross-flavour subscription rejected | Vendor: %s, Server: %s",
                                vendor.admin_outlet.project_code, project_name)

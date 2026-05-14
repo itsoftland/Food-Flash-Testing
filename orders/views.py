@@ -1216,10 +1216,11 @@ def manifest(request):
         "airline_flash": "airlineflash-mini-logo.webp",
         "service_flash": "serviceflash-mini-logo.webp",
         "dine_flash": "dineflash-mini-logo.webp",
+        "dine_flash_buffet": "dineflash-mini-logo.webp",
         "calleron": "calleron-mini-logo.webp",
     }
 
-    icon_filename = icon_map.get(project_name.lower(), "calleron-icon.webp")
+    icon_filename = icon_map.get(project_name.lower(), "calleron-mini-logo.webp")
     base_path = f"/{project_name}/"
     version_suffix = f"?v={app_version}"
 
