@@ -230,7 +230,7 @@ def _notify_item_update(vendor, item, status_text):
 
 
 def _group_buffet_lines_by_utility(queryset):
-    """Build [{id, name, lines: [{status, quantity, item_id}]}] preserving utility order."""
+    """Build [{id, name, lines: [{status, quantity, item_id, customizations, remarks}]}] preserving utility order."""
     groups = OrderedDict()
     for row in queryset:
         if not row.utility_id or not row.utility:
@@ -243,7 +243,13 @@ def _group_buffet_lines_by_utility(queryset):
                 "lines": [],
             }
         groups[uid]["lines"].append(
-            {"status": row.status, "quantity": row.quantity, "item_id": row.id}
+            {
+                "status": row.status,
+                "quantity": row.quantity,
+                "item_id": row.id,
+                "customizations": row.customizations,
+                "remarks": row.remarks,
+            }
         )
     return list(groups.values())
 
@@ -251,7 +257,7 @@ def _group_buffet_lines_by_utility(queryset):
 def _buffet_selected_utilities_status_payload(order, utility_ids, statuses_filter):
     """
     Returns (utilities list | None, error str | None).
-    utilities: [{id, name, lines: [{status, quantity, item_id}]}, ...]
+    utilities: [{id, name, lines: [{status, quantity, item_id, customizations, remarks}]}, ...]
 
     statuses_filter: None → all line statuses; non-empty list → only those statuses.
     """

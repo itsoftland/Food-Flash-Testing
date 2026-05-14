@@ -58,6 +58,28 @@ logger = logging.getLogger(__name__)
 # Project name
 project_name = getattr(settings, 'PROJECT_NAME', 'food_flash')
 
+
+def _normalized_project_slug(value):
+    return str(value or "").lower().replace("_", "").replace("-", "").replace(" ", "").strip()
+
+
+def _is_dine_flash_buffet_server(name=None):
+    """
+    True when this process is the buffet customer stack.
+    PROJECT_NAME is usually dine_flash_buffet; some envs use a display-style value
+    (e.g. Buffet FLASH) so we match normalized slugs too.
+    """
+    raw = (name if name is not None else getattr(settings, "PROJECT_NAME", "")) or ""
+    if raw.strip().lower() == "dine_flash_buffet":
+        return True
+    slug = _normalized_project_slug(raw)
+    if slug == "dineflashbuffet" or slug.startswith("dineflashbuffet"):
+        return True
+    if slug == "buffetflash":
+        return True
+    return False
+
+
 # API endpoints
 
 @api_view(['GET'])
@@ -149,11 +171,7 @@ def save_subscription(request):
             # Dine Flash Buffet: outlets often keep food_flash (or foodflash*) project_code while
             # the customer PWA runs on dine_flash_buffet — same vendor/orders, stricter server slug.
             v_compact = v_project_norm.replace(" ", "")
-            if (
-                not is_match
-                and (project_name or "").strip().lower() == "dine_flash_buffet"
-                and v_compact.startswith("foodflash")
-            ):
+            if not is_match and _is_dine_flash_buffet_server() and v_compact.startswith("foodflash"):
                 is_match = True
 
             if not is_match:
@@ -217,7 +235,7 @@ def save_subscription(request):
             elif project_name == "dine_flash":
                 order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
-            elif (project_name or "").strip().lower() == "dine_flash_buffet":
+            elif _is_dine_flash_buffet_server():
                 # Link push subscription to the buffet order: token_no, primary key, or bill / table ref.
                 raw = token_number
                 order = None
