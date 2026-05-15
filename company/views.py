@@ -34,7 +34,14 @@ from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
-from vendors.utils import validate_buffet_utility_image_upload, buffet_utility_image_absolute_url
+from vendors.utils import (
+    buffet_utility_image_payload,
+    validate_buffet_food_type,
+    create_buffet_utility_images,
+    apply_buffet_utility_image_changes,
+    _collect_buffet_upload_files,
+    _BUFFET_UTILITY_IMAGES_MAX_COUNT,
+)
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
 from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
@@ -1618,11 +1625,13 @@ def create_utility(request):
         token_mode = request.data.get("token_mode")
         prefix = request.data.get("prefix", "")
         is_active = request.data.get("is_active")
+        food_type = request.data.get("food_type")
 
         logger.debug(
             f"[UtilityCreate] Received data: vendor_id={vendor_id}, "
             f"utility_name={utility_name}, display_name={display_name}, "
-            f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}, is_active={is_active}"
+            f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}, "
+            f"is_active={is_active}, food_type={food_type}"
         )
 
         # ---- Basic Field Validations ----
@@ -1639,6 +1648,11 @@ def create_utility(request):
             return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+
+        if is_buffet:
+            food_type_err = validate_buffet_food_type(food_type)
+            if food_type_err:
+                return Response({"error": food_type_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -1741,31 +1755,43 @@ def create_utility(request):
 
         print("is_active:", is_active)
 
-        buffet_upload = None
+        buffet_uploads = []
         if is_buffet:
-            buffet_upload = request.FILES.get("buffet_utility_image")
-            if buffet_upload:
-                upload_err = validate_buffet_utility_image_upload(buffet_upload)
-                if upload_err:
-                    return Response(
-                        {"error": upload_err},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            buffet_uploads = _collect_buffet_upload_files(request)
+            if len(buffet_uploads) > _BUFFET_UTILITY_IMAGES_MAX_COUNT:
+                return Response(
+                    {
+                        "error": (
+                            f"At most {_BUFFET_UTILITY_IMAGES_MAX_COUNT} images "
+                            "allowed per utility."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # ---- Create Utility ----
-        create_kwargs = dict(
-            vendor=vendor,
-            utility_name=utility_name,
-            display_name=display_name,
-            display_code=display_code,
-            token_mode=token_mode,
-            prefix=prefix,
-            is_active=is_active,
-        )
-        if is_buffet and buffet_upload:
-            create_kwargs["buffet_utility_image"] = buffet_upload
+        create_kwargs = {
+            "vendor": vendor,
+            "utility_name": utility_name,
+            "display_name": display_name,
+            "display_code": display_code,
+            "token_mode": token_mode,
+            "prefix": prefix,
+            "is_active": is_active,
+        }
+        if is_buffet:
+            create_kwargs["food_type"] = food_type
 
         utility = Utility.objects.create(**create_kwargs)
+
+        if is_buffet and buffet_uploads:
+            upload_err = create_buffet_utility_images(utility, buffet_uploads)
+            if upload_err:
+                utility.delete()
+                return Response(
+                    {"error": upload_err},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         logger.info(f"[UtilityCreate] Utility created successfully | ID={utility.id}")
 
@@ -1779,7 +1805,9 @@ def create_utility(request):
             "is_active": utility.is_active,
         }
         if is_buffet:
-            utility_payload["image_url"] = buffet_utility_image_absolute_url(request, utility)
+            utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
+            utility_payload["food_type"] = utility.food_type
+            utility_payload.update(buffet_utility_image_payload(request, utility))
 
         return Response(
             {
@@ -2504,54 +2532,40 @@ def get_utilities(request):
         # Get vendor_id from query parameter
         vendor_id = request.query_params.get('vendor_id')
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
-        utility_fields = [
-            'id',
-            'utility_name',
-            'display_name',
-            'display_code',
-            'prefix',
-            'token_mode',
-            'is_active',
-            'vendor__id',
-            'vendor__vendor_id',
-            'vendor__name',
-            'vendor__location',
-        ]
-        if is_buffet:
-            utility_fields.append('buffet_utility_image')
+
+        def _utilities_queryset():
+            qs = Utility.objects.filter(
+                vendor__admin_outlet=admin_outlet
+            ).select_related("vendor")
+            if is_buffet:
+                qs = qs.prefetch_related("buffet_images")
+            return qs
+
+        def _utility_row(utility):
+            row = {
+                "id": utility.id,
+                "utility_name": utility.utility_name,
+                "display_name": utility.display_name,
+                "display_code": utility.display_code,
+                "prefix": utility.prefix,
+                "token_mode": utility.token_mode,
+                "is_active": utility.is_active,
+                "vendor": utility.vendor_id,
+                "vendor_id": utility.vendor.vendor_id,
+                "vendor_name": utility.vendor.name,
+                "vendor_location": utility.vendor.location,
+            }
+            if is_buffet:
+                row["food_type"] = utility.food_type
+                row.update(buffet_utility_image_payload(request, utility))
+            return row
 
         if vendor_id:
             try:
                 vendor_id = int(vendor_id)
-                # Fetch utilities for specific vendor
-                utilities = Utility.objects.filter(
-                    vendor__vendor_id=vendor_id,
-                    vendor__admin_outlet=admin_outlet
-                ).values(*utility_fields)
+                utilities = _utilities_queryset().filter(vendor__vendor_id=vendor_id)
 
-                utilities_list = []
-                for util in utilities:
-                    row = {
-                        'id': util['id'],
-                        'utility_name': util['utility_name'],
-                        'display_name': util['display_name'],
-                        'display_code': util['display_code'],
-                        'prefix': util['prefix'],
-                        'token_mode': util['token_mode'],
-                        'is_active': util['is_active'],
-                        'vendor': util['vendor__id'],
-                        'vendor_id': util['vendor__vendor_id'],
-                        'vendor_name': util['vendor__name'],
-                        'vendor_location': util['vendor__location']
-                    }
-                    if is_buffet:
-                        path = util.get('buffet_utility_image')
-                        row['image_url'] = (
-                            request.build_absolute_uri(default_storage.url(path))
-                            if path
-                            else ''
-                        )
-                    utilities_list.append(row)
+                utilities_list = [_utility_row(util) for util in utilities]
 
                 # Attach options
                 utility_ids = [u['id'] for u in utilities_list]
@@ -2582,34 +2596,8 @@ def get_utilities(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            # Fetch all utilities for all vendors of this admin outlet
-            utilities = Utility.objects.filter(
-                vendor__admin_outlet=admin_outlet
-            ).values(*utility_fields)
-
-            utilities_list = []
-            for util in utilities:
-                row = {
-                    'id': util['id'],
-                    'utility_name': util['utility_name'],
-                    'display_name': util['display_name'],
-                    'display_code': util['display_code'],
-                    'prefix': util['prefix'],
-                    'token_mode': util['token_mode'],
-                    'is_active': util['is_active'],
-                    'vendor': util['vendor__id'],
-                    'vendor_id': util['vendor__vendor_id'],
-                    'vendor_name': util['vendor__name'],
-                    'vendor_location': util['vendor__location']
-                }
-                if is_buffet:
-                    path = util.get('buffet_utility_image')
-                    row['image_url'] = (
-                        request.build_absolute_uri(default_storage.url(path))
-                        if path
-                        else ''
-                    )
-                utilities_list.append(row)
+            utilities = _utilities_queryset()
+            utilities_list = [_utility_row(util) for util in utilities]
 
             # Attach options
             utility_ids = [u['id'] for u in utilities_list]
@@ -2740,6 +2728,7 @@ def update_utility(request):
         display_code = request.data.get('display_code')
         token_mode = request.data.get('token_mode')
         prefix = request.data.get('prefix', '')
+        food_type = request.data.get('food_type')
 
         if not utility_id:
             return Response({"error": "utility_id is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -2758,6 +2747,11 @@ def update_utility(request):
             return Response({"error": "You don't have permission to modify this utility"}, status=status.HTTP_403_FORBIDDEN)
 
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+
+        if is_buffet:
+            food_type_err = validate_buffet_food_type(food_type)
+            if food_type_err:
+                return Response({"error": food_type_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -2823,32 +2817,16 @@ def update_utility(request):
         utility.display_code = display_code
         utility.token_mode = token_mode
         utility.prefix = prefix
+        if is_buffet:
+            utility.food_type = food_type
 
         if is_buffet:
-            clear_img = str(request.data.get("clear_buffet_image", "")).lower() in (
-                "1", "true", "yes", "on"
-            )
-            upload = request.FILES.get("buffet_utility_image")
-            if clear_img and upload:
+            image_err = apply_buffet_utility_image_changes(utility, request)
+            if image_err:
                 return Response(
-                    {
-                        "error": "Cannot remove image and upload a new file in the same request."
-                    },
+                    {"error": image_err},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if upload:
-                upload_err = validate_buffet_utility_image_upload(upload)
-                if upload_err:
-                    return Response(
-                        {"error": upload_err},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            if clear_img:
-                if utility.buffet_utility_image:
-                    utility.buffet_utility_image.delete(save=False)
-                utility.buffet_utility_image = None
-            elif upload:
-                utility.buffet_utility_image.save(upload.name, upload, save=False)
 
         utility.save()
 
@@ -2862,7 +2840,9 @@ def update_utility(request):
             "is_active": utility.is_active,
         }
         if is_buffet:
-            utility_response["image_url"] = buffet_utility_image_absolute_url(request, utility)
+            utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
+            utility_response["food_type"] = utility.food_type
+            utility_response.update(buffet_utility_image_payload(request, utility))
 
         return Response({
             "success": True,

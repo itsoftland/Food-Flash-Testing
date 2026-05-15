@@ -66,10 +66,20 @@
 
                     {% if PROJECT_NAME == "dine_flash_buffet" %}
                     <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="food-type-select">Food Type</label>
+                            <select id="food-type-select" name="food_type" class="form-select" required>
+                                <option value="">Select food type</option>
+                                <option value="veg">Veg</option>
+                                <option value="non_veg">Non Veg</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-12 mb-3">
-                            <label class="form-label" for="utility-buffet-image">Utility image <span class="text-muted fw-normal">(optional)</span></label>
-                            <input type="file" id="utility-buffet-image" name="buffet_utility_image" class="form-control" accept="image/jpeg,image/png,image/gif,image/webp">
-                            <small class="form-text text-muted">JPEG, PNG, GIF or WebP, max 2 MB. The saved file is served as a URL to kitchen apps (assigned utilities API).</small>
+                            <label class="form-label" for="utility-buffet-images">Utility images <span class="text-muted fw-normal">(optional, up to 3)</span></label>
+                            <input type="file" id="utility-buffet-images" name="buffet_utility_images" class="form-control" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
+                            <small class="form-text text-muted">Select up to 3 images. JPEG, PNG, GIF or WebP, max 2 MB each. Served to kitchen apps via the assigned utilities API.</small>
                         </div>
                     </div>
                     {% endif %}

@@ -20,6 +20,7 @@ _DINE_FLASH_FONT_SIZE_TO_INT = {
 
 
 _BUFFET_UTILITY_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+_BUFFET_UTILITY_IMAGES_MAX_COUNT = 3
 _BUFFET_IMAGE_CONTENT_TYPES = frozenset(
     {"image/jpeg", "image/png", "image/gif", "image/webp"}
 )
@@ -44,10 +45,51 @@ def validate_buffet_utility_image_upload(upload_file):
     return None
 
 
-def buffet_utility_image_absolute_url(request, utility):
-    """
-    Absolute URL for Utility.buffet_utility_image, or empty string if unset.
-    """
+def _buffet_image_record_absolute_url(request, image_record):
+    if not image_record or not getattr(image_record, "image", None):
+        return ""
+    try:
+        path = image_record.image.url
+    except ValueError:
+        return ""
+    if request:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def _ordered_buffet_images(utility):
+    return list(
+        utility.buffet_images.order_by("sort_order", "id")[
+            :_BUFFET_UTILITY_IMAGES_MAX_COUNT
+        ]
+    )
+
+
+def _buffet_image_count(utility):
+    count = utility.buffet_images.count()
+    if count:
+        return count
+    field = getattr(utility, "buffet_utility_image", None)
+    if field and getattr(field, "name", None):
+        return 1
+    return 0
+
+
+def _ensure_legacy_buffet_image_migrated(utility):
+    from .models import BuffetUtilityImage
+
+    if utility.buffet_images.exists():
+        return
+    field = getattr(utility, "buffet_utility_image", None)
+    if field and getattr(field, "name", None):
+        BuffetUtilityImage.objects.create(
+            utility=utility,
+            image=field,
+            sort_order=0,
+        )
+
+
+def _legacy_buffet_image_absolute_url(request, utility):
     field = getattr(utility, "buffet_utility_image", None)
     if not field or not getattr(field, "name", None):
         return ""
@@ -58,6 +100,205 @@ def buffet_utility_image_absolute_url(request, utility):
     if request:
         return request.build_absolute_uri(path)
     return path
+
+
+def buffet_utility_image_absolute_urls(request, utility):
+    """Absolute URLs for a utility's buffet images (max 3)."""
+    urls = [
+        url
+        for img in _ordered_buffet_images(utility)
+        if (url := _buffet_image_record_absolute_url(request, img))
+    ]
+    if urls:
+        return urls
+    legacy = _legacy_buffet_image_absolute_url(request, utility)
+    return [legacy] if legacy else []
+
+
+def buffet_utility_image_absolute_url(request, utility):
+    """First buffet image URL, or empty string (backward compatible)."""
+    urls = buffet_utility_image_absolute_urls(request, utility)
+    return urls[0] if urls else ""
+
+
+def validate_buffet_food_type(food_type):
+    """Return an error message if food_type is invalid for Dine Flash Buffet utilities."""
+    from .models import Utility
+
+    if not food_type:
+        return "Food type is required"
+    if food_type not in (Utility.FOOD_TYPE_VEG, Utility.FOOD_TYPE_NON_VEG):
+        return "Food type must be Veg or Non Veg"
+    return None
+
+
+def buffet_utility_image_payload(request, utility):
+    """API payload fields for buffet utility images."""
+    buffet_images = []
+    for img in _ordered_buffet_images(utility):
+        url = _buffet_image_record_absolute_url(request, img)
+        if not url:
+            continue
+        buffet_images.append({"id": img.id, "url": url})
+    if not buffet_images:
+        legacy = _legacy_buffet_image_absolute_url(request, utility)
+        if legacy:
+            buffet_images.append({"id": None, "url": legacy})
+    urls = [item["url"] for item in buffet_images]
+    return {
+        "image_url": urls[0] if urls else "",
+        "image_urls": urls,
+        "buffet_images": buffet_images,
+    }
+
+
+def _parse_remove_buffet_image_ids(request_data):
+    raw = request_data.get("remove_buffet_image_ids")
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        ids = raw
+    elif isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            ids = parsed if isinstance(parsed, list) else [raw]
+        except (json.JSONDecodeError, TypeError):
+            ids = [part.strip() for part in raw.split(",") if part.strip()]
+    else:
+        return []
+    result = []
+    for value in ids:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _collect_buffet_upload_files(request):
+    uploads = list(request.FILES.getlist("buffet_utility_images"))
+    if not uploads:
+        single = request.FILES.get("buffet_utility_image")
+        if single:
+            uploads = [single]
+    return uploads
+
+
+def sync_buffet_utility_legacy_image(utility):
+    """Keep legacy single ImageField in sync with the first buffet image."""
+    from .models import BuffetUtilityImage
+
+    first = (
+        utility.buffet_images.order_by("sort_order", "id").first()
+    )
+    if first:
+        utility.buffet_utility_image = first.image
+        utility.save(update_fields=["buffet_utility_image"])
+        return
+    if utility.buffet_utility_image:
+        utility.buffet_utility_image.delete(save=False)
+    utility.buffet_utility_image = None
+    utility.save(update_fields=["buffet_utility_image"])
+
+
+def clear_buffet_utility_images(utility):
+    from .models import BuffetUtilityImage
+
+    for record in BuffetUtilityImage.objects.filter(utility=utility):
+        if record.image:
+            record.image.delete(save=False)
+        record.delete()
+    if utility.buffet_utility_image:
+        utility.buffet_utility_image.delete(save=False)
+    utility.buffet_utility_image = None
+    utility.save(update_fields=["buffet_utility_image"])
+
+
+def create_buffet_utility_images(utility, upload_files):
+    """Attach up to 3 images on utility create. Returns error message or None."""
+    from django.db.models import Max
+
+    from .models import BuffetUtilityImage
+
+    uploads = list(upload_files or [])[:_BUFFET_UTILITY_IMAGES_MAX_COUNT]
+    if len(upload_files or []) > _BUFFET_UTILITY_IMAGES_MAX_COUNT:
+        return f"At most {_BUFFET_UTILITY_IMAGES_MAX_COUNT} images allowed per utility."
+    _ensure_legacy_buffet_image_migrated(utility)
+    if _buffet_image_count(utility) + len(uploads) > _BUFFET_UTILITY_IMAGES_MAX_COUNT:
+        return f"At most {_BUFFET_UTILITY_IMAGES_MAX_COUNT} images allowed per utility."
+    for upload in uploads:
+        upload_err = validate_buffet_utility_image_upload(upload)
+        if upload_err:
+            return upload_err
+    max_sort = utility.buffet_images.aggregate(Max("sort_order"))["sort_order__max"]
+    next_sort = 0 if max_sort is None else max_sort + 1
+    for upload in uploads:
+        BuffetUtilityImage.objects.create(
+            utility=utility,
+            image=upload,
+            sort_order=next_sort,
+        )
+        next_sort += 1
+    if uploads:
+        sync_buffet_utility_legacy_image(utility)
+    return None
+
+
+def apply_buffet_utility_image_changes(utility, request):
+    """
+    Update buffet images on utility edit (remove selected, clear all, add new).
+    Returns error message or None.
+    """
+    from django.db.models import Max
+
+    from .models import BuffetUtilityImage
+
+    clear_all = str(
+        request.data.get("clear_buffet_images", "")
+        or request.data.get("clear_buffet_image", "")
+    ).lower() in ("1", "true", "yes", "on")
+    uploads = _collect_buffet_upload_files(request)
+    remove_ids = _parse_remove_buffet_image_ids(request.data)
+
+    if clear_all and (uploads or remove_ids):
+        return "Cannot clear all images and remove or upload in the same request."
+    if clear_all:
+        clear_buffet_utility_images(utility)
+        return None
+
+    _ensure_legacy_buffet_image_migrated(utility)
+
+    if remove_ids:
+        for record in BuffetUtilityImage.objects.filter(
+            utility=utility, id__in=remove_ids
+        ):
+            if record.image:
+                record.image.delete(save=False)
+            record.delete()
+
+    if uploads:
+        remaining = _buffet_image_count(utility)
+        if remaining + len(uploads) > _BUFFET_UTILITY_IMAGES_MAX_COUNT:
+            return (
+                f"At most {_BUFFET_UTILITY_IMAGES_MAX_COUNT} images allowed per utility."
+            )
+        for upload in uploads:
+            upload_err = validate_buffet_utility_image_upload(upload)
+            if upload_err:
+                return upload_err
+        max_sort = utility.buffet_images.aggregate(Max("sort_order"))["sort_order__max"]
+        next_sort = 0 if max_sort is None else max_sort + 1
+        for upload in uploads:
+            BuffetUtilityImage.objects.create(
+                utility=utility,
+                image=upload,
+                sort_order=next_sort,
+            )
+            next_sort += 1
+
+    if remove_ids or uploads:
+        sync_buffet_utility_legacy_image(utility)
+    return None
 
 
 def _map_font_size_to_int(size_value):

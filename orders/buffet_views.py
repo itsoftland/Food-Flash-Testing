@@ -26,6 +26,18 @@ from core.config.status_choices import STATUS_CHOICES_MAP
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "").strip().lower()
 
+# Aligns with dine_flash table_booking.js special_notes limit (200).
+BUFFET_ITEM_REMARKS_MAX_LENGTH = 200
+
+
+def _buffet_item_remarks_text(raw):
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    return str(raw)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def buffet_submit_order(request):
@@ -48,6 +60,19 @@ def buffet_submit_order(request):
     vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
     if not vendor:
         return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    for item in items_data:
+        remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
+        if len(remarks) > BUFFET_ITEM_REMARKS_MAX_LENGTH:
+            return Response(
+                {
+                    "error": (
+                        f"Special instructions cannot exceed {BUFFET_ITEM_REMARKS_MAX_LENGTH} "
+                        "characters per item."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     with transaction.atomic():
         reset_counters_if_new_business_day(vendor, None)
@@ -75,7 +100,7 @@ def buffet_submit_order(request):
                 continue
             
             customizations = item.get("customizations", [])
-            item_remarks = item.get("remarks", "")
+            item_remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
             is_grouped = item.get("is_grouped", False)
             quantity = int(item.get("quantity", 1))
 
@@ -136,7 +161,11 @@ def buffet_utility_selection(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def buffet_combined_options(request):
-    return render(request, 'orders/buffet/combined_options.html')
+    return render(
+        request,
+        "orders/buffet/combined_options.html",
+        {"buffet_remarks_max_length": BUFFET_ITEM_REMARKS_MAX_LENGTH},
+    )
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

@@ -42,7 +42,10 @@ from vendors.models import (
     VendorConfig,
 )
 
-from vendors.utils import validate_buffet_utility_image_upload, buffet_utility_image_absolute_url
+from vendors.utils import (
+    buffet_utility_image_payload,
+    apply_buffet_utility_image_changes,
+)
 
 logger = logging.getLogger(__name__)
 base = getattr(settings, 'LOGIN_URL')
@@ -351,6 +354,8 @@ def get_all_utilities(request):
         status_filter = request.GET.get('status', '')
 
         utilities = Utility.objects.all().select_related('vendor', 'vendor__admin_outlet')
+        if PROJECT_NAME == "dine_flash_buffet":
+            utilities = utilities.prefetch_related("buffet_images")
 
         if search_query:
             utilities = utilities.filter(
@@ -390,7 +395,7 @@ def get_all_utilities(request):
                 'options': options_list
             }
             if PROJECT_NAME == "dine_flash_buffet":
-                row['image_url'] = buffet_utility_image_absolute_url(request, util)
+                row.update(buffet_utility_image_payload(request, util))
             utilities_list.append(row)
 
         return Response({
@@ -819,30 +824,12 @@ def update_utility_sa(request):
         utility.prefix = request.data.get('prefix', utility.prefix)
 
         if PROJECT_NAME == "dine_flash_buffet":
-            clear_img = str(request.data.get("clear_buffet_image", "")).lower() in (
-                "1", "true", "yes", "on"
-            )
-            upload = request.FILES.get("buffet_utility_image")
-            if clear_img and upload:
+            image_err = apply_buffet_utility_image_changes(utility, request)
+            if image_err:
                 return Response(
-                    {
-                        "error": "Cannot remove image and upload a new file in the same request."
-                    },
+                    {"error": image_err},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if upload:
-                upload_err = validate_buffet_utility_image_upload(upload)
-                if upload_err:
-                    return Response(
-                        {"error": upload_err},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            if clear_img:
-                if utility.buffet_utility_image:
-                    utility.buffet_utility_image.delete(save=False)
-                utility.buffet_utility_image = None
-            elif upload:
-                utility.buffet_utility_image.save(upload.name, upload, save=False)
 
         utility.save()
         return Response({"message": "Utility updated successfully"}, status=status.HTTP_200_OK)

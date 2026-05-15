@@ -77,6 +77,7 @@
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const vendorId = new URLSearchParams(window.location.search).get("vendor_id") || localStorage.getItem("buffet_vendor_id");
+        const BUFFET_REMARKS_MAX_LEN = {{ buffet_remarks_max_length|default:200 }};
         const tableNumber = sessionStorage.getItem("buffet_table_number");
         const customerName = sessionStorage.getItem("buffet_customer_name");
         const phoneNumber = sessionStorage.getItem("buffet_phone_number");
@@ -153,7 +154,7 @@
                 <div id="view-grouped-${u.id}">
                     ${generateCheckboxes(`global-${u.id}`, u.options)}
                     <label class="form-label text-muted small mt-2">Special Instructions (Applies to all ${u.qty})</label>
-                    <textarea class="form-control mt-1" id="global-remark-${u.id}" rows="2" placeholder="E.g., Make it spicy"></textarea>
+                    <textarea class="form-control mt-1" id="global-remark-${u.id}" rows="2" maxlength="${BUFFET_REMARKS_MAX_LEN}" placeholder="E.g., Make it spicy"></textarea>
                 </div>
                 
                 <div id="view-individual-${u.id}" style="display: none;">
@@ -161,7 +162,7 @@
                         <div class="indiv-item">
                             <label class="form-label fw-bold">${u.name} #${i + 1}</label>
                             ${generateCheckboxes(`indiv-${u.id}-${i}`, u.options)}
-                            <textarea class="form-control" id="indiv-remark-${u.id}-${i}" rows="1" placeholder="Special instructions"></textarea>
+                            <textarea class="form-control" id="indiv-remark-${u.id}-${i}" rows="1" maxlength="${BUFFET_REMARKS_MAX_LEN}" placeholder="Special instructions"></textarea>
                         </div>
                     `).join('')}
                 </div>
@@ -213,6 +214,12 @@
                 const state = orderState[id];
                 if (state.mode === "grouped") {
                     const remark = document.getElementById(`global-remark-${id}`).value.trim();
+                    if (remark.length > BUFFET_REMARKS_MAX_LEN) {
+                        alert(`Special instructions cannot exceed ${BUFFET_REMARKS_MAX_LEN} characters per item.`);
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Submit Order";
+                        return;
+                    }
                     const customizations = Array.from(document.querySelectorAll(`[id^="global-${id}-cb-"]:checked`)).map(cb => cb.value);
                     finalItems.push({
                         utility_id: id,
@@ -224,6 +231,12 @@
                 } else {
                     for (let i = 0; i < state.qty; i++) {
                         const remark = document.getElementById(`indiv-remark-${id}-${i}`).value.trim();
+                        if (remark.length > BUFFET_REMARKS_MAX_LEN) {
+                            alert(`Special instructions cannot exceed ${BUFFET_REMARKS_MAX_LEN} characters per item.`);
+                            submitBtn.disabled = false;
+                            submitBtn.innerText = "Submit Order";
+                            return;
+                        }
                         const customizations = Array.from(document.querySelectorAll(`[id^="indiv-${id}-${i}-cb-"]:checked`)).map(cb => cb.value);
                         finalItems.push({
                             utility_id: id,

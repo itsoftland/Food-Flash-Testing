@@ -15,7 +15,7 @@ from rest_framework.exceptions import NotFound
 from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile, Utility
 from manager.utils.utils import get_manager_vendor
 from vendors.services.order_service import send_order_update
-from vendors.utils import notify_web_push, buffet_utility_image_absolute_url
+from vendors.utils import notify_web_push, buffet_utility_image_payload
 from static.utils.functions.utils import get_vendor_business_day_range
 
 logger = logging.getLogger(__name__)
@@ -52,14 +52,13 @@ _BUFFET_ITEM_STATUS_UPDATE_ACTIONS = frozenset(
 
 
 def _serialize_buffet_utility(request, utility):
-    return {
+    payload = {
         "id": utility.id,
         "utility_name": utility.utility_name,
         "display_name": utility.display_name,
         "display_code": utility.display_code,
         "token_mode": utility.token_mode,
         "prefix": utility.prefix,
-        "image_url": buffet_utility_image_absolute_url(request, utility),
         "options": [
             {
                 "id": option.id,
@@ -70,6 +69,8 @@ def _serialize_buffet_utility(request, utility):
             if option.is_active
         ],
     }
+    payload.update(buffet_utility_image_payload(request, utility))
+    return payload
 
 
 @api_view(['GET'])
@@ -84,7 +85,10 @@ def get_assigned_buffet_utilities(request):
     try:
         utility_profile = (
             UserProfile.objects.select_related("vendor", "admin_outlet")
-            .prefetch_related("assigned_utilities__options")
+            .prefetch_related(
+                "assigned_utilities__options",
+                "assigned_utilities__buffet_images",
+            )
             .filter(user=request.user, role="utility_user")
             .order_by("id")
             .first()

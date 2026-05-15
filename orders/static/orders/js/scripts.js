@@ -597,11 +597,15 @@ onDOMReady(async function () {
 
                 // ✅ Step 2: Subscribe for push notifications
                 try {
-                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                    if (isDineFlashBuffetSurface) {
+                        // dine_flash_buffet: linking runs in fetchOrderStatusOnce right after check-status
+                        // succeeds (canonical token_no), before modal/chat work — avoids missing early
+                        // utility pushes while the first session UI is still rendering.
+                    } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         // bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
                         // await PushSubscriptionService.subscribe(bookingId, vendorId);
-                    }else{
+                    } else {
                         await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     }
                     // console.log("✅ Push subscription successful");
@@ -611,6 +615,25 @@ onDOMReady(async function () {
                         "⚠️ Couldn’t enable live notifications right now. You can still view updates manually if required.",
                         'server', null, 'error'
                     );
+                }
+
+                if (isDineFlashBuffetSurface && "serviceWorker" in navigator) {
+                    try {
+                        await Promise.race([
+                            new Promise((resolve) => {
+                                if (navigator.serviceWorker.controller) {
+                                    resolve();
+                                    return;
+                                }
+                                navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
+                                    once: true,
+                                });
+                            }),
+                            new Promise((resolve) => setTimeout(resolve, 8000)),
+                        ]);
+                    } catch (swCtlErr) {
+                        console.warn("Buffet: waiting for service worker controller:", swCtlErr);
+                    }
                 }
 
                 // ✅ Step 3: Save chat log
@@ -660,6 +683,10 @@ onDOMReady(async function () {
                     return null;
                 });
 
+                if (isDineFlashBuffetSurface) {
+                    await handleTokenPromise;
+                }
+
                 // ✅ Step 4: Fetch order status
                 try {
                     // console.log("📡 Fetching order status...");
@@ -688,8 +715,10 @@ onDOMReady(async function () {
                     );
                 }
 
-                // Let live-alert setup continue in parallel; do not block status UX.
-                await handleTokenPromise;
+                // Non-buffet: let SW/chat setup run in parallel with status fetch.
+                if (!isDineFlashBuffetSurface) {
+                    await handleTokenPromise;
+                }
 
                 // console.log("🎉 Permission flow and order fetch complete");
 
@@ -907,6 +936,14 @@ onDOMReady(async function () {
         }
         if (replyText) payload.reply_text = replyText;
 
+        const buffetEarlyPushLink =
+            type === "buffetstatus" &&
+            ((typeof window.PROJECT_NAME === "string" &&
+                window.PROJECT_NAME.trim().toLowerCase() === "dine_flash_buffet") ||
+                (path && path.toLowerCase().includes("dine_flash_buffet")));
+
+        let buffetPushLinked = false;
+
         try {
             const resp = await fetch(apiEndpoints.CHECK_STATUS, {
                 method: 'POST',
@@ -927,6 +964,24 @@ onDOMReady(async function () {
             }
             if (type === 'dinestatus' && data?.logo_url) {
                 AppUtils.storageSet("activeVendorLogo", String(data.logo_url));
+            }
+
+            if (buffetEarlyPushLink && data?.vendor_id != null) {
+                const fromResponse = data?.token_no;
+                const subscribeToken =
+                    fromResponse != null && String(fromResponse).trim() !== ""
+                        ? fromResponse
+                        : token;
+                const resolved =
+                    subscribeToken != null && String(subscribeToken).trim() !== ""
+                        ? subscribeToken
+                        : token;
+                if (resolved != null && String(resolved).trim() !== "") {
+                    await PushSubscriptionService.subscribe(resolved, data.vendor_id);
+                    PushHealthMonitorService.startMonitor(token, data.vendor_id);
+                    await AppUtils.setToken(String(resolved));
+                    buffetPushLinked = true;
+                }
             }
             if (!replyText) {
                 if (type === 'buffetstatus' && data.items) {
@@ -988,7 +1043,7 @@ onDOMReady(async function () {
                 await PushSubscriptionService.subscribe(bookingId, data.vendor_id);
                 PushHealthMonitorService.startMonitor(bookingId, data.vendor_id);
             }
-            else {
+            else if (!buffetEarlyPushLink || !buffetPushLinked) {
                 // Dine Flash Buffet: customers often open the page without QR params, so
                 // `tokenFromQR` is empty while `token` / `data.token_no` hold the order token.
                 // Linking the push subscription must use that token or web push finds no rows.

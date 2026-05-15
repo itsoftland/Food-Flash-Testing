@@ -24,6 +24,7 @@ from vendors.models import (Order, Vendor, AdminOutlet, AndroidDevice,
                             AdvertisementProfileAssignment,
                             UserProfile,ChatMessage,
                             Utility, UtilityOption, BuffetOrderItem)
+from vendors.utils import buffet_utility_image_absolute_url
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
@@ -1638,14 +1639,21 @@ def utility_list(request):
             vendor=vendor,
             is_active=True
         ).only(
-            "id", "utility_name", "display_name", "display_code", "token_mode", "prefix"
+            "id",
+            "utility_name",
+            "display_name",
+            "display_code",
+            "token_mode",
+            "prefix",
+            *(["food_type"] if is_buffet else []),
         ).order_by("id")
         if is_buffet:
-            utilities_qs = utilities_qs.prefetch_related("options")
+            utilities_qs = utilities_qs.prefetch_related("options", "buffet_images")
         utilities = list(utilities_qs)
 
-        data = [
-            {
+        data = []
+        for util in utilities:
+            row = {
                 "id": util.id,
                 "utility_name": util.utility_name,
                 "display_name": util.display_name,
@@ -1656,12 +1664,18 @@ def utility_list(request):
                     {
                         "id": opt.id,
                         "name": opt.name,
-                        "is_active": opt.is_active
-                    } for opt in util.options.all() if opt.is_active
-                ] if is_buffet else []
+                        "is_active": opt.is_active,
+                    }
+                    for opt in util.options.all()
+                    if opt.is_active
+                ]
+                if is_buffet
+                else [],
             }
-            for util in utilities
-        ]
+            if is_buffet:
+                row["food_type"] = util.food_type
+                row["image_url"] = buffet_utility_image_absolute_url(request, util)
+            data.append(row)
 
         logger.info(
             f"utility_list: Returned {len(data)} utilities for vendor_id {vendor_id}."

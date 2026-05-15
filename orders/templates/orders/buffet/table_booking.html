@@ -29,6 +29,9 @@
         border-color: #ff3b3b !important;
         background-color: rgba(255, 59, 59, 0.05);
     }
+    .required-asterisk {
+        color: #ff3b3b;
+    }
 </style>
 {% endblock %}
 
@@ -43,7 +46,7 @@
             <!-- Table Number -->
             <div class="row g-2 mb-4">
                 <div class="col-12">
-                    <label class="form-label font-weight-bold">Table Number *</label>
+                    <label class="form-label font-weight-bold">Table Number <span class="required-asterisk">*</span></label>
                     <input type="text" id="table_number" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Eg: 12" required maxlength="50">
                     <div id="table_number_error" class="invalid-feedback">Please enter a valid table number (numeric only).</div>
                 </div>
@@ -52,9 +55,9 @@
             <!-- Customer Name -->
             <div class="row g-2 mb-4">
                 <div class="col-12">
-                    <label class="form-label font-weight-bold">Customer Name *</label>
-                    <input type="text" id="customer_name" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Enter your name" required maxlength="30">
-                    <div id="customer_name_error" class="invalid-feedback">Please enter your name (alphabetical characters only).</div>
+                    <label class="form-label font-weight-bold">Customer Name (Optional)</label>
+                    <input type="text" id="customer_name" class="form-control premium-input text-center" style="font-size: 1.2rem; padding: 10px;" placeholder="Enter your name" maxlength="30">
+                    <div id="customer_name_error" class="invalid-feedback">Names should only contain letters (max 30 characters).</div>
                 </div>
             </div>
 
@@ -139,10 +142,9 @@
         function validateName() {
             const value = nameInput.value.trim();
             if (!value) {
-                nameInput.classList.add("is-invalid");
-                nameError.textContent = "Customer name is required.";
-                nameError.style.display = "block";
-                return false;
+                nameInput.classList.remove("is-invalid");
+                nameError.style.display = "none";
+                return true;
             }
             if (!/^[a-zA-Z\s]+$/.test(value)) {
                 nameInput.classList.add("is-invalid");
@@ -166,10 +168,7 @@
         nameInput.addEventListener("input", validateName);
 
         document.getElementById("start-btn").addEventListener("click", function() {
-            const isTableValid = validateTable();
-            const isNameValid = validateName();
-
-            if (!isTableValid || !isNameValid) {
+            if (!validateTable() || !validateName()) {
                 return;
             }
 

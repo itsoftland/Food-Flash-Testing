@@ -174,6 +174,13 @@ class Utility(models.Model):
         (TOKEN_MODE_UTILITY_SPECIFIC, "Utility Specific"),
     ]
 
+    FOOD_TYPE_VEG = "veg"
+    FOOD_TYPE_NON_VEG = "non_veg"
+    FOOD_TYPE_CHOICES = [
+        (FOOD_TYPE_VEG, "Veg"),
+        (FOOD_TYPE_NON_VEG, "Non Veg"),
+    ]
+
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.CASCADE,
@@ -213,6 +220,14 @@ class Utility(models.Model):
 
     is_active = models.BooleanField(default=True)
 
+    food_type = models.CharField(
+        max_length=10,
+        choices=FOOD_TYPE_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Veg or Non Veg (Dine Flash Buffet only)",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -250,6 +265,32 @@ class Utility(models.Model):
 
     def __str__(self):
         return f"{self.display_name} ({self.vendor.name})"
+
+
+class BuffetUtilityImage(models.Model):
+    """Up to 3 images per utility (Dine Flash Buffet only)."""
+
+    utility = models.ForeignKey(
+        Utility,
+        on_delete=models.CASCADE,
+        related_name="buffet_images",
+    )
+    image = models.ImageField(
+        upload_to="buffet_utilities/%Y/%m",
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]
+            )
+        ],
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"Buffet image {self.id} for {self.utility_id}"
 
 
 class UtilityOption(models.Model):

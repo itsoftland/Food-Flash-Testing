@@ -30,7 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const displayCodeInput = document.querySelector('input[name="display_code"]');
   const tokenModeSelect = document.querySelector('select[name="token_mode"]');
   const prefixInput = document.querySelector('input[name="prefix"]');
-  const buffetImageInput = document.querySelector('input[name="buffet_utility_image"]');
+  const buffetImageInput = document.querySelector('input[name="buffet_utility_images"]');
+  const foodTypeSelect = document.querySelector('select[name="food_type"]');
+  const BUFFET_MAX_IMAGES = 3;
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
 
   if (!createUtilityForm || !vendorSelect) return;
@@ -135,7 +137,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Prepare request (buffet: multipart with optional image file)
+    const foodType = isBuffet && foodTypeSelect ? foodTypeSelect.value.trim() : '';
+
+    if (isBuffet && !foodType) {
+      ModalService.showError('Food type is required.');
+      return;
+    }
+    if (isBuffet && !['veg', 'non_veg'].includes(foodType)) {
+      ModalService.showError('Please select Veg or Non Veg.');
+      return;
+    }
+
+    if (isBuffet && buffetImageInput && buffetImageInput.files.length > BUFFET_MAX_IMAGES) {
+      ModalService.showError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
+      return;
+    }
+
+    // Prepare request (buffet: multipart with optional image files)
     let fetchOptions = {
       method: 'POST',
       headers: {
@@ -162,8 +180,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       fd.append('token_mode', tokenMode);
       fd.append('prefix', prefix === null || prefix === undefined ? '' : prefix);
       fd.append('is_active', isActive ? 'true' : 'false');
-      if (buffetImageInput && buffetImageInput.files && buffetImageInput.files[0]) {
-        fd.append('buffet_utility_image', buffetImageInput.files[0]);
+      fd.append('food_type', foodType);
+      if (buffetImageInput && buffetImageInput.files && buffetImageInput.files.length) {
+        Array.from(buffetImageInput.files)
+          .slice(0, BUFFET_MAX_IMAGES)
+          .forEach((file) => fd.append('buffet_utility_images', file));
       }
       fetchOptions = {
         method: 'POST',

@@ -37,6 +37,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   let selectedVendorId = null;
   let currentPage = 1;
   const itemsPerPage = 4;
+  const BUFFET_MAX_IMAGES = 3;
+
+  function formatFoodTypeLabel(foodType) {
+    if (foodType === 'veg') return 'Veg';
+    if (foodType === 'non_veg') return 'Non Veg';
+    return '—';
+  }
+
+  function getUtilityById(utilityId) {
+    const id = Number(utilityId);
+    return utilitiesData.find((u) => Number(u.id) === id);
+  }
+
+  /** Resolve buffet image list for edit UI (API may send buffet_images and/or image_urls). */
+  function getBuffetImagesForEdit(utility) {
+    if (!utility) return [];
+    if (Array.isArray(utility.buffet_images) && utility.buffet_images.length) {
+      return utility.buffet_images;
+    }
+    if (Array.isArray(utility.image_urls) && utility.image_urls.length) {
+      return utility.image_urls.map((url) => ({ id: null, url }));
+    }
+    if (utility.image_url) {
+      return [{ id: null, url: utility.image_url }];
+    }
+    return [];
+  }
+
+  function buildBuffetImagesEditHtml(utility) {
+    const imgs = getBuffetImagesForEdit(utility);
+    if (!imgs.length) {
+      return '<p class="text-muted mb-2" style="font-size:0.85rem;">No images uploaded yet.</p>';
+    }
+    return `<div class="d-flex flex-wrap gap-2 mb-2" id="existing-buffet-images">
+      ${imgs.map((img) => `
+        <div class="buffet-image-thumb">
+          <img src="${escapeAttr(img.url)}" alt="" style="max-height:72px;border-radius:4px;border:1px solid #dee2e6;" />
+          ${img.id ? `
+            <label class="d-block mt-1" style="font-size:0.8rem;">
+              <input type="checkbox" class="remove-buffet-image-cb" value="${img.id}" />
+              Remove
+            </label>
+          ` : ''}
+        </div>
+      `).join('')}
+    </div>`;
+  }
 
   /* ------------------------------------
      Load vendors on page load
@@ -157,11 +204,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td><strong>${escapeHtml(utility.display_code)}</strong></td>
         <td>${utility.prefix ? escapeHtml(utility.prefix) : '—'}</td>
         <td><span class="token-mode-badge ${utility.token_mode === 'utility_specific' ? 'utility-specific' : ''}">${tokenModeLabel}</span></td>
-        ` : ''}
+        ` : `
+        <td>${escapeHtml(formatFoodTypeLabel(utility.food_type))}</td>
+        `}
         <td>${escapeHtml(vendorName)}</td>
         <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
         <td>
-          <button class="action-btn" data-utility-id="${utility.id}" data-utility='${JSON.stringify(utility)}' title="More actions">
+          <button class="action-btn" data-utility-id="${utility.id}" title="More actions">
             <i class="fas fa-ellipsis-v"></i>
           </button>
         </td>
@@ -271,7 +320,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   ------------------------------------ */
   function handleActionMenu(e, btn) {
     e.stopPropagation();
-    const utility = JSON.parse(btn.dataset.utility);
+    const utility = getUtilityById(btn.dataset.utilityId);
+    if (!utility) {
+      ModalService.showError('Utility data is unavailable. Please refresh the page.');
+      return;
+    }
 
     // Get viewport height and button position
     const rect = btn.getBoundingClientRect();
@@ -348,7 +401,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <p><strong>Display Code:</strong> ${escapeHtml(utility.display_code)}</p>
         <p><strong>Prefix:</strong> ${utility.prefix ? escapeHtml(utility.prefix) : 'N/A'}</p>
         <p><strong>Token Mode:</strong> ${tokenMode}</p>
-        ` : ''}
+        ` : `
+        <p><strong>Food Type:</strong> ${escapeHtml(formatFoodTypeLabel(utility.food_type))}</p>
+        `}
         <p><strong>Outlet:</strong> ${escapeHtml(vendorName)}</p>
         <p><strong>Status:</strong> ${utility.is_active ? 'Active' : 'Inactive'}</p>
       </div>
@@ -361,6 +416,8 @@ document.addEventListener('DOMContentLoaded', async () => {
      Edit utility (modal with inline validation)
   ------------------------------------ */
   function editUtility(utility) {
+    utility = getUtilityById(utility.id) || utility;
+
     // Build edit form HTML with error display and compact 2-column layout
     const body = `
       <div id="edit-error-message" style="display: none; margin-bottom: 12px;"></div>
@@ -381,15 +438,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         ${window.PROJECT_NAME === 'dine_flash_buffet' ? `
         <div class="row g-2">
+          <div class="form-group col-md-6 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Food Type</label>
+            <select id="edit-food-type" class="form-select form-select-sm">
+              <option value="">Select food type</option>
+              <option value="veg" ${utility.food_type === 'veg' ? 'selected' : ''}>Veg</option>
+              <option value="non_veg" ${utility.food_type === 'non_veg' ? 'selected' : ''}>Non Veg</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-2">
           <div class="form-group col-12 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Utility image <span class="text-muted fw-normal">(optional)</span></label>
-            ${utility.image_url ? `<div class="mb-2"><img src="${escapeHtml(utility.image_url)}" alt="" style="max-height:72px;border-radius:4px;border:1px solid #dee2e6;" /></div>` : ''}
-            <input type="file" id="edit-buffet-image" name="buffet_utility_image" class="form-control form-control-sm" accept="image/jpeg,image/png,image/gif,image/webp" />
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Utility images <span class="text-muted fw-normal">(optional, up to 3)</span></label>
+            ${buildBuffetImagesEditHtml(utility)}
+            <label class="form-label mb-1 mt-2" style="font-size: 0.85rem;">Add more images</label>
+            <input type="file" id="edit-buffet-images" name="buffet_utility_images" class="form-control form-control-sm" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
             <div class="form-check mt-2">
-              <input type="checkbox" class="form-check-input" id="clear-buffet-image" />
-              <label class="form-check-label" for="clear-buffet-image" style="font-size: 0.85rem;">Remove image</label>
+              <input type="checkbox" class="form-check-input" id="clear-buffet-images" />
+              <label class="form-check-label" for="clear-buffet-images" style="font-size: 0.85rem;">Remove all images</label>
             </div>
-            <small class="form-text text-muted" style="font-size: 0.75rem;">JPEG, PNG, GIF or WebP, max 2 MB. APIs continue to expose this as image_url.</small>
+            <small class="form-text text-muted" style="font-size: 0.75rem;">Existing images are shown above. The file picker is only for new uploads. JPEG, PNG, GIF or WebP, max 2 MB each (max 3 total).</small>
           </div>
         </div>
         ` : ''}
@@ -457,10 +525,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dcode = isBuffet ? "" : document.getElementById('edit-display-code').value.trim();
         const tmode = isBuffet ? 'continuous' : document.getElementById('edit-token-mode').value;
         const pref = isBuffet ? '' : document.getElementById('edit-prefix').value.trim();
+        const foodType = isBuffet
+          ? (document.getElementById('edit-food-type')?.value || '').trim()
+          : '';
 
         // Client-side validations (same limits as server) - show inline
         if (!name) return showInlineError('Utility name is required');
         if (!dname) return showInlineError('Display name is required');
+        if (isBuffet && !foodType) return showInlineError('Food type is required');
+        if (isBuffet && !['veg', 'non_veg'].includes(foodType)) {
+          return showInlineError('Please select Veg or Non Veg');
+        }
         if (!isBuffet && !dcode) return showInlineError('Display code is required');
         if (!isBuffet && !tmode) return showInlineError('Token mode is required');
         if (!isBuffet && (pref === '' || pref === null)) return showInlineError('Prefix is required');
@@ -473,10 +548,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isBuffet && !['continuous','utility_specific'].includes(tmode)) return showInlineError('Invalid token mode');
 
         if (isBuffet) {
-          const clearEl = document.getElementById('clear-buffet-image');
-          const fileEl = document.getElementById('edit-buffet-image');
-          if (clearEl && clearEl.checked && fileEl && fileEl.files && fileEl.files[0]) {
-            return showInlineError('Uncheck "Remove image" or clear the chosen file.');
+          const clearEl = document.getElementById('clear-buffet-images');
+          const fileEl = document.getElementById('edit-buffet-images');
+          const removeIds = Array.from(
+            document.querySelectorAll('.remove-buffet-image-cb:checked')
+          ).map((cb) => cb.value);
+          const existingCount = getBuffetImagesForEdit(utility).length;
+          const newFiles = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+          const remainingAfterRemove = existingCount - removeIds.length;
+
+          if (clearEl && clearEl.checked && (removeIds.length || newFiles.length)) {
+            return showInlineError('Uncheck "Remove all images" or clear removals and new files.');
+          }
+          if (newFiles.length > BUFFET_MAX_IMAGES) {
+            return showInlineError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
+          }
+          if (!clearEl?.checked && remainingAfterRemove + newFiles.length > BUFFET_MAX_IMAGES) {
+            return showInlineError(`At most ${BUFFET_MAX_IMAGES} images allowed per utility.`);
           }
         }
 
@@ -490,13 +578,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             fd.append('display_code', dcode);
             fd.append('token_mode', tmode);
             fd.append('prefix', pref);
-            const clearEl = document.getElementById('clear-buffet-image');
-            const fileEl = document.getElementById('edit-buffet-image');
+            fd.append('food_type', foodType);
+            const clearEl = document.getElementById('clear-buffet-images');
+            const fileEl = document.getElementById('edit-buffet-images');
+            const removeIds = Array.from(
+              document.querySelectorAll('.remove-buffet-image-cb:checked')
+            ).map((cb) => cb.value);
             if (clearEl && clearEl.checked) {
-              fd.append('clear_buffet_image', 'true');
+              fd.append('clear_buffet_images', 'true');
             }
-            if (fileEl && fileEl.files && fileEl.files[0]) {
-              fd.append('buffet_utility_image', fileEl.files[0]);
+            if (removeIds.length) {
+              fd.append('remove_buffet_image_ids', JSON.stringify(removeIds));
+            }
+            if (fileEl && fileEl.files && fileEl.files.length) {
+              Array.from(fileEl.files)
+                .slice(0, BUFFET_MAX_IMAGES)
+                .forEach((file) => fd.append('buffet_utility_images', file));
             }
             response = await fetchWithAutoRefresh(API_ENDPOINTS.UPDATE_UTILITY, {
               method: 'PATCH',
@@ -526,6 +623,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           const result = await response.json();
 
           if (response.ok) {
+            if (isBuffet && result.utility) {
+              const idx = utilitiesData.findIndex((u) => Number(u.id) === Number(utility.id));
+              if (idx !== -1) {
+                utilitiesData[idx] = { ...utilitiesData[idx], ...result.utility };
+              }
+            }
+
             // hide custom modal
             const customEl = document.getElementById('customModal');
             const bs = bootstrap.Modal.getInstance(customEl) || bootstrap.Modal.getOrCreateInstance(customEl);
@@ -803,7 +907,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       '"': '&quot;',
       "'": '&#039;'
     };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+  }
+
+  function escapeAttr(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   /* ------------------------------------

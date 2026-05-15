@@ -8,6 +8,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 12px;
         padding: 20px;
         background: #ffffff;
         border-radius: 12px;
@@ -15,10 +16,27 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         border: 1px solid #eee;
     }
+    .utility-item-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex: 1;
+        min-width: 0;
+    }
+    .utility-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 1px solid #eee;
+        background: #f8f9fa;
+    }
     .utility-name {
         font-size: 1.2rem;
         font-weight: 600;
         color: #333;
+        line-height: 1.3;
     }
     .qty-controls {
         display: flex;
@@ -66,12 +84,62 @@
     .main-btn:active {
         transform: scale(0.98);
     }
+    .food-type-filter {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .food-type-filter-btn {
+        border: 1px solid #ff6b6b;
+        background: #fff;
+        color: #ff6b6b;
+        border-radius: 999px;
+        padding: 8px 18px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .food-type-filter-btn:hover,
+    .food-type-filter-btn.active {
+        background: #ff6b6b;
+        color: #fff;
+    }
+    .utility-item.is-hidden {
+        display: none;
+    }
+    .food-type-badge {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .food-type-badge.veg {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    .food-type-badge.non-veg {
+        background: #ffebee;
+        color: #c62828;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5 pb-5">
     <h3 class="text-center mb-4 font-weight-bold" style="color: #333;">Select Food Counters</h3>
+
+    <div class="food-type-filter" id="food-type-filter" role="group" aria-label="Filter by food type">
+        <button type="button" class="food-type-filter-btn active" data-food-type="">All</button>
+        <button type="button" class="food-type-filter-btn" data-food-type="veg">Veg</button>
+        <button type="button" class="food-type-filter-btn" data-food-type="non_veg">Non Veg</button>
+    </div>
     
     <div id="utilities-container">
         <!-- Utilities will be loaded here -->
@@ -100,10 +168,116 @@
         }
 
         const utilitiesContainer = document.getElementById("utilities-container");
+        const foodTypeFilter = document.getElementById("food-type-filter");
         const proceedBtn = document.getElementById("proceed-btn");
         const totalQtySpan = document.getElementById("total-qty");
         const bottomBar = document.getElementById("bottom-bar");
         let utilityQuantities = {};
+        let allUtilities = [];
+        let activeFoodTypeFilter = "";
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text == null ? "" : String(text);
+            return div.innerHTML;
+        }
+
+        function foodTypeLabel(foodType) {
+            if (foodType === "veg") return "Veg";
+            if (foodType === "non_veg") return "Non Veg";
+            return "";
+        }
+
+        function matchesFoodTypeFilter(foodType) {
+            if (!activeFoodTypeFilter) return true;
+            return foodType === activeFoodTypeFilter;
+        }
+
+        function applyFoodTypeFilter() {
+            const rows = utilitiesContainer.querySelectorAll(".utility-item");
+            let visibleCount = 0;
+            rows.forEach((row) => {
+                const foodType = row.dataset.foodType || "";
+                const show = matchesFoodTypeFilter(foodType);
+                row.classList.toggle("is-hidden", !show);
+                if (show) visibleCount += 1;
+            });
+
+            let emptyMsg = utilitiesContainer.querySelector(".filter-empty-msg");
+            if (visibleCount === 0 && allUtilities.length > 0) {
+                if (!emptyMsg) {
+                    emptyMsg = document.createElement("p");
+                    emptyMsg.className = "text-center p-4 text-muted filter-empty-msg";
+                    utilitiesContainer.appendChild(emptyMsg);
+                }
+                const label = activeFoodTypeFilter === "veg" ? "Veg" : "Non Veg";
+                emptyMsg.textContent = `No ${label} counters available.`;
+                emptyMsg.style.display = "block";
+            } else if (emptyMsg) {
+                emptyMsg.style.display = "none";
+            }
+        }
+
+        function buildUtilityRow(u) {
+            const row = document.createElement("div");
+            row.className = "utility-item";
+            row.dataset.foodType = u.food_type || "";
+
+            const main = document.createElement("div");
+            main.className = "utility-item-main";
+
+            if (u.image_url) {
+                const img = document.createElement("img");
+                img.className = "utility-thumb";
+                img.src = u.image_url;
+                img.alt = "";
+                img.loading = "lazy";
+                main.appendChild(img);
+            }
+
+            const textWrap = document.createElement("div");
+            const nameEl = document.createElement("div");
+            nameEl.className = "utility-name";
+            nameEl.textContent = u.display_name || u.utility_name || u.name || "";
+            textWrap.appendChild(nameEl);
+
+            const badgeLabel = foodTypeLabel(u.food_type);
+            if (badgeLabel) {
+                const badge = document.createElement("span");
+                badge.className = "food-type-badge " + (u.food_type === "veg" ? "veg" : "non-veg");
+                badge.textContent = badgeLabel;
+                textWrap.appendChild(badge);
+            }
+            main.appendChild(textWrap);
+
+            const controls = document.createElement("div");
+            controls.className = "qty-controls";
+
+            const minusBtn = document.createElement("button");
+            minusBtn.type = "button";
+            minusBtn.className = "qty-btn minus-btn";
+            minusBtn.dataset.id = String(u.id);
+            minusBtn.textContent = "-";
+
+            const qtySpan = document.createElement("span");
+            qtySpan.className = "qty-display";
+            qtySpan.id = "qty-" + u.id;
+            qtySpan.textContent = "0";
+
+            const plusBtn = document.createElement("button");
+            plusBtn.type = "button";
+            plusBtn.className = "qty-btn plus-btn";
+            plusBtn.dataset.id = String(u.id);
+            plusBtn.textContent = "+";
+
+            controls.appendChild(minusBtn);
+            controls.appendChild(qtySpan);
+            controls.appendChild(plusBtn);
+
+            row.appendChild(main);
+            row.appendChild(controls);
+            return row;
+        }
 
         function updateTotal() {
             let total = 0;
@@ -122,37 +296,41 @@
         fetch(`{% url 'utility_list' %}?vendor_id=${vendorId}`)
             .then(res => res.json())
             .then(data => {
-                const utilities = data.utilities || [];
-                if (utilities.length === 0) {
+                allUtilities = data.utilities || [];
+                if (allUtilities.length === 0) {
                     utilitiesContainer.innerHTML = "<p class='text-center p-4'>No food counters available.</p>";
+                    if (foodTypeFilter) foodTypeFilter.style.display = "none";
                     return;
                 }
 
                 utilitiesContainer.innerHTML = "";
 
-                utilities.forEach(u => {
+                allUtilities.forEach(u => {
                     utilityQuantities[u.id] = {
                         name: u.display_name || u.utility_name,
                         qty: 0,
                         options: u.options || []
                     };
-
-                    const div = document.createElement("div");
-                    div.className = "utility-item";
-                    div.innerHTML = `
-                        <div class="utility-name">${u.display_name || u.name}</div>
-                        <div class="qty-controls">
-                            <button class="qty-btn minus-btn" data-id="${u.id}">-</button>
-                            <span class="qty-display" id="qty-${u.id}">0</span>
-                            <button class="qty-btn plus-btn" data-id="${u.id}">+</button>
-                        </div>
-                    `;
-                    utilitiesContainer.appendChild(div);
+                    utilitiesContainer.appendChild(buildUtilityRow(u));
                 });
+
+                applyFoodTypeFilter();
+
+                if (foodTypeFilter) {
+                    foodTypeFilter.querySelectorAll(".food-type-filter-btn").forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            activeFoodTypeFilter = btn.dataset.foodType || "";
+                            foodTypeFilter.querySelectorAll(".food-type-filter-btn").forEach((b) => {
+                                b.classList.toggle("active", b === btn);
+                            });
+                            applyFoodTypeFilter();
+                        });
+                    });
+                }
 
                 document.querySelectorAll(".plus-btn").forEach(btn => {
                     btn.addEventListener("click", (e) => {
-                        const id = e.target.getAttribute("data-id");
+                        const id = e.currentTarget.getAttribute("data-id");
                         utilityQuantities[id].qty++;
                         document.getElementById(`qty-${id}`).innerText = utilityQuantities[id].qty;
                         updateTotal();
@@ -161,7 +339,7 @@
 
                 document.querySelectorAll(".minus-btn").forEach(btn => {
                     btn.addEventListener("click", (e) => {
-                        const id = e.target.getAttribute("data-id");
+                        const id = e.currentTarget.getAttribute("data-id");
                         if (utilityQuantities[id].qty > 0) {
                             utilityQuantities[id].qty--;
                             document.getElementById(`qty-${id}`).innerText = utilityQuantities[id].qty;
