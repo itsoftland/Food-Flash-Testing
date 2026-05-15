@@ -1,0 +1,32 @@
+<footer class="buffet-workflow-footer" role="navigation" aria-label="Order progress">
+    <ol class="buffet-workflow-steps">
+        <li class="buffet-workflow-step{% if buffet_workflow_step == 1 %} is-active{% elif buffet_workflow_step > 1 %} is-complete{% endif %}"
+            aria-current="{% if buffet_workflow_step == 1 %}step{% else %}false{% endif %}">
+            <span class="buffet-workflow-marker" aria-hidden="true">
+                {% if buffet_workflow_step > 1 %}<i class="fas fa-check"></i>{% else %}1{% endif %}
+            </span>
+            <span class="buffet-workflow-label">Check-in</span>
+        </li>
+        <li class="buffet-workflow-step{% if buffet_workflow_step == 2 %} is-active{% elif buffet_workflow_step > 2 %} is-complete{% endif %}"
+            aria-current="{% if buffet_workflow_step == 2 %}step{% else %}false{% endif %}">
+            <span class="buffet-workflow-marker" aria-hidden="true">
+                {% if buffet_workflow_step > 2 %}<i class="fas fa-check"></i>{% else %}2{% endif %}
+            </span>
+            <span class="buffet-workflow-label">Select Items</span>
+        </li>
+        <li class="buffet-workflow-step{% if buffet_workflow_step == 3 %} is-active{% elif buffet_workflow_step > 3 %} is-complete{% endif %}"
+            aria-current="{% if buffet_workflow_step == 3 %}step{% else %}false{% endif %}">
+            <span class="buffet-workflow-marker" aria-hidden="true">
+                {% if buffet_workflow_step > 3 %}<i class="fas fa-check"></i>{% else %}3{% endif %}
+            </span>
+            <span class="buffet-workflow-label">Customize</span>
+        </li>
+        <li class="buffet-workflow-step{% if buffet_workflow_step == 4 %} is-active{% elif buffet_workflow_step > 4 %} is-complete{% endif %}"
+            aria-current="{% if buffet_workflow_step == 4 %}step{% else %}false{% endif %}">
+            <span class="buffet-workflow-marker" aria-hidden="true">
+                {% if buffet_workflow_step > 4 %}<i class="fas fa-check"></i>{% else %}4{% endif %}
+            </span>
+            <span class="buffet-workflow-label">Order</span>
+        </li>
+    </ol>
+</footer>

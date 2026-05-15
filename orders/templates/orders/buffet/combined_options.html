@@ -1,7 +1,7 @@
-{% extends "orders/layouts/base.html" %}
+{% extends "orders/buffet/layouts/buffet_customer_base.html" %}
 {% load static %}
 
-{% block extra_css %}
+{% block buffet_page_css %}
 <style>
     .item-card {
         background: #fff;
@@ -68,7 +68,7 @@
 
 </div>
 
-<div class="fixed-bottom bg-white p-3 border-top shadow-lg" style="max-width: 600px; margin: 0 auto; bottom: 50px; z-index: 1020;">
+<div class="fixed-bottom bg-white p-3 border-top shadow-lg buffet-fixed-action-bar" style="max-width: 600px; margin: 0 auto; left: 0; right: 0;">
     <button class="main-btn" id="submit-order-btn">Submit Order</button>
 </div>
 {% endblock %}

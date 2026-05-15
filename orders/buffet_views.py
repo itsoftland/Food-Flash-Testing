@@ -26,6 +26,16 @@ from core.config.status_choices import STATUS_CHOICES_MAP
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "").strip().lower()
 
+
+def _buffet_workflow_context(step):
+    """Workflow footer context — Dine Flash Buffet customer flow only."""
+    if project_name != "dine_flash_buffet":
+        return {}
+    return {
+        "show_buffet_workflow_footer": True,
+        "buffet_workflow_step": step,
+    }
+
 # Aligns with dine_flash table_booking.js special_notes limit (200).
 BUFFET_ITEM_REMARKS_MAX_LENGTH = 200
 
@@ -149,6 +159,7 @@ def buffet_table_booking(request):
         "vendor_id": vendor_id,
         "UTILITIES_ENABLED": utilities_enabled,
         "PHONE_NUMBER_ENABLED": phone_number_enabled,
+        **_buffet_workflow_context(1),
     }
 
     return render(request, 'orders/buffet/table_booking.html', context)
@@ -156,7 +167,11 @@ def buffet_table_booking(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def buffet_utility_selection(request):
-    return render(request, 'orders/buffet/utility_selection.html')
+    return render(
+        request,
+        'orders/buffet/utility_selection.html',
+        _buffet_workflow_context(2),
+    )
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -164,13 +179,20 @@ def buffet_combined_options(request):
     return render(
         request,
         "orders/buffet/combined_options.html",
-        {"buffet_remarks_max_length": BUFFET_ITEM_REMARKS_MAX_LENGTH},
+        {
+            "buffet_remarks_max_length": BUFFET_ITEM_REMARKS_MAX_LENGTH,
+            **_buffet_workflow_context(3),
+        },
     )
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def buffet_order_confirmation(request):
-    return render(request, 'orders/buffet/order_confirmation.html')
+    return render(
+        request,
+        'orders/buffet/order_confirmation.html',
+        _buffet_workflow_context(4),
+    )
 
 
 @api_view(["POST"])

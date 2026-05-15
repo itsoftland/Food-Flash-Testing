@@ -1,7 +1,7 @@
-{% extends "orders/layouts/base.html" %}
+{% extends "orders/buffet/layouts/buffet_customer_base.html" %}
 {% load static %}
 
-{% block extra_css %}
+{% block buffet_page_css %}
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
 <style>
     .utility-item {
@@ -153,7 +153,7 @@
 
 </div>
 
-<div class="fixed-bottom bg-white p-3 border-top shadow-lg" style="max-width: 600px; margin: 0 auto; display: none; bottom: 50px; z-index: 1020;" id="bottom-bar">
+<div class="fixed-bottom bg-white p-3 border-top shadow-lg buffet-fixed-action-bar" style="max-width: 600px; margin: 0 auto; display: none; left: 0; right: 0;" id="bottom-bar">
     <button class="main-btn mt-0" id="proceed-btn">Proceed (<span id="total-qty">0</span> items)</button>
 </div>
 {% endblock %}

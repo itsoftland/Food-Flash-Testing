@@ -1,0 +1,161 @@
+:root {
+    --buffet-workflow-footer-height: 76px;
+    --buffet-workflow-active: #d18d00;
+    --buffet-workflow-active-dark: #a05a00;
+    --buffet-workflow-muted: #bdbdbd;
+    --buffet-workflow-line: #e8e8e8;
+    --buffet-workflow-done: #2e7d32;
+}
+
+.buffet-customer-flow main.flex-fill {
+    padding-bottom: calc(var(--buffet-workflow-footer-height) + 24px);
+}
+
+.buffet-customer-flow .buffet-fixed-action-bar {
+    bottom: var(--buffet-workflow-footer-height);
+    z-index: 1020;
+}
+
+.buffet-workflow-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--buffet-workflow-footer-height);
+    background: #ffffff;
+    border-top: 1px solid rgba(209, 141, 0, 0.2);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px 10px;
+    box-sizing: border-box;
+}
+
+.buffet-workflow-footer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--buffet-workflow-active) 50%,
+        transparent 100%
+    );
+    opacity: 0.35;
+}
+
+.buffet-workflow-steps {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    list-style: none;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.buffet-workflow-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    min-width: 0;
+    text-align: center;
+}
+
+.buffet-workflow-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: calc(50% + 16px);
+    width: calc(100% - 32px);
+    height: 2px;
+    background: var(--buffet-workflow-line);
+    z-index: 0;
+}
+
+.buffet-workflow-step.is-complete:not(:last-child)::after {
+    background: linear-gradient(90deg, var(--buffet-workflow-done), var(--buffet-workflow-active));
+}
+
+.buffet-workflow-step.is-active:not(:last-child)::after {
+    background: linear-gradient(90deg, var(--buffet-workflow-active), var(--buffet-workflow-line));
+}
+
+.buffet-workflow-marker {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #f5f5f5;
+    color: var(--buffet-workflow-muted);
+    border: 2px solid var(--buffet-workflow-line);
+    position: relative;
+    z-index: 1;
+    transition: all 0.25s ease;
+}
+
+.buffet-workflow-step.is-active .buffet-workflow-marker {
+    background: linear-gradient(135deg, var(--buffet-workflow-active) 0%, var(--buffet-workflow-active-dark) 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 10px rgba(209, 141, 0, 0.35);
+}
+
+.buffet-workflow-step.is-complete .buffet-workflow-marker {
+    background: var(--buffet-workflow-done);
+    color: #fff;
+    border-color: transparent;
+}
+
+.buffet-workflow-label {
+    margin-top: 4px;
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--buffet-workflow-muted);
+    letter-spacing: 0.02em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 2px;
+}
+
+.buffet-workflow-step.is-active .buffet-workflow-label {
+    color: var(--buffet-workflow-active-dark);
+    font-weight: 700;
+}
+
+.buffet-workflow-step.is-complete .buffet-workflow-label {
+    color: #555;
+}
+
+@media (max-width: 380px) {
+    .buffet-workflow-label {
+        font-size: 0.55rem;
+    }
+
+    .buffet-workflow-marker {
+        width: 24px;
+        height: 24px;
+        font-size: 0.65rem;
+    }
+
+    .buffet-workflow-step:not(:last-child)::after {
+        top: 12px;
+    }
+}
