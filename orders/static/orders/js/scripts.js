@@ -560,21 +560,48 @@ onDOMReady(async function () {
 
         const vendorId = await AppUtils.getActiveVendor();
 
+        // Dine Flash Buffet: load token + order-created chat immediately after redirect
+        // (do not wait for permission modal, SW controller, or push subscription).
+        let buffetUserTokenShown = false;
+        let buffetStatusFetchPromise = null;
+        if (isDineFlashBuffetSurface) {
+            buffetStatusFetchPromise = (async () => {
+                try {
+                    await showChatWindow({});
+                    buffetUserTokenShown = true;
+                    appendMessage(String(tokenFromQR), 'user', '', 'chat');
+                    try {
+                        await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
+                    } catch (chatErr) {
+                        console.warn('Buffet early chat save:', chatErr);
+                    }
+                    return await fetchOrderStatusOnce(tokenFromQR);
+                } catch (err) {
+                    console.warn('Buffet early chat bootstrap failed:', err);
+                    buffetStatusFetchPromise = null;
+                    return null;
+                }
+            })();
+        }
+
         // console.log("🔍 QR Scan Detected:", { tokenFromQR, vendorId, permissionStatus });
 
         // 🔧 Define core flow to handle token setup
         const handleToken = async () => {
             try {
                 let displayToken = tokenFromQR;
+                const skipBuffetChatDuplicate = isDineFlashBuffetSurface && buffetUserTokenShown;
                 // Apply masking only for airline_flash
-                if (window.BASE && window.BASE.includes('/airline_flash/')) {
-                    storedName = await getPassengerName(tokenFromQR);
-                    // console.log("Passenger:", storedName);
-                    // Append masked token in chat for Airline Flash
-                    displayToken = maskSequenceCode(displayToken);
-                    appendMessage(displayToken, 'user', "", 'chat',"",storedName);
-                }else{
-                    appendMessage(displayToken, 'user', "", 'chat');
+                if (!skipBuffetChatDuplicate) {
+                    if (window.BASE && window.BASE.includes('/airline_flash/')) {
+                        storedName = await getPassengerName(tokenFromQR);
+                        // console.log("Passenger:", storedName);
+                        // Append masked token in chat for Airline Flash
+                        displayToken = maskSequenceCode(displayToken);
+                        appendMessage(displayToken, 'user', "", 'chat',"",storedName);
+                    } else {
+                        appendMessage(displayToken, 'user', "", 'chat');
+                    }
                 }
 
                 // appendMessage(tokenFromQR, 'user', "", 'chat');
@@ -618,27 +645,28 @@ onDOMReady(async function () {
                 }
 
                 if (isDineFlashBuffetSurface && "serviceWorker" in navigator) {
-                    try {
-                        await Promise.race([
-                            new Promise((resolve) => {
-                                if (navigator.serviceWorker.controller) {
-                                    resolve();
-                                    return;
-                                }
-                                navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
-                                    once: true,
-                                });
-                            }),
-                            new Promise((resolve) => setTimeout(resolve, 8000)),
-                        ]);
-                    } catch (swCtlErr) {
+                    // Non-blocking: chat/status already started; do not delay push setup.
+                    void Promise.race([
+                        new Promise((resolve) => {
+                            if (navigator.serviceWorker.controller) {
+                                resolve();
+                                return;
+                            }
+                            navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
+                                once: true,
+                            });
+                        }),
+                        new Promise((resolve) => setTimeout(resolve, 8000)),
+                    ]).catch((swCtlErr) => {
                         console.warn("Buffet: waiting for service worker controller:", swCtlErr);
-                    }
+                    });
                 }
 
                 // ✅ Step 3: Save chat log
                 try {
-                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                    if (skipBuffetChatDuplicate) {
+                        // Saved during buffet early chat bootstrap.
+                    } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         await saveChat(tokenFromQR, 'user', 'chat', bookingIdfromQR);
                     }else{
                         await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
@@ -683,42 +711,36 @@ onDOMReady(async function () {
                     return null;
                 });
 
-                if (isDineFlashBuffetSurface) {
-                    await handleTokenPromise;
-                }
+                const fetchStatusTask = (async () => {
+                    try {
+                        let statusPromise = buffetStatusFetchPromise;
+                        if (!statusPromise) {
+                            if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                                statusPromise = fetchOrderStatusOnce(tokenFromQR, null, bookingIdfromQR);
+                            } else {
+                                statusPromise = fetchOrderStatusOnce(tokenFromQR);
+                            }
+                        }
+                        check_status = await statusPromise;
 
-                // ✅ Step 4: Fetch order status
-                try {
-                    // console.log("📡 Fetching order status...");
-                    if (window.BASE && window.BASE.includes('/dine_flash/')) {
-                        check_status = await fetchOrderStatusOnce(tokenFromQR,null,bookingIdfromQR);
-                    }else{
-                        check_status = await fetchOrderStatusOnce(tokenFromQR);
-                    }
-
-                    if (!check_status) {
-                        console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
+                        if (!check_status) {
+                            console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
+                            appendMessage(
+                                "⚠️ Couldn’t fetch the latest update right now. Please wait a few seconds or try again manually.",
+                                'server', null, 'error'
+                            );
+                        }
+                    } catch (fetchErr) {
+                        console.error("❌ Order status fetch failed:", fetchErr);
                         appendMessage(
-                            "⚠️ Couldn’t fetch the latest update right now. Please wait a few seconds or try again manually.",
+                            "⚠️ Couldn’t load current status. You’ll still get alerts once updates are available, or you can retry manually.",
                             'server', null, 'error'
                         );
                     }
-                    // } else {
-                    //     console.log("✅ Order status retrieved successfully:", check_status);
-                    // }
+                })();
 
-                } catch (fetchErr) {
-                    console.error("❌ Order status fetch failed:", fetchErr);
-                    appendMessage(
-                        "⚠️ Couldn’t load current status. You’ll still get alerts once updates are available, or you can retry manually.",
-                        'server', null, 'error'
-                    );
-                }
-
-                // Non-buffet: let SW/chat setup run in parallel with status fetch.
-                if (!isDineFlashBuffetSurface) {
-                    await handleTokenPromise;
-                }
+                // Buffet + other flavours: push/SW setup in parallel with status fetch.
+                await Promise.all([handleTokenPromise, fetchStatusTask]);
 
                 // console.log("🎉 Permission flow and order fetch complete");
 
