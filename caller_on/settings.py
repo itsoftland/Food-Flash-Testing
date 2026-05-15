@@ -154,9 +154,24 @@ REST_FRAMEWORK = {
     ],
 }
 # === JWT Configurations ===
+def _jwt_access_token_lifetime():
+    if PROJECT_NAME == "dine_flash_buffet":
+        # KDS / utility apps: long-lived access token (default 24h).
+        hours = int(os.getenv("DINE_FLASH_BUFFET_ACCESS_TOKEN_HOURS", "24"))
+        return timedelta(hours=max(1, hours))
+    return timedelta(minutes=int(os.getenv("ACCESS_TOKEN_LIFETIME", "5")))
+
+
+def _jwt_refresh_token_lifetime():
+    if PROJECT_NAME == "dine_flash_buffet":
+        days = int(os.getenv("DINE_FLASH_BUFFET_REFRESH_TOKEN_DAYS", os.getenv("REFRESH_TOKEN_LIFETIME", "7")))
+        return timedelta(days=max(1, days))
+    return timedelta(days=int(os.getenv("REFRESH_TOKEN_LIFETIME", "1")))
+
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv("ACCESS_TOKEN_LIFETIME"),)),   # 🔁 Default is 5 minutes
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv("REFRESH_TOKEN_LIFETIME"))),      # 🔁 Default is 1 day
+    'ACCESS_TOKEN_LIFETIME': _jwt_access_token_lifetime(),
+    'REFRESH_TOKEN_LIFETIME': _jwt_refresh_token_lifetime(),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
