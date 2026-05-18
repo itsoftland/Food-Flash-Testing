@@ -3,6 +3,57 @@ import { ChatHistoryService } from "./chatHistoryService.js";
 import { appendMessage } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
+function isDineFlashBuffetRestoreSurface() {
+  const base = window.BASE || "";
+  if (base.includes("/dine_flash_buffet/")) return true;
+  const path = (window.location?.pathname || "").toLowerCase();
+  return path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet");
+}
+
+/** Dine Flash Buffet only — keep order token visible after history restore clears the chat. */
+function buffetTokenAlreadyInChat(tokenStr) {
+  const chatContainer = document.getElementById("chat-container");
+  if (!chatContainer) return false;
+
+  if (chatContainer.querySelector(`.message-row.user [data-token-no="${tokenStr}"]`)) {
+    return true;
+  }
+
+  for (const bubble of chatContainer.querySelectorAll(".message-row.user .message-bubble.user")) {
+    const content = bubble.querySelector(".message-content");
+    if (!content) continue;
+    const clone = content.cloneNode(true);
+    clone.querySelectorAll(".reply-button, .message-timestamp").forEach((el) => el.remove());
+    const plain = (clone.textContent || "").replace(/\s+/g, " ").trim();
+    if (plain === tokenStr || plain.startsWith(`${tokenStr} `)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function prefillBuffetChatInput(tokenStr) {
+  const chatInput = document.getElementById("chat-input");
+  if (!chatInput || AppUtils.isReplyMode) return;
+  if (!chatInput.value.trim()) {
+    chatInput.value = tokenStr;
+  }
+}
+
+function ensureBuffetQrTokenVisible(token) {
+  if (!isDineFlashBuffetRestoreSurface() || token == null) return;
+  const tokenStr = String(token).trim();
+  if (!tokenStr) return;
+
+  if (buffetTokenAlreadyInChat(tokenStr)) {
+    prefillBuffetChatInput(tokenStr);
+    return;
+  }
+
+  appendMessage(tokenStr, "user", "", "chat", tokenStr);
+  prefillBuffetChatInput(tokenStr);
+}
+
 export const ChatRestoreService = (() => {
   let restorePromise = null;
   let lastRestoredVendorId = null;
@@ -95,6 +146,11 @@ export const ChatRestoreService = (() => {
         console.error("ChatRestoreService.restore failed:", err);
         return false;
       } finally {
+        // First-time buffet redirect: VendorUIService restore can run after early
+        // bootstrap and wipe the token message before history exists server-side.
+        if (window.buffetQrTokenFromRedirect) {
+          ensureBuffetQrTokenVisible(window.buffetQrTokenFromRedirect);
+        }
         window.isRestoringHistory = false;
         restorePromise = null;
       }
@@ -103,6 +159,6 @@ export const ChatRestoreService = (() => {
     return restorePromise;
   }
 
-  return { restore };
+  return { restore, ensureBuffetQrTokenVisible };
 })();
 

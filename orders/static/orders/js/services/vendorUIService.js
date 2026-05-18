@@ -81,9 +81,12 @@ export const VendorUIService = {
                 AppUtils.setSelectedOutletName(vendor.alias_name);
                 AppUtils.storageSet("activeVendorLogo", vendor.logo_url);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
-                if (browser_id) {
+                const skipRestoreForBuffetQrRedirect =
+                    String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet" &&
+                    window.buffetQrTokenFromRedirect;
+                if (browser_id && !skipRestoreForBuffetQrRedirect) {
                     ChatRestoreService.restore(vendor.vendor_id);
-                } else {
+                } else if (!browser_id) {
                     console.warn("No browser ID, skipping restore.");
                 }
                 WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");

@@ -590,11 +590,13 @@ onDOMReady(async function () {
         let buffetUserTokenShown = false;
         let buffetStatusFetchPromise = null;
         if (isDineFlashBuffetSurface) {
+            window.buffetQrTokenFromRedirect = String(tokenFromQR);
             buffetStatusFetchPromise = (async () => {
                 try {
                     await showChatWindow({});
                     buffetUserTokenShown = true;
                     appendMessage(String(tokenFromQR), 'user', '', 'chat');
+                    ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
                     try {
                         await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
                     } catch (chatErr) {
@@ -616,6 +618,9 @@ onDOMReady(async function () {
             try {
                 let displayToken = tokenFromQR;
                 const skipBuffetChatDuplicate = isDineFlashBuffetSurface && buffetUserTokenShown;
+                if (skipBuffetChatDuplicate) {
+                    ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
+                }
                 // Apply masking only for airline_flash
                 if (!skipBuffetChatDuplicate) {
                     if (window.BASE && window.BASE.includes('/airline_flash/')) {
@@ -767,6 +772,10 @@ onDOMReady(async function () {
                 // Buffet + other flavours: push/SW setup in parallel with status fetch.
                 await Promise.all([handleTokenPromise, fetchStatusTask]);
 
+                if (isDineFlashBuffetSurface) {
+                    ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
+                }
+
                 // console.log("🎉 Permission flow and order fetch complete");
 
             } catch (err) {
@@ -775,6 +784,10 @@ onDOMReady(async function () {
                     "⚠️ A technical issue occurred while initializing. Please re-enter your details and try again.",
                     'server', null, 'error'
                 );
+            } finally {
+                if (isDineFlashBuffetSurface) {
+                    delete window.buffetQrTokenFromRedirect;
+                }
             }
         });
 
