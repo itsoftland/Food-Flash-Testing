@@ -1345,6 +1345,16 @@ def manager_order_update(request):
             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 6: Prepare push payload ===
+        is_buffet_project = project_name == "dine_flash_buffet"
+        if is_buffet_project:
+            buffet_alias = (vendor.alias_name or "").strip() or vendor.name
+            status_push_type = "buffet_item_ready"
+            manager_push_type = "buffet_manager"
+        else:
+            buffet_alias = vendor.alias_name
+            status_push_type = "foodstatus"
+            manager_push_type = "manager"
+
         payload = {
             "title": "Order Update by Manager",
             "body": f"Your order {token_no} status: {status_to_update.capitalize()}" if action_type == "ready"
@@ -1355,15 +1365,17 @@ def manager_order_update(request):
             "status": status_to_update.lower(),
             "counter_no": order.counter_no,
             "name": vendor.name,
-            'alias_name': vendor.alias_name,
+            'alias_name': buffet_alias,
             "vendor_id": vendor.vendor_id,
             "location_id": vendor.location_id,
             "logo_url": logo_url,
-            "type": "foodstatus" if action_type in ["ready", "delivered", "cancelled"] else "manager",
+            "type": status_push_type if action_type in ["ready", "delivered", "cancelled"] else manager_push_type,
             "message_id": None,
             "vibration_pattern":vendor.config.vibration_pattern,
             "vibration_duration":vendor.config.vibration_duration
         }
+        if is_buffet_project:
+            payload["booking_id"] = order.id
 
         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
 
@@ -1428,14 +1440,18 @@ def manager_order_update(request):
                 return Response({"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."}, status=400)
 
             logger.info("ℹ️ Sending manager message via web push")
-            chat_message = ChatMessage.objects.create(
-                vendor=vendor,
-                token_no=token_no,
-                created_date=get_vendor_current_time(vendor).date(),
-                sender='manager',
-                is_send=True,
-                message_text=status_to_update
-            )
+            chat_message_kwargs = {
+                "vendor": vendor,
+                "token_no": token_no,
+                "created_date": get_vendor_current_time(vendor).date(),
+                "sender": "manager",
+                "is_send": True,
+                "message_text": status_to_update,
+            }
+            if is_buffet_project:
+                chat_message_kwargs["booking_id"] = order.id
+                chat_message_kwargs["booking_no"] = order.table_booking_no
+            chat_message = ChatMessage.objects.create(**chat_message_kwargs)
             payload["message_id"] = chat_message.id
             payload["status"] = status_to_update
             push_errors = notify_web_push(order, vendor, payload)

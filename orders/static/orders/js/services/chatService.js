@@ -20,6 +20,25 @@ export async function handleOutletSelection(vendorId, vendor_logo, placeId) {
     AppUtils.storageSet("activeVendorRatingLink", placeId);
 }
 
+/** Dine Flash Buffet customer chat only — enables reply on status cards like Food Flash. */
+function isDineFlashBuffetChatSurface() {
+    const project = String(window.PROJECT_NAME || "").trim().toLowerCase();
+    if (project === "dine_flash_buffet") return true;
+    return String(window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
+}
+
+function isBuffetReplyableType(type) {
+    if (!isDineFlashBuffetChatSurface() || !type) return false;
+    const norm = String(type).toLowerCase();
+    return (
+        norm === "manager" ||
+        norm === "buffet_manager" ||
+        norm === "buffetstatus" ||
+        norm === "order_delivered" ||
+        norm.startsWith("buffet_")
+    );
+}
+
 export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
     console.log("Booking ID from message:", token_no);
     const chatContainer = document.getElementById("chat-container");
@@ -82,7 +101,18 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
     }
 
     messageRow.appendChild(messageBubble);
-    if (sender === 'server' && (type === 'foodstatus' || type === 'manager')|| (type === 'flightstatus') || (type === 'airline_manager') || (type === 'dinestatus') || (type === 'dine_manager')) {
+    if (
+        sender === 'server' &&
+        (
+            type === 'foodstatus' ||
+            type === 'manager' ||
+            type === 'flightstatus' ||
+            type === 'airline_manager' ||
+            type === 'dinestatus' ||
+            type === 'dine_manager' ||
+            isBuffetReplyableType(type)
+        )
+    ) {
         const replyBtn = messageBubble.querySelector('.reply-button');
         if (replyBtn) {
             replyBtn.addEventListener('click', (e) => {

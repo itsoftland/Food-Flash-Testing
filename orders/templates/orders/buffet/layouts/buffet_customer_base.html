@@ -2,7 +2,23 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'orders/css/buffet/buffet_workflow_footer.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/buffet/buffet_workflow_footer.css' %}?v={{ APP_VERSION }}">
+{# Critical footer layout: ensures horizontal steps if external CSS is delayed on some mobile browsers #}
+<style>
+.buffet-customer-flow .buffet-workflow-footer .buffet-workflow-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+}
+.buffet-customer-flow .buffet-workflow-footer .buffet-workflow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+</style>
 {% block buffet_page_css %}{% endblock %}
 {% endblock %}
 

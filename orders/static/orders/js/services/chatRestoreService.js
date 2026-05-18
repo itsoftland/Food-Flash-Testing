@@ -62,6 +62,8 @@ export const ChatRestoreService = (() => {
             "buffet_utilities_status",
             "buffet_utilities_ready",
             "order_delivered",
+            "buffet_manager",
+            "manager",
           ]);
           cachedMessages.forEach(msg => {
             appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);

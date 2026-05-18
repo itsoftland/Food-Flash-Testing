@@ -268,6 +268,25 @@ class WebChatMessageSerializer(serializers.ModelSerializer):
                 except Order.DoesNotExist:
                     validated_data["token_no"] = None
 
+        if project_name == "dine_flash_buffet":
+            booking_id = validated_data.get("booking_id")
+            token_no = validated_data.get("token_no")
+            if booking_id:
+                try:
+                    booking = Order.objects.get(id=booking_id, vendor=vendor)
+                    validated_data["token_no"] = booking.token_no
+                    validated_data["booking_no"] = booking.table_booking_no
+                    validated_data["booking_id"] = booking_id
+                except Order.DoesNotExist:
+                    validated_data["token_no"] = None
+            elif token_no is not None:
+                try:
+                    booking = Order.objects.get(token_no=token_no, vendor=vendor)
+                    validated_data["booking_id"] = booking.id
+                    validated_data["booking_no"] = booking.table_booking_no
+                except Order.DoesNotExist:
+                    pass
+
         # 🔹 Create WebChatMessage
         return WebChatMessage.objects.create(
             vendor=vendor,

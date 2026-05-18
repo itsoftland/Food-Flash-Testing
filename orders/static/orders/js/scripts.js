@@ -416,6 +416,11 @@ onDOMReady(async function () {
                         await showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
                         break;
+                    case 'buffet_manager':
+                        AppUtils.notifyOrderReady(pushData);
+                        await showNotificationModal(pushData, 'notification');
+                        appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
+                        break;
                     case 'item_preparing':
                     case 'item_ready':
                     case 'item_cancelled':
@@ -508,7 +513,12 @@ onDOMReady(async function () {
             (event.key >= "0" && event.key <= "9") ||
             allowedKeys.includes(event.key)
         ) {
-            if (chatInput.value.length >= 4 && event.key >= "0" && event.key <= "9") {
+            if (
+                !isDineFlashBuffetSurface &&
+                chatInput.value.length >= 4 &&
+                event.key >= "0" &&
+                event.key <= "9"
+            ) {
                 event.preventDefault();  // Only limit when NOT replying
             }
 
@@ -516,6 +526,9 @@ onDOMReady(async function () {
                 event.preventDefault();
                 sendButton.click();
             }
+        } else if (isDineFlashBuffetSurface) {
+            event.preventDefault();
+            appendMessage("Please enter a valid token or bill number (digits only).", "server", null);
         } else if (base === "/food_flash/") {
             event.preventDefault();
             appendMessage("Please enter a valid 4-digit Order No.", "server", null);
@@ -525,7 +538,16 @@ onDOMReady(async function () {
     
     // Sanitize input on any indirect changes (e.g. autocomplete)
     chatInput.addEventListener("input", function(event) {
-        if (AppUtils.isReplyMode || base === '/airline_flash/') return;  // ✅ Skip restrictions while replying
+        if (AppUtils.isReplyMode || base === '/airline_flash/') return;
+
+        if (isDineFlashBuffetSurface) {
+            const cleanValue = chatInput.value.replace(/[^0-9]/g, "");
+            if (chatInput.value !== cleanValue) {
+                appendMessage("Only digits (0-9) are allowed for token or bill number.", "server", null);
+            }
+            chatInput.value = cleanValue;
+            return;
+        }
 
         let cleanValue = chatInput.value.replace(/[^0-9]/g, "").substring(0, 4);
         if (chatInput.value !== cleanValue) {
@@ -549,6 +571,9 @@ onDOMReady(async function () {
             }
             else if (base == '/dine_flash/'){
                 chatInput.placeholder = "Enter your Booking No...";
+            }
+            else if (isDineFlashBuffetSurface) {
+                chatInput.placeholder = "Enter your token or bill number...";
             }
             else{
                 chatInput.placeholder = "Enter your Order No...";
@@ -791,6 +816,16 @@ onDOMReady(async function () {
         if (selectedMessage) {
             console.log(" 💬 Selected message has token number:",selectedMessage.dataset.tokenNo)
             const tokenNo = selectedMessage.dataset.tokenNo;
+            if (isDineFlashBuffetSurface && !tokenNo) {
+                appendMessage(
+                    "Please tap Reply on an order status card to message the kitchen.",
+                    "server",
+                    null
+                );
+                chatInput.value = "";
+                clearReplyMode();
+                return;
+            }
             if (tokenNo) {
                 // This is a reply to a message with tokenNo
                 await fetchOrderStatusOnce(tokenNo,message,tokenNo); // Attach token + reply inside this function
@@ -800,7 +835,9 @@ onDOMReady(async function () {
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
                 storedName = await getPassengerName(tokenNo);
                 appendMessage(message, 'user', "","chat",tokenNo,storedName);
-            }else{
+            } else if (isDineFlashBuffetSurface) {
+                appendMessage(message, 'user', "", "chat", tokenNo);
+            } else {
                 appendMessage(message, 'user', null);
             }
             
@@ -830,7 +867,20 @@ onDOMReady(async function () {
                 setActiveDineBookingId(bookingId);
             }
 
-            else {
+            else if (isDineFlashBuffetSurface) {
+                if (!/^[0-9]+$/.test(message)) {
+                    appendMessage(
+                        "Please enter a valid token or bill number (digits only), or tap Reply on a status card to message the kitchen.",
+                        "server",
+                        null
+                    );
+                    chatInput.value = "";
+                    return;
+                }
+                appendMessage(message, "user", "", "chat", message);
+                await saveChat(message, "user", "chat", message);
+                await fetchOrderStatusOnce(message);
+            } else {
                 appendMessage(message, 'user', null);
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
@@ -838,7 +888,7 @@ onDOMReady(async function () {
                 setActiveDineBookingId(bookingId);
                 await saveChat(bookingNo, 'user', 'chat',bookingId);
                 await fetchOrderStatusOnce(bookingNo); // Use bookingNo as tokenNo
-            }else{
+            } else if (!isDineFlashBuffetSurface) {
                 await saveChat(message, 'user', 'chat',message);
                 await fetchOrderStatusOnce(message); // Use message as tokenNo  
             }

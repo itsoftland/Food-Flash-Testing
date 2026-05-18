@@ -716,6 +716,8 @@ window.AppUtils = {
             } else if (pushData.type === 'dine_manager') {
                 // 📩 Manager broadcast messages
                 message = `You have a new message. Please check the app for details.`;
+            } else if (pushData.type === 'buffet_manager') {
+                message = `You have a new message. Please check the app for details.`;
             }
             else {
                 // 🧾 Default fallback

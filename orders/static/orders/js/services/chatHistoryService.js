@@ -96,7 +96,11 @@ export const ChatHistoryService = (() => {
             else if (window.BASE === "/dine_flash/") {
                 // For Dine Flash → send booking_no
                 payload.booking_id = token_no;
-            } 
+            }
+            else if (window.BASE === "/dine_flash_buffet/") {
+                // Dine Flash Buffet → order token (same as Food Flash web chat)
+                payload.token_no = token_no;
+            }
             else {
                 // For Food Flash → send numeric token_no
                 payload.token_no = token_no;

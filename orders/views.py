@@ -648,8 +648,8 @@ def check_status(request):
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
                     token_no=order.token_no,
-                    booking_id = order.id if project_name == "dine_flash" else None,
-                    booking_no = order.table_booking_no if project_name == "dine_flash" else None,
+                    booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
+                    booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     sequence_code = order.sequence_code if project_name == "airline_flash" else None,
                     created_date=timezone.now().date(),
                     sender='user',

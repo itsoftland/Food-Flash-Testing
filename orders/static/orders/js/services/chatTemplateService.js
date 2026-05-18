@@ -526,6 +526,7 @@ export const ChatTemplateService = {
       case "airline_manager":
         return buildAirlineManagerMessage(payload);
       case "dine_manager":
+      case "buffet_manager":
         return buildManagerMessage(payload);
       case "flightstatus":
         return buildFlightStatusMessage(payload);
