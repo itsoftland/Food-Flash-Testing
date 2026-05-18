@@ -1006,38 +1006,78 @@ onDOMReady(async function () {
                 }
             }
             if (!replyText) {
-                if (type === 'buffetstatus' && data.items) {
-                    // Sort items chronologically by updated_at
-                    const sortedItems = data.items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
-                    
-                    for (const item of sortedItems) {
-                        const itemHTML = ChatTemplateService.build({
-                            type: 'buffet_item_update',
-                            text: {
+                if (type === "buffetstatus") {
+                    const buffetTokenKey = String(
+                        data.token_no != null && String(data.token_no).trim() !== ""
+                            ? data.token_no
+                            : token
+                    );
+                    const buffetCardsAlreadyRestored =
+                        buffetEarlyPushLink &&
+                        buffetTokenKey &&
+                        window.buffetRestoredOrderTokens instanceof Set &&
+                        window.buffetRestoredOrderTokens.has(buffetTokenKey);
+
+                    if (!buffetCardsAlreadyRestored) {
+                        // Sort items chronologically by updated_at (API omits "created" lines).
+                        const sortedItems = (Array.isArray(data.items) ? data.items : []).sort(
+                            (a, b) => new Date(a.updated_at) - new Date(b.updated_at)
+                        );
+
+                        for (const item of sortedItems) {
+                            const itemPayload = {
+                                type: "buffet_item_update",
                                 ...item,
                                 item_name: item.name,
-                                alias_name: data.alias_name
-                            }
-                        });
-                        appendMessage(itemHTML, 'server', null, 'buffet_item_update', data.token_no);
-                    }
-                    if (Array.isArray(data.utilities_status) && data.utilities_status.length > 0) {
-                        const summaryHtml = ChatTemplateService.build({
-                            type: 'buffet_utilities_status_summary',
-                            text: {
+                                alias_name: data.alias_name,
+                            };
+                            const itemHTML = ChatTemplateService.build({
+                                type: "buffet_item_update",
+                                text: itemPayload,
+                            });
+                            appendMessage(
+                                itemHTML,
+                                "server",
+                                null,
+                                "buffet_item_update",
+                                data.token_no
+                            );
+                            await saveChat(
+                                itemPayload,
+                                "server",
+                                "buffet_item_update",
+                                data.token_no
+                            );
+                        }
+                        if (
+                            Array.isArray(data.utilities_status) &&
+                            data.utilities_status.length > 0
+                        ) {
+                            const summaryPayload = {
+                                type: "buffet_utilities_status_summary",
                                 utilities: data.utilities_status,
                                 alias_name: data.alias_name,
                                 token_no: data.token_no,
                                 status: data.status,
-                            },
-                        });
-                        appendMessage(
-                            summaryHtml,
-                            'server',
-                            null,
-                            'buffet_utilities_status_summary',
-                            data.token_no
-                        );
+                            };
+                            const summaryHtml = ChatTemplateService.build({
+                                type: "buffet_utilities_status_summary",
+                                text: summaryPayload,
+                            });
+                            appendMessage(
+                                summaryHtml,
+                                "server",
+                                null,
+                                "buffet_utilities_status_summary",
+                                data.token_no
+                            );
+                            await saveChat(
+                                summaryPayload,
+                                "server",
+                                "buffet_utilities_status_summary",
+                                data.token_no
+                            );
+                        }
                     }
                 } else {
                     const messageHTML = ChatTemplateService.build({

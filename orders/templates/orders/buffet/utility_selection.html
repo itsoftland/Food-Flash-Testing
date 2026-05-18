@@ -128,12 +128,52 @@
         background: #ffebee;
         color: #c62828;
     }
+    .utility-search-wrap {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    .utility-search-input {
+        width: 100%;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 12px 16px 12px 42px;
+        font-size: 1rem;
+        background: #fff;
+        color: #333;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .utility-search-input:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255,107,107,0.15);
+    }
+    .utility-search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+        font-size: 0.95rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5 pb-5">
     <h3 class="text-center mb-4 font-weight-bold" style="color: #333;">Select Food Counters</h3>
+
+    <div class="utility-search-wrap">
+        <i class="fas fa-search utility-search-icon" aria-hidden="true"></i>
+        <input
+            type="search"
+            id="utility-search"
+            class="utility-search-input"
+            placeholder="Search ..."
+            aria-label="Search"
+            autocomplete="off"
+        >
+    </div>
 
     <div class="food-type-filter" id="food-type-filter" role="group" aria-label="Filter by food type">
         <button type="button" class="food-type-filter-btn active" data-food-type="">All</button>
@@ -169,12 +209,14 @@
 
         const utilitiesContainer = document.getElementById("utilities-container");
         const foodTypeFilter = document.getElementById("food-type-filter");
+        const utilitySearchInput = document.getElementById("utility-search");
         const proceedBtn = document.getElementById("proceed-btn");
         const totalQtySpan = document.getElementById("total-qty");
         const bottomBar = document.getElementById("bottom-bar");
         let utilityQuantities = {};
         let allUtilities = [];
         let activeFoodTypeFilter = "";
+        let activeSearchQuery = "";
 
         function escapeHtml(text) {
             const div = document.createElement("div");
@@ -188,17 +230,27 @@
             return "";
         }
 
+        function utilityDisplayName(u) {
+            return (u.display_name || u.utility_name || u.name || "").trim();
+        }
+
         function matchesFoodTypeFilter(foodType) {
             if (!activeFoodTypeFilter) return true;
             return foodType === activeFoodTypeFilter;
         }
 
-        function applyFoodTypeFilter() {
+        function matchesSearchFilter(searchName) {
+            if (!activeSearchQuery) return true;
+            return (searchName || "").includes(activeSearchQuery);
+        }
+
+        function applyFilters() {
             const rows = utilitiesContainer.querySelectorAll(".utility-item");
             let visibleCount = 0;
             rows.forEach((row) => {
                 const foodType = row.dataset.foodType || "";
-                const show = matchesFoodTypeFilter(foodType);
+                const searchName = row.dataset.searchName || "";
+                const show = matchesFoodTypeFilter(foodType) && matchesSearchFilter(searchName);
                 row.classList.toggle("is-hidden", !show);
                 if (show) visibleCount += 1;
             });
@@ -210,8 +262,12 @@
                     emptyMsg.className = "text-center p-4 text-muted filter-empty-msg";
                     utilitiesContainer.appendChild(emptyMsg);
                 }
-                const label = activeFoodTypeFilter === "veg" ? "Veg" : "Non Veg";
-                emptyMsg.textContent = `No ${label} counters available.`;
+                if (activeSearchQuery) {
+                    emptyMsg.textContent = "No counters match your search.";
+                } else {
+                    const label = activeFoodTypeFilter === "veg" ? "Veg" : "Non Veg";
+                    emptyMsg.textContent = `No ${label} counters available.`;
+                }
                 emptyMsg.style.display = "block";
             } else if (emptyMsg) {
                 emptyMsg.style.display = "none";
@@ -222,6 +278,7 @@
             const row = document.createElement("div");
             row.className = "utility-item";
             row.dataset.foodType = u.food_type || "";
+            row.dataset.searchName = utilityDisplayName(u).toLowerCase();
 
             const main = document.createElement("div");
             main.className = "utility-item-main";
@@ -238,7 +295,7 @@
             const textWrap = document.createElement("div");
             const nameEl = document.createElement("div");
             nameEl.className = "utility-name";
-            nameEl.textContent = u.display_name || u.utility_name || u.name || "";
+            nameEl.textContent = utilityDisplayName(u);
             textWrap.appendChild(nameEl);
 
             const badgeLabel = foodTypeLabel(u.food_type);
@@ -300,6 +357,7 @@
                 if (allUtilities.length === 0) {
                     utilitiesContainer.innerHTML = "<p class='text-center p-4'>No food counters available.</p>";
                     if (foodTypeFilter) foodTypeFilter.style.display = "none";
+                    if (utilitySearchInput) utilitySearchInput.closest(".utility-search-wrap").style.display = "none";
                     return;
                 }
 
@@ -314,7 +372,14 @@
                     utilitiesContainer.appendChild(buildUtilityRow(u));
                 });
 
-                applyFoodTypeFilter();
+                applyFilters();
+
+                if (utilitySearchInput) {
+                    utilitySearchInput.addEventListener("input", () => {
+                        activeSearchQuery = utilitySearchInput.value.trim().toLowerCase();
+                        applyFilters();
+                    });
+                }
 
                 if (foodTypeFilter) {
                     foodTypeFilter.querySelectorAll(".food-type-filter-btn").forEach((btn) => {
@@ -323,7 +388,7 @@
                             foodTypeFilter.querySelectorAll(".food-type-filter-btn").forEach((b) => {
                                 b.classList.toggle("active", b === btn);
                             });
-                            applyFoodTypeFilter();
+                            applyFilters();
                         });
                     });
                 }

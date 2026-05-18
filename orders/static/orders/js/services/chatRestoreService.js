@@ -49,8 +49,29 @@ export const ChatRestoreService = (() => {
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
           });
         } else if (window.BASE && window.BASE.includes('/dine_flash_buffet/')) {
+          // Track orders whose status cards were restored so a QR reload does not duplicate them.
+          window.buffetRestoredOrderTokens = new Set();
+          const buffetServerTypes = new Set([
+            "buffet_utilities_status_summary",
+            "buffet_ready_utilities_summary",
+            "buffet_item_update",
+            "buffet_item_preparing",
+            "buffet_item_ready",
+            "buffet_item_cancelled",
+            "buffet_item_delivered",
+            "buffet_utilities_status",
+            "buffet_utilities_ready",
+            "order_delivered",
+          ]);
           cachedMessages.forEach(msg => {
             appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+            if (
+              msg.sender === "server" &&
+              msg.token_no != null &&
+              buffetServerTypes.has(msg.type)
+            ) {
+              window.buffetRestoredOrderTokens.add(String(msg.token_no));
+            }
           });
         } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
           cachedMessages.forEach(msg => {
