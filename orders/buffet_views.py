@@ -1,4 +1,6 @@
 import logging
+from collections import OrderedDict
+
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -48,6 +50,49 @@ def _buffet_item_remarks_text(raw):
     return str(raw)
 
 
+def _normalize_buffet_customizations(raw):
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        return []
+    return sorted({str(x).strip() for x in raw if str(x).strip()})
+
+
+def _merge_identical_buffet_cart_lines(items_data):
+    """
+    Dine Flash Buffet: one BuffetOrderItem per distinct (utility, customizations, remarks).
+    Identical individual lines (e.g. plain dosas with no options) become one row with summed quantity.
+    """
+    buckets = OrderedDict()
+    for item in items_data or []:
+        utility_id = item.get("utility_id")
+        remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
+        customizations = _normalize_buffet_customizations(item.get("customizations"))
+        try:
+            qty = max(1, int(item.get("quantity", 1)))
+        except (TypeError, ValueError):
+            qty = 1
+        key = (utility_id, tuple(customizations), remarks)
+        if key not in buckets:
+            buckets[key] = {
+                "utility_id": utility_id,
+                "remarks": remarks,
+                "customizations": customizations,
+                "quantity": 0,
+                "is_grouped": bool(item.get("is_grouped", False)),
+            }
+        entry = buckets[key]
+        entry["quantity"] += qty
+        entry["is_grouped"] = entry["is_grouped"] or bool(item.get("is_grouped", False))
+
+    merged = []
+    for entry in buckets.values():
+        if entry["quantity"] > 1:
+            entry["is_grouped"] = True
+        merged.append(entry)
+    return merged
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def buffet_submit_order(request):
@@ -83,6 +128,9 @@ def buffet_submit_order(request):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+    if project_name == "dine_flash_buffet":
+        items_data = _merge_identical_buffet_cart_lines(items_data)
 
     with transaction.atomic():
         reset_counters_if_new_business_day(vendor, None)

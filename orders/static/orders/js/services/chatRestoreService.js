@@ -32,26 +32,21 @@ function buffetTokenAlreadyInChat(tokenStr) {
   return false;
 }
 
-function prefillBuffetChatInput(tokenStr) {
-  const chatInput = document.getElementById("chat-input");
-  if (!chatInput || AppUtils.isReplyMode) return;
-  if (!chatInput.value.trim()) {
-    chatInput.value = tokenStr;
-  }
-}
+/** Prevents duplicate user-token bubbles when redirect + restore race (Dine Flash Buffet only). */
+let buffetQrTokenBubbleShown = false;
 
 function ensureBuffetQrTokenVisible(token) {
   if (!isDineFlashBuffetRestoreSurface() || token == null) return;
   const tokenStr = String(token).trim();
   if (!tokenStr) return;
 
-  if (buffetTokenAlreadyInChat(tokenStr)) {
-    prefillBuffetChatInput(tokenStr);
+  if (buffetQrTokenBubbleShown || buffetTokenAlreadyInChat(tokenStr)) {
+    buffetQrTokenBubbleShown = true;
     return;
   }
 
   appendMessage(tokenStr, "user", "", "chat", tokenStr);
-  prefillBuffetChatInput(tokenStr);
+  buffetQrTokenBubbleShown = true;
 }
 
 export const ChatRestoreService = (() => {

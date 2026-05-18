@@ -256,51 +256,6 @@ def _notify_item_update(vendor, item, status_text):
     notify_web_push(order, vendor, push_payload)
 
 
-def _buffet_line_merge_key(status, customizations, remarks):
-    cust = customizations if isinstance(customizations, list) else []
-    return (
-        (status or "").lower(),
-        tuple(sorted(str(c) for c in cust)),
-        (remarks or "").strip(),
-    )
-
-
-def _merge_buffet_summary_lines(lines):
-    """
-    Dine Flash Buffet summary: one API line per distinct (status, customizations, remarks).
-    Individual-mode orders still store one BuffetOrderItem per unit in the DB; identical
-    units are combined here so quantity reflects the real count (e.g. 4× ready Dosa → qty 4).
-    item_id is the first underlying row id (kitchen status updates still use per-row ids).
-    """
-    if not lines:
-        return []
-    merged = OrderedDict()
-    for ln in lines:
-        key = _buffet_line_merge_key(
-            ln.get("status"),
-            ln.get("customizations"),
-            ln.get("remarks"),
-        )
-        try:
-            q = max(1, int(ln.get("quantity")))
-        except (TypeError, ValueError):
-            q = 1
-        if key not in merged:
-            merged[key] = {
-                "status": ln.get("status"),
-                "quantity": q,
-                "item_id": ln.get("item_id"),
-                "customizations": ln.get("customizations")
-                if ln.get("customizations") is not None
-                else [],
-                "remarks": ln.get("remarks") or "",
-            }
-        else:
-            bucket = merged[key]
-            bucket["quantity"] += q
-    return list(merged.values())
-
-
 def _group_buffet_lines_by_utility(queryset):
     """Build [{id, name, lines: [{status, quantity, item_id, customizations, remarks}]}] preserving utility order."""
     groups = OrderedDict()
@@ -323,8 +278,6 @@ def _group_buffet_lines_by_utility(queryset):
                 "remarks": row.remarks,
             }
         )
-    for block in groups.values():
-        block["lines"] = _merge_buffet_summary_lines(block["lines"])
     return list(groups.values())
 
 

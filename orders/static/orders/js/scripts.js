@@ -591,11 +591,11 @@ onDOMReady(async function () {
         let buffetStatusFetchPromise = null;
         if (isDineFlashBuffetSurface) {
             window.buffetQrTokenFromRedirect = String(tokenFromQR);
+            // Claim before async work so permission-modal handleToken cannot append again.
+            buffetUserTokenShown = true;
             buffetStatusFetchPromise = (async () => {
                 try {
                     await showChatWindow({});
-                    buffetUserTokenShown = true;
-                    appendMessage(String(tokenFromQR), 'user', '', 'chat');
                     ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
                     try {
                         await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
@@ -606,6 +606,7 @@ onDOMReady(async function () {
                 } catch (err) {
                     console.warn('Buffet early chat bootstrap failed:', err);
                     buffetStatusFetchPromise = null;
+                    buffetUserTokenShown = false;
                     return null;
                 }
             })();
@@ -618,9 +619,6 @@ onDOMReady(async function () {
             try {
                 let displayToken = tokenFromQR;
                 const skipBuffetChatDuplicate = isDineFlashBuffetSurface && buffetUserTokenShown;
-                if (skipBuffetChatDuplicate) {
-                    ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
-                }
                 // Apply masking only for airline_flash
                 if (!skipBuffetChatDuplicate) {
                     if (window.BASE && window.BASE.includes('/airline_flash/')) {
@@ -629,6 +627,8 @@ onDOMReady(async function () {
                         // Append masked token in chat for Airline Flash
                         displayToken = maskSequenceCode(displayToken);
                         appendMessage(displayToken, 'user', "", 'chat',"",storedName);
+                    } else if (isDineFlashBuffetSurface) {
+                        ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
                     } else {
                         appendMessage(displayToken, 'user', "", 'chat');
                     }
@@ -771,10 +771,6 @@ onDOMReady(async function () {
 
                 // Buffet + other flavours: push/SW setup in parallel with status fetch.
                 await Promise.all([handleTokenPromise, fetchStatusTask]);
-
-                if (isDineFlashBuffetSurface) {
-                    ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
-                }
 
                 // console.log("🎉 Permission flow and order fetch complete");
 

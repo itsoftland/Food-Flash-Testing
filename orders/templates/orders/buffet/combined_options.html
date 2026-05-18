@@ -185,14 +185,18 @@
                     viewGrouped.style.display = "none";
                     viewIndiv.style.display = "block";
                     if (globalInput.value) {
-                         document.getElementById(`indiv-remark-${id}-0`).value = globalInput.value;
+                        for (let i = 0; i < state.qty; i++) {
+                            document.getElementById(`indiv-remark-${id}-${i}`).value = globalInput.value;
+                        }
                     }
                     const globalCBs = viewGrouped.querySelectorAll('.customization-cb:checked');
                     globalCBs.forEach(cb => {
-                         const val = cb.value;
-                         Array.from(viewIndiv.querySelectorAll(`[id^="indiv-${id}-0-cb-"]`))
-                             .filter(indivCb => indivCb.value === val)
-                             .forEach(indivCb => indivCb.checked = true);
+                        const val = cb.value;
+                        for (let i = 0; i < state.qty; i++) {
+                            Array.from(viewIndiv.querySelectorAll(`[id^="indiv-${id}-${i}-cb-"]`))
+                                .filter(indivCb => indivCb.value === val)
+                                .forEach(indivCb => indivCb.checked = true);
+                        }
                     });
                 } else {
                     state.mode = "grouped";
