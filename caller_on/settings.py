@@ -245,6 +245,12 @@ LOGGING = {
             "filename": LOG_DIR / "company.log",
             "formatter": "verbose",
         },
+        "fcm_file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": LOG_DIR / "fcm.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
@@ -341,6 +347,11 @@ LOGGING = {
             "handlers": ["company_file"],
             "level": "DEBUG",
             "propagate": False, 
+        },
+        "dine_flash.fcm": {
+            "handlers": ["fcm_file"],
+            "level": "DEBUG",
+            "propagate": False,
         },
     },
 }

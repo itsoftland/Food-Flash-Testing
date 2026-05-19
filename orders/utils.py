@@ -1,6 +1,7 @@
 import json
 import logging
 from firebase_admin import messaging
+from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidAPK
 
 logger = logging.getLogger(__name__)
@@ -27,11 +28,12 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
         default_title = "Order Tracking Started"
         default_body = f"A customer has entered their token number {token_no}. Track the order now."
 
+        fcm_data = {
+            "type": "ready_orders",
+            "orders": json.dumps(data_payload),
+        }
         message = messaging.MulticastMessage(
-            data={
-                "type": "ready_orders",
-                "orders": json.dumps(data_payload),
-            },
+            data=fcm_data,
             notification=messaging.Notification(
                 title=title or default_title,
                 body=body or default_body,
@@ -45,23 +47,30 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
         failed_reasons = {}
 
         for idx, resp in enumerate(response.responses):
-            if not resp.success:
-                token = fcm_tokens[idx]
-                error = str(resp.exception)
+            if resp.success:
+                log_fcm_send_success(
+                    source="orders_fcm_multicast",
+                    label=title or default_title,
+                    token=fcm_tokens[idx],
+                    payload=fcm_data,
+                )
+                continue
+            token = fcm_tokens[idx]
+            error = str(resp.exception)
 
-                failed_tokens.append(token)
-                failed_reasons[token] = error
+            failed_tokens.append(token)
+            failed_reasons[token] = error
 
-                logger.warning(f"[FCM] Failed token: {token} | Reason: {error}")
+            logger.warning(f"[FCM] Failed token: {token} | Reason: {error}")
 
-                # Clean up invalid tokens
-                if "UNREGISTERED" in error or "INVALID_ARGUMENT" in error:
-                    AndroidAPK.objects.filter(token=token).delete()
-                    logger.info(f"[FCM] Removed invalid token from DB: {token}")
+            # Clean up invalid tokens
+            if "UNREGISTERED" in error or "INVALID_ARGUMENT" in error:
+                AndroidAPK.objects.filter(token=token).delete()
+                logger.info(f"[FCM] Removed invalid token from DB: {token}")
 
-                # Retry hint
-                if "UNAVAILABLE" in error:
-                    logger.warning(f"[FCM] Transient error for token {token}. Retry may succeed.")
+            # Retry hint
+            if "UNAVAILABLE" in error:
+                logger.warning(f"[FCM] Transient error for token {token}. Retry may succeed.")
 
         if failed_tokens:
             logger.warning(f"[FCM] Multicast partially failed. {len(failed_tokens)} failed tokens.")

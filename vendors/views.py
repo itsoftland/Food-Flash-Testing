@@ -599,8 +599,9 @@ def register_android_device(request):
 
     logger.info("Android Device Registration")
     logger.debug(
-        "Incoming data — token=%s, customer_id=%s, mac_address=%s, fcm_token_present=%s",
-        token,
+        "Incoming data — token=%s, customer_id=%s, mac_address=%s, "
+        "fcm_token_key_in_payload=%s (token field used as FCM when key absent)",
+        token[:20] + "..." if len(token) > 20 else token,
         customer_id,
         mac_address,
         fcm_token_in_payload,
@@ -661,6 +662,12 @@ def register_android_device(request):
             if update_fields:
                 update_fields.append("updated_at")
                 device.save(update_fields=update_fields)
+                logger.info(
+                    "Device updated mac_address=%s fields=%s fcm_from_token_field=%s",
+                    mac_address,
+                    update_fields,
+                    (not fcm_token_in_payload and "fcm_token" in update_fields),
+                )
             else:
                 logger.debug("Device found and registration fields unchanged for mac_address=%s", mac_address)
             created = False
@@ -677,7 +684,12 @@ def register_android_device(request):
                 create_kwargs["fcm_token"] = token
             with transaction.atomic():
                 device = AndroidDevice.objects.create(**create_kwargs)
-            logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
+            logger.info(
+                "New device created: mac_address=%s, token_set=%s, fcm_token_set=%s",
+                mac_address,
+                bool(token),
+                bool(create_kwargs.get("fcm_token")),
+            )
             device = device_qs.get(pk=device.pk)
             created = True
 

@@ -7,6 +7,7 @@ from vendors.dine_flash_tv_fcm import (
     is_permanent_fcm_failure,
     remove_stale_android_device_fcm_tokens,
 )
+from vendors.fcm_log import log_fcm_send_success
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,13 @@ def send_firebase_admin_multicast(vendor, fcm_tokens, data_payload):
 
     try:
         project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
+        fcm_data = {
+            "type": "ready_orders",
+            "orders": data_payload,
+            "project": project_name,
+        }
         message = messaging.MulticastMessage(
-            data={
-                "type": "ready_orders",
-                "orders": data_payload,
-                "project": project_name,
-            },
+            data=fcm_data,
             notification=messaging.Notification(
                 title="Order Ready!",
                 body="Order Status Send to Android TV",
@@ -47,6 +49,13 @@ def send_firebase_admin_multicast(vendor, fcm_tokens, data_payload):
 
         for idx, resp in enumerate(response.responses):
             if resp.success:
+                log_fcm_send_success(
+                    source="android_tv_fcm",
+                    vendor_id=getattr(vendor, "vendor_id", None),
+                    label="ready_orders",
+                    token=fcm_tokens[idx],
+                    payload=fcm_data,
+                )
                 continue
             token = fcm_tokens[idx]
             error = str(resp.exception) if resp.exception else "unknown"

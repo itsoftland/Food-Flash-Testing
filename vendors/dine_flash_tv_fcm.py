@@ -14,6 +14,7 @@ from django.conf import settings
 from django.db.models import Q
 from firebase_admin import messaging
 
+from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidDevice, Order, Vendor
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,13 @@ def remove_stale_android_device_fcm_tokens(vendor: Vendor, tokens: Sequence[str]
             )
 
 
-def _send_batches(vendor: Vendor, fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
+def _send_batches(
+    vendor: Vendor,
+    fcm_tokens: Sequence[str],
+    data: dict[str, str],
+    *,
+    label: str = "",
+) -> None:
     stale_tokens: List[str] = []
     for i in range(0, len(fcm_tokens), _FCM_BATCH_SIZE):
         batch = list(fcm_tokens[i : i + _FCM_BATCH_SIZE])
@@ -80,6 +87,13 @@ def _send_batches(vendor: Vendor, fcm_tokens: Sequence[str], data: dict[str, str
         response = messaging.send_each_for_multicast(message)
         for idx, resp in enumerate(response.responses):
             if resp.success:
+                log_fcm_send_success(
+                    source="dine_flash_tv_fcm",
+                    vendor_id=vendor.vendor_id,
+                    label=label,
+                    token=batch[idx],
+                    payload=data,
+                )
                 continue
             err = str(resp.exception) if resp.exception else "unknown"
             logger.warning("[dine_flash_fcm] Send failed for token index %s: %s", idx, err)
@@ -109,7 +123,7 @@ def _send_dine_flash_tv_data_fcm_sync(vendor_id: int, data: dict[str, str], labe
             )
             return
 
-        _send_batches(vendor, fcm_tokens, data)
+        _send_batches(vendor, fcm_tokens, data, label=label)
         logger.info(
             "[dine_flash_fcm] %s sent vendor_id=%s devices=%s",
             label,
