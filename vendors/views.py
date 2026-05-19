@@ -42,6 +42,7 @@ from .utils import (
     build_dine_flash_tv_booking_snapshot,
 )
 from .mqtt_client import get_mqtt_config_for_vendor
+from .fcm_log import log_fcm_token_registered
 
 # Shared utilities / queries
 from static.utils.functions.queries import get_order
@@ -641,6 +642,9 @@ def register_android_device(request):
 
     device_qs = _android_device_registration_queryset(skip_utilities_prefetch=is_dine_flash)
 
+    registration_action = "unchanged"
+    registration_update_fields: list[str] = []
+
     try:
         device = device_qs.filter(mac_address=mac_address, admin_outlet=customer).first()
 
@@ -662,6 +666,8 @@ def register_android_device(request):
             if update_fields:
                 update_fields.append("updated_at")
                 device.save(update_fields=update_fields)
+                registration_action = "updated"
+                registration_update_fields = list(update_fields)
                 logger.info(
                     "Device updated mac_address=%s fields=%s fcm_from_token_field=%s",
                     mac_address,
@@ -692,10 +698,31 @@ def register_android_device(request):
             )
             device = device_qs.get(pk=device.pk)
             created = True
+            registration_action = "created"
+            registration_update_fields = list(create_kwargs.keys())
 
     except Exception as e:
         logger.error("Failed to register/update device: %s", str(e), exc_info=True)
         return Response({"error": "Failed to register/update device."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _write_fcm_registration_log(vendor_id_for_log: int | None = None) -> None:
+        if not is_dine_flash:
+            return
+        stored_token = (device.fcm_token or device.token or "").strip()
+        log_fcm_token_registered(
+            action=registration_action,
+            mac_address=mac_address,
+            customer_id=customer_id,
+            vendor_id=vendor_id_for_log,
+            token=stored_token,
+            updated_fields=registration_update_fields,
+            request_payload={
+                "token": token,
+                "fcm_token": fcm_token_value if fcm_token_in_payload else None,
+                "customer_id": customer_id,
+                "mac_address": mac_address,
+            },
+        )
 
     # Default response pieces
     mapped = False
@@ -767,6 +794,7 @@ def register_android_device(request):
                     "counts": empty_counts,
                     "displayed_counts": empty_counts.copy(),
                 }
+            _write_fcm_registration_log(vendor_id)
             return Response(missing_config_response, status=status.HTTP_200_OK)
 
         # Build tv_config payload (use the reusable helper)
@@ -815,10 +843,12 @@ def register_android_device(request):
                     "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
                 }
 
+        _write_fcm_registration_log(vendor_id)
         return Response(response_body, status=status.HTTP_200_OK)
 
     # Device created/updated but not mapped to any vendor
     logger.info("Device registered but not mapped to any vendor.")
+    _write_fcm_registration_log(None)
     return Response({
         "status": "Device is registered but not yet mapped to a vendor.",
         "mapped": mapped,

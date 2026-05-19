@@ -248,7 +248,7 @@ LOGGING = {
         "fcm_file": {
             "level": "DEBUG",
             "class": "logging.FileHandler",
-            "filename": LOG_DIR / "fcm.log",
+            "filename": str(LOG_DIR / "fcm.log"),
             "formatter": "verbose",
         },
     },
