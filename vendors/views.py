@@ -577,6 +577,10 @@ def register_android_device(request):
 
     POST /api/register-android-device/
     Payload: { "token": <string>, "customer_id": <int>, "mac_address": <string> [, "fcm_token": <string>] }
+
+    For Dine Flash, `token` is the FCM registration token. When the same MAC re-registers
+    with a new non-empty `token`, both `token` and `fcm_token` are updated. Optional
+    `fcm_token` overrides the mirrored value when present in the body.
     Returns:
     - Mapped: True if the device is mapped to a vendor; False otherwise
     - Vendor ID: The ID of the vendor the device is mapped to
@@ -641,13 +645,18 @@ def register_android_device(request):
 
         if device:
             update_fields = []
-            # Do not overwrite an existing token when the client sends an empty value.
+            # Do not overwrite when the client sends an empty value (e.g. first Dine Flash boot).
             if token and device.token != token:
                 logger.info("Device found for mac_address=%s. Updating token.", mac_address)
                 device.token = token
                 update_fields.append("token")
-            if fcm_token_in_payload and device.fcm_token != fcm_token_value:
-                device.fcm_token = fcm_token_value
+            if fcm_token_in_payload:
+                if device.fcm_token != fcm_token_value:
+                    device.fcm_token = fcm_token_value
+                    update_fields.append("fcm_token")
+            elif token and device.fcm_token != token:
+                # `token` is the FCM registration token when clients omit `fcm_token`.
+                device.fcm_token = token
                 update_fields.append("fcm_token")
             if update_fields:
                 update_fields.append("updated_at")
@@ -664,6 +673,8 @@ def register_android_device(request):
             }
             if fcm_token_in_payload:
                 create_kwargs["fcm_token"] = fcm_token_value
+            elif token:
+                create_kwargs["fcm_token"] = token
             with transaction.atomic():
                 device = AndroidDevice.objects.create(**create_kwargs)
             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
@@ -975,47 +986,6 @@ def register_android_apk(request):
         return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def send_firebase_admin_multicast(fcm_tokens, data_payload):
-    """
-    Sends a true Firebase Admin SDK multicast data+notification message to multiple devices.
-    """
-
-    if not fcm_tokens:
-        logger.warning("No FCM tokens provided for multicast.")
-        return False, {"error": "No tokens to send"}
-
-    try:
-        message = messaging.MulticastMessage(
-            data={
-                "type": "ready_orders",
-                "orders": data_payload,  # Ensure this is a string, if JSON dump is needed
-                # Tag the payload so Android clients can ignore cross-flavour messages.
-                "project": project_name.lower() if isinstance(project_name, str) else "food_flash",
-            },
-            notification=messaging.Notification(
-                title="Order Ready!",
-                body="Order Status Send to Android TV"
-            ),
-            tokens=fcm_tokens,
-        )
-        response = messaging.send_each_for_multicast(message)
-
-        failed_tokens = []
-        for idx, resp in enumerate(response.responses):
-            if not resp.success:
-                failed_tokens.append(fcm_tokens[idx])
-
-        if failed_tokens:
-            logger.warning(f"Multicast partially failed: {len(failed_tokens)} failed tokens.")
-            return False, {"failed_tokens": failed_tokens}
-
-        logger.info(f"FCM multicast successful: {response.success_count} sent.")
-        return True, {"success_count": response.success_count}
-
-    except Exception as e:
-        logger.exception("Multicast FCM error")
-        return False, {"error": str(e)}
-    
 def get_vendor(vendor_id):
     return Vendor.objects.get(vendor_id=vendor_id)
 
@@ -1049,9 +1019,11 @@ def create_or_update_order(token_no, vendor, device, counter_no, status):
     return order
 
 def notify_fcm(vendor, data):
-    android_devices = AndroidDevice.objects.filter(vendor=vendor)
-    tokens = list(android_devices.values_list('token', flat=True))
-    return send_firebase_admin_multicast(tokens, json.dumps(data))
+    from static.utils.functions.notifications import send_firebase_admin_multicast
+    from vendors.dine_flash_tv_fcm import collect_vendor_tv_fcm_tokens
+
+    tokens = collect_vendor_tv_fcm_tokens(vendor)
+    return send_firebase_admin_multicast(vendor, tokens, json.dumps(data))
 
 PUSH_COOLDOWN_SECONDS = 2
 

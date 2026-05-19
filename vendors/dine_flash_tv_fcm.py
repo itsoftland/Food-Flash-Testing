@@ -11,6 +11,7 @@ import threading
 from typing import List, Sequence
 
 from django.conf import settings
+from django.db.models import Q
 from firebase_admin import messaging
 
 from vendors.models import AndroidDevice, Order, Vendor
@@ -45,7 +46,30 @@ def collect_vendor_tv_fcm_tokens(vendor: Vendor) -> List[str]:
     return list(dict.fromkeys(tokens))
 
 
-def _send_batches(fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
+def is_permanent_fcm_failure(error: str) -> bool:
+    return "UNREGISTERED" in error or "INVALID_ARGUMENT" in error
+
+
+def remove_stale_android_device_fcm_tokens(vendor: Vendor, tokens: Sequence[str]) -> None:
+    """Drop invalid FCM registration tokens so we stop retrying dead endpoints."""
+    unique_tokens = list(dict.fromkeys(t for t in tokens if t))
+    if not unique_tokens:
+        return
+
+    for failed in unique_tokens:
+        cleared = AndroidDevice.objects.filter(vendor=vendor).filter(
+            Q(fcm_token=failed) | Q(token=failed)
+        ).update(fcm_token=None, token="")
+        if cleared:
+            logger.info(
+                "[dine_flash_fcm] Cleared invalid FCM token on %s device(s) vendor_id=%s",
+                cleared,
+                vendor.vendor_id,
+            )
+
+
+def _send_batches(vendor: Vendor, fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
+    stale_tokens: List[str] = []
     for i in range(0, len(fcm_tokens), _FCM_BATCH_SIZE):
         batch = list(fcm_tokens[i : i + _FCM_BATCH_SIZE])
         message = messaging.MulticastMessage(
@@ -59,6 +83,10 @@ def _send_batches(fcm_tokens: Sequence[str], data: dict[str, str]) -> None:
                 continue
             err = str(resp.exception) if resp.exception else "unknown"
             logger.warning("[dine_flash_fcm] Send failed for token index %s: %s", idx, err)
+            if is_permanent_fcm_failure(err):
+                stale_tokens.append(batch[idx])
+
+    remove_stale_android_device_fcm_tokens(vendor, stale_tokens)
 
 
 def _send_dine_flash_tv_data_fcm_sync(vendor_id: int, data: dict[str, str], label: str) -> None:
@@ -81,7 +109,7 @@ def _send_dine_flash_tv_data_fcm_sync(vendor_id: int, data: dict[str, str], labe
             )
             return
 
-        _send_batches(fcm_tokens, data)
+        _send_batches(vendor, fcm_tokens, data)
         logger.info(
             "[dine_flash_fcm] %s sent vendor_id=%s devices=%s",
             label,
