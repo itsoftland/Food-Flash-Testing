@@ -51,6 +51,28 @@ _BUFFET_ITEM_STATUS_UPDATE_ACTIONS = frozenset(
 )
 
 
+def _buffet_line_details(item):
+    """Normalized customizations list and remarks for customer-facing payloads."""
+    raw_cust = item.customizations
+    if isinstance(raw_cust, list):
+        customizations = [str(c).strip() for c in raw_cust if c is not None and str(c).strip()]
+    else:
+        customizations = []
+    remarks = (item.remarks or "").strip() if item.remarks else ""
+    return customizations, remarks
+
+
+def _buffet_line_detail_suffix(item):
+    """Human-readable suffix when the same utility appears on multiple lines."""
+    parts = []
+    customizations, remarks = _buffet_line_details(item)
+    if customizations:
+        parts.append(", ".join(customizations))
+    if remarks:
+        parts.append(f"Note: {remarks}")
+    return f" ({'; '.join(parts)})" if parts else ""
+
+
 def _serialize_buffet_utility(request, utility):
     payload = {
         "id": utility.id,
@@ -190,6 +212,10 @@ def get_buffet_kitchen_items(request):
 def _notify_item_update(vendor, item, status_text):
     """Helper to create ChatMessage and send real-time notification."""
     order = item.order
+    customizations, remarks = _buffet_line_details(item)
+    detail_suffix = _buffet_line_detail_suffix(item)
+    item_name = item.utility.display_name if item.utility else "Unknown"
+
     # Create ChatMessage for customer history
     ChatMessage.objects.create(
         vendor=vendor,
@@ -201,10 +227,13 @@ def _notify_item_update(vendor, item, status_text):
         is_send=True,
         message_text=json.dumps({
             "item_id": item.id,
-            "item_name": item.utility.display_name if item.utility else "Unknown",
+            "item_name": item_name,
             "status": status_text,
             "type": "buffet_item_update",
             "alias_name": _buffet_vendor_chat_alias(vendor),
+            "customizations": customizations,
+            "remarks": remarks,
+            "token_no": order.token_no,
         })
     )
     
@@ -231,7 +260,9 @@ def _notify_item_update(vendor, item, status_text):
         verb = status_text.replace("_", " ")
         suffix = ""
 
-    message_body = f"Your Order {order.token_no} for {item_name} is now {verb}. {suffix}".strip()
+    message_body = (
+        f"Your Order {order.token_no} for {item_name}{detail_suffix} is now {verb}. {suffix}"
+    ).strip()
 
     if status_text == "operation_closed":
         push_title = "Close operation"
@@ -250,6 +281,8 @@ def _notify_item_update(vendor, item, status_text):
         "body": message_body,
         "message": message_body,
         "alias_name": _buffet_vendor_chat_alias(vendor),
+        "customizations": customizations,
+        "remarks": remarks,
     }
     
     send_order_update(vendor, push_payload)

@@ -609,7 +609,9 @@ def check_status(request):
                     'name': item.utility.display_name if item.utility else 'Generic',
                     'status': item.status,
                     'quantity': item.quantity,
-                    'updated_at': item.updated_at.isoformat()
+                    'updated_at': item.updated_at.isoformat(),
+                    'customizations': item.customizations if isinstance(item.customizations, list) else [],
+                    'remarks': (item.remarks or '').strip(),
                 } for item in buffet_items
             ]
             util_groups = OrderedDict()
@@ -627,6 +629,8 @@ def check_status(request):
                     'status': item.status,
                     'quantity': item.quantity,
                     'item_id': item.id,
+                    'customizations': item.customizations if isinstance(item.customizations, list) else [],
+                    'remarks': (item.remarks or '').strip(),
                 })
             data['utilities_status'] = list(util_groups.values())
 

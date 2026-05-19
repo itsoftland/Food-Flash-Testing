@@ -260,23 +260,24 @@ function normalizeBuffetUtilitiesBlocks(payload) {
   return [];
 }
 
-function formatBuffetUtilityLinesHtml(lines) {
-  const arr = Array.isArray(lines) ? lines : [];
-  if (!arr.length) {
-    return '<span class="text-muted">No lines</span>';
-  }
-  return arr
-    .map((ln) => {
-      const st = String(ln.status || "unknown").toLowerCase();
-      const cls = statusClassMap[st] || "unknown-color";
-      const qty = ln.quantity != null ? Number(ln.quantity) : 1;
-      const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
-      return `<span class="buffet-status-badge ${cls} me-1 mb-1 d-inline-block">${st.toUpperCase()}${q}</span>`;
-    })
-    .join(" ");
+function formatBuffetLineDetailsInline(remarks, customizations) {
+  const parts = [];
+  const cust = Array.isArray(customizations) ? customizations : [];
+  const custStr = cust.map((c) => String(c).trim()).filter(Boolean).join(", ");
+  if (custStr) parts.push(custStr);
+  const rem = (remarks || "").trim();
+  if (rem) parts.push(`Note: ${rem}`);
+  return parts.length ? ` <span class="buffet-line-details text-muted">(${parts.join(" · ")})</span>` : "";
 }
 
-function buildBuffetUtilitiesStationCard(payload) {
+function formatBuffetLineDetailsBlock(remarks, customizations) {
+  const bits = [];
+  const cust = Array.isArray(customizations) ? customizations : [];
+  const custStr = cust.map((c) => String(c).trim()).filter(Boolean).join(", ");
+  if (custStr) bits.push(`<div class="buffet-line-customizations">${custStr}</div>`);
+  const rem = (remarks || "").trim();
+  if (rem) bits.push(`<motion.div class="buffet-line-remarks"><strong>Note:</strong> ${rem}</motion.div>`);
+}
   const blocks = normalizeBuffetUtilitiesBlocks(payload);
   const rows = blocks
     .map((b) => {

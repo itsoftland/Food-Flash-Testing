@@ -557,6 +557,16 @@ def register_device(request):
 #         "mqtt_config": None
 #     }, status=status.HTTP_200_OK)
 
+
+def _android_device_registration_queryset(*, skip_utilities_prefetch=False):
+    """Prefetch TV relations for register_android_device (Dine Flash omits utilities)."""
+    qs = AndroidDevice.objects.select_related("vendor__config", "tv_config")
+    prefetch = ["tv_config__advertisements"]
+    if not skip_utilities_prefetch:
+        prefetch.append("tv_config__utilities")
+    return qs.prefetch_related(*prefetch)
+
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
@@ -576,7 +586,8 @@ def register_android_device(request):
 
     """
     data = request.data
-    token = data.get('token')
+    raw_token = data.get("token")
+    token = "" if raw_token is None else str(raw_token).strip()
     customer_id = data.get('customer_id')
     mac_address = data.get('mac_address')
     fcm_token_in_payload = "fcm_token" in data
@@ -591,13 +602,15 @@ def register_android_device(request):
         fcm_token_in_payload,
     )
 
-    # Validate required fields
-    required_fields = ['customer_id', 'token', 'mac_address']
-    missing = [f for f in required_fields if not data.get(f)]
+    missing = []
+    if not customer_id:
+        missing.append("customer_id")
+    if not mac_address:
+        missing.append("mac_address")
     if missing:
         logger.warning("Missing required fields: %s", ", ".join(missing))
         return Response(
-            {"error": "Fields 'token', 'customer_id', and 'mac_address' are required."},
+            {"error": f"Required field(s): {', '.join(missing)}."},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -609,16 +622,27 @@ def register_android_device(request):
         logger.error("Customer not found: customer_id=%s", customer_id)
         return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    project_code = (getattr(customer, "project_code", "") or "").strip().lower()
+    current_project = (project_name or "").strip().lower()
+    is_dine_flash = project_code == "dine_flash" or current_project == "dine_flash"
+
+    # Dine Flash may register before FCM token is available.
+    if not is_dine_flash and not token:
+        logger.warning("Missing required field: token")
+        return Response(
+            {"error": "Required field(s): token."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    device_qs = _android_device_registration_queryset(skip_utilities_prefetch=is_dine_flash)
+
     try:
-        # Try to find existing device with related vendor/config and tv_config in one go
-        device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').prefetch_related(
-            'tv_config__advertisements',
-            'tv_config__utilities',
-        ).filter(mac_address=mac_address, admin_outlet=customer).first()
+        device = device_qs.filter(mac_address=mac_address, admin_outlet=customer).first()
 
         if device:
             update_fields = []
-            if device.token != token:
+            # Do not overwrite an existing token when the client sends an empty value.
+            if token and device.token != token:
                 logger.info("Device found for mac_address=%s. Updating token.", mac_address)
                 device.token = token
                 update_fields.append("token")
@@ -643,11 +667,7 @@ def register_android_device(request):
             with transaction.atomic():
                 device = AndroidDevice.objects.create(**create_kwargs)
             logger.info("New device created: mac_address=%s, token=%s", mac_address, token)
-            # fetch again with related objects to have vendor/config/tv_config available
-            device = AndroidDevice.objects.select_related('vendor__config', 'tv_config').prefetch_related(
-                'tv_config__advertisements',
-                'tv_config__utilities',
-            ).get(pk=device.pk)
+            device = device_qs.get(pk=device.pk)
             created = True
 
     except Exception as e:
@@ -694,11 +714,6 @@ def register_android_device(request):
             logger.warning("Vendor configuration is Firebase (or unsupported): %s", mode)
             mqtt_config = None
 
-        project_code = (getattr(customer, "project_code", "") or "").strip().lower()
-        current_project = (project_name or "").strip().lower()
-        # Use both outlet project_code and server project_name so Dine Flash payload
-        # remains available even when outlet metadata is missing/stale.
-        is_dine_flash = project_code == "dine_flash" or current_project == "dine_flash"
         is_dine_flash_buffet = (
             project_code == "dine_flash_buffet" or current_project == "dine_flash_buffet"
         )
