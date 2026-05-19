@@ -84,7 +84,8 @@ export const VendorUIService = {
                 const skipRestoreForBuffetQrRedirect =
                     String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet" &&
                     window.buffetQrTokenFromRedirect;
-                if (browser_id && !skipRestoreForBuffetQrRedirect) {
+                const skipRestoreForDineFlashBookingRedirect = Boolean(window.dineFlashBookingFromRedirect);
+                if (browser_id && !skipRestoreForBuffetQrRedirect && !skipRestoreForDineFlashBookingRedirect) {
                     ChatRestoreService.restore(vendor.vendor_id);
                 } else if (!browser_id) {
                     console.warn("No browser ID, skipping restore.");

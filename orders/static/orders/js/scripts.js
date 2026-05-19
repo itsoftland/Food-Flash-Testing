@@ -225,6 +225,12 @@ onDOMReady(async function () {
         (typeof window.PROJECT_NAME === "string" &&
             window.PROJECT_NAME.trim().toLowerCase() === "dine_flash_buffet") ||
         (window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
+    const isDineFlashTableBookingSurface =
+        (window.BASE && window.BASE.includes("/dine_flash/")) && !isDineFlashBuffetSurface;
+    // Set before VendorUIService.init so restore does not race with post-booking status fetch.
+    if (isDineFlashTableBookingSurface && tokenFromQR && !isOpenedFromPush) {
+        window.dineFlashBookingFromRedirect = true;
+    }
     if (isDineFlashBuffetSurface) {
         PermissionService.init({ dineFlashFastPermissionUX: true });
     } else {
@@ -585,10 +591,32 @@ onDOMReady(async function () {
 
         const vendorId = await AppUtils.getActiveVendor();
 
-        // Dine Flash Buffet: load token + order-created chat immediately after redirect
+        // Dine Flash / Buffet: load booking + status immediately after redirect
         // (do not wait for permission modal, SW controller, or push subscription).
         let buffetUserTokenShown = false;
         let buffetStatusFetchPromise = null;
+        let dineFlashUserBookingShown = false;
+        let dineFlashStatusFetchPromise = null;
+        if (isDineFlashTableBookingSurface) {
+            dineFlashUserBookingShown = true;
+            dineFlashStatusFetchPromise = (async () => {
+                try {
+                    await showChatWindow({});
+                    appendMessage(tokenFromQR, "user", "", "chat", bookingIdfromQR);
+                    try {
+                        await saveChat(tokenFromQR, "user", "chat", bookingIdfromQR);
+                    } catch (chatErr) {
+                        console.warn("Dine Flash early chat save:", chatErr);
+                    }
+                    return await fetchOrderStatusOnce(tokenFromQR, null, bookingIdfromQR);
+                } catch (err) {
+                    console.warn("Dine Flash early chat bootstrap failed:", err);
+                    dineFlashStatusFetchPromise = null;
+                    dineFlashUserBookingShown = false;
+                    return null;
+                }
+            })();
+        }
         if (isDineFlashBuffetSurface) {
             window.buffetQrTokenFromRedirect = String(tokenFromQR);
             // Claim before async work so permission-modal handleToken cannot append again.
@@ -619,8 +647,9 @@ onDOMReady(async function () {
             try {
                 let displayToken = tokenFromQR;
                 const skipBuffetChatDuplicate = isDineFlashBuffetSurface && buffetUserTokenShown;
+                const skipDineFlashChatDuplicate = isDineFlashTableBookingSurface && dineFlashUserBookingShown;
                 // Apply masking only for airline_flash
-                if (!skipBuffetChatDuplicate) {
+                if (!skipBuffetChatDuplicate && !skipDineFlashChatDuplicate) {
                     if (window.BASE && window.BASE.includes('/airline_flash/')) {
                         storedName = await getPassengerName(tokenFromQR);
                         // console.log("Passenger:", storedName);
@@ -694,8 +723,8 @@ onDOMReady(async function () {
 
                 // ✅ Step 3: Save chat log
                 try {
-                    if (skipBuffetChatDuplicate) {
-                        // Saved during buffet early chat bootstrap.
+                    if (skipBuffetChatDuplicate || skipDineFlashChatDuplicate) {
+                        // Saved during early chat bootstrap.
                     } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         await saveChat(tokenFromQR, 'user', 'chat', bookingIdfromQR);
                     }else{
@@ -743,7 +772,7 @@ onDOMReady(async function () {
 
                 const fetchStatusTask = (async () => {
                     try {
-                        let statusPromise = buffetStatusFetchPromise;
+                        let statusPromise = buffetStatusFetchPromise || dineFlashStatusFetchPromise;
                         if (!statusPromise) {
                             if (window.BASE && window.BASE.includes('/dine_flash/')) {
                                 statusPromise = fetchOrderStatusOnce(tokenFromQR, null, bookingIdfromQR);
@@ -783,6 +812,9 @@ onDOMReady(async function () {
             } finally {
                 if (isDineFlashBuffetSurface) {
                     delete window.buffetQrTokenFromRedirect;
+                }
+                if (isDineFlashTableBookingSurface) {
+                    delete window.dineFlashBookingFromRedirect;
                 }
             }
         });
