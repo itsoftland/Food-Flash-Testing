@@ -276,8 +276,28 @@ function formatBuffetLineDetailsBlock(remarks, customizations) {
   const custStr = cust.map((c) => String(c).trim()).filter(Boolean).join(", ");
   if (custStr) bits.push(`<div class="buffet-line-customizations">${custStr}</div>`);
   const rem = (remarks || "").trim();
-  if (rem) bits.push(`<motion.div class="buffet-line-remarks"><strong>Note:</strong> ${rem}</motion.div>`);
+  if (rem) bits.push(`<div class="buffet-line-remarks"><strong>Note:</strong> ${rem}</div>`);
+  return bits.join("");
 }
+
+function formatBuffetUtilityLinesHtml(lines) {
+  const arr = Array.isArray(lines) ? lines : [];
+  if (!arr.length) {
+    return '<span class="text-muted">No lines</span>';
+  }
+  return arr
+    .map((ln) => {
+      const st = String(ln.status || "unknown").toLowerCase();
+      const cls = statusClassMap[st] || "unknown-color";
+      const qty = ln.quantity != null ? Number(ln.quantity) : 1;
+      const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
+      const details = formatBuffetLineDetailsInline(ln.remarks, ln.customizations);
+      return `<span class="buffet-status-badge ${cls} me-1 mb-1 d-inline-block">${st.toUpperCase()}${q}</span>${details}`;
+    })
+    .join(" ");
+}
+
+function buildBuffetUtilitiesStationCard(payload) {
   const blocks = normalizeBuffetUtilitiesBlocks(payload);
   const rows = blocks
     .map((b) => {
