@@ -38,7 +38,9 @@ from .utils.booking_counts import get_booking_status_counts
 
 from static.utils.functions.notifications import notify_android_tv
 from vendors.dine_flash_tv_fcm import (
+    dine_flash_fcm_scope_applies,
     schedule_dine_flash_booking_status_fcm,
+    send_dine_flash_manager_booking_tv_fcm_sync,
     should_notify_dine_flash_booking_status_transition,
 )
 from static.utils.functions.queries import (update_existing_order_by_manager,
@@ -1823,8 +1825,6 @@ def manager_booking_update(request):
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
 
             new_booking_status = (updated_booking.status or "").strip().lower()
-            if should_notify_dine_flash_booking_status_transition(previous_booking_status, new_booking_status):
-                schedule_dine_flash_booking_status_fcm(vendor.id, booking.id, new_booking_status)
 
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
 
@@ -1862,7 +1862,15 @@ def manager_booking_update(request):
                     "no_of_packs": booking.no_of_packs,
                     "seat_no": booking.seat_no,
                 }
-                android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
+                if dine_flash_fcm_scope_applies(vendor):
+                    android_tv_success, android_tv_info = send_dine_flash_manager_booking_tv_fcm_sync(
+                        vendor,
+                        booking.id,
+                        new_booking_status or status_to_update,
+                        extra=tv_payload,
+                    )
+                else:
+                    android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
                 logger.info(
                     "📺 Android TV booking update sent | Action=%s | Booking=%s | Success=%s | Info=%s",
                     action_type,

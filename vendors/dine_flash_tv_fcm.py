@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import List, Sequence
+from typing import Any, List, Mapping, Sequence
 
 from django.conf import settings
 from django.db.models import Q
@@ -69,14 +69,26 @@ def remove_stale_android_device_fcm_tokens(vendor: Vendor, tokens: Sequence[str]
             )
 
 
-def _send_batches(
+def _fcm_data_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).strip()
+
+
+def _send_batches_with_result(
     vendor: Vendor,
     fcm_tokens: Sequence[str],
     data: dict[str, str],
     *,
     label: str = "",
-) -> None:
+) -> dict[str, Any]:
+    """Send data-only FCM in batches; return counts for API responses."""
+    success_count = 0
+    transient_failed: List[str] = []
     stale_tokens: List[str] = []
+
     for i in range(0, len(fcm_tokens), _FCM_BATCH_SIZE):
         batch = list(fcm_tokens[i : i + _FCM_BATCH_SIZE])
         message = messaging.MulticastMessage(
@@ -87,6 +99,7 @@ def _send_batches(
         response = messaging.send_each_for_multicast(message)
         for idx, resp in enumerate(response.responses):
             if resp.success:
+                success_count += 1
                 log_fcm_send_success(
                     source="dine_flash_tv_fcm",
                     vendor_id=vendor.vendor_id,
@@ -95,12 +108,34 @@ def _send_batches(
                     payload=data,
                 )
                 continue
+            token = batch[idx]
             err = str(resp.exception) if resp.exception else "unknown"
             logger.warning("[dine_flash_fcm] Send failed for token index %s: %s", idx, err)
             if is_permanent_fcm_failure(err):
-                stale_tokens.append(batch[idx])
+                stale_tokens.append(token)
+            else:
+                transient_failed.append(token)
 
     remove_stale_android_device_fcm_tokens(vendor, stale_tokens)
+    transient_failed = list(dict.fromkeys(transient_failed))
+    removed_tokens = list(dict.fromkeys(stale_tokens))
+
+    result: dict[str, Any] = {"success_count": success_count}
+    if transient_failed:
+        result["failed_tokens"] = transient_failed
+    if removed_tokens:
+        result["removed_tokens"] = removed_tokens
+    return result
+
+
+def _send_batches(
+    vendor: Vendor,
+    fcm_tokens: Sequence[str],
+    data: dict[str, str],
+    *,
+    label: str = "",
+) -> None:
+    _send_batches_with_result(vendor, fcm_tokens, data, label=label)
 
 
 def _send_dine_flash_tv_data_fcm_sync(vendor_id: int, data: dict[str, str], label: str) -> None:
@@ -152,15 +187,12 @@ def should_notify_dine_flash_booking_status_transition(
     )
 
 
-def send_dine_flash_booking_status_fcm_sync(
+def _build_booking_update_data(
     vendor_id: int,
     booking_id: int,
     current_status: str,
-) -> None:
-    """
-    Sends data-only FCM to all TV devices mapped to the vendor. Logs failures; never raises.
-    Includes booking_no / seat so TVs can update a row without a full HTTP refresh.
-    """
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
     data: dict[str, str] = {
         "type": "booking_update",
         "status": _normalize_status(current_status),
@@ -196,6 +228,72 @@ def send_dine_flash_booking_status_fcm_sync(
             booking_id,
             vendor_id,
         )
+
+    if extra:
+        for key, value in extra.items():
+            if key in data:
+                continue
+            data[str(key)] = _fcm_data_value(value)
+    return data
+
+
+def send_dine_flash_manager_booking_tv_fcm_sync(
+    vendor: Vendor,
+    booking_id: int,
+    current_status: str,
+    extra: Mapping[str, Any] | None = None,
+) -> tuple[bool, dict[str, Any]]:
+    """
+    Data-only booking_update FCM for manager allocate / utility transfer.
+    Always notifies (not limited to allocated status transitions) so TVs refresh
+    when table or utility changes while status stays allocated.
+    """
+    if not dine_flash_fcm_scope_applies(vendor):
+        return False, {"skipped": "not dine_flash scope"}
+
+    fcm_tokens = collect_vendor_tv_fcm_tokens(vendor)
+    if not fcm_tokens:
+        logger.warning(
+            "[dine_flash_fcm] No FCM tokens for vendor_id=%s; manager booking TV push skipped",
+            vendor.vendor_id,
+        )
+        return False, {"error": "No FCM tokens"}
+
+    data = _build_booking_update_data(vendor.id, booking_id, current_status, extra=extra)
+    label = f"Manager booking_update booking_id={booking_id} status={data['status']}"
+    result = _send_batches_with_result(vendor, fcm_tokens, data, label=label)
+
+    if result.get("failed_tokens"):
+        logger.warning(
+            "[dine_flash_fcm] Manager booking_update partial failure vendor_id=%s: %s",
+            vendor.vendor_id,
+            result,
+        )
+        return False, result
+
+    if result.get("success_count", 0) > 0:
+        logger.info(
+            "[dine_flash_fcm] Manager booking_update sent vendor_id=%s devices=%s",
+            vendor.vendor_id,
+            result["success_count"],
+        )
+        return True, {"success_count": result["success_count"], **{
+            k: v for k, v in result.items() if k != "success_count"
+        }}
+
+    return False, result or {"error": "No FCM deliveries"}
+
+
+def send_dine_flash_booking_status_fcm_sync(
+    vendor_id: int,
+    booking_id: int,
+    current_status: str,
+) -> None:
+    """
+    Sends data-only FCM to all TV devices mapped to the vendor. Logs failures; never raises.
+    Includes booking_no / seat so TVs can update a row without a full HTTP refresh.
+    """
+    data = _build_booking_update_data(vendor_id, booking_id, current_status)
 
     _send_dine_flash_tv_data_fcm_sync(
         vendor_id=vendor_id,
