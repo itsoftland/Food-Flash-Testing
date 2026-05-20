@@ -48,7 +48,21 @@ def collect_vendor_tv_fcm_tokens(vendor: Vendor) -> List[str]:
 
 
 def is_permanent_fcm_failure(error: str) -> bool:
-    return "UNREGISTERED" in error or "INVALID_ARGUMENT" in error
+    """
+    Firebase Admin client messages vary; treat common "token is gone" cases as permanent
+    so we clear them from AndroidDevice and stop retrying.
+    """
+    if not error:
+        return False
+    upper = error.upper()
+    if "UNREGISTERED" in upper or "INVALID_ARGUMENT" in upper:
+        return True
+    # e.g. FCM v1: "Requested entity was not found." (stale / wrong project / app removed)
+    if "NOT FOUND" in upper and "REQUESTED ENTITY" in upper:
+        return True
+    if "REGISTRATION-TOKEN-NOT-REGISTERED" in upper.replace(" ", ""):
+        return True
+    return False
 
 
 def remove_stale_android_device_fcm_tokens(vendor: Vendor, tokens: Sequence[str]) -> None:

@@ -178,7 +178,57 @@ SIMPLE_JWT = {
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
 
-EXTERNAL_LOG_DIR = Path(os.getenv("EXTERNAL_LOG_DIR", ""))
+
+def _default_log_dir() -> Path:
+    log_dir = BASE_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
+
+
+def _resolve_external_log_dir() -> Path:
+    """
+    Resolve EXTERNAL_LOG_DIR from .env for the current OS.
+
+    On Windows/IIS, Linux paths (/home/...) or slash-drive paths (/D:/...) from .env
+    cause OSError WinError 123 (invalid path like '\\D:'). Fall back to BASE_DIR/logs.
+    """
+    raw = (os.getenv("EXTERNAL_LOG_DIR") or "").strip().strip('"').strip("'")
+    if not raw or raw in (".", ".env"):
+        return _default_log_dir()
+
+    normalized = raw.replace("\\", "/").lower().rstrip("/")
+    if normalized.endswith("/.env") or normalized == ".env":
+        return _default_log_dir()
+
+    # /D:/foo or /D:\foo → D:\foo (common mis-copy on Windows)
+    if os.name == "nt" and len(raw) >= 3 and raw[0] == "/" and raw[1].isalpha() and raw[2] == ":":
+        raw = raw[1:]
+
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = (BASE_DIR / candidate).resolve()
+
+    # Never write logs inside .env (misconfigured EXTERNAL_LOG_DIR=.env)
+    if any(part.lower() == ".env" for part in candidate.parts):
+        return _default_log_dir()
+
+    if os.name == "nt":
+        parts = candidate.parts
+        # Unix-only absolute paths (/home, /var, …) are invalid on Windows
+        if parts and parts[0] == "/" and not (len(parts) > 1 and len(parts[1]) == 1 and parts[1].endswith(":")):
+            return _default_log_dir()
+        drive = getattr(candidate, "drive", "") or ""
+        if drive and len(drive) == 2 and drive[1] == ":" and not os.path.isdir(drive + "\\"):
+            return _default_log_dir()
+
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except OSError:
+        return _default_log_dir()
+
+
+EXTERNAL_LOG_DIR = _resolve_external_log_dir()
 
 from datetime import datetime
 # === LOGGING BASE STRUCTURE ===
@@ -196,8 +246,12 @@ month_folder = today.strftime("%B")
 day_folder = f"{today.day:02d}"
 
 LOG_DIR = BASE_LOG_DIR / year_folder / month_folder / day_folder
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
+try:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Last resort: keep app bootable even if daily log folder cannot be created
+    LOG_DIR = EXTERNAL_LOG_DIR
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGGING = {
     "version": 1,
