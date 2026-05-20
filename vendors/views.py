@@ -794,6 +794,17 @@ def register_android_device(request):
                     "counts": empty_counts,
                     "displayed_counts": empty_counts.copy(),
                 }
+            logger.info(
+                "[TV_REGISTER] mac_address=%s customer_id=%s mapped=%s vendor_id=%s "
+                "tv_config_exists=%s waiting=%s active_tables=%s",
+                mac_address,
+                customer_id,
+                mapped,
+                vendor_id,
+                False,
+                0,
+                0,
+            )
             _write_fcm_registration_log(vendor_id)
             return Response(missing_config_response, status=status.HTTP_200_OK)
 
@@ -843,11 +854,40 @@ def register_android_device(request):
                     "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
                 }
 
+        waiting_count = 0
+        active_tables_count = 0
+        if isinstance(dine_flash_tv, dict):
+            snapshot_counts = dine_flash_tv.get("counts") or {}
+            waiting_count = snapshot_counts.get("waiting", 0)
+            active_tables_count = snapshot_counts.get("active_tables", 0)
+        logger.info(
+            "[TV_REGISTER] mac_address=%s customer_id=%s mapped=%s vendor_id=%s "
+            "tv_config_exists=%s waiting=%s active_tables=%s",
+            mac_address,
+            customer_id,
+            mapped,
+            vendor_id,
+            device_tv_config is not None,
+            waiting_count,
+            active_tables_count,
+        )
+
         _write_fcm_registration_log(vendor_id)
         return Response(response_body, status=status.HTTP_200_OK)
 
     # Device created/updated but not mapped to any vendor
     logger.info("Device registered but not mapped to any vendor.")
+    logger.info(
+        "[TV_REGISTER] mac_address=%s customer_id=%s mapped=%s vendor_id=%s "
+        "tv_config_exists=%s waiting=%s active_tables=%s",
+        mac_address,
+        customer_id,
+        mapped,
+        vendor_id,
+        False,
+        0,
+        0,
+    )
     _write_fcm_registration_log(None)
     return Response({
         "status": "Device is registered but not yet mapped to a vendor.",

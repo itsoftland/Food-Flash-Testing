@@ -903,6 +903,12 @@ def get_allocated_booking_list(request):
         return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     logger.info("get_allocated_booking_list: API called.")
+    incoming_vendor_id = (
+        request.query_params.get("vendor_id")
+        or request.headers.get("X-Vendor-Id")
+        or request.COOKIES.get("vendor_id")
+    )
+    logger.info("[TV_DEBUG] incoming vendor_id=%s", incoming_vendor_id)
 
     try:
         if request.user and request.user.is_authenticated:
@@ -950,6 +956,19 @@ def get_allocated_booking_list(request):
 
         booking_list = list(bookings_qs)
         total_count = len(booking_list)
+        logger.info(
+            "[TV_DEBUG] queryset count=%s vendor_id=%s",
+            total_count,
+            vendor.vendor_id,
+        )
+        for booking in booking_list:
+            logger.info(
+                "[TV_DEBUG] booking id=%s status=%s table_booking_no=%s seat_no=%s",
+                booking.id,
+                booking.status,
+                booking.table_booking_no,
+                booking.seat_no,
+            )
         booking_ids = [booking.id for booking in booking_list]
         unread_map = _build_unread_notifications_map(vendor, booking_ids)
         serialized = BookingSerializer(
@@ -992,6 +1011,11 @@ def get_allocated_booking_list(request):
             if item.get("new_notifications", 0) > 0:
                 grouped[code]["unread"] += 1
 
+        logger.info(
+            "[TV_DEBUG] response count=%s vendor_id=%s",
+            total_count,
+            vendor.vendor_id,
+        )
         return Response(
             {
                 "message": "Allocated bookings retrieved successfully.",
@@ -1825,6 +1849,16 @@ def manager_booking_update(request):
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
 
             new_booking_status = (updated_booking.status or "").strip().lower()
+
+            if action_type == "allocated":
+                logger.info(
+                    "[TV_ALLOCATED] saved booking_id=%s status=%s utility_id=%s table_no=%s vendor_id=%s",
+                    booking_id,
+                    updated_booking.status,
+                    utility_id,
+                    updated_booking.seat_no,
+                    vendor.vendor_id,
+                )
 
             logger.info("✅ Booking %s transferred to utility %s", booking_id, target_utility.display_name)
 
