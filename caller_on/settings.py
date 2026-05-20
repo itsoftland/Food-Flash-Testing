@@ -299,7 +299,7 @@ LOGGING = {
             "propagate": False,
         },
         "vendors.dine_flash_tv_fcm": {
-            "handlers": ["vendors_file", "managers_file"],
+            "handlers": ["vendors_file", "managers_file", "fcm_file"],
             "level": "DEBUG",
             "propagate": False,
         },
