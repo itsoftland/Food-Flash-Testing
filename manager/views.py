@@ -1877,6 +1877,14 @@ def manager_booking_update(request):
             payload["type"] = "dinestatus"
 
             tv_mode = str(getattr(vendor.config, "tv_communication_mode", "") or "").strip().upper()
+            fcm_scope = dine_flash_fcm_scope_applies(vendor)
+            logger.info(
+                "[TV_FCM] allocate path booking_id=%s vendor_id=%s tv_mode=%s dine_flash_scope=%s",
+                booking.id,
+                vendor.vendor_id,
+                tv_mode or "UNSET",
+                fcm_scope,
+            )
 
             # For Android TV (Firebase), push normalized booking payload.
             # Normalize comparison so values like "firebase"/" Firebase " are handled.
@@ -1896,7 +1904,7 @@ def manager_booking_update(request):
                     "no_of_packs": booking.no_of_packs,
                     "seat_no": booking.seat_no,
                 }
-                if dine_flash_fcm_scope_applies(vendor):
+                if fcm_scope:
                     android_tv_success, android_tv_info = send_dine_flash_manager_booking_tv_fcm_sync(
                         vendor,
                         booking.id,
@@ -1906,7 +1914,7 @@ def manager_booking_update(request):
                 else:
                     android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
                 logger.info(
-                    "📺 Android TV booking update sent | Action=%s | Booking=%s | Success=%s | Info=%s",
+                    "[TV_FCM] allocate result action=%s booking_id=%s success=%s info=%s",
                     action_type,
                     booking.id,
                     android_tv_success,
@@ -1915,6 +1923,12 @@ def manager_booking_update(request):
             else:
                 android_tv_success = False
                 android_tv_info = {"skipped": f"TV notification skipped: mode is {tv_mode or 'UNSET'}"}
+                logger.info(
+                    "[TV_FCM] allocate skipped booking_id=%s vendor_id=%s reason=%s",
+                    booking.id,
+                    vendor.vendor_id,
+                    android_tv_info.get("skipped"),
+                )
 
             # If MQTT mode, ensure vendor has mqtt config and send update
             if tv_mode == "MQTT":

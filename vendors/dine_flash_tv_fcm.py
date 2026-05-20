@@ -289,8 +289,9 @@ def send_dine_flash_manager_booking_tv_fcm_sync(
     fcm_tokens = collect_vendor_tv_fcm_tokens(vendor)
     if not fcm_tokens:
         logger.warning(
-            "[dine_flash_fcm] No FCM tokens for vendor_id=%s; manager booking TV push skipped",
+            "[TV_FCM] no tokens for vendor_id=%s booking_id=%s — manager booking push skipped",
             vendor.vendor_id,
+            booking_id,
         )
         return False, {"error": "No FCM tokens"}
 

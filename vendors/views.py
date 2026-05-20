@@ -599,6 +599,12 @@ def register_android_device(request):
     fcm_token_value = (data.get("fcm_token") or "").strip() or None if fcm_token_in_payload else None
 
     logger.info("Android Device Registration")
+    logger.info(
+        "[TV_REGISTER] request mac_address=%s customer_id=%s token_present=%s",
+        mac_address,
+        customer_id,
+        bool(token),
+    )
     logger.debug(
         "Incoming data — token=%s, customer_id=%s, mac_address=%s, "
         "fcm_token_key_in_payload=%s (token field used as FCM when key absent)",
