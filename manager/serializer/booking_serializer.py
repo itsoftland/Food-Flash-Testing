@@ -12,6 +12,10 @@ class BookingSerializer(serializers.ModelSerializer):
 
     tracking_url = serializers.SerializerMethodField()
 
+    def _manager_list_mode(self):
+        """Manager APK list endpoints omit tracking URLs (large lists, unused in app)."""
+        return bool(self.context.get("manager_list"))
+
     class Meta:
         model = Order
         fields = [
@@ -56,28 +60,33 @@ class BookingSerializer(serializers.ModelSerializer):
         return obj.utility.display_name if obj.utility else None
 
     def get_tracking_url(self, obj):
+        if self._manager_list_mode():
+            return None
+
         request = self.context.get("request")
         if not request:
             return None
 
         vendor = obj.vendor
-        project_name = getattr(settings, "PROJECT_NAME", "").lower()
+        cache_key = "_manager_tracking_base"
+        base = self.context.get(cache_key)
+        if base is None:
+            project_name = getattr(settings, "PROJECT_NAME", "").lower()
+            try:
+                tracking_path = reverse("orders:home")
+                base = request.build_absolute_uri(
+                    f"{tracking_path}?location_id={vendor.location_id}"
+                    f"&vendor_id={vendor.vendor_id}&"
+                )
+            except Exception:
+                base = request.build_absolute_uri(
+                    f"/{project_name}/home/?location_id={vendor.location_id}"
+                    f"&vendor_id={vendor.vendor_id}&"
+                )
+            self.context[cache_key] = base
 
-        try:
-            tracking_path = reverse("orders:home")
-            url = request.build_absolute_uri(
-                f"{tracking_path}?location_id={vendor.location_id}"
-                f"&vendor_id={vendor.vendor_id}&booking_no={obj.table_booking_no}"
-                f"&booking_id={obj.id}"
-            )
-        except Exception:
-            url = request.build_absolute_uri(
-                f"/{project_name}/home/?location_id={vendor.location_id}"
-                f"&vendor_id={vendor.vendor_id}&booking_no={obj.table_booking_no}"
-                f"&booking_id={obj.id}"
-            )
-
-        return url
+        booking_no = obj.table_booking_no or ""
+        return f"{base}booking_no={booking_no}&booking_id={obj.id}"
     
     def get_new_notifications(self, obj):
         unread_map = self.context.get("unread_notifications_map")

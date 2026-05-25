@@ -943,6 +943,10 @@ class ChatMessage(models.Model):
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['vendor', 'token_no', 'created_date']),
+            models.Index(
+                fields=['vendor', 'booking_id', 'sender', 'is_read'],
+                name='chatmsg_vendor_booking_unread',
+            ),
         ]
         constraints = [
             models.UniqueConstraint(fields=['vendor', 'token_no', 'created_date', 'message_id'], name='unique_chat_message_per_order'),

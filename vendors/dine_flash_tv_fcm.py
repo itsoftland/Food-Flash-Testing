@@ -342,6 +342,37 @@ def send_dine_flash_manager_booking_tv_fcm_sync(
     return False, result or {"error": "No FCM deliveries"}
 
 
+def schedule_dine_flash_manager_booking_tv_fcm(
+    vendor_id: int,
+    booking_id: int,
+    current_status: str,
+    extra: Mapping[str, Any] | None = None,
+) -> None:
+    """Background manager allocate/transfer FCM so PATCH responses are not blocked on Firebase."""
+
+    def _run() -> None:
+        try:
+            vendor = Vendor.objects.select_related("config", "admin_outlet").get(pk=vendor_id)
+            send_dine_flash_manager_booking_tv_fcm_sync(
+                vendor,
+                booking_id,
+                current_status,
+                extra=extra,
+            )
+        except Exception:
+            logger.exception(
+                "[dine_flash_fcm] Background manager booking_update failed vendor_id=%s booking_id=%s",
+                vendor_id,
+                booking_id,
+            )
+
+    threading.Thread(
+        target=_run,
+        name=f"dine-flash-mgr-fcm-{booking_id}",
+        daemon=True,
+    ).start()
+
+
 def send_dine_flash_booking_status_fcm_sync(
     vendor_id: int,
     booking_id: int,

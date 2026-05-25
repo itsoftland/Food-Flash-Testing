@@ -40,7 +40,7 @@ from static.utils.functions.notifications import notify_android_tv
 from vendors.dine_flash_tv_fcm import (
     dine_flash_fcm_scope_applies,
     schedule_dine_flash_booking_status_fcm,
-    send_dine_flash_manager_booking_tv_fcm_sync,
+    schedule_dine_flash_manager_booking_tv_fcm,
     should_notify_dine_flash_booking_status_transition,
 )
 from static.utils.functions.queries import (update_existing_order_by_manager,
@@ -117,6 +117,14 @@ def _build_unread_notifications_map_by_sequence(vendor, sequence_codes):
         .annotate(unread_count=Count("id"))
     )
     return {row["sequence_code"]: row["unread_count"] for row in unread_rows}
+
+
+def _booking_list_serializer_context(request, unread_map):
+    """Shared context for Dine Flash manager list APIs (skips per-row tracking URLs)."""
+    ctx = {"request": request, "unread_notifications_map": unread_map}
+    if project_name == "dine_flash":
+        ctx["manager_list"] = True
+    return ctx
 
 
 def _log_slow_manager_api(endpoint, started_at, threshold_ms=800, **segments):
@@ -835,10 +843,7 @@ def get_booking_list(request):
         serialized = BookingSerializer(
             booking_list,
             many=True,
-            context={
-                "request": request,
-                "unread_notifications_map": unread_map,
-            },
+            context=_booking_list_serializer_context(request, unread_map),
         ).data
         t_serialize_ms = (time.perf_counter() - t2) * 1000
 
@@ -956,28 +961,17 @@ def get_allocated_booking_list(request):
 
         booking_list = list(bookings_qs)
         total_count = len(booking_list)
-        logger.info(
-            "[TV_DEBUG] queryset count=%s vendor_id=%s",
+        logger.debug(
+            "[TV_DEBUG] allocated queryset count=%s vendor_id=%s",
             total_count,
             vendor.vendor_id,
         )
-        for booking in booking_list:
-            logger.info(
-                "[TV_DEBUG] booking id=%s status=%s table_booking_no=%s seat_no=%s",
-                booking.id,
-                booking.status,
-                booking.table_booking_no,
-                booking.seat_no,
-            )
         booking_ids = [booking.id for booking in booking_list]
         unread_map = _build_unread_notifications_map(vendor, booking_ids)
         serialized = BookingSerializer(
             booking_list,
             many=True,
-            context={
-                "request": request,
-                "unread_notifications_map": unread_map,
-            },
+            context=_booking_list_serializer_context(request, unread_map),
         ).data
         allocated_time_map = {
             row["order_id"]: row["allocated_time"]
@@ -1064,18 +1058,42 @@ def get_active_customers_list(request):
         )
 
         t1 = time.perf_counter()
-        has_chat_message = ChatMessage.objects.filter(
-            vendor_id=vendor.id,
-            booking_id=OuterRef("pk"),
-        )
-        customers_qs = (
-            Order.objects.filter(vendor=vendor, created_at__range=(start_dt, end_dt))
-            .filter(Exists(has_chat_message))
-            .select_related("utility", "vendor")
-            .order_by("utility__display_name", "created_at")
-        )
-
-        customer_list = list(customers_qs)
+        if project_name == "dine_flash":
+            business_date = get_vendor_current_date(vendor)
+            active_booking_ids = list(
+                ChatMessage.objects.filter(
+                    vendor_id=vendor.id,
+                    booking_id__isnull=False,
+                    created_date=business_date,
+                )
+                .values_list("booking_id", flat=True)
+                .distinct()
+            )
+            if active_booking_ids:
+                customers_qs = (
+                    Order.objects.filter(
+                        vendor=vendor,
+                        created_at__range=(start_dt, end_dt),
+                        id__in=active_booking_ids,
+                    )
+                    .select_related("utility", "vendor")
+                    .order_by("utility__display_name", "created_at")
+                )
+                customer_list = list(customers_qs)
+            else:
+                customer_list = []
+        else:
+            has_chat_message = ChatMessage.objects.filter(
+                vendor_id=vendor.id,
+                booking_id=OuterRef("pk"),
+            )
+            customers_qs = (
+                Order.objects.filter(vendor=vendor, created_at__range=(start_dt, end_dt))
+                .filter(Exists(has_chat_message))
+                .select_related("utility", "vendor")
+                .order_by("utility__display_name", "created_at")
+            )
+            customer_list = list(customers_qs)
         t_query_ms = (time.perf_counter() - t1) * 1000
         total_count = len(customer_list)
 
@@ -1089,10 +1107,7 @@ def get_active_customers_list(request):
         serialized_data = BookingSerializer(
             customer_list,
             many=True,
-            context={
-                'request': request,
-                "unread_notifications_map": unread_map,
-            },
+            context=_booking_list_serializer_context(request, unread_map),
         ).data
         t_serialize_ms = (time.perf_counter() - t2) * 1000
         logger.debug(
@@ -1905,12 +1920,14 @@ def manager_booking_update(request):
                     "seat_no": booking.seat_no,
                 }
                 if fcm_scope:
-                    android_tv_success, android_tv_info = send_dine_flash_manager_booking_tv_fcm_sync(
-                        vendor,
+                    schedule_dine_flash_manager_booking_tv_fcm(
+                        vendor.id,
                         booking.id,
                         new_booking_status or status_to_update,
                         extra=tv_payload,
                     )
+                    android_tv_success = True
+                    android_tv_info = {"queued": True}
                 else:
                     android_tv_success, android_tv_info = notify_android_tv(vendor, tv_payload)
                 logger.info(
@@ -2374,6 +2391,7 @@ def get_contact_list(request):
         logger.info(f"get_contact_list: Retrieved {total_count} contacts")
 
         # 4–5. Build grouped payload in one pass (avoids count() + second full queryset scan)
+        t2 = time.perf_counter()
         grouped = {}
         for order in orders:
             item = {
