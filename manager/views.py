@@ -30,11 +30,16 @@ from core.config.status_choices import STATUS_CHOICES_MAP
 from .serializers import ChatMessageSerializer
 from .serializer.booking_serializer import BookingSerializer
 from .utils.utils import (get_manager_vendor, get_manager_vendor_dine_flash,
+                          get_dine_flash_manager_vendor_brief,
                           get_suggestion_messages,
                           get_order_counts, generate_sequence_code,
                           get_passenger_counts,notify_related_passengers,
                           create_bulk_chat_messages)
 from .utils.booking_counts import get_booking_status_counts
+from .utils.utility_cache import (
+    get_cached_utilities as _get_cached_dine_flash_utilities,
+    set_cached_utilities as _set_cached_dine_flash_utilities,
+)
 
 from static.utils.functions.notifications import notify_android_tv
 from vendors.dine_flash_tv_fcm import (
@@ -526,50 +531,93 @@ def book_table(request):
 def manager_utility_list(request):
     """
     Returns active utilities for the vendor associated with the logged-in manager.
+
+    Dine Flash fast-path (only when PROJECT_NAME == "dine_flash"):
+      - Vendor lookup avoids loading VendorConfig (we don't need it here).
+      - Result is served from a process-local cache that is invalidated by
+        Utility post_save/post_delete signals.
+      Other flavours retain the original behaviour exactly.
     """
 
     started_at = time.perf_counter()
     try:
+        # --------------------------------------------------------
+        # Dine Flash: lightweight vendor lookup + cached utilities
+        # --------------------------------------------------------
+        if project_name == "dine_flash":
+            t0 = time.perf_counter()
+            vendor_brief = get_dine_flash_manager_vendor_brief(request.user)
+            if not vendor_brief:
+                raise NotFound("Vendor not found for this manager")
+            vendor_pk = vendor_brief["vendor_id"]
+            vendor_external_id = vendor_brief["vendor_external_id"]
+            t_vendor_ms = (time.perf_counter() - t0) * 1000
+
+            t1 = time.perf_counter()
+            cached = _get_cached_dine_flash_utilities(vendor_pk)
+            if cached is not None:
+                data = cached
+                cache_status = "hit"
+            else:
+                data = list(
+                    Utility.objects.filter(vendor_id=vendor_pk, is_active=True)
+                    .order_by("id")
+                    .values(
+                        "id",
+                        "utility_name",
+                        "display_name",
+                        "display_code",
+                        "token_mode",
+                        "prefix",
+                    )
+                )
+                _set_cached_dine_flash_utilities(vendor_pk, data)
+                cache_status = "miss"
+            t_query_ms = (time.perf_counter() - t1) * 1000
+
+            logger.info(
+                "[manager_utility_list] Returned %s utilities for vendor_id=%s cache=%s",
+                len(data), vendor_external_id, cache_status,
+            )
+            _log_slow_manager_api(
+                "manager_utility_list",
+                started_at,
+                vendor=t_vendor_ms,
+                query=t_query_ms,
+                count=len(data),
+            )
+
+            return Response(
+                {
+                    "utilities": data,
+                    "count": len(data),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # --------------------------------------------------------
+        # Other flavours: unchanged behaviour
+        # --------------------------------------------------------
         t0 = time.perf_counter()
-        # --------------------------------------------------------
-        # 1. Resolve vendor from manager profile
-        # --------------------------------------------------------
         vendor = _resolve_vendor_for_manager(request)
         t_vendor_ms = (time.perf_counter() - t0) * 1000
 
-        # --------------------------------------------------------
-        # 2. Fetch utilities (Dine Flash: lean query + dict rows)
-        # --------------------------------------------------------
         t1 = time.perf_counter()
-        if project_name == "dine_flash":
-            data = list(
-                Utility.objects.filter(vendor=vendor, is_active=True)
-                .order_by("id")
-                .values(
-                    "id",
-                    "utility_name",
-                    "display_name",
-                    "display_code",
-                    "token_mode",
-                    "prefix",
-                )
-            )
-        else:
-            utilities = Utility.objects.filter(
-                vendor=vendor,
-                is_active=True,
-            ).order_by("id")
-            data = [
-                {
-                    "id": util.id,
-                    "utility_name": util.utility_name,
-                    "display_name": util.display_name,
-                    "display_code": util.display_code,
-                    "token_mode": util.token_mode,
-                    "prefix": util.prefix,
-                }
-                for util in utilities
-            ]
+        utilities = Utility.objects.filter(
+            vendor=vendor,
+            is_active=True,
+        ).order_by("id")
+        data = [
+            {
+                "id": util.id,
+                "utility_name": util.utility_name,
+                "display_name": util.display_name,
+                "display_code": util.display_code,
+                "token_mode": util.token_mode,
+                "prefix": util.prefix,
+            }
+            for util in utilities
+        ]
         t_query_ms = (time.perf_counter() - t1) * 1000
 
         logger.info(
@@ -584,9 +632,6 @@ def manager_utility_list(request):
             count=len(data),
         )
 
-        # --------------------------------------------------------
-        # 3. Success response
-        # --------------------------------------------------------
         return Response(
             {
                 "utilities": data,
@@ -2117,15 +2162,9 @@ def chat_history(request):
     today_date = get_vendor_current_date(vendor)
     logger.info(f"[chat_history] Vendor current date: {today_date}")
 
-    # Dine Flash uses `booking_id` (unique per Order) so a `created_date` guard is
-    # redundant — and it actively hides newly-arrived customer messages whenever the
-    # stored UTC date and the vendor's local date diverge (e.g. shortly after IST
-    # midnight). Other flavours keep their existing date-scoped behaviour.
-    apply_created_date_filter = project_name not in ("airline_flash", "dine_flash")
-
     # ✅ 4. Use atomic update for marking as read (avoids race conditions)
     filter_kwargs = {"vendor": vendor, "sender": "user", "is_read": False, **lookup_key}
-    if apply_created_date_filter:
+    if project_name != "airline_flash":
         filter_kwargs["created_date"] = today_date
 
     updated_count = ChatMessage.objects.filter(**filter_kwargs).update(is_read=True)
@@ -2133,13 +2172,13 @@ def chat_history(request):
 
     # ✅ 5. Query only relevant fields (lighter serialization)
     message_filter = {"vendor": vendor, **lookup_key}
-    if apply_created_date_filter:
+    if project_name != "airline_flash":
         message_filter["created_date"] = today_date
 
     messages = (
         ChatMessage.objects
         .filter(**message_filter)
-        .only("id", "message_id", "sender", "message_text", "audio_file", "created_at", "is_read")
+        .only("id", "sender", "message_text", "audio_file", "created_at", "is_read")
         .order_by("created_at")
     )
 
@@ -2147,18 +2186,7 @@ def chat_history(request):
     serializer = ChatMessageSerializer(messages, many=True)
     logger.info(f"[chat_history] Returning {len(serializer.data)} messages for vendor={vendor.name}")
 
-    response = Response({"messages": serializer.data}, status=status.HTTP_200_OK)
-
-    # Dine Flash only: defeat any HTTP-level caching in the manager APK's network
-    # stack so a chat_history call fired right after the FCM banner always returns
-    # the freshest rows from the database. Other flavours keep their default
-    # response headers untouched.
-    if project_name == "dine_flash":
-        response["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
-        response["Pragma"] = "no-cache"
-        response["Expires"] = "0"
-
-    return response
+    return Response({"messages": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])

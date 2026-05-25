@@ -46,6 +46,33 @@ def get_manager_vendor_dine_flash(user):
     return profile.vendor
 
 
+def get_dine_flash_manager_vendor_brief(user):
+    """
+    Dine Flash: minimal vendor lookup for endpoints that only need the
+    vendor's primary key and external `vendor_id` code (e.g. utility list).
+
+    Returns a dict ``{"vendor_id": <Vendor.pk>, "vendor_external_id": <Vendor.vendor_id>}``
+    or ``None`` if the manager has no linked vendor.
+
+    This skips the VendorConfig JOIN done by ``get_manager_vendor_dine_flash``,
+    keeping the row payload to two integers — meaningfully faster on cold
+    connections and over high-latency MySQL links used by the outlet manager
+    mobile app.
+    """
+    row = (
+        UserProfile.objects.filter(user=user)
+        .order_by("id")
+        .values("vendor_id", "vendor__vendor_id")
+        .first()
+    )
+    if not row or not row.get("vendor_id"):
+        return None
+    return {
+        "vendor_id": row["vendor_id"],
+        "vendor_external_id": row.get("vendor__vendor_id"),
+    }
+
+
 def get_last_working_days(vendor, num_days=2):
     """
     Returns the last `num_days` working business days for a vendor (excluding today).

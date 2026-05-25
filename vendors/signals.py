@@ -1,9 +1,12 @@
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Order, OrderStatusHistory
+from .models import Order, OrderStatusHistory, Utility
 from .tasks import convert_image_to_webp
 from .models import AdvertisementImage
+from manager.utils.utility_cache import (
+    invalidate_vendor as invalidate_dine_flash_utility_cache,
+)
 import time
 
 from django.db import transaction
@@ -178,3 +181,19 @@ def convert_image_with_retry(ad_image_id, retries=3, delay=2):
             if attempt < retries:
                 time.sleep(delay)
     logger.error(f"[WebP] All retry attempts failed for {ad_image_id}")
+
+
+# ============================================================
+# DINE FLASH: INVALIDATE UTILITY-LIST CACHE ON UTILITY WRITES
+# ============================================================
+# Receivers are registered project-wide but the cache itself is a no-op for
+# non Dine Flash deployments, so other flavours pay only the cost of a dict
+# pop on a (usually empty) module-level dict.
+@receiver(post_save, sender=Utility)
+def _invalidate_utility_cache_on_save(sender, instance, **kwargs):
+    invalidate_dine_flash_utility_cache(instance.vendor_id)
+
+
+@receiver(post_delete, sender=Utility)
+def _invalidate_utility_cache_on_delete(sender, instance, **kwargs):
+    invalidate_dine_flash_utility_cache(instance.vendor_id)

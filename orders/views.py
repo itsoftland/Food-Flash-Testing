@@ -29,10 +29,7 @@ from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
 from static.utils.functions.queries import get_vendor
-from static.utils.functions.utils import (
-    get_vendor_business_day_range,
-    get_vendor_current_time,
-)
+from static.utils.functions.utils import get_vendor_business_day_range
 from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
@@ -651,17 +648,6 @@ def check_status(request):
                 )
             
             chat_message = None
-            # Dine Flash stores chat messages using the vendor's local date so that
-            # `chat_history` (which filters by vendor-local date) and `manager_booking_update`
-            # (which also writes vendor-local date) stay consistent across the IST midnight
-            # boundary. Other flavours keep their existing UTC-date behaviour.
-            if project_name == "dine_flash":
-                try:
-                    chat_created_date = get_vendor_current_time(order.vendor).date()
-                except Exception:
-                    chat_created_date = timezone.now().date()
-            else:
-                chat_created_date = timezone.now().date()
             try:
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
@@ -669,7 +655,7 @@ def check_status(request):
                     booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     sequence_code = order.sequence_code if project_name == "airline_flash" else None,
-                    created_date=chat_created_date,
+                    created_date=timezone.now().date(),
                     sender='user',
                     is_send=True,
                     message_text=reply_text
