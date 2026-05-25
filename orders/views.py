@@ -719,17 +719,7 @@ def check_status(request):
                     body = f"Customer {order.token_no} has sent a new message."
 
             if project_name == "dine_flash" and dine_flash_chat_message:
-                vendor_for_push = order.vendor
-                push_data = dict(data)
-                push_title = title
-                push_body = body
-
-                def _push_manager_chat_on_commit():
-                    notify_managers_customer_chat_sync(
-                        vendor_for_push, push_data, push_title, push_body
-                    )
-
-                transaction.on_commit(_push_manager_chat_on_commit)
+                notify_managers_customer_chat_sync(order.vendor, data, title, body)
 
         # Dine Flash chat FCM sent above with full payload; only poll/connect uses async FCM.
         if project_name == "dine_flash":

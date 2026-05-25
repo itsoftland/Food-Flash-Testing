@@ -131,6 +131,20 @@ _DINE_FLASH_MANAGER_ROLES = (
 )
 
 
+def dine_flash_manager_fcm_payload(data: dict) -> dict:
+    """
+    Manager APK handles dine_manager-style payloads inside ready_orders, not user_reply.
+    API response to the customer still uses user_reply; only the FCM copy is mapped.
+    """
+    payload = dict(data or {})
+    if payload.get("type") != "user_reply":
+        return payload
+    reply = (payload.get("reply_status") or "").strip()
+    payload["type"] = "dine_manager"
+    payload["status"] = reply or payload.get("status") or "message"
+    return payload
+
+
 def collect_manager_fcm_tokens(vendor) -> list[str]:
     """
     Resolve outlet-manager FCM registration tokens for a vendor.
@@ -196,16 +210,18 @@ def send_to_managers(vendor, data, title=None, body=None, *, defer_success_audit
         return False, {"error": "No tokens"}
 
     is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    fcm_data = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
     android_high_priority = is_dine_flash and (data or {}).get("type") == "user_reply"
     if is_dine_flash and (data or {}).get("type") == "user_reply":
         logger.info(
-            "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s",
+            "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
             vendor.vendor_id,
             len(tokens),
+            (fcm_data or {}).get("type"),
         )
     return send_fcm_multicast(
         tokens,
-        data,
+        fcm_data,
         title=title,
         body=body,
         android_high_priority=android_high_priority,
