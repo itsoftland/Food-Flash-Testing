@@ -919,6 +919,8 @@ def register_android_apk(request):
     mac_address = request.data.get('mac_address')
     apk_version = request.data.get('apk_version')
     is_dine_flash_buffet = (project_name or "").strip().lower() == "dine_flash_buffet"
+    is_dine_flash = (project_name or "").strip().lower() == "dine_flash"
+    link_manager_profile = is_dine_flash_buffet or is_dine_flash
     manager_id = request.data.get('manager_id')
     if is_dine_flash_buffet and not manager_id:
         manager_id = request.data.get('utility_manager_id')
@@ -1000,7 +1002,7 @@ def register_android_apk(request):
             device.apk_version = apk_version
             device.mac_address = mac_address
             device.admin_outlet = admin_outlet
-            if is_dine_flash_buffet:
+            if link_manager_profile and user_profile:
                 device.user_profile = user_profile
             try:
                 device.save()
@@ -1021,7 +1023,7 @@ def register_android_apk(request):
                     mac_address=mac_address,
                     apk_version=apk_version,
                     admin_outlet=admin_outlet,
-                    user_profile=user_profile if is_dine_flash_buffet else None
+                    user_profile=user_profile if link_manager_profile else None
                 )
             except IntegrityError:
                 logger.exception(

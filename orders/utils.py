@@ -1,7 +1,10 @@
 import json
 import logging
+import threading
+import time
 
 from django.conf import settings
+from django.db.models import Q
 from firebase_admin import messaging
 from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidAPK
@@ -9,7 +12,24 @@ from vendors.models import AndroidAPK
 logger = logging.getLogger(__name__)
 
 
-def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None, *, android_high_priority=False):
+def _audit_fcm_success_async(**kwargs) -> None:
+    try:
+        from vendors.fcm_log import log_fcm_send_success
+
+        log_fcm_send_success(**kwargs)
+    except Exception:
+        logger.exception("[FCM] Deferred audit log failed")
+
+
+def send_fcm_multicast(
+    fcm_tokens,
+    data_payload,
+    title=None,
+    body=None,
+    *,
+    android_high_priority=False,
+    defer_success_audit=False,
+):
     """
     Sends a Firebase Admin SDK multicast message with both data and notification payloads.
     Logs and categorizes failures in detail.
@@ -51,14 +71,28 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None, *, andro
         failed_tokens = []
         failed_reasons = {}
 
+        audit_label = title or default_title
         for idx, resp in enumerate(response.responses):
             if resp.success:
-                log_fcm_send_success(
-                    source="orders_fcm_multicast",
-                    label=title or default_title,
-                    token=fcm_tokens[idx],
-                    payload=fcm_data,
-                )
+                if defer_success_audit:
+                    token = fcm_tokens[idx]
+                    threading.Thread(
+                        target=_audit_fcm_success_async,
+                        kwargs={
+                            "source": "orders_fcm_multicast",
+                            "label": audit_label,
+                            "token": token,
+                            "payload": fcm_data,
+                        },
+                        daemon=True,
+                    ).start()
+                else:
+                    log_fcm_send_success(
+                        source="orders_fcm_multicast",
+                        label=audit_label,
+                        token=fcm_tokens[idx],
+                        payload=fcm_data,
+                    )
                 continue
             token = fcm_tokens[idx]
             error = str(resp.exception)
@@ -89,24 +123,131 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None, *, andro
         return False, {"error": str(e)}
 
 
-def send_to_managers(vendor, data, title=None, body=None):
+_DINE_FLASH_MANAGER_ROLES = (
+    "outlet_manager",
+    "admin_manager",
+    "order_manager",
+    "manager",
+)
+
+
+def collect_manager_fcm_tokens(vendor) -> list[str]:
+    """
+    Resolve outlet-manager FCM registration tokens for a vendor.
+
+    Dine Flash: devices were historically saved without ``user_profile`` even when
+    ``manager_id`` was supplied at registration. Include those legacy rows via
+    ``admin_outlet`` so pushes are not silently dropped.
+    """
+    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    if not is_dine_flash:
+        return [
+            t
+            for t in AndroidAPK.objects.filter(user_profile__vendor=vendor).values_list(
+                "token", flat=True
+            )
+            if (t or "").strip()
+        ]
+
+    outlet_id = vendor.admin_outlet_id
+    devices = (
+        AndroidAPK.objects.filter(
+            Q(user_profile__vendor=vendor)
+            | Q(
+                admin_outlet_id=outlet_id,
+                user_profile__isnull=True,
+            )
+            | Q(
+                admin_outlet_id=outlet_id,
+                user_profile__role__in=_DINE_FLASH_MANAGER_ROLES,
+            )
+        )
+        .order_by("-updated_at", "-id")
+        .only("token", "mac_address", "id")
+    )
+    # Same physical handset re-registering leaves stale tokens; only use the newest per MAC.
+    tokens: list[str] = []
+    seen_mac: set[str] = set()
+    for device in devices:
+        mac_key = (device.mac_address or "").strip() or f"id:{device.id}"
+        if mac_key in seen_mac:
+            continue
+        seen_mac.add(mac_key)
+        token = (device.token or "").strip()
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def send_to_managers(vendor, data, title=None, body=None, *, defer_success_audit=False):
     """
     Sends a notification to all registered AndroidAPK devices for the given vendor.
     Supports optional custom title/body.
     """
-    android_apk_devices = AndroidAPK.objects.filter(user_profile__vendor=vendor)
-    tokens = [t for t in android_apk_devices.values_list("token", flat=True) if (t or "").strip()]
+    tokens = collect_manager_fcm_tokens(vendor)
 
     if not tokens:
-        logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
+        logger.warning(
+            "[FCM] No manager tokens | vendor=%s | vendor_id=%s | outlet_id=%s",
+            vendor.name,
+            vendor.vendor_id,
+            vendor.admin_outlet_id,
+        )
         return False, {"error": "No tokens"}
 
     is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
     android_high_priority = is_dine_flash and (data or {}).get("type") == "user_reply"
+    if is_dine_flash and (data or {}).get("type") == "user_reply":
+        logger.info(
+            "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s",
+            vendor.vendor_id,
+            len(tokens),
+        )
     return send_fcm_multicast(
         tokens,
         data,
         title=title,
         body=body,
         android_high_priority=android_high_priority,
+        defer_success_audit=defer_success_audit,
     )
+
+
+def _fcm_failure_is_transient(info: dict) -> bool:
+    reasons = (info or {}).get("reasons") or {}
+    for err in reasons.values():
+        upper = str(err).upper()
+        if "UNAVAILABLE" in upper or "INTERNAL" in upper or "TIMEOUT" in upper:
+            return True
+    return False
+
+
+def send_dine_flash_manager_chat_sync(vendor, data, title, body):
+    """Dine Flash customer chat: FCM with full payload, retries on transient Firebase errors."""
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash":
+        return False, {"error": "not_dine_flash"}
+
+    ok = False
+    info: dict = {}
+    for attempt in range(3):
+        ok, info = send_to_managers(
+            vendor,
+            data,
+            title=title,
+            body=body,
+            defer_success_audit=True,
+        )
+        if ok:
+            return ok, info
+        if attempt < 2 and _fcm_failure_is_transient(info):
+            time.sleep(0.2 * (attempt + 1))
+            continue
+        break
+
+    if not ok:
+        logger.warning(
+            "[FCM] Dine Flash customer chat push failed | vendor_id=%s | info=%s",
+            vendor.vendor_id,
+            info,
+        )
+    return ok, info

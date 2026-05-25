@@ -1,12 +1,13 @@
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Order, OrderStatusHistory, Utility
+from .models import AndroidAPK, Order, OrderStatusHistory, Utility
 from .tasks import convert_image_to_webp
 from .models import AdvertisementImage
 from manager.utils.utility_cache import (
     invalidate_vendor as invalidate_dine_flash_utility_cache,
 )
+from orders.dine_flash_manager_notify import invalidate_manager_token_cache
 import time
 
 from django.db import transaction
@@ -197,3 +198,20 @@ def _invalidate_utility_cache_on_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Utility)
 def _invalidate_utility_cache_on_delete(sender, instance, **kwargs):
     invalidate_dine_flash_utility_cache(instance.vendor_id)
+
+
+# ============================================================
+# DINE FLASH: INVALIDATE MANAGER FCM TOKEN CACHE ON APK WRITES
+# ============================================================
+@receiver(post_save, sender=AndroidAPK)
+def _invalidate_manager_fcm_cache_on_apk_save(sender, instance, **kwargs):
+    profile = getattr(instance, "user_profile", None)
+    vendor_id = getattr(profile, "vendor_id", None) if profile else None
+    invalidate_manager_token_cache(vendor_id)
+
+
+@receiver(post_delete, sender=AndroidAPK)
+def _invalidate_manager_fcm_cache_on_apk_delete(sender, instance, **kwargs):
+    profile = getattr(instance, "user_profile", None)
+    vendor_id = getattr(profile, "vendor_id", None) if profile else None
+    invalidate_manager_token_cache(vendor_id)
