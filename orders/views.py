@@ -28,8 +28,9 @@ from vendors.utils import buffet_utility_image_absolute_url
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
+from .dine_flash_manager_fcm import send_dine_flash_manager_customer_message_fcm
 from static.utils.functions.queries import get_vendor
-from static.utils.functions.utils import get_vendor_business_day_range
+from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
 from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
@@ -537,6 +538,7 @@ def check_status(request):
         # ───── Existing Order ─────
         order = Order.objects.get(**order_filter)
 
+        status_transitioned = False
         if status_check_name and order.status == status_check_name:
             if project_name == "airline_flash":
                 title = "Passenger Connected to Your Flight"
@@ -550,6 +552,7 @@ def check_status(request):
             order.status = status_to_update
             order.updated_by = 'customer'
             order.save()
+            status_transitioned = True
 
         vendor_serializer = VendorLogoSerializer(order.vendor, context={'request': request})
         logo_url = vendor_serializer.data.get('logo_url', '')
@@ -648,6 +651,10 @@ def check_status(request):
                 )
             
             chat_message = None
+            if project_name == "dine_flash":
+                chat_created_date = get_vendor_current_time(order.vendor).date()
+            else:
+                chat_created_date = timezone.now().date()
             try:
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
@@ -655,7 +662,7 @@ def check_status(request):
                     booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     sequence_code = order.sequence_code if project_name == "airline_flash" else None,
-                    created_date=timezone.now().date(),
+                    created_date=chat_created_date,
                     sender='user',
                     is_send=True,
                     message_text=reply_text
@@ -675,11 +682,28 @@ def check_status(request):
                 title = "Customer Message Received"
                 body = f"Customer {order.token_no} has sent a new message."
 
-        threading.Thread(
-            target=_send_to_managers_async,
-            args=(order.vendor, data, title, body),
-            daemon=True,
-        ).start()
+        # Dine Flash: avoid FCM on every status poll; prioritize customer chat delivery.
+        should_notify_managers = True
+        if project_name == "dine_flash":
+            should_notify_managers = bool(reply_text) or status_transitioned
+
+        if should_notify_managers:
+            if project_name == "dine_flash" and reply_text:
+                try:
+                    send_dine_flash_manager_customer_message_fcm(
+                        order.vendor, data, title, body
+                    )
+                except Exception:
+                    logger.exception(
+                        "[check_status] Dine Flash manager chat FCM failed | vendor_id=%s",
+                        getattr(order.vendor, "vendor_id", None),
+                    )
+            else:
+                threading.Thread(
+                    target=_send_to_managers_async,
+                    args=(order.vendor, data, title, body),
+                    daemon=True,
+                ).start()
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:
