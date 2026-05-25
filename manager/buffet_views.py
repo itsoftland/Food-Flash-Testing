@@ -410,21 +410,35 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
     return orders_payload
 
 
+def _human_buffet_line_status_bit(line):
+    """Status + qty + optional customizations/remarks for push/chat plain text."""
+    st = line.get("status") or "unknown"
+    qty = line.get("quantity")
+    try:
+        q = int(qty)
+    except (TypeError, ValueError):
+        q = 1
+    bit = f"{st}" + (f" ×{q}" if q and q != 1 else "")
+    detail_parts = []
+    raw_cust = line.get("customizations")
+    if isinstance(raw_cust, list):
+        detail_parts.extend(
+            str(c).strip() for c in raw_cust if c is not None and str(c).strip()
+        )
+    remarks = (line.get("remarks") or "").strip() if line.get("remarks") else ""
+    if remarks:
+        detail_parts.append(f"Note: {remarks}")
+    if detail_parts:
+        bit = f"{bit} ({'; '.join(detail_parts)})"
+    return bit
+
+
 def _human_buffet_status_message(order, utilities_payload):
     """Single paragraph for push body / chat."""
     parts = []
     for block in utilities_payload:
         name = block.get("name") or "Station"
-        line_bits = []
-        for ln in block.get("lines") or []:
-            st = ln.get("status") or "unknown"
-            qty = ln.get("quantity")
-            try:
-                q = int(qty)
-            except (TypeError, ValueError):
-                q = 1
-            suffix = f" ×{q}" if q and q != 1 else ""
-            line_bits.append(f"{st}{suffix}")
+        line_bits = [_human_buffet_line_status_bit(ln) for ln in block.get("lines") or []]
         parts.append(f"{name}: {', '.join(line_bits)}" if line_bits else name)
     return f"Your Order {order.token_no} — " + "; ".join(parts)
 

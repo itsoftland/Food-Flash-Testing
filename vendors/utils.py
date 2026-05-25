@@ -132,6 +132,21 @@ def validate_buffet_food_type(food_type):
     return None
 
 
+def normalize_buffet_utility_description(description):
+    """
+    Normalize optional utility description for Dine Flash Buffet.
+    Returns (value, error_message).
+    """
+    if description is None:
+        return None, None
+    description = str(description).strip()
+    if not description:
+        return None, None
+    if len(description) > 500:
+        return None, "Description must be at most 500 characters"
+    return description, None
+
+
 def buffet_utility_image_payload(request, utility):
     """API payload fields for buffet utility images."""
     buffet_images = []

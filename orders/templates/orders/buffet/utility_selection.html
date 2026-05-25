@@ -18,7 +18,7 @@
     }
     .utility-item-main {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 14px;
         flex: 1;
         min-width: 0;
@@ -37,6 +37,14 @@
         font-weight: 600;
         color: #333;
         line-height: 1.3;
+    }
+    .utility-description {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 4px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
     .qty-controls {
         display: flex;
@@ -278,7 +286,8 @@
             const row = document.createElement("div");
             row.className = "utility-item";
             row.dataset.foodType = u.food_type || "";
-            row.dataset.searchName = utilityDisplayName(u).toLowerCase();
+            const descText = (u.description && String(u.description).trim()) ? String(u.description).trim() : "";
+            row.dataset.searchName = (utilityDisplayName(u) + " " + descText).trim().toLowerCase();
 
             const main = document.createElement("div");
             main.className = "utility-item-main";
@@ -305,6 +314,14 @@
                 badge.textContent = badgeLabel;
                 textWrap.appendChild(badge);
             }
+
+            if (u.description && String(u.description).trim()) {
+                const descEl = document.createElement("div");
+                descEl.className = "utility-description";
+                descEl.textContent = String(u.description).trim();
+                textWrap.appendChild(descEl);
+            }
+
             main.appendChild(textWrap);
 
             const controls = document.createElement("div");

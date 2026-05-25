@@ -1649,7 +1649,7 @@ def utility_list(request):
             "display_code",
             "token_mode",
             "prefix",
-            *(["food_type"] if is_buffet else []),
+            *(["food_type", "description"] if is_buffet else []),
         ).order_by("id")
         if is_buffet:
             utilities_qs = utilities_qs.prefetch_related("options", "buffet_images")
@@ -1679,6 +1679,8 @@ def utility_list(request):
             if is_buffet:
                 row["food_type"] = util.food_type
                 row["image_url"] = buffet_utility_image_absolute_url(request, util)
+                if util.description:
+                    row["description"] = util.description
             data.append(row)
 
         logger.info(

@@ -244,6 +244,14 @@ function buildFlightStatusMessage(payload) {
   `;
 }
 
+/** Dine Flash Buffet customer chat only — other flash variants must not use buffet-specific UI. */
+function isDineFlashBuffetChatSurface() {
+  const project = String(window.PROJECT_NAME || "").trim().toLowerCase();
+  if (project === "dine_flash_buffet") return true;
+  const path = String(window.location?.pathname || "").toLowerCase();
+  return path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet");
+}
+
 function normalizeBuffetUtilitiesBlocks(payload) {
   const u = payload.utilities;
   if (Array.isArray(u) && u.length) {
@@ -291,10 +299,14 @@ function formatBuffetUtilityLinesHtml(lines) {
       const cls = statusClassMap[st] || "unknown-color";
       const qty = ln.quantity != null ? Number(ln.quantity) : 1;
       const q = Number.isFinite(qty) && qty !== 1 ? ` ×${qty}` : "";
-      const details = formatBuffetLineDetailsInline(ln.remarks, ln.customizations);
-      return `<span class="buffet-status-badge ${cls} me-1 mb-1 d-inline-block">${st.toUpperCase()}${q}</span>${details}`;
+      const detailsBlock = formatBuffetLineDetailsBlock(ln.remarks, ln.customizations);
+      return `
+        <div class="buffet-utility-line mb-2">
+          <span class="buffet-status-badge ${cls} me-1 mb-1 d-inline-block">${st.toUpperCase()}${q}</span>
+          ${detailsBlock}
+        </div>`;
     })
-    .join(" ");
+    .join("");
 }
 
 function buildBuffetUtilitiesStationCard(payload) {
@@ -371,7 +383,16 @@ function buildBuffetItemStatusMessage(payload) {
   const statusKey = String(payload.status || 'unknown').toLowerCase();
   const statusClass = statusClassMap[statusKey] || 'unknown-color';
   const itemName = payload.item_name || payload.name || 'Item';
-  
+  const isBuffet = isDineFlashBuffetChatSurface();
+  const detailsHtml = isBuffet
+    ? formatBuffetLineDetailsBlock(payload.remarks, payload.customizations)
+    : "";
+  const hasStructuredDetails = Boolean(detailsHtml);
+  const bodyText =
+    isBuffet && hasStructuredDetails
+      ? `Your ${itemName} is now ${statusKey}.`
+      : payload.message || `Your ${itemName} is now ${statusKey}.`;
+
   return `
     <div class="response-title">
       ${buildLogoImg(payload)}
@@ -383,7 +404,8 @@ function buildBuffetItemStatusMessage(payload) {
             <span class="buffet-status-badge ${statusClass}">${statusKey.toUpperCase()}</span>
         </div>
         <div class="buffet-status-body">
-            ${payload.message || `Your ${itemName} is now ${statusKey}.`}
+            ${bodyText}
+            ${hasStructuredDetails ? `<div class="buffet-line-details mt-2">${detailsHtml}</div>` : ""}
         </div>
     </div>
   `;

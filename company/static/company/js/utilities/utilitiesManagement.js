@@ -45,6 +45,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     return '—';
   }
 
+  function formatDescriptionCell(description) {
+    if (!description || !String(description).trim()) return '—';
+    const text = String(description).trim();
+    if (text.length <= 60) return escapeHtml(text);
+    return `${escapeHtml(text.slice(0, 60))}…`;
+  }
+
   function getUtilityById(utilityId) {
     const id = Number(utilityId);
     return utilitiesData.find((u) => Number(u.id) === id);
@@ -206,6 +213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td><span class="token-mode-badge ${utility.token_mode === 'utility_specific' ? 'utility-specific' : ''}">${tokenModeLabel}</span></td>
         ` : `
         <td>${escapeHtml(formatFoodTypeLabel(utility.food_type))}</td>
+        <td title="${utility.description ? escapeAttr(String(utility.description).trim()) : ''}">${formatDescriptionCell(utility.description)}</td>
         `}
         <td>${escapeHtml(vendorName)}</td>
         <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
@@ -307,7 +315,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         String(utility.id).includes(searchTerm) ||
         utility.utility_name.toLowerCase().includes(searchTerm) ||
         utility.display_name.toLowerCase().includes(searchTerm) ||
-        (utility.display_code && utility.display_code.toLowerCase().includes(searchTerm));
+        (utility.display_code && utility.display_code.toLowerCase().includes(searchTerm)) ||
+        (utility.description && utility.description.toLowerCase().includes(searchTerm));
 
       return statusMatch && searchMatch;
     });
@@ -403,6 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <p><strong>Token Mode:</strong> ${tokenMode}</p>
         ` : `
         <p><strong>Food Type:</strong> ${escapeHtml(formatFoodTypeLabel(utility.food_type))}</p>
+        <p><strong>Description:</strong> ${utility.description ? escapeHtml(utility.description) : '—'}</p>
         `}
         <p><strong>Outlet:</strong> ${escapeHtml(vendorName)}</p>
         <p><strong>Status:</strong> ${utility.is_active ? 'Active' : 'Inactive'}</p>
@@ -439,12 +449,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         ${window.PROJECT_NAME === 'dine_flash_buffet' ? `
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Food Type</label>
-            <select id="edit-food-type" class="form-select form-select-sm">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Food Type <span class="text-danger">*</span></label>
+            <select id="edit-food-type" class="form-select form-select-sm" required>
               <option value="">Select food type</option>
               <option value="veg" ${utility.food_type === 'veg' ? 'selected' : ''}>Veg</option>
               <option value="non_veg" ${utility.food_type === 'non_veg' ? 'selected' : ''}>Non Veg</option>
             </select>
+            ${!utility.food_type ? '<small class="form-text text-warning" style="font-size: 0.75rem;">This counter has no food type yet. Select Veg or Non Veg to save.</small>' : ''}
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="form-group col-12 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Description <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea id="edit-description" class="form-control form-control-sm" rows="3" maxlength="500" placeholder="Short description for this food counter">${utility.description ? escapeHtml(utility.description) : ''}</textarea>
           </div>
         </div>
         <div class="row g-2">
@@ -525,14 +542,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dcode = isBuffet ? "" : document.getElementById('edit-display-code').value.trim();
         const tmode = isBuffet ? 'continuous' : document.getElementById('edit-token-mode').value;
         const pref = isBuffet ? '' : document.getElementById('edit-prefix').value.trim();
-        const foodType = isBuffet
+        let foodType = isBuffet
           ? (document.getElementById('edit-food-type')?.value || '').trim()
+          : '';
+        if (isBuffet && !foodType && utility.food_type) {
+          foodType = utility.food_type;
+        }
+        const description = isBuffet
+          ? (document.getElementById('edit-description')?.value || '').trim()
           : '';
 
         // Client-side validations (same limits as server) - show inline
         if (!name) return showInlineError('Utility name is required');
         if (!dname) return showInlineError('Display name is required');
-        if (isBuffet && !foodType) return showInlineError('Food type is required');
+        if (isBuffet && !foodType) {
+          return showInlineError('Please select Veg or Non Veg in Food Type (required for buffet counters).');
+        }
+        if (isBuffet && description.length > 500) {
+          return showInlineError('Description must be at most 500 characters');
+        }
         if (isBuffet && !['veg', 'non_veg'].includes(foodType)) {
           return showInlineError('Please select Veg or Non Veg');
         }
@@ -579,6 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             fd.append('token_mode', tmode);
             fd.append('prefix', pref);
             fd.append('food_type', foodType);
+            fd.append('description', description);
             const clearEl = document.getElementById('clear-buffet-images');
             const fileEl = document.getElementById('edit-buffet-images');
             const removeIds = Array.from(

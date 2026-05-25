@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const prefixInput = document.querySelector('input[name="prefix"]');
   const buffetImageInput = document.querySelector('input[name="buffet_utility_images"]');
   const foodTypeSelect = document.querySelector('select[name="food_type"]');
+  const descriptionInput = document.querySelector('textarea[name="description"]');
   const BUFFET_MAX_IMAGES = 3;
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
 
@@ -153,6 +154,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const description = isBuffet && descriptionInput
+      ? descriptionInput.value.trim()
+      : '';
+    if (isBuffet && description.length > 500) {
+      ModalService.showError('Description must be at most 500 characters.');
+      return;
+    }
+
     // Prepare request (buffet: multipart with optional image files)
     let fetchOptions = {
       method: 'POST',
@@ -181,6 +190,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       fd.append('prefix', prefix === null || prefix === undefined ? '' : prefix);
       fd.append('is_active', isActive ? 'true' : 'false');
       fd.append('food_type', foodType);
+      if (description) {
+        fd.append('description', description);
+      }
       if (buffetImageInput && buffetImageInput.files && buffetImageInput.files.length) {
         Array.from(buffetImageInput.files)
           .slice(0, BUFFET_MAX_IMAGES)

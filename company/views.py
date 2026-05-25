@@ -37,6 +37,7 @@ from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_
 from vendors.utils import (
     buffet_utility_image_payload,
     validate_buffet_food_type,
+    normalize_buffet_utility_description,
     create_buffet_utility_images,
     apply_buffet_utility_image_changes,
     _collect_buffet_upload_files,
@@ -1626,12 +1627,13 @@ def create_utility(request):
         prefix = request.data.get("prefix", "")
         is_active = request.data.get("is_active")
         food_type = request.data.get("food_type")
+        description = request.data.get("description")
 
         logger.debug(
             f"[UtilityCreate] Received data: vendor_id={vendor_id}, "
             f"utility_name={utility_name}, display_name={display_name}, "
             f"display_code={display_code}, token_mode={token_mode}, prefix={prefix}, "
-            f"is_active={is_active}, food_type={food_type}"
+            f"is_active={is_active}, food_type={food_type}, description={description}"
         )
 
         # ---- Basic Field Validations ----
@@ -1653,6 +1655,9 @@ def create_utility(request):
             food_type_err = validate_buffet_food_type(food_type)
             if food_type_err:
                 return Response({"error": food_type_err}, status=status.HTTP_400_BAD_REQUEST)
+            description, description_err = normalize_buffet_utility_description(description)
+            if description_err:
+                return Response({"error": description_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -1781,6 +1786,7 @@ def create_utility(request):
         }
         if is_buffet:
             create_kwargs["food_type"] = food_type
+            create_kwargs["description"] = description
 
         utility = Utility.objects.create(**create_kwargs)
 
@@ -1807,6 +1813,7 @@ def create_utility(request):
         if is_buffet:
             utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
             utility_payload["food_type"] = utility.food_type
+            utility_payload["description"] = utility.description
             utility_payload.update(buffet_utility_image_payload(request, utility))
 
         return Response(
@@ -2557,6 +2564,7 @@ def get_utilities(request):
             }
             if is_buffet:
                 row["food_type"] = utility.food_type
+                row["description"] = utility.description
                 row.update(buffet_utility_image_payload(request, utility))
             return row
 
@@ -2729,6 +2737,7 @@ def update_utility(request):
         token_mode = request.data.get('token_mode')
         prefix = request.data.get('prefix', '')
         food_type = request.data.get('food_type')
+        description = request.data.get('description')
 
         if not utility_id:
             return Response({"error": "utility_id is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -2749,9 +2758,15 @@ def update_utility(request):
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
 
         if is_buffet:
+            # Keep existing food type when the client omits it (e.g. description-only edit).
+            if not food_type or not str(food_type).strip():
+                food_type = utility.food_type
             food_type_err = validate_buffet_food_type(food_type)
             if food_type_err:
                 return Response({"error": food_type_err}, status=status.HTTP_400_BAD_REQUEST)
+            description, description_err = normalize_buffet_utility_description(description)
+            if description_err:
+                return Response({"error": description_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -2819,6 +2834,7 @@ def update_utility(request):
         utility.prefix = prefix
         if is_buffet:
             utility.food_type = food_type
+            utility.description = description
 
         if is_buffet:
             image_err = apply_buffet_utility_image_changes(utility, request)
@@ -2842,6 +2858,7 @@ def update_utility(request):
         if is_buffet:
             utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
             utility_response["food_type"] = utility.food_type
+            utility_response["description"] = utility.description
             utility_response.update(buffet_utility_image_payload(request, utility))
 
         return Response({

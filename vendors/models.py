@@ -228,6 +228,12 @@ class Utility(models.Model):
         help_text="Veg or Non Veg (Dine Flash Buffet only)",
     )
 
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description for Dine Flash Buffet utilities",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
