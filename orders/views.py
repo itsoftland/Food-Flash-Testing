@@ -29,7 +29,10 @@ from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
 from static.utils.functions.queries import get_vendor
-from static.utils.functions.utils import get_vendor_business_day_range
+from static.utils.functions.utils import (
+    get_vendor_business_day_range,
+    get_vendor_current_time,
+)
 from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
@@ -648,6 +651,17 @@ def check_status(request):
                 )
             
             chat_message = None
+            # Dine Flash stores chat messages using the vendor's local date so that
+            # `chat_history` (which filters by vendor-local date) and `manager_booking_update`
+            # (which also writes vendor-local date) stay consistent across the IST midnight
+            # boundary. Other flavours keep their existing UTC-date behaviour.
+            if project_name == "dine_flash":
+                try:
+                    chat_created_date = get_vendor_current_time(order.vendor).date()
+                except Exception:
+                    chat_created_date = timezone.now().date()
+            else:
+                chat_created_date = timezone.now().date()
             try:
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
@@ -655,7 +669,7 @@ def check_status(request):
                     booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
                     sequence_code = order.sequence_code if project_name == "airline_flash" else None,
-                    created_date=timezone.now().date(),
+                    created_date=chat_created_date,
                     sender='user',
                     is_send=True,
                     message_text=reply_text
@@ -665,6 +679,18 @@ def check_status(request):
                 if chat_message:
                     chat_message.is_send = False
                     chat_message.save(update_fields=["is_send"])
+
+            # Dine Flash only: enrich the FCM payload so the manager APK can render the new
+            # chat row immediately (mirrors `manager_booking_update` which sets
+            # payload["message_id"] for the reverse manager → customer direction).
+            if project_name == "dine_flash" and chat_message is not None:
+                data["message_id"] = chat_message.id
+                data["message_text"] = reply_text
+                data["sender"] = "user"
+                try:
+                    data["chat_created_at"] = chat_message.created_at.isoformat()
+                except Exception:
+                    pass
             if project_name == "airline_flash":
                 title = "Passenger Message Received"
                 body = f"Passenger {order.sequence_code} has sent a new message."

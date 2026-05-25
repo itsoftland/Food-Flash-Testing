@@ -2117,9 +2117,15 @@ def chat_history(request):
     today_date = get_vendor_current_date(vendor)
     logger.info(f"[chat_history] Vendor current date: {today_date}")
 
+    # Dine Flash uses `booking_id` (unique per Order) so a `created_date` guard is
+    # redundant — and it actively hides newly-arrived customer messages whenever the
+    # stored UTC date and the vendor's local date diverge (e.g. shortly after IST
+    # midnight). Other flavours keep their existing date-scoped behaviour.
+    apply_created_date_filter = project_name not in ("airline_flash", "dine_flash")
+
     # ✅ 4. Use atomic update for marking as read (avoids race conditions)
     filter_kwargs = {"vendor": vendor, "sender": "user", "is_read": False, **lookup_key}
-    if project_name != "airline_flash":
+    if apply_created_date_filter:
         filter_kwargs["created_date"] = today_date
 
     updated_count = ChatMessage.objects.filter(**filter_kwargs).update(is_read=True)
@@ -2127,13 +2133,13 @@ def chat_history(request):
 
     # ✅ 5. Query only relevant fields (lighter serialization)
     message_filter = {"vendor": vendor, **lookup_key}
-    if project_name != "airline_flash":
+    if apply_created_date_filter:
         message_filter["created_date"] = today_date
 
     messages = (
         ChatMessage.objects
         .filter(**message_filter)
-        .only("id", "sender", "message_text", "audio_file", "created_at", "is_read")
+        .only("id", "message_id", "sender", "message_text", "audio_file", "created_at", "is_read")
         .order_by("created_at")
     )
 
