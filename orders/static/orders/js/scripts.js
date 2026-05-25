@@ -868,12 +868,8 @@ onDOMReady(async function () {
                 return;
             }
             if (tokenNo) {
-                // Dine Flash: tokenNo on cards is booking_id; pass it explicitly as booking_id.
-                if (isDineFlashTableBookingSurface) {
-                    await fetchOrderStatusOnce(null, message, tokenNo);
-                } else {
-                    await fetchOrderStatusOnce(tokenNo, message, tokenNo);
-                }
+                // This is a reply to a message with tokenNo
+                await fetchOrderStatusOnce(tokenNo,message,tokenNo); // Attach token + reply inside this function
             } else {
                 console.warn("Selected message has no token number.");
             }
@@ -932,7 +928,7 @@ onDOMReady(async function () {
                 bookingId = BookingMappingService.getBookingId(message); 
                 setActiveDineBookingId(bookingId);
                 await saveChat(bookingNo, 'user', 'chat',bookingId);
-                await fetchOrderStatusOnce(bookingNo, null, bookingId);
+                await fetchOrderStatusOnce(bookingNo); // Use bookingNo as tokenNo
             } else if (!isDineFlashBuffetSurface) {
                 await saveChat(message, 'user', 'chat',message);
                 await fetchOrderStatusOnce(message); // Use message as tokenNo  

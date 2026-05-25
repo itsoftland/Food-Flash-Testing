@@ -28,9 +28,8 @@ from vendors.utils import buffet_utility_image_absolute_url
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
-from .dine_flash_manager_notify import notify_managers_customer_chat_sync
 from static.utils.functions.queries import get_vendor
-from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
+from static.utils.functions.utils import get_vendor_business_day_range
 from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
@@ -536,18 +535,8 @@ def check_status(request):
     # ───── Main Logic ─────
     try:
         # ───── Existing Order ─────
-        if project_name == "dine_flash":
-            order = Order.objects.select_related(
-                "vendor",
-                "vendor__config",
-                "utility",
-                "device",
-                "user_profile",
-            ).get(**order_filter)
-        else:
-            order = Order.objects.get(**order_filter)
+        order = Order.objects.get(**order_filter)
 
-        status_transitioned = False
         if status_check_name and order.status == status_check_name:
             if project_name == "airline_flash":
                 title = "Passenger Connected to Your Flight"
@@ -561,32 +550,6 @@ def check_status(request):
             order.status = status_to_update
             order.updated_by = 'customer'
             order.save()
-            status_transitioned = True
-
-        dine_flash_chat_message = None
-        if reply_text and project_name == "dine_flash":
-            MAX_MESSAGE_LENGTH = 200
-            if len(reply_text) > MAX_MESSAGE_LENGTH:
-                return Response(
-                    {"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."},
-                    status=400,
-                )
-            try:
-                dine_flash_chat_message = ChatMessage.objects.create(
-                    vendor=order.vendor,
-                    token_no=order.token_no,
-                    booking_id=order.id,
-                    booking_no=order.table_booking_no,
-                    created_date=get_vendor_current_time(order.vendor).date(),
-                    sender="user",
-                    is_send=True,
-                    message_text=reply_text,
-                )
-            except Exception:
-                logger.exception("Failed to store Dine Flash user chat message")
-                dine_flash_chat_message = None
-            title = "Customer Message Received"
-            body = f"Customer {order.table_booking_no} has sent a new message."
 
         vendor_serializer = VendorLogoSerializer(order.vendor, context={'request': request})
         logo_url = vendor_serializer.data.get('logo_url', '')
@@ -676,63 +639,47 @@ def check_status(request):
             data['message'] = "Reply message sent to managers."
             data['type'] = 'user_reply'
             data['reply_status'] = reply_text
+            MAX_MESSAGE_LENGTH = 200
 
-            chat_message = dine_flash_chat_message
-            if project_name != "dine_flash":
-                MAX_MESSAGE_LENGTH = 200
-                if len(reply_text) > MAX_MESSAGE_LENGTH:
-                    return Response(
-                        {"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."},
-                        status=400,
-                    )
-                chat_created_date = timezone.now().date()
-                try:
-                    chat_message = ChatMessage.objects.create(
-                        vendor=order.vendor,
-                        token_no=order.token_no,
-                        booking_id=order.id if project_name == "dine_flash_buffet" else None,
-                        booking_no=order.table_booking_no if project_name == "dine_flash_buffet" else None,
-                        sequence_code=order.sequence_code if project_name == "airline_flash" else None,
-                        created_date=chat_created_date,
-                        sender='user',
-                        is_send=True,
-                        message_text=reply_text,
-                    )
-                except Exception:
-                    logger.exception("Failed to store user chat message")
-                    if chat_message:
-                        chat_message.is_send = False
-                        chat_message.save(update_fields=["is_send"])
+            if reply_text and len(reply_text) > MAX_MESSAGE_LENGTH:
+                return Response(
+                    {"error": f"Message too long. Limit is {MAX_MESSAGE_LENGTH} characters."},
+                    status=400
+                )
+            
+            chat_message = None
+            try:
+                chat_message = ChatMessage.objects.create(
+                    vendor=order.vendor,
+                    token_no=order.token_no,
+                    booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
+                    booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
+                    sequence_code = order.sequence_code if project_name == "airline_flash" else None,
+                    created_date=timezone.now().date(),
+                    sender='user',
+                    is_send=True,
+                    message_text=reply_text
+                )
+            except Exception as e:
+                logger.exception("Failed to store user chat message")
+                if chat_message:
+                    chat_message.is_send = False
+                    chat_message.save(update_fields=["is_send"])
+            if project_name == "airline_flash":
+                title = "Passenger Message Received"
+                body = f"Passenger {order.sequence_code} has sent a new message."
+            elif project_name == "dine_flash":
+                title = "Customer Message Received"
+                body = f"Customer {order.table_booking_no} has sent a new message."
+            else:
+                title = "Customer Message Received"
+                body = f"Customer {order.token_no} has sent a new message."
 
-            if chat_message:
-                data["message_id"] = chat_message.id
-
-            if project_name != "dine_flash":
-                if project_name == "airline_flash":
-                    title = "Passenger Message Received"
-                    body = f"Passenger {order.sequence_code} has sent a new message."
-                elif project_name == "dine_flash_buffet":
-                    title = "Customer Message Received"
-                    body = f"Customer {order.table_booking_no} has sent a new message."
-                else:
-                    title = "Customer Message Received"
-                    body = f"Customer {order.token_no} has sent a new message."
-
-            if project_name == "dine_flash" and dine_flash_chat_message:
-                notify_managers_customer_chat_sync(order.vendor, data, title, body)
-
-        # Dine Flash chat FCM sent above with full payload; only poll/connect uses async FCM.
-        if project_name == "dine_flash":
-            should_notify_managers = bool(reply_text) is False and status_transitioned
-        else:
-            should_notify_managers = True
-
-        if should_notify_managers:
-            threading.Thread(
-                target=_send_to_managers_async,
-                args=(order.vendor, data, title, body),
-                daemon=True,
-            ).start()
+        threading.Thread(
+            target=_send_to_managers_async,
+            args=(order.vendor, data, title, body),
+            daemon=True,
+        ).start()
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:

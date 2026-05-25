@@ -1105,21 +1105,28 @@ def get_active_customers_list(request):
         t1 = time.perf_counter()
         if project_name == "dine_flash":
             business_date = get_vendor_current_date(vendor)
-            has_today_chat = ChatMessage.objects.filter(
-                vendor_id=vendor.id,
-                booking_id=OuterRef("pk"),
-                created_date=business_date,
-            )
-            customers_qs = (
-                Order.objects.filter(
-                    vendor=vendor,
-                    created_at__range=(start_dt, end_dt),
+            active_booking_ids = list(
+                ChatMessage.objects.filter(
+                    vendor_id=vendor.id,
+                    booking_id__isnull=False,
+                    created_date=business_date,
                 )
-                .filter(Exists(has_today_chat))
-                .select_related("utility", "vendor")
-                .order_by("utility__display_name", "created_at")
+                .values_list("booking_id", flat=True)
+                .distinct()
             )
-            customer_list = list(customers_qs)
+            if active_booking_ids:
+                customers_qs = (
+                    Order.objects.filter(
+                        vendor=vendor,
+                        created_at__range=(start_dt, end_dt),
+                        id__in=active_booking_ids,
+                    )
+                    .select_related("utility", "vendor")
+                    .order_by("utility__display_name", "created_at")
+                )
+                customer_list = list(customers_qs)
+            else:
+                customer_list = []
         else:
             has_chat_message = ChatMessage.objects.filter(
                 vendor_id=vendor.id,
