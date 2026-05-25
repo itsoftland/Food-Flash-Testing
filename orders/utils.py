@@ -371,27 +371,50 @@ def _fcm_failure_is_transient(info: dict) -> bool:
 
 
 def send_dine_flash_manager_chat_sync(vendor, data, title, body):
-    """Dine Flash customer chat: FCM with full payload, retries on transient Firebase errors."""
+    """
+    Dine Flash customer chat FCM.
+
+    Manager handsets register via ``register_android_device`` (``AndroidDevice``) and
+    refresh on ``booking_update`` — same path as allocate. ``AndroidAPK`` is only a
+    fallback for legacy registrations.
+    """
     if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash":
         return False, {"error": "not_dine_flash"}
+
+    from vendors.dine_flash_tv_fcm import send_dine_flash_customer_chat_fcm_sync
 
     ok = False
     info: dict = {}
     for attempt in range(3):
-        ok, info = send_to_managers(
-            vendor,
-            data,
-            title=title,
-            body=body,
-            defer_success_audit=True,
-        )
+        ok, info = send_dine_flash_customer_chat_fcm_sync(vendor, data)
         if ok:
-            send_dine_flash_manager_chat_wakeup(vendor, data)
             return ok, info
         if attempt < 2 and _fcm_failure_is_transient(info):
             time.sleep(0.2 * (attempt + 1))
             continue
         break
+
+    apk_tokens = collect_manager_fcm_tokens(vendor)
+    if apk_tokens:
+        logger.info(
+            "[FCM] Dine Flash customer chat falling back to AndroidAPK | vendor_id=%s | token_count=%s",
+            vendor.vendor_id,
+            len(apk_tokens),
+        )
+        for attempt in range(3):
+            ok, info = send_to_managers(
+                vendor,
+                data,
+                title=title,
+                body=body,
+                defer_success_audit=True,
+            )
+            if ok:
+                return ok, info
+            if attempt < 2 and _fcm_failure_is_transient(info):
+                time.sleep(0.2 * (attempt + 1))
+                continue
+            break
 
     if not ok:
         logger.warning(

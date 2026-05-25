@@ -342,6 +342,85 @@ def send_dine_flash_manager_booking_tv_fcm_sync(
     return False, result or {"error": "No FCM deliveries"}
 
 
+def send_dine_flash_customer_chat_fcm_sync(
+    vendor: Vendor,
+    data: Mapping[str, Any],
+) -> tuple[bool, dict[str, Any]]:
+    """
+    Customer Reply chat → same AndroidDevice tokens and booking_update envelope as
+    manager allocate. The manager handset refreshes on this path, not AndroidAPK.
+    """
+    if not dine_flash_fcm_scope_applies(vendor):
+        return False, {"skipped": "not dine_flash scope"}
+
+    booking_id = data.get("booking_id")
+    try:
+        booking_id = int(booking_id)
+    except (TypeError, ValueError):
+        return False, {"error": "missing booking_id"}
+
+    fcm_tokens = collect_vendor_tv_fcm_tokens(vendor)
+    if not fcm_tokens:
+        logger.warning(
+            "[TV_FCM] no tokens for vendor_id=%s booking_id=%s — customer chat push skipped",
+            vendor.vendor_id,
+            booking_id,
+        )
+        return False, {"error": "No FCM tokens"}
+
+    reply = (data.get("reply_status") or "").strip()
+    order_status = _normalize_status(data.get("status")) or "allocated"
+
+    extra: dict[str, Any] = {
+        "action": "customer_chat",
+        "event": "customer_chat",
+        "token_no": data.get("token_no"),
+        "vendor_id": data.get("vendor_id"),
+        "location_id": data.get("location_id"),
+        "customer_name": data.get("customer_name"),
+        "booking_no": data.get("booking_no"),
+        "utility_name": data.get("utility_name"),
+        "no_of_packs": data.get("no_of_packs"),
+        "message_id": data.get("message_id"),
+        "chat_message": reply,
+        "table_number": data.get("table_number") or data.get("seat_no"),
+        "seat_no": data.get("seat_no"),
+        "utility_id": data.get("utility_id"),
+    }
+
+    logger.info(
+        "[TV_FCM] customer_chat booking_update vendor_id=%s booking_id=%s token_count=%s",
+        vendor.vendor_id,
+        booking_id,
+        len(fcm_tokens),
+    )
+
+    fcm_data = _build_booking_update_data(vendor.id, booking_id, order_status, extra=extra)
+    label = f"Customer chat booking_id={booking_id}"
+    result = _send_batches_with_result(vendor, fcm_tokens, fcm_data, label=label)
+
+    if result.get("failed_tokens"):
+        logger.warning(
+            "[dine_flash_fcm] Customer chat partial failure vendor_id=%s: %s",
+            vendor.vendor_id,
+            result,
+        )
+        return False, result
+
+    if result.get("success_count", 0) > 0:
+        logger.info(
+            "[dine_flash_fcm] Customer chat sent vendor_id=%s devices=%s booking_id=%s",
+            vendor.vendor_id,
+            result["success_count"],
+            booking_id,
+        )
+        return True, {"success_count": result["success_count"], **{
+            k: v for k, v in result.items() if k != "success_count"
+        }}
+
+    return False, result or {"error": "No FCM deliveries"}
+
+
 def schedule_dine_flash_manager_booking_tv_fcm(
     vendor_id: int,
     booking_id: int,
