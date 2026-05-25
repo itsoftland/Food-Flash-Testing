@@ -1,5 +1,7 @@
 import json
 import logging
+
+from django.conf import settings
 from firebase_admin import messaging
 from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidAPK
@@ -7,7 +9,7 @@ from vendors.models import AndroidAPK
 logger = logging.getLogger(__name__)
 
 
-def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
+def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None, *, android_high_priority=False):
     """
     Sends a Firebase Admin SDK multicast message with both data and notification payloads.
     Logs and categorizes failures in detail.
@@ -32,14 +34,17 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
             "type": "ready_orders",
             "orders": json.dumps(data_payload),
         }
-        message = messaging.MulticastMessage(
-            data=fcm_data,
-            notification=messaging.Notification(
+        multicast_kwargs = {
+            "data": fcm_data,
+            "notification": messaging.Notification(
                 title=title or default_title,
                 body=body or default_body,
             ),
-            tokens=fcm_tokens,
-        )
+            "tokens": fcm_tokens,
+        }
+        if android_high_priority:
+            multicast_kwargs["android"] = messaging.AndroidConfig(priority="high")
+        message = messaging.MulticastMessage(**multicast_kwargs)
 
         response = messaging.send_each_for_multicast(message)
 
@@ -90,10 +95,18 @@ def send_to_managers(vendor, data, title=None, body=None):
     Supports optional custom title/body.
     """
     android_apk_devices = AndroidAPK.objects.filter(user_profile__vendor=vendor)
-    tokens = list(android_apk_devices.values_list("token", flat=True))
+    tokens = [t for t in android_apk_devices.values_list("token", flat=True) if (t or "").strip()]
 
     if not tokens:
         logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
         return False, {"error": "No tokens"}
 
-    return send_fcm_multicast(tokens, data, title=title, body=body)
+    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    android_high_priority = is_dine_flash and (data or {}).get("type") == "user_reply"
+    return send_fcm_multicast(
+        tokens,
+        data,
+        title=title,
+        body=body,
+        android_high_priority=android_high_priority,
+    )

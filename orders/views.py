@@ -28,7 +28,6 @@ from vendors.utils import buffet_utility_image_absolute_url
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
-from .dine_flash_manager_fcm import send_dine_flash_manager_customer_message_fcm
 from static.utils.functions.queries import get_vendor
 from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
 from manager.utils.utils import reset_counters_if_new_business_day
@@ -672,6 +671,8 @@ def check_status(request):
                 if chat_message:
                     chat_message.is_send = False
                     chat_message.save(update_fields=["is_send"])
+            if project_name == "dine_flash" and chat_message:
+                data["message_id"] = chat_message.id
             if project_name == "airline_flash":
                 title = "Passenger Message Received"
                 body = f"Passenger {order.sequence_code} has sent a new message."
@@ -688,22 +689,11 @@ def check_status(request):
             should_notify_managers = bool(reply_text) or status_transitioned
 
         if should_notify_managers:
-            if project_name == "dine_flash" and reply_text:
-                try:
-                    send_dine_flash_manager_customer_message_fcm(
-                        order.vendor, data, title, body
-                    )
-                except Exception:
-                    logger.exception(
-                        "[check_status] Dine Flash manager chat FCM failed | vendor_id=%s",
-                        getattr(order.vendor, "vendor_id", None),
-                    )
-            else:
-                threading.Thread(
-                    target=_send_to_managers_async,
-                    args=(order.vendor, data, title, body),
-                    daemon=True,
-                ).start()
+            threading.Thread(
+                target=_send_to_managers_async,
+                args=(order.vendor, data, title, body),
+                daemon=True,
+            ).start()
         return Response(data, status=status.HTTP_200_OK)
 
     except Order.DoesNotExist:
