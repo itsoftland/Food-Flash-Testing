@@ -21,6 +21,86 @@ def _audit_fcm_success_async(**kwargs) -> None:
         logger.exception("[FCM] Deferred audit log failed")
 
 
+def _normalize_fcm_data_map(data: dict) -> dict[str, str]:
+    normalized: dict[str, str] = {}
+    for key, value in (data or {}).items():
+        if value is None:
+            normalized[str(key)] = ""
+        elif isinstance(value, bool):
+            normalized[str(key)] = "true" if value else "false"
+        else:
+            normalized[str(key)] = str(value)
+    return normalized
+
+
+def send_fcm_multicast_raw_data(
+    fcm_tokens,
+    fcm_data: dict,
+    *,
+    android_high_priority=False,
+    defer_success_audit=False,
+    audit_label="",
+):
+    """Data-only FCM (no notification tray). Used as a wake-up for Dine Flash manager APK."""
+    if not fcm_tokens:
+        logger.warning("[FCM] No FCM tokens provided for raw data multicast.")
+        return False, {"error": "No tokens to send"}
+
+    try:
+        payload = _normalize_fcm_data_map(fcm_data)
+        multicast_kwargs = {
+            "data": payload,
+            "tokens": fcm_tokens,
+        }
+        if android_high_priority:
+            multicast_kwargs["android"] = messaging.AndroidConfig(priority="high")
+        message = messaging.MulticastMessage(**multicast_kwargs)
+        response = messaging.send_each_for_multicast(message)
+
+        failed_tokens = []
+        failed_reasons = {}
+        label = audit_label or payload.get("type") or "data"
+
+        for idx, resp in enumerate(response.responses):
+            if resp.success:
+                if defer_success_audit:
+                    token = fcm_tokens[idx]
+                    threading.Thread(
+                        target=_audit_fcm_success_async,
+                        kwargs={
+                            "source": "orders_fcm_multicast",
+                            "label": label,
+                            "token": token,
+                            "payload": payload,
+                        },
+                        daemon=True,
+                    ).start()
+                else:
+                    log_fcm_send_success(
+                        source="orders_fcm_multicast",
+                        label=label,
+                        token=fcm_tokens[idx],
+                        payload=payload,
+                    )
+                continue
+            token = fcm_tokens[idx]
+            error = str(resp.exception)
+            failed_tokens.append(token)
+            failed_reasons[token] = error
+            logger.warning(f"[FCM] Raw data failed token: {token} | Reason: {error}")
+            if "UNREGISTERED" in error or "INVALID_ARGUMENT" in error:
+                AndroidAPK.objects.filter(token=token).delete()
+                logger.info(f"[FCM] Removed invalid token from DB: {token}")
+
+        if failed_tokens:
+            return False, {"failed_tokens": failed_tokens, "reasons": failed_reasons}
+        logger.info(f"[FCM] Raw data multicast successful: {response.success_count} messages sent.")
+        return True, {"success_count": response.success_count}
+    except Exception as e:
+        logger.exception("[FCM] Error while sending raw data multicast FCM")
+        return False, {"error": str(e)}
+
+
 def send_fcm_multicast(
     fcm_tokens,
     data_payload,
@@ -29,6 +109,8 @@ def send_fcm_multicast(
     *,
     android_high_priority=False,
     defer_success_audit=False,
+    include_notification=True,
+    fcm_data_extra=None,
 ):
     """
     Sends a Firebase Admin SDK multicast message with both data and notification payloads.
@@ -54,14 +136,17 @@ def send_fcm_multicast(
             "type": "ready_orders",
             "orders": json.dumps(data_payload),
         }
+        if fcm_data_extra:
+            fcm_data.update(_normalize_fcm_data_map(fcm_data_extra))
         multicast_kwargs = {
             "data": fcm_data,
-            "notification": messaging.Notification(
-                title=title or default_title,
-                body=body or default_body,
-            ),
             "tokens": fcm_tokens,
         }
+        if include_notification:
+            multicast_kwargs["notification"] = messaging.Notification(
+                title=title or default_title,
+                body=body or default_body,
+            )
         if android_high_priority:
             multicast_kwargs["android"] = messaging.AndroidConfig(priority="high")
         message = messaging.MulticastMessage(**multicast_kwargs)
@@ -141,8 +226,52 @@ def dine_flash_manager_fcm_payload(data: dict) -> dict:
         return payload
     reply = (payload.get("reply_status") or "").strip()
     payload["type"] = "dine_manager"
+    payload["action"] = "message"
+    payload["sender"] = "user"
     payload["status"] = reply or payload.get("status") or "message"
+    payload["message"] = reply
+    # Some APK builds ignore ready_orders when updated_by is customer.
+    payload.pop("updated_by", None)
     return payload
+
+
+def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str]:
+    """Top-level FCM data keys (outside ``orders`` JSON) for manager APK parsers."""
+    mapped = dine_flash_manager_fcm_payload(data)
+    return {
+        "booking_id": mapped.get("booking_id"),
+        "booking_no": mapped.get("booking_no"),
+        "event": "customer_chat",
+        "project": "dine_flash",
+        "inner_type": mapped.get("type"),
+    }
+
+
+def send_dine_flash_manager_chat_wakeup(vendor, data: dict) -> tuple[bool, dict]:
+    """
+    Data-only booking_update wake-up (same pattern as TV FCM).
+    Manager list/chat screens refresh from APIs after this trigger.
+    """
+    tokens = collect_manager_fcm_tokens(vendor)
+    if not tokens:
+        return False, {"error": "No tokens"}
+
+    reply = (data.get("reply_status") or "").strip()
+    flat = {
+        "type": "booking_update",
+        "booking_id": data.get("booking_id"),
+        "booking_no": data.get("booking_no"),
+        "project": "dine_flash",
+        "event": "customer_chat",
+        "status": reply or data.get("status") or "",
+    }
+    return send_fcm_multicast_raw_data(
+        tokens,
+        flat,
+        android_high_priority=True,
+        defer_success_audit=True,
+        audit_label="Customer chat wake-up",
+    )
 
 
 def collect_manager_fcm_tokens(vendor) -> list[str]:
@@ -210,9 +339,11 @@ def send_to_managers(vendor, data, title=None, body=None, *, defer_success_audit
         return False, {"error": "No tokens"}
 
     is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    is_customer_chat = is_dine_flash and (data or {}).get("type") == "user_reply"
     fcm_data = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
-    android_high_priority = is_dine_flash and (data or {}).get("type") == "user_reply"
-    if is_dine_flash and (data or {}).get("type") == "user_reply":
+    android_high_priority = is_customer_chat
+    fcm_data_extra = dine_flash_manager_fcm_data_extra(data) if is_customer_chat else None
+    if is_customer_chat:
         logger.info(
             "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
             vendor.vendor_id,
@@ -226,6 +357,7 @@ def send_to_managers(vendor, data, title=None, body=None, *, defer_success_audit
         body=body,
         android_high_priority=android_high_priority,
         defer_success_audit=defer_success_audit,
+        fcm_data_extra=fcm_data_extra,
     )
 
 
@@ -254,6 +386,7 @@ def send_dine_flash_manager_chat_sync(vendor, data, title, body):
             defer_success_audit=True,
         )
         if ok:
+            send_dine_flash_manager_chat_wakeup(vendor, data)
             return ok, info
         if attempt < 2 and _fcm_failure_is_transient(info):
             time.sleep(0.2 * (attempt + 1))
