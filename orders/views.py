@@ -679,18 +679,6 @@ def check_status(request):
                 if chat_message:
                     chat_message.is_send = False
                     chat_message.save(update_fields=["is_send"])
-
-            # Dine Flash only: enrich the FCM payload so the manager APK can render the new
-            # chat row immediately (mirrors `manager_booking_update` which sets
-            # payload["message_id"] for the reverse manager → customer direction).
-            if project_name == "dine_flash" and chat_message is not None:
-                data["message_id"] = chat_message.id
-                data["message_text"] = reply_text
-                data["sender"] = "user"
-                try:
-                    data["chat_created_at"] = chat_message.created_at.isoformat()
-                except Exception:
-                    pass
             if project_name == "airline_flash":
                 title = "Passenger Message Received"
                 body = f"Passenger {order.sequence_code} has sent a new message."

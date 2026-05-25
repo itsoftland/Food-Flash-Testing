@@ -2147,7 +2147,18 @@ def chat_history(request):
     serializer = ChatMessageSerializer(messages, many=True)
     logger.info(f"[chat_history] Returning {len(serializer.data)} messages for vendor={vendor.name}")
 
-    return Response({"messages": serializer.data}, status=status.HTTP_200_OK)
+    response = Response({"messages": serializer.data}, status=status.HTTP_200_OK)
+
+    # Dine Flash only: defeat any HTTP-level caching in the manager APK's network
+    # stack so a chat_history call fired right after the FCM banner always returns
+    # the freshest rows from the database. Other flavours keep their default
+    # response headers untouched.
+    if project_name == "dine_flash":
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+
+    return response
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
