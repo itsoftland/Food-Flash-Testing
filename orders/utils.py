@@ -1,10 +1,33 @@
 import json
 import logging
+
+from django.conf import settings
 from firebase_admin import messaging
 from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidAPK
 
 logger = logging.getLogger(__name__)
+
+
+def dine_flash_manager_fcm_payload(data: dict) -> dict:
+    """
+    Dine Flash only: remap customer chat for the manager APK FCM copy.
+
+    Manager APK handles ``dine_manager`` inside ``ready_orders``, not ``user_reply``.
+    The HTTP API response to the customer keeps ``user_reply``; only FCM is mapped.
+    """
+    payload = dict(data or {})
+    if payload.get("type") != "user_reply":
+        return payload
+    reply = (payload.get("reply_status") or "").strip()
+    payload["type"] = "dine_manager"
+    payload["action"] = "message"
+    payload["sender"] = "user"
+    payload["status"] = reply or payload.get("status") or "message"
+    payload["message"] = reply
+    # Some APK builds ignore ready_orders when updated_by is customer.
+    payload.pop("updated_by", None)
+    return payload
 
 
 def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
@@ -96,4 +119,6 @@ def send_to_managers(vendor, data, title=None, body=None):
         logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
         return False, {"error": "No tokens"}
 
-    return send_fcm_multicast(tokens, data, title=title, body=body)
+    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    fcm_payload = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
+    return send_fcm_multicast(tokens, fcm_payload, title=title, body=body)
