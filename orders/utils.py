@@ -2,11 +2,19 @@ import json
 import logging
 
 from django.conf import settings
+from django.db.models import Q
 from firebase_admin import messaging
 from vendors.fcm_log import log_fcm_send_success
 from vendors.models import AndroidAPK
 
 logger = logging.getLogger(__name__)
+
+_DINE_FLASH_MANAGER_ROLES = (
+    "outlet_manager",
+    "admin_manager",
+    "order_manager",
+    "manager",
+)
 
 
 def dine_flash_manager_fcm_payload(data: dict) -> dict:
@@ -30,7 +38,82 @@ def dine_flash_manager_fcm_payload(data: dict) -> dict:
     return payload
 
 
-def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
+def _normalize_fcm_data_map(data: dict) -> dict[str, str]:
+    normalized: dict[str, str] = {}
+    for key, value in (data or {}).items():
+        if value is None:
+            normalized[str(key)] = ""
+        elif isinstance(value, bool):
+            normalized[str(key)] = "true" if value else "false"
+        else:
+            normalized[str(key)] = str(value)
+    return normalized
+
+
+def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str]:
+    """Top-level FCM data keys (outside ``orders`` JSON) for Dine Flash manager APK parsers."""
+    mapped = dine_flash_manager_fcm_payload(data)
+    return {
+        "booking_id": mapped.get("booking_id"),
+        "booking_no": mapped.get("booking_no"),
+        "event": "customer_chat",
+        "project": "dine_flash",
+        "inner_type": mapped.get("type"),
+    }
+
+
+def collect_manager_fcm_tokens(vendor) -> list[str]:
+    """
+    Resolve manager APK FCM tokens for a vendor.
+
+    Dine Flash only: include legacy ``AndroidAPK`` rows registered without ``user_profile``.
+    Other flavours: unchanged lookup via ``user_profile__vendor``.
+    """
+    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    if not is_dine_flash:
+        return [
+            t
+            for t in AndroidAPK.objects.filter(user_profile__vendor=vendor).values_list(
+                "token", flat=True
+            )
+            if (t or "").strip()
+        ]
+
+    outlet_id = vendor.admin_outlet_id
+    devices = (
+        AndroidAPK.objects.filter(
+            Q(user_profile__vendor=vendor)
+            | Q(admin_outlet_id=outlet_id, user_profile__isnull=True)
+            | Q(
+                admin_outlet_id=outlet_id,
+                user_profile__role__in=_DINE_FLASH_MANAGER_ROLES,
+            )
+        )
+        .order_by("-updated_at", "-id")
+        .only("token", "mac_address", "id")
+    )
+    tokens: list[str] = []
+    seen_mac: set[str] = set()
+    for device in devices:
+        mac_key = (device.mac_address or "").strip() or f"id:{device.id}"
+        if mac_key in seen_mac:
+            continue
+        seen_mac.add(mac_key)
+        token = (device.token or "").strip()
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def send_fcm_multicast(
+    fcm_tokens,
+    data_payload,
+    title=None,
+    body=None,
+    *,
+    android_high_priority=False,
+    fcm_data_extra=None,
+):
     """
     Sends a Firebase Admin SDK multicast message with both data and notification payloads.
     Logs and categorizes failures in detail.
@@ -55,14 +138,21 @@ def send_fcm_multicast(fcm_tokens, data_payload, title=None, body=None):
             "type": "ready_orders",
             "orders": json.dumps(data_payload),
         }
-        message = messaging.MulticastMessage(
-            data=fcm_data,
-            notification=messaging.Notification(
+        if fcm_data_extra:
+            fcm_data.update(_normalize_fcm_data_map(fcm_data_extra))
+
+        multicast_kwargs = {
+            "data": fcm_data,
+            "notification": messaging.Notification(
                 title=title or default_title,
                 body=body or default_body,
             ),
-            tokens=fcm_tokens,
-        )
+            "tokens": fcm_tokens,
+        }
+        if android_high_priority:
+            multicast_kwargs["android"] = messaging.AndroidConfig(priority="high")
+
+        message = messaging.MulticastMessage(**multicast_kwargs)
 
         response = messaging.send_each_for_multicast(message)
 
@@ -112,13 +202,28 @@ def send_to_managers(vendor, data, title=None, body=None):
     Sends a notification to all registered AndroidAPK devices for the given vendor.
     Supports optional custom title/body.
     """
-    android_apk_devices = AndroidAPK.objects.filter(user_profile__vendor=vendor)
-    tokens = list(android_apk_devices.values_list("token", flat=True))
+    tokens = collect_manager_fcm_tokens(vendor)
 
     if not tokens:
         logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
         return False, {"error": "No tokens"}
 
     is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    is_customer_chat = is_dine_flash and (data or {}).get("type") == "user_reply"
     fcm_payload = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
-    return send_fcm_multicast(tokens, fcm_payload, title=title, body=body)
+    fcm_data_extra = dine_flash_manager_fcm_data_extra(data) if is_customer_chat else None
+    if is_customer_chat:
+        logger.info(
+            "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
+            vendor.vendor_id,
+            len(tokens),
+            (fcm_payload or {}).get("type"),
+        )
+    return send_fcm_multicast(
+        tokens,
+        fcm_payload,
+        title=title,
+        body=body,
+        android_high_priority=is_customer_chat,
+        fcm_data_extra=fcm_data_extra,
+    )

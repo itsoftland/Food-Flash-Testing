@@ -2186,7 +2186,12 @@ def chat_history(request):
     serializer = ChatMessageSerializer(messages, many=True)
     logger.info(f"[chat_history] Returning {len(serializer.data)} messages for vendor={vendor.name}")
 
-    return Response({"messages": serializer.data}, status=status.HTTP_200_OK)
+    response = Response({"messages": serializer.data}, status=status.HTTP_200_OK)
+    if project_name == "dine_flash":
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+    return response
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
