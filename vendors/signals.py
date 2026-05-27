@@ -1,6 +1,7 @@
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
+from django.conf import settings
 from .models import Order, OrderStatusHistory, Utility
 from .tasks import convert_image_to_webp
 from .models import AdvertisementImage
@@ -191,6 +192,25 @@ def convert_image_with_retry(ad_image_id, retries=3, delay=2):
 # pop on a (usually empty) module-level dict.
 @receiver(post_save, sender=Utility)
 def _invalidate_utility_cache_on_save(sender, instance, **kwargs):
+    """
+    Dine Flash: avoid invalidating the utility-list cache on counter bumps.
+
+    Booking flows update `utility_booking_counter` frequently (often via
+    `save(update_fields=[...])`). That should not force a utility list refresh,
+    because the manager utility list payload does not include counters.
+    """
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    if project != "dine_flash":
+        invalidate_dine_flash_utility_cache(instance.vendor_id)
+        return
+
+    update_fields = kwargs.get("update_fields")
+    if update_fields:
+        # Django may auto-add `updated_at` when saving with update_fields.
+        update_fields_set = set(update_fields)
+        if update_fields_set.issubset({"utility_booking_counter", "updated_at"}):
+            return
+
     invalidate_dine_flash_utility_cache(instance.vendor_id)
 
 
