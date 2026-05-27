@@ -136,13 +136,42 @@ def _booking_list_serializer_context(request, unread_map):
     return ctx
 
 
-def _dine_flash_bookings_queryset(vendor, start_dt, end_dt):
+def _dine_flash_requested_utility_filter(request):
+    """
+    Parse optional Dine Flash utility filters from query params.
+
+    Supported params:
+      - utility_id (preferred)
+      - utility_code / display_code
+    """
+    params = getattr(request, "query_params", None) or {}
+    raw_utility_id = (params.get("utility_id") or "").strip()
+    raw_utility_code = (
+        (params.get("utility_code") or params.get("display_code") or "").strip()
+    )
+
+    utility_id = None
+    if raw_utility_id:
+        try:
+            utility_id = int(raw_utility_id)
+        except (TypeError, ValueError):
+            raise ValueError("utility_id must be a valid integer.")
+
+    utility_code = raw_utility_code or None
+    return utility_id, utility_code
+
+
+def _dine_flash_bookings_queryset(vendor, start_dt, end_dt, utility_id=None, utility_code=None):
     """Lean queryset for outlet-manager booking lists (Dine Flash only)."""
-    return (
-        Order.objects.filter(
-            vendor_id=vendor.pk,
-            created_at__range=(start_dt, end_dt),
-        )
+    filters = {
+        "vendor_id": vendor.pk,
+        "created_at__range": (start_dt, end_dt),
+    }
+    if utility_id is not None:
+        filters["utility_id"] = utility_id
+
+    qs = (
+        Order.objects.filter(**filters)
         .select_related("utility")
         .only(
             "id",
@@ -159,8 +188,12 @@ def _dine_flash_bookings_queryset(vendor, start_dt, end_dt):
             "utility__display_name",
             "utility__display_code",
         )
-        .order_by("utility__display_name", "created_at")
     )
+    if utility_code:
+        qs = qs.filter(utility__display_code__iexact=utility_code)
+    if utility_id is not None or utility_code:
+        return qs.order_by("created_at")
+    return qs.order_by("utility__display_name", "created_at")
 
 
 def _group_serialized_bookings(booking_list, serialized):
@@ -907,12 +940,25 @@ def get_booking_list(request):
                 raise NotFound("Vendor not found for this manager")
             t_vendor_ms = (time.perf_counter() - t0) * 1000
 
+            try:
+                utility_id_filter, utility_code_filter = _dine_flash_requested_utility_filter(request)
+            except ValueError as exc:
+                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
             start_dt, end_dt = get_vendor_business_day_range(vendor)
             if not start_dt or not end_dt:
                 return Response({"error": "Invalid date range"}, status=400)
 
             t1 = time.perf_counter()
-            booking_list = list(_dine_flash_bookings_queryset(vendor, start_dt, end_dt))
+            booking_list = list(
+                _dine_flash_bookings_queryset(
+                    vendor,
+                    start_dt,
+                    end_dt,
+                    utility_id=utility_id_filter,
+                    utility_code=utility_code_filter,
+                )
+            )
             t_query_ms = (time.perf_counter() - t1) * 1000
             total_count = len(booking_list)
 
@@ -1191,6 +1237,10 @@ def get_active_customers_list(request):
 
         t1 = time.perf_counter()
         if project_name == "dine_flash":
+            try:
+                utility_id_filter, utility_code_filter = _dine_flash_requested_utility_filter(request)
+            except ValueError as exc:
+                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
             business_date = get_vendor_current_date(vendor)
             active_booking_ids = list(
                 ChatMessage.objects.filter(
@@ -1203,7 +1253,13 @@ def get_active_customers_list(request):
             )
             if active_booking_ids:
                 customer_list = list(
-                    _dine_flash_bookings_queryset(vendor, start_dt, end_dt).filter(
+                    _dine_flash_bookings_queryset(
+                        vendor,
+                        start_dt,
+                        end_dt,
+                        utility_id=utility_id_filter,
+                        utility_code=utility_code_filter,
+                    ).filter(
                         id__in=active_booking_ids
                     )
                 )

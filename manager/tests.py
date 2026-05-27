@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, override_settings
 
 from manager.serializer.booking_serializer import serialize_dine_flash_manager_bookings
+from manager.views import _dine_flash_requested_utility_filter
 from manager.utils.dine_flash_manager_cache import (
     clear_all as clear_vendor_cache,
     get_cached_manager_vendor,
@@ -66,3 +67,22 @@ class DineFlashManagerPerfTests(SimpleTestCase):
             vendor = get_cached_manager_vendor(user)
             self.assertEqual(vendor, "vendor")
             lookup.assert_called_once_with(user)
+
+    def test_parse_dine_flash_utility_filter_prefers_id(self):
+        request = SimpleNamespace(
+            query_params={"utility_id": "42", "utility_code": "VIP"}
+        )
+        utility_id, utility_code = _dine_flash_requested_utility_filter(request)
+        self.assertEqual(utility_id, 42)
+        self.assertEqual(utility_code, "VIP")
+
+    def test_parse_dine_flash_utility_filter_code_only(self):
+        request = SimpleNamespace(query_params={"display_code": " ac "})
+        utility_id, utility_code = _dine_flash_requested_utility_filter(request)
+        self.assertIsNone(utility_id)
+        self.assertEqual(utility_code, "ac")
+
+    def test_parse_dine_flash_utility_filter_invalid_id(self):
+        request = SimpleNamespace(query_params={"utility_id": "abc"})
+        with self.assertRaises(ValueError):
+            _dine_flash_requested_utility_filter(request)
