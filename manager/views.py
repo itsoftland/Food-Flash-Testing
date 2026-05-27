@@ -28,7 +28,10 @@ from vendors.services.send_to_iot import get_azure_devices
 from core.config.status_choices import STATUS_CHOICES_MAP
 
 from .serializers import ChatMessageSerializer
-from .serializer.booking_serializer import BookingSerializer
+from .serializer.booking_serializer import (
+    BookingSerializer,
+    serialize_dine_flash_manager_bookings,
+)
 from .utils.utils import (get_manager_vendor, get_manager_vendor_dine_flash,
                           get_dine_flash_manager_vendor_brief,
                           get_suggestion_messages,
@@ -40,6 +43,7 @@ from .utils.utility_cache import (
     get_cached_utilities as _get_cached_dine_flash_utilities,
     set_cached_utilities as _set_cached_dine_flash_utilities,
 )
+from .utils.dine_flash_manager_cache import get_cached_manager_vendor
 
 from static.utils.functions.notifications import notify_android_tv
 from vendors.dine_flash_tv_fcm import (
@@ -130,6 +134,49 @@ def _booking_list_serializer_context(request, unread_map):
     if project_name == "dine_flash":
         ctx["manager_list"] = True
     return ctx
+
+
+def _dine_flash_bookings_queryset(vendor, start_dt, end_dt):
+    """Lean queryset for outlet-manager booking lists (Dine Flash only)."""
+    return (
+        Order.objects.filter(
+            vendor_id=vendor.pk,
+            created_at__range=(start_dt, end_dt),
+        )
+        .select_related("utility")
+        .only(
+            "id",
+            "table_booking_no",
+            "customer_name",
+            "phone_number",
+            "no_of_packs",
+            "remarks",
+            "status",
+            "created_at",
+            "seat_no",
+            "utility_id",
+            "utility__id",
+            "utility__display_name",
+            "utility__display_code",
+        )
+        .order_by("utility__display_name", "created_at")
+    )
+
+
+def _group_serialized_bookings(booking_list, serialized):
+    grouped = {}
+    for booking, item in zip(booking_list, serialized):
+        utility = booking.utility
+        code = utility.display_code if utility else "Unassigned"
+
+        if code not in grouped:
+            grouped[code] = {"unread": 0, "bookings": []}
+
+        grouped[code]["bookings"].append(item)
+
+        if item.get("new_notifications", 0) > 0:
+            grouped[code]["unread"] += 1
+    return grouped
 
 
 def _log_slow_manager_api(endpoint, started_at, threshold_ms=800, **segments):
@@ -849,17 +896,74 @@ def get_passengers_list(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_booking_list(request):
+    started_at = time.perf_counter()
+
+    # Dine Flash outlet manager: cached vendor, lean query, fast serialization.
+    if project_name == "dine_flash":
+        try:
+            t0 = time.perf_counter()
+            vendor = get_cached_manager_vendor(request.user)
+            if not vendor:
+                raise NotFound("Vendor not found for this manager")
+            t_vendor_ms = (time.perf_counter() - t0) * 1000
+
+            start_dt, end_dt = get_vendor_business_day_range(vendor)
+            if not start_dt or not end_dt:
+                return Response({"error": "Invalid date range"}, status=400)
+
+            t1 = time.perf_counter()
+            booking_list = list(_dine_flash_bookings_queryset(vendor, start_dt, end_dt))
+            t_query_ms = (time.perf_counter() - t1) * 1000
+            total_count = len(booking_list)
+
+            t2 = time.perf_counter()
+            unread_map = _build_unread_notifications_map(
+                vendor, [booking.id for booking in booking_list]
+            )
+            serialized = serialize_dine_flash_manager_bookings(booking_list, unread_map)
+            t_serialize_ms = (time.perf_counter() - t2) * 1000
+
+            grouped = _group_serialized_bookings(booking_list, serialized)
+            status_counts = get_booking_status_counts(booking_list, serialized)
+            _log_slow_manager_api(
+                "get_booking_list",
+                started_at,
+                vendor=t_vendor_ms,
+                query=t_query_ms,
+                serialize=t_serialize_ms,
+                count=total_count,
+            )
+
+            return Response(
+                {
+                    "message": "Bookings retrieved successfully.",
+                    "count": total_count,
+                    "detail": grouped,
+                    "status_counts": status_counts,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except NotFound:
+            return Response(
+                {"error": "Vendor not associated with this manager."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception:
+            logger.exception("get_booking_list: Unexpected error (dine_flash)")
+            return Response(
+                {"error": "Internal server error."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     logger.info("🔵 get_booking_list: API called.")
 
-    started_at = time.perf_counter()
     try:
-        # 1. Identify vendor linked to manager
         t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
         t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(f"get_booking_list: Resolved vendor → ID: {vendor.id}, Name: {vendor.name}")
 
-        # 2. BUSINESS DAY FILTER
         start_dt, end_dt = get_vendor_business_day_range(vendor)
         if not start_dt or not end_dt:
             logger.warning("Invalid date range for vendor_id=%s", vendor.id)
@@ -867,7 +971,6 @@ def get_booking_list(request):
 
         logger.info(f"get_booking_list: Business day range → Start: {start_dt}, End: {end_dt}")
 
-        # 3. Query bookings
         t1 = time.perf_counter()
         bookings_qs = (
             Order.objects
@@ -884,7 +987,6 @@ def get_booking_list(request):
         t2 = time.perf_counter()
         unread_map = _build_unread_notifications_map(vendor, [booking.id for booking in booking_list])
 
-        # 4. Serialize bookings
         serialized = BookingSerializer(
             booking_list,
             many=True,
@@ -892,27 +994,7 @@ def get_booking_list(request):
         ).data
         t_serialize_ms = (time.perf_counter() - t2) * 1000
 
-        # 5. Group by Utility (using queryset values, not serializer)
-        t2 = time.perf_counter()
-        grouped = {}
-
-        for booking, item in zip(booking_list, serialized):
-            utility = booking.utility
-            code = utility.display_code if utility else "Unassigned"
-
-            if code not in grouped:
-                grouped[code] = {
-                    "unread": 0,
-                    "bookings": []
-                }
-
-            grouped[code]["bookings"].append(item)
-
-            if item.get("new_notifications", 0) > 0:
-                grouped[code]["unread"] += 1
-
-
-        # 6. Status counts
+        grouped = _group_serialized_bookings(booking_list, serialized)
         status_counts = get_booking_status_counts(bookings_qs, serialized)
         _log_slow_manager_api(
             "get_booking_list",
@@ -1083,7 +1165,12 @@ def get_active_customers_list(request):
         )
 
         t0 = time.perf_counter()
-        vendor = _resolve_vendor_for_manager(request)
+        if project_name == "dine_flash":
+            vendor = get_cached_manager_vendor(request.user)
+            if not vendor:
+                raise NotFound("Vendor not found for this manager")
+        else:
+            vendor = _resolve_vendor_for_manager(request)
         t_vendor_ms = (time.perf_counter() - t0) * 1000
         logger.info(
             "[get_active_customers_list] Vendor resolved | vendor_id=%s | vendor_name=%s | user=%s",
@@ -1115,16 +1202,11 @@ def get_active_customers_list(request):
                 .distinct()
             )
             if active_booking_ids:
-                customers_qs = (
-                    Order.objects.filter(
-                        vendor=vendor,
-                        created_at__range=(start_dt, end_dt),
-                        id__in=active_booking_ids,
+                customer_list = list(
+                    _dine_flash_bookings_queryset(vendor, start_dt, end_dt).filter(
+                        id__in=active_booking_ids
                     )
-                    .select_related("utility", "vendor")
-                    .order_by("utility__display_name", "created_at")
                 )
-                customer_list = list(customers_qs)
             else:
                 customer_list = []
         else:
@@ -1149,34 +1231,21 @@ def get_active_customers_list(request):
 
         t2 = time.perf_counter()
         unread_map = _build_unread_notifications_map(vendor, [customer.id for customer in customer_list])
-        serialized_data = BookingSerializer(
-            customer_list,
-            many=True,
-            context=_booking_list_serializer_context(request, unread_map),
-        ).data
+        if project_name == "dine_flash":
+            serialized_data = serialize_dine_flash_manager_bookings(customer_list, unread_map)
+        else:
+            serialized_data = BookingSerializer(
+                customer_list,
+                many=True,
+                context=_booking_list_serializer_context(request, unread_map),
+            ).data
         t_serialize_ms = (time.perf_counter() - t2) * 1000
         logger.debug(
             "[get_active_customers_list] Serialized passengers | count=%s", len(serialized_data)
         )
 
-        grouped_data = {}
-        for customer, item in zip(customer_list, serialized_data):
-            utility = customer.utility
-            code = utility.display_code if utility else "Unassigned"
+        grouped_data = _group_serialized_bookings(customer_list, serialized_data)
 
-            if code not in grouped_data:
-                grouped_data[code] = {
-                    "unread": 0,
-                    "bookings": []
-                }
-
-            grouped_data[code]["bookings"].append(item)
-
-            if item.get("new_notifications", 0) > 0:
-                grouped_data[code]["unread"] += 1
-
-
-        # 6. Status counts
         status_counts = get_booking_status_counts(customer_list, serialized_data)
         _log_slow_manager_api(
             "get_active_customers_list",

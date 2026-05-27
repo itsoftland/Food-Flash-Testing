@@ -56,7 +56,7 @@ def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str]:
     return {
         "booking_id": mapped.get("booking_id"),
         "booking_no": mapped.get("booking_no"),
-        "event": "customer_chat",
+        "event": "customer_chat",   
         "project": "dine_flash",
         "inner_type": mapped.get("type"),
     }

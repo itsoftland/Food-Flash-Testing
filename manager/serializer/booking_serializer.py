@@ -5,6 +5,55 @@ from django.conf import settings
 project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 
 
+def _dine_flash_seat_display_parts(order):
+    raw_seat = order.seat_no
+    seat = (
+        raw_seat.strip()
+        if isinstance(raw_seat, str)
+        else (str(raw_seat).strip() if raw_seat is not None else "")
+    )
+    booking_no = (order.table_booking_no or "").strip() if order.table_booking_no else ""
+    if booking_no and seat:
+        display = f"{booking_no} [{seat}]"
+    elif booking_no:
+        display = booking_no
+    elif seat:
+        display = f"[{seat}]"
+    else:
+        display = booking_no or None
+    return seat, display
+
+
+def serialize_dine_flash_manager_bookings(booking_list, unread_map):
+    """
+    Build manager APK booking rows without DRF (Dine Flash list endpoints only).
+    Response shape matches BookingSerializer + dine_flash to_representation extras.
+    """
+    rows = []
+    for order in booking_list:
+        utility = order.utility
+        _, display = _dine_flash_seat_display_parts(order)
+        rows.append(
+            {
+                "id": order.id,
+                "table_booking_no": order.table_booking_no,
+                "customer_name": order.customer_name,
+                "phone_number": order.phone_number,
+                "no_of_packs": order.no_of_packs,
+                "remarks": order.remarks,
+                "status": order.status,
+                "booked_time": order.created_at,
+                "new_notifications": unread_map.get(order.id, 0),
+                "utility_name": utility.display_name if utility else None,
+                "tracking_url": None,
+                "table_no": order.seat_no,
+                "seat_no": order.seat_no,
+                "table_booking_no_display": display,
+            }
+        )
+    return rows
+
+
 class BookingSerializer(serializers.ModelSerializer):
     booked_time = serializers.DateTimeField(source="created_at", read_only=True)
     new_notifications = serializers.SerializerMethodField()
@@ -36,24 +85,9 @@ class BookingSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if getattr(settings, "PROJECT_NAME", "").lower() == "dine_flash":
-            raw_seat = instance.seat_no
-            seat = (
-                raw_seat.strip()
-                if isinstance(raw_seat, str)
-                else (str(raw_seat).strip() if raw_seat is not None else "")
-            )
             data["table_no"] = instance.seat_no
-            # Explicit keys for TV / clients that expect seat_no or a single display string.
             data["seat_no"] = instance.seat_no
-            booking_no = (instance.table_booking_no or "").strip() if instance.table_booking_no else ""
-            if booking_no and seat:
-                data["table_booking_no_display"] = f"{booking_no} [{seat}]"
-            elif booking_no:
-                data["table_booking_no_display"] = booking_no
-            elif seat:
-                data["table_booking_no_display"] = f"[{seat}]"
-            else:
-                data["table_booking_no_display"] = booking_no or None
+            _, data["table_booking_no_display"] = _dine_flash_seat_display_parts(instance)
         return data
 
     def get_utility_name(self, obj):
