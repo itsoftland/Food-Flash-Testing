@@ -1,0 +1,1 @@
+"""Dine Flash manager middleware."""

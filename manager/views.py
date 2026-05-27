@@ -44,6 +44,11 @@ from .utils.utility_cache import (
     set_cached_utilities as _set_cached_dine_flash_utilities,
 )
 from .utils.dine_flash_manager_cache import get_cached_manager_vendor
+from .utils.dine_flash_request_perf import (
+    ensure_request_trace,
+    log_trace_phase,
+    record_handler_timing,
+)
 
 from static.utils.functions.notifications import notify_android_tv
 from vendors.dine_flash_tv_fcm import (
@@ -625,6 +630,10 @@ def manager_utility_list(request):
         # Dine Flash: lightweight vendor lookup + cached utilities
         # --------------------------------------------------------
         if project_name == "dine_flash":
+            handler_started = time.perf_counter()
+            ensure_request_trace(request)
+            log_trace_phase(request, "handler_start", endpoint="manager_utility_list")
+
             t0 = time.perf_counter()
             vendor_brief = get_dine_flash_manager_vendor_brief(request.user)
             if not vendor_brief:
@@ -655,9 +664,25 @@ def manager_utility_list(request):
                 cache_status = "miss"
             t_query_ms = (time.perf_counter() - t1) * 1000
 
+            record_handler_timing(
+                request,
+                "manager_utility_list",
+                handler_started,
+                vendor=t_vendor_ms,
+                query=t_query_ms,
+                cache=cache_status,
+                count=len(data),
+                vendor_external_id=vendor_external_id,
+            )
             logger.info(
-                "[manager_utility_list] Returned %s utilities for vendor_id=%s cache=%s",
-                len(data), vendor_external_id, cache_status,
+                "[manager_utility_list] Returned %s utilities for vendor_id=%s cache=%s "
+                "vendor_ms=%s query_ms=%s handler_ms=%s",
+                len(data),
+                vendor_external_id,
+                cache_status,
+                int(t_vendor_ms),
+                int(t_query_ms),
+                int((time.perf_counter() - handler_started) * 1000),
             )
             _log_slow_manager_api(
                 "manager_utility_list",
@@ -934,6 +959,10 @@ def get_booking_list(request):
     # Dine Flash outlet manager: cached vendor, lean query, fast serialization.
     if project_name == "dine_flash":
         try:
+            handler_started = time.perf_counter()
+            ensure_request_trace(request)
+            log_trace_phase(request, "handler_start", endpoint="get_booking_list")
+
             t0 = time.perf_counter()
             vendor = get_cached_manager_vendor(request.user)
             if not vendor:
@@ -971,6 +1000,28 @@ def get_booking_list(request):
 
             grouped = _group_serialized_bookings(booking_list, serialized)
             status_counts = get_booking_status_counts(booking_list, serialized)
+
+            utility_filter = utility_id_filter if utility_id_filter is not None else utility_code_filter
+            record_handler_timing(
+                request,
+                "get_booking_list",
+                handler_started,
+                vendor=t_vendor_ms,
+                query=t_query_ms,
+                serialize=t_serialize_ms,
+                count=total_count,
+                utility_filter=utility_filter or "all",
+            )
+            logger.info(
+                "[get_booking_list] dine_flash count=%s utility_filter=%s "
+                "vendor_ms=%s query_ms=%s serialize_ms=%s handler_ms=%s",
+                total_count,
+                utility_filter or "all",
+                int(t_vendor_ms),
+                int(t_query_ms),
+                int(t_serialize_ms),
+                int((time.perf_counter() - handler_started) * 1000),
+            )
             _log_slow_manager_api(
                 "get_booking_list",
                 started_at,

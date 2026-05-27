@@ -5,6 +5,11 @@ from django.test import SimpleTestCase, override_settings
 
 from manager.serializer.booking_serializer import serialize_dine_flash_manager_bookings
 from manager.views import _dine_flash_requested_utility_filter
+from manager.utils.dine_flash_request_perf import (
+    should_trace_manager_request,
+    ensure_request_trace,
+    record_handler_timing,
+)
 from manager.utils.dine_flash_manager_cache import (
     clear_all as clear_vendor_cache,
     get_cached_manager_vendor,
@@ -86,3 +91,48 @@ class DineFlashManagerPerfTests(SimpleTestCase):
         request = SimpleNamespace(query_params={"utility_id": "abc"})
         with self.assertRaises(ValueError):
             _dine_flash_requested_utility_filter(request)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_should_trace_dine_flash_manager_api(self):
+        request = SimpleNamespace(path="/dine_flash/manager/api/utility_list/")
+        self.assertTrue(should_trace_manager_request(request))
+
+    @override_settings(PROJECT_NAME="food_flash")
+    def test_should_not_trace_other_flavours(self):
+        request = SimpleNamespace(path="/food_flash/manager/api/utility_list/")
+        self.assertFalse(should_trace_manager_request(request))
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_ensure_request_trace_sets_trace_id(self):
+        request = SimpleNamespace(
+            path="/dine_flash/manager/api/utility_list/",
+            method="GET",
+            user=None,
+        )
+        trace = ensure_request_trace(request)
+        self.assertIsNotNone(trace)
+        self.assertEqual(len(trace["trace_id"]), 12)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_record_handler_timing_stores_handler_ms(self):
+        import time
+
+        request = SimpleNamespace(
+            path="/dine_flash/manager/api/utility_list/",
+            method="GET",
+            user=None,
+        )
+        ensure_request_trace(request)
+        started = time.perf_counter()
+        record_handler_timing(
+            request,
+            "manager_utility_list",
+            started,
+            vendor=1.0,
+            query=2.0,
+            cache="miss",
+            count=3,
+        )
+        trace = getattr(request, "_dine_flash_perf")
+        self.assertIn("handler_ms", trace)
+        self.assertEqual(trace["segments"].get("cache"), "miss")
