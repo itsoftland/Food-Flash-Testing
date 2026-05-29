@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
@@ -99,12 +100,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
+
 # Dine Flash only: outlet-manager API wall-clock tracing (no-op for other flavours).
 if (PROJECT_NAME or "").strip().lower() == "dine_flash":
     MIDDLEWARE.insert(
         3,
         "manager.middleware.dine_flash_manager_perf.DineFlashManagerPerfMiddleware",
     )
+
+
 
 # === TEMPLATES ===
 TEMPLATES = [

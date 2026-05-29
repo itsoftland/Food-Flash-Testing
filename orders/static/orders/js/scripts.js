@@ -93,24 +93,6 @@ onDOMReady(async function () {
     };
 
     // -------------------------------------------------------------------------
-    // 🚀 Auto-Resume Subscription & Health Check
-    // -------------------------------------------------------------------------
-    (async () => {
-        const savedToken = await AppUtils.getToken();
-        const activeVendor = await AppUtils.getActiveVendor();
-        
-        if (savedToken && activeVendor) {
-            // console.log(`[Init] Resuming subscription for Token: ${savedToken}, Vendor: ${activeVendor}`);
-            try {
-                await PushSubscriptionService.subscribe(savedToken, activeVendor);
-                // console.log("✅ Subscription resumed.");
-            } catch (err) {
-                console.error("❌ Subscription resume failed:", err);
-            }
-        }
-    })();
-
-    // -------------------------------------------------------------------------
     // 🛡️ Helper: Re-establish connection on visibility change
     // -------------------------------------------------------------------------
 
@@ -237,6 +219,25 @@ onDOMReady(async function () {
         PermissionService.init();
     }
     PermissionService.showModal();
+
+    async function resumePushSubscriptionIfNeeded() {
+        const activeVendor = await AppUtils.getActiveVendor();
+        if (!activeVendor) return;
+        // Buffet post-order redirect links push in fetchOrderStatusOnce — avoid old saved token.
+        if (tokenFromQR && isDineFlashBuffetSurface && !isOpenedFromPush) {
+            return;
+        }
+        const token = tokenFromQR
+            ? String(tokenFromQR).trim()
+            : (await AppUtils.getToken());
+        if (!token) return;
+        try {
+            await PushSubscriptionService.subscribe(token, activeVendor);
+        } catch (err) {
+            console.error("❌ Subscription resume failed:", err);
+        }
+    }
+    await resumePushSubscriptionIfNeeded();
     
     // Example usage: Get the last active vendor ID
 
@@ -281,7 +282,13 @@ onDOMReady(async function () {
     if (braveDetected) {
         AppUtils.showToast("It looks like you're using Brave. Please ensure:\n\n1. Brave Settings > Privacy and Security > Site and Shields Settings > Notifications > 'Sites can ask to send notifications' is ON.\n2. Enable 'Use Google Services for Push Messaging' if shown.\n\nOtherwise, push notifications may fail");
     }
-    initNotificationModal(notificationModal);
+    const activeTokenForNotifications =
+        tokenFromQR != null && String(tokenFromQR).trim() !== ""
+            ? String(tokenFromQR).trim()
+            : null;
+    initNotificationModal(notificationModal, {
+        activeToken: activeTokenForNotifications,
+    });
     // 1. Register the Service Worker at the root scope
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register(`${base}service-worker.js`, { scope: base })
@@ -356,6 +363,17 @@ onDOMReady(async function () {
                 // cross-flavour card updates.
                 if (!projectsMatch(expectedProject, incomingProject)) {
                     return;
+                }
+                if (
+                    isDineFlashBuffetSurface &&
+                    window.buffetQrTokenFromRedirect &&
+                    pushData?.token_no != null
+                ) {
+                    const expected = String(window.buffetQrTokenFromRedirect).trim();
+                    const incoming = String(pushData.token_no).trim();
+                    if (expected && incoming && expected !== incoming) {
+                        return;
+                    }
                 }
                 // Table-booking Dine Flash only: buffet shares the "dine_flash" prefix in
                 // `projectsMatch`, so exclude buffet or utility-ready pushes get dropped.

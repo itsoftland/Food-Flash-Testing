@@ -25,11 +25,45 @@ async function getStatusMessageMap() {
     return statusMessageMapPromise;
 }
 
+function normalizeOrderTokenKey(token) {
+    return String(token ?? "").trim();
+}
+
+/** Drop snoozed/unacknowledged state for other orders when starting a new token session. */
+function purgeStaleOrderStatesExceptActive(activeToken) {
+    const activeKey = normalizeOrderTokenKey(activeToken);
+    if (!activeKey) return;
+
+    let changed = false;
+    for (const token of Object.keys(orderStates)) {
+        if (normalizeOrderTokenKey(token) === activeKey) continue;
+        if (snoozeTimers[token]) {
+            clearTimeout(snoozeTimers[token]);
+            delete snoozeTimers[token];
+        }
+        delete orderStates[token];
+        changed = true;
+    }
+    if (changed) {
+        AppUtils.saveOrderStates(orderStates);
+    }
+}
+
 /**
  * Initializes the notification modal behavior including OK and Snooze handling.
  * @param {Bootstrap.Modal} modalInstance - Bootstrap modal instance
+ * @param {{ activeToken?: string|null }} [options] - When set, only restore snoozes for this token and purge others.
  */
-function initNotificationModal(modalInstance) {
+function initNotificationModal(modalInstance, options = {}) {
+    const activeToken =
+        options.activeToken != null && String(options.activeToken).trim() !== ""
+            ? String(options.activeToken).trim()
+            : null;
+
+    if (activeToken) {
+        purgeStaleOrderStatesExceptActive(activeToken);
+    }
+
     notificationModal = modalInstance;
 
     // -----------------------------------------
@@ -83,8 +117,14 @@ function initNotificationModal(modalInstance) {
         activeNotificationToken = null;
     });
 
-    // 🕓 Restore snoozed notifications on reload
+    // 🕓 Restore snoozed notifications on reload (only for the active order when known)
     for (const [token, state] of Object.entries(orderStates)) {
+        if (
+            activeToken &&
+            normalizeOrderTokenKey(token) !== normalizeOrderTokenKey(activeToken)
+        ) {
+            continue;
+        }
         if (!state.acknowledged && state.snoozedAt && state.snoozeDuration) {
             const now = Date.now();
             const elapsed = now - state.snoozedAt;
