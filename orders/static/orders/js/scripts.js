@@ -8,6 +8,7 @@ import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./servic
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js";
+import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260521_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
@@ -248,7 +249,7 @@ onDOMReady(async function () {
         const vendorIds = vendorIdsArray
             .map(id => parseInt(id))
             .filter(id => Number.isInteger(id) && !isNaN(id));
-        VendorUIService.init(vendorIds);
+        await VendorUIService.init(vendorIds);
     }
 
     const isAndroid = /Android/i.test(navigator.userAgent);
@@ -967,11 +968,10 @@ onDOMReady(async function () {
         messageRow.classList.add("message-row", "server");
 
         // Server logo
-        const activeLogo = AppUtils.storageGet("activeVendorLogo") || localStorage.getItem("activeVendorLogo");
         const logoImg = document.createElement("img");
-        logoImg.src = activeLogo;
         logoImg.alt = "Vendor Logo";
         logoImg.className = "server-logo";
+        hydrateServerLogoElement(logoImg);
         messageRow.appendChild(logoImg);
         
         // Clear input
@@ -1248,6 +1248,7 @@ onDOMReady(async function () {
         const chatInput = document.getElementById('chat-input'); 
 
         if (!chatContainer || !chatInput) return;
+        await VendorUIService.ready();
         const vendorId = await AppUtils.getActiveVendor();
         const browser_id = AppUtils.getCurrentBrowserId();
 

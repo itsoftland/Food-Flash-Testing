@@ -35,7 +35,7 @@ class VendorLogoSerializer(serializers.ModelSerializer):
                 else:
                     url = url
 
-                if project_name == "dine_flash":
+                if project_name in ("dine_flash", "dine_flash_buffet"):
                     updated_ts = int(instance.updated_at.timestamp()) if getattr(instance, "updated_at", None) else None
                     url = append_cache_buster(url, updated_ts)
 

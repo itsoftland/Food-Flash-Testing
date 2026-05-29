@@ -214,13 +214,18 @@ window.AppUtils = {
         return storedVendors ? JSON.parse(storedVendors) : [];
     },
     setSelectedOutletName: function (name) {
+        const trimmed = name == null ? "" : String(name).trim();
+        if (!trimmed || trimmed.toLowerCase() === "undefined") return;
         const prefixedKey = this.getPrefixedKey('selectedOutletName');
-        localStorage.setItem(prefixedKey, name);
+        localStorage.setItem(prefixedKey, trimmed);
     },
     getSelectedOutletName: function () {
         const prefixedKey = this.getPrefixedKey('selectedOutletName');
         const outletName = localStorage.getItem(prefixedKey);
-        return outletName ? outletName : null;
+        if (!outletName) return null;
+        const trimmed = outletName.trim();
+        if (!trimmed || trimmed.toLowerCase() === "undefined") return null;
+        return trimmed;
     },
     setCurrentVendors: async function (vendorInput) {
         let newVendors = [];

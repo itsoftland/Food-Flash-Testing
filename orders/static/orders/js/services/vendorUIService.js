@@ -15,16 +15,29 @@ try {
     console.error("Failed to import apiEndpoints:", error);
 }
 
-export const VendorUIService = {
-    async init(vendorIds) {
-        if (!vendorIds.length) return;
+let vendorUiReadyPromise = Promise.resolve();
 
-        try {
-            await this.loadAndRenderAds(vendorIds);
-            await this.loadVendorLogos(vendorIds);
-        } catch (error) {
-            console.error("VendorUIService initialization failed:", error);
+export const VendorUIService = {
+    ready() {
+        return vendorUiReadyPromise;
+    },
+
+    async init(vendorIds) {
+        if (!vendorIds.length) {
+            vendorUiReadyPromise = Promise.resolve();
+            return;
         }
+
+        vendorUiReadyPromise = (async () => {
+            try {
+                await this.loadAndRenderAds(vendorIds);
+                await this.loadVendorLogos(vendorIds);
+            } catch (error) {
+                console.error("VendorUIService initialization failed:", error);
+            }
+        })();
+
+        return vendorUiReadyPromise;
     },
 
     async loadAndRenderAds(vendorIds) {
@@ -78,7 +91,9 @@ export const VendorUIService = {
 
             if (vendor.vendor_id === activeVendorId) {
                 wrapper.classList.add("active");
-                AppUtils.setSelectedOutletName(vendor.alias_name);
+                const outletLabel =
+                    (vendor.alias_name || vendor.name || "").trim() || "our outlet";
+                AppUtils.setSelectedOutletName(outletLabel);
                 AppUtils.storageSet("activeVendorLogo", vendor.logo_url);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
                 const skipRestoreForBuffetQrRedirect =
@@ -90,7 +105,7 @@ export const VendorUIService = {
                 } else if (!browser_id) {
                     console.warn("No browser ID, skipping restore.");
                 }
-                WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet");
+                WelcomeMessageService.show(outletLabel);
                 setTimeout(() => {
                     wrapper.scrollIntoView({
                         behavior: "smooth",
@@ -103,7 +118,9 @@ export const VendorUIService = {
             logo.addEventListener("click", async() => {
                 document.querySelectorAll(".vendor-logo-wrapper").forEach(el => el.classList.remove("active"));
                 wrapper.classList.add("active");
-                AppUtils.setSelectedOutletName(vendor.alias_name);
+                const outletLabel =
+                    (vendor.alias_name || vendor.name || "").trim() || "our outlet";
+                AppUtils.setSelectedOutletName(outletLabel);
                 handleOutletSelection(vendor.vendor_id, vendor.logo_url, vendor.place_id);
                 restorePromise = await ChatRestoreService.restore(vendor.vendor_id);
             });
@@ -114,6 +131,11 @@ export const VendorUIService = {
 
         this.appendAddOutletButton(logoContainer);
         AddOutletService.init();
+
+        const activeOutlet =
+            (typeof AppUtils.getSelectedOutletName === "function" && AppUtils.getSelectedOutletName()) ||
+            "our outlet";
+        WelcomeMessageService.refresh(activeOutlet);
 
         // ✅ Only now wait for restore
         if (restorePromise) {
