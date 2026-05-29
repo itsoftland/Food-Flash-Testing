@@ -240,6 +240,27 @@ onDOMReady(async function () {
     }
     await resumePushSubscriptionIfNeeded();
     
+    // Register Service Worker early so push subscription can bind sooner on cold starts.
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register(`${base}service-worker.js`, { scope: base })
+        .then((registration) => {
+              if (registration.active) {
+                registration.active.postMessage({
+                type: "SET_BASE_URL",
+                baseUrl: window.location.origin + base,
+                });
+
+                registration.active.postMessage({
+                type: "UPDATE_LAST_PAGE",
+                url: window.location.href,
+                });
+            }
+        })
+        .catch((error) => {
+            console.error("Service Worker Registration Failed:", error);
+        });
+    }
+
     // Example usage: Get the last active vendor ID
 
     const vendorIdsString = AppUtils.storageGet("selectedVendors");
@@ -290,27 +311,6 @@ onDOMReady(async function () {
     initNotificationModal(notificationModal, {
         activeToken: activeTokenForNotifications,
     });
-    // 1. Register the Service Worker at the root scope
-    if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register(`${base}service-worker.js`, { scope: base })
-        .then((registration) => {
-              if (registration.active) {
-                registration.active.postMessage({
-                type: "SET_BASE_URL",
-                baseUrl: window.location.origin + base,
-                });
-
-                registration.active.postMessage({
-                type: "UPDATE_LAST_PAGE",
-                url: window.location.href,
-                });
-            }     
-        })
-        .catch((error) => {
-            console.error("Service Worker Registration Failed:", error);
-        });
-    }
-
     // 2. If there's no controller, optionally reload once to let the SW take control
     if (!navigator.serviceWorker.controller) {
         console.warn("Service worker not controlling page. Deferring message until SW ready.");
