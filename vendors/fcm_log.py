@@ -55,6 +55,8 @@ def _resolve_fcm_log_path() -> Path | None:
         if external:
             if project == "airline_flash":
                 base = external / "airline_flash_logs"
+            elif project == "dine_flash_buffet":
+                base = external / "dine_flash_buffet_logs"
             elif project == "dine_flash":
                 base = external / "dine_flash_logs"
             else:
@@ -62,6 +64,8 @@ def _resolve_fcm_log_path() -> Path | None:
         elif base_dir:
             if project == "airline_flash":
                 base = base_dir / "airline_flash_logs"
+            elif project == "dine_flash_buffet":
+                base = base_dir / "dine_flash_buffet_logs"
             elif project == "dine_flash":
                 base = base_dir / "dine_flash_logs"
             else:

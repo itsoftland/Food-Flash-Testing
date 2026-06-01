@@ -1115,6 +1115,18 @@ onDOMReady(async function () {
                 appendMessage(`❌ ${err}`, 'server', null);
                 throw new Error(err);
             }
+            if (
+                type === "buffetstatus" &&
+                !replyText &&
+                !(Array.isArray(data.items) && data.items.length > 0) &&
+                !(Array.isArray(data.utilities_status) && data.utilities_status.length > 0)
+            ) {
+                const invalidTokenMsg =
+                    data.error ||
+                    "Invalid token. Please check your token or bill number and try again.";
+                appendMessage(`❌ ${invalidTokenMsg}`, "server", null);
+                throw new Error(invalidTokenMsg);
+            }
             if (type === 'dinestatus' && data?.logo_url) {
                 AppUtils.storageSet("activeVendorLogo", String(data.logo_url));
             }

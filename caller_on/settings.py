@@ -246,6 +246,8 @@ from datetime import datetime
 # === LOGGING BASE STRUCTURE ===
 if PROJECT_NAME == 'airline_flash':
     BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'airline_flash_logs'
+elif PROJECT_NAME == 'dine_flash_buffet':
+    BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'dine_flash_buffet_logs'
 elif PROJECT_NAME == 'dine_flash':
     BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'dine_flash_logs'
 else:
@@ -374,6 +376,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "orders.buffet_views": {
+            "handlers": ["orders_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "orders.utils": {
             "handlers": ["orders_file"],
             "level": "DEBUG",
@@ -385,6 +392,11 @@ LOGGING = {
             "propagate": False,
         },
         "manager.views": {
+            "handlers": ["managers_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "manager.buffet_views": {
             "handlers": ["managers_file"],
             "level": "DEBUG",
             "propagate": False,

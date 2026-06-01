@@ -715,6 +715,15 @@ def check_status(request):
                 {'error': 'Invalid booking details. Please verify and try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        if project_name == 'dine_flash_buffet':
+            return Response(
+                {
+                    'error': (
+                        'Invalid token. Please check your token or bill number and try again.'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # ───── For other projects, continue creating a new order ─────
         try:
