@@ -703,9 +703,9 @@ onDOMReady(async function () {
                 // ✅ Step 2: Subscribe for push notifications
                 try {
                     if (isDineFlashBuffetSurface) {
-                        // dine_flash_buffet: linking runs in fetchOrderStatusOnce right after check-status
-                        // succeeds (canonical token_no), before modal/chat work — avoids missing early
-                        // utility pushes while the first session UI is still rendering.
+                        // Early fetchOrderStatusOnce may run before permission is granted; re-link here
+                        // once the user has accepted notifications and the service worker is ready.
+                        await ensureBuffetPushSubscription(tokenFromQR, vendorId);
                     } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         // bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
@@ -800,6 +800,15 @@ onDOMReady(async function () {
                             }
                         }
                         check_status = await statusPromise;
+
+                        if (isDineFlashBuffetSurface && check_status?.vendor_id != null) {
+                            const linkToken =
+                                check_status.token_no != null &&
+                                String(check_status.token_no).trim() !== ""
+                                    ? check_status.token_no
+                                    : tokenFromQR;
+                            await ensureBuffetPushSubscription(linkToken, check_status.vendor_id);
+                        }
 
                         if (!check_status) {
                             console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
@@ -1041,6 +1050,19 @@ onDOMReady(async function () {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    /** Link browser push subscription to the buffet order after notification permission is granted. */
+    async function ensureBuffetPushSubscription(token, vendorId) {
+        if (!isDineFlashBuffetSurface) return false;
+        if (Notification.permission !== "granted") return false;
+        const resolved =
+            token != null && String(token).trim() !== "" ? String(token).trim() : null;
+        if (!resolved || vendorId == null) return false;
+        await PushSubscriptionService.subscribe(resolved, vendorId);
+        PushHealthMonitorService.startMonitor(resolved, vendorId);
+        await AppUtils.setToken(resolved);
+        return true;
+    }
+
     async function fetchOrderStatusOnce(token, replyText = null, bookingId = null) {
         const activeVendor = await AppUtils.getActiveVendor();
         let payload = {};
@@ -1108,10 +1130,7 @@ onDOMReady(async function () {
                         ? subscribeToken
                         : token;
                 if (resolved != null && String(resolved).trim() !== "") {
-                    await PushSubscriptionService.subscribe(resolved, data.vendor_id);
-                    PushHealthMonitorService.startMonitor(token, data.vendor_id);
-                    await AppUtils.setToken(String(resolved));
-                    buffetPushLinked = true;
+                    buffetPushLinked = await ensureBuffetPushSubscription(resolved, data.vendor_id);
                 }
             }
             if (!replyText) {
@@ -1230,10 +1249,11 @@ onDOMReady(async function () {
                     subscribeToken != null && String(subscribeToken).trim() !== ""
                         ? subscribeToken
                         : token;
-                await PushSubscriptionService.subscribe(resolved, data.vendor_id);
-                PushHealthMonitorService.startMonitor(token, data.vendor_id);
-                if (type === "buffetstatus" && resolved != null && String(resolved).trim() !== "") {
-                    await AppUtils.setToken(String(resolved));
+                if (type === "buffetstatus") {
+                    await ensureBuffetPushSubscription(resolved, data.vendor_id);
+                } else {
+                    await PushSubscriptionService.subscribe(resolved, data.vendor_id);
+                    PushHealthMonitorService.startMonitor(token, data.vendor_id);
                 }
             }
             return data;  // << important: return the fetched data
