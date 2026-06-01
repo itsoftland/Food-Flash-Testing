@@ -1238,8 +1238,10 @@ onDOMReady(async function () {
                         await saveChat(data, 'server', type, data.token_no);
                     }
                 }
-                await showNotificationModal(data, 'usercheck');
-                AppUtils.notifyOrderReady(data);
+                if (!isDineFlashBuffetSurface) {
+                    await showNotificationModal(data, 'usercheck');
+                    AppUtils.notifyOrderReady(data);
+                }
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 await PushSubscriptionService.subscribe(bookingId, data.vendor_id);
