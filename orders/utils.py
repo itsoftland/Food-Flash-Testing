@@ -17,6 +17,18 @@ _DINE_FLASH_MANAGER_ROLES = (
 )
 
 
+def dine_flash_manager_fcm_event_name(data: dict) -> str | None:
+    """Derive top-level FCM ``event`` for Dine Flash manager APK routing."""
+    raw_event = (data or {}).get("event")
+    if raw_event:
+        return str(raw_event)
+    if (data or {}).get("action") == "booking_created":
+        return "booking_created"
+    if (data or {}).get("type") == "user_reply":
+        return "customer_chat"
+    return None
+
+
 def dine_flash_manager_fcm_payload(data: dict) -> dict:
     """
     Dine Flash only: remap customer chat for the manager APK FCM copy.
@@ -25,6 +37,11 @@ def dine_flash_manager_fcm_payload(data: dict) -> dict:
     The HTTP API response to the customer keeps ``user_reply``; only FCM is mapped.
     """
     payload = dict(data or {})
+    if payload.get("action") == "booking_created":
+        payload.setdefault("type", "dinestatus")
+        # Some APK builds ignore ready_orders when updated_by is customer.
+        payload.pop("updated_by", None)
+        return payload
     if payload.get("type") != "user_reply":
         return payload
     reply = (payload.get("reply_status") or "").strip()
@@ -50,13 +67,16 @@ def _normalize_fcm_data_map(data: dict) -> dict[str, str]:
     return normalized
 
 
-def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str]:
+def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str] | None:
     """Top-level FCM data keys (outside ``orders`` JSON) for Dine Flash manager APK parsers."""
+    event = dine_flash_manager_fcm_event_name(data)
+    if not event:
+        return None
     mapped = dine_flash_manager_fcm_payload(data)
     return {
         "booking_id": mapped.get("booking_id"),
         "booking_no": mapped.get("booking_no"),
-        "event": "customer_chat",   
+        "event": event,
         "project": "dine_flash",
         "inner_type": mapped.get("type"),
     }
@@ -210,8 +230,11 @@ def send_to_managers(vendor, data, title=None, body=None):
 
     is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
     is_customer_chat = is_dine_flash and (data or {}).get("type") == "user_reply"
+    is_booking_created = is_dine_flash and (data or {}).get("action") == "booking_created"
     fcm_payload = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
-    fcm_data_extra = dine_flash_manager_fcm_data_extra(data) if is_customer_chat else None
+    fcm_data_extra = None
+    if is_customer_chat or is_booking_created:
+        fcm_data_extra = dine_flash_manager_fcm_data_extra(data)
     if is_customer_chat:
         logger.info(
             "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
@@ -219,11 +242,18 @@ def send_to_managers(vendor, data, title=None, body=None):
             len(tokens),
             (fcm_payload or {}).get("type"),
         )
+    elif is_booking_created:
+        logger.info(
+            "[FCM] Dine Flash web booking created push | vendor_id=%s | token_count=%s | booking_id=%s",
+            vendor.vendor_id,
+            len(tokens),
+            (data or {}).get("booking_id"),
+        )
     return send_fcm_multicast(
         tokens,
         fcm_payload,
         title=title,
         body=body,
-        android_high_priority=is_customer_chat,
+        android_high_priority=is_customer_chat or is_booking_created,
         fcm_data_extra=fcm_data_extra,
     )

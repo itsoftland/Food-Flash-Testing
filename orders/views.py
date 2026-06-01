@@ -66,6 +66,55 @@ def _send_to_managers_async(vendor, data, title=None, body=None):
         close_old_connections()
 
 
+def _build_dine_flash_booking_created_manager_payload(booking_obj, vendor, utility, request):
+    """FCM payload for manager APK when a customer creates a booking on the web."""
+    vendor_serializer = VendorLogoSerializer(vendor, context={"request": request})
+    logo_url = vendor_serializer.data.get("logo_url", "")
+    display_vendor_name = ((vendor.alias_name or "").strip() or vendor.name)
+    utility_display = utility.display_name if utility else "-"
+    return {
+        "type": "dinestatus",
+        "action": "booking_created",
+        "booking_id": booking_obj.id,
+        "booking_no": booking_obj.table_booking_no,
+        "token_no": booking_obj.token_no,
+        "status": booking_obj.status,
+        "customer_name": booking_obj.customer_name,
+        "no_of_packs": booking_obj.no_of_packs,
+        "utility_name": utility_display,
+        "remarks": booking_obj.remarks or "",
+        "vendor_id": vendor.vendor_id,
+        "location_id": vendor.location_id,
+        "name": display_vendor_name,
+        "alias_name": vendor.alias_name,
+        "logo_url": logo_url,
+        "counter_no": booking_obj.counter_no or 1,
+    }
+
+
+def _booking_created_fcm_body(booking_obj):
+    label = booking_obj.customer_name or "Customer"
+    guests = booking_obj.no_of_packs
+    booking_no = booking_obj.table_booking_no
+    body = f"{label} — {guests} guests"
+    if booking_no:
+        body = f"{body} ({booking_no})"
+    return body
+
+
+def _schedule_dine_flash_booking_created_fcm(vendor, payload, title, body):
+    """Notify manager APK after customer web booking is committed."""
+
+    def _on_commit():
+        threading.Thread(
+            target=_send_to_managers_async,
+            args=(vendor, payload, title, body),
+            daemon=True,
+        ).start()
+
+    transaction.on_commit(_on_commit)
+
+
 def _get_dine_flash_qr_expiry_minutes(vendor_id, vendor_prefetched=None):
     """
     Dine Flash only: resolve QR expiry minutes from vendor configuration.
@@ -1641,6 +1690,18 @@ def book_table(request):
                 "[book_table] Booking created | vendor=%s, token_no=%s, booking_no=%s",
                 vendor.vendor_id, token_no, booking_no
             )
+
+            if project_name == "dine_flash" and not is_manager_created_booking:
+                fcm_payload = _build_dine_flash_booking_created_manager_payload(
+                    booking_obj, vendor, utility, request
+                )
+                _schedule_dine_flash_booking_created_fcm(
+                    vendor,
+                    fcm_payload,
+                    "New Table Booking",
+                    _booking_created_fcm_body(booking_obj),
+                )
+
             return Response(resp_data, status=status.HTTP_201_CREATED)
 
 
