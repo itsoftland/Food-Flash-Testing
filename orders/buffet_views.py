@@ -96,6 +96,10 @@ def _merge_identical_buffet_cart_lines(items_data):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def buffet_submit_order(request):
+    logger.info(
+        "[buffet_submit_order] Started | remote_addr=%s",
+        request.META.get("REMOTE_ADDR"),
+    )
     data = request.data or {}
 
     vendor_id = data.get("vendor_id")
@@ -105,15 +109,25 @@ def buffet_submit_order(request):
     items_data = data.get("items", [])
 
     if not vendor_id or not items_data:
+        logger.warning(
+            "[buffet_submit_order] Missing required fields | vendor_id=%s | items_count=%s",
+            vendor_id,
+            len(items_data) if isinstance(items_data, list) else 0,
+        )
         return Response({"error": "vendor_id and items are required."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         vendor_id_int = int(vendor_id)
     except (ValueError, TypeError):
+        logger.warning("[buffet_submit_order] Invalid vendor_id | vendor_id=%s", vendor_id)
         return Response({"error": "Invalid vendor_id"}, status=status.HTTP_400_BAD_REQUEST)
 
     vendor = Vendor.objects.filter(vendor_id=vendor_id_int).first()
     if not vendor:
+        logger.warning(
+            "[buffet_submit_order] Vendor not found | vendor_id=%s",
+            vendor_id_int,
+        )
         return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
 
     for item in items_data:
@@ -154,7 +168,11 @@ def buffet_submit_order(request):
             utility_id = item.get("utility_id")
             utility = Utility.objects.filter(id=utility_id, vendor=vendor).first()
             if not utility:
-                logger.warning(f"Utility {utility_id} not found for vendor {vendor_id_int}")
+                logger.warning(
+                    "[buffet_submit_order] Utility not found | utility_id=%s | vendor_id=%s",
+                    utility_id,
+                    vendor_id_int,
+                )
                 continue
             
             customizations = item.get("customizations", [])
@@ -176,10 +194,25 @@ def buffet_submit_order(request):
         if not created_items:
             # If no items were created (e.g. due to invalid utilities), rollback.
             transaction.set_rollback(True)
+            logger.warning(
+                "[buffet_submit_order] No valid items | vendor_id=%s | cart_lines=%s",
+                vendor_id_int,
+                len(items_data),
+            )
             return Response({"error": "No valid items found in order."}, status=status.HTTP_400_BAD_REQUEST)
 
     # Note: For DineFlash Buffet, we may need to trigger a web socket / mqtt message to the Kitchen View here.
     # The kitchen view will poll or rely on mqtt. We can add MQTT publishing later if required.
+
+    logger.info(
+        "[buffet_submit_order] Order created | vendor_id=%s | order_id=%s | token_no=%s | "
+        "table_number=%s | items_count=%s",
+        vendor_id_int,
+        order.id,
+        order.token_no,
+        table_number,
+        len(created_items),
+    )
 
     return Response({
         "message": "Order placed successfully.",
