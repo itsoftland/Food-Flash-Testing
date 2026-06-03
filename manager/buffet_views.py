@@ -639,6 +639,11 @@ def buffet_update_item_status(request):
     raw = request.data.get("status")
     new_status = (raw or "").strip().lower() if isinstance(raw, str) else ""
     if new_status not in _BUFFET_ITEM_STATUS_UPDATE_ACTIONS:
+        logger.warning(
+            "[buffet_update_item_status] Invalid or missing status | status=%s | remote_addr=%s",
+            raw,
+            request.META.get("REMOTE_ADDR"),
+        )
         return Response(
             {
                 "error": "Invalid or missing status.",
@@ -650,6 +655,15 @@ def buffet_update_item_status(request):
 
 
 def _update_buffet_item_status(request, new_status):
+    logger.info(
+        "[buffet_update_item_status] Started | remote_addr=%s | status=%s | item_id=%s | "
+        "token_no=%s | utility_id=%s",
+        request.META.get("REMOTE_ADDR"),
+        new_status,
+        request.data.get("item_id"),
+        request.data.get("token_no"),
+        request.data.get("utility_id"),
+    )
     try:
         item_id = request.data.get("item_id")
         token_no = request.data.get("token_no")
@@ -777,13 +791,33 @@ def _update_buffet_item_status(request, new_status):
             for item in items:
                 if item.status == new_status:
                     continue
+                previous_status = item.status
                 item.status = new_status
                 item.save(update_fields=["status"])
                 _notify_item_update(vendor, item, new_status)
                 updated_any = True
+                logger.info(
+                    "[buffet_update_item_status] Status updated | vendor_id=%s | token_no=%s | "
+                    "item_id=%s | utility_id=%s | %s -> %s",
+                    vendor.vendor_id,
+                    item.order.token_no,
+                    item.id,
+                    item.utility_id,
+                    previous_status,
+                    new_status,
+                )
 
             if not updated_any:
                 ref = items[0]
+                logger.info(
+                    "[buffet_update_item_status] No change | vendor_id=%s | token_no=%s | "
+                    "item_id=%s | utility_id=%s | status=%s",
+                    vendor.vendor_id,
+                    ref.order.token_no,
+                    ref.id,
+                    ref.utility_id,
+                    new_status,
+                )
                 return Response(
                     {
                         "message": f"Item is already {new_status}",
@@ -805,7 +839,7 @@ def _update_buffet_item_status(request, new_status):
             status=status.HTTP_200_OK,
         )
     except Exception as e:
-        logger.exception(f"[_update_buffet_item_status] Error: %s", e)
+        logger.exception("[buffet_update_item_status] Error: %s", e)
         return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
