@@ -1186,7 +1186,7 @@ def get_banners(request):
 # views.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import serializers, status
 from vendors.models import WebChatMessage, Vendor, PushSubscription
 from .serializers import WebChatMessageSerializer
 
@@ -1262,6 +1262,11 @@ def webchat_message_create(request):
 
         logger.warning(f"⚠️ Validation failed for WebChatMessage: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    except serializers.ValidationError as e:
+        detail = e.detail if hasattr(e, "detail") else str(e)
+        logger.warning("⚠️ WebChatMessage create validation error: %s", detail)
+        return Response(detail, status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
         logger.exception("🔥 Unhandled exception in /webchat_message_create:")

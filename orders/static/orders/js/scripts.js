@@ -644,11 +644,6 @@ onDOMReady(async function () {
                 try {
                     await showChatWindow({});
                     ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
-                    try {
-                        await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
-                    } catch (chatErr) {
-                        console.warn('Buffet early chat save:', chatErr);
-                    }
                     return await fetchOrderStatusOnce(tokenFromQR);
                 } catch (err) {
                     console.warn('Buffet early chat bootstrap failed:', err);
@@ -1041,6 +1036,24 @@ onDOMReady(async function () {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    /** Persist QR user token chat only after push subscription exists (avoids 500 on early save). */
+    async function persistBuffetQrUserChatIfNeeded(linkToken) {
+        const raw = window.buffetQrTokenFromRedirect;
+        if (!raw || window.buffetQrUserChatPersisted) return;
+        const userToken = String(raw).trim();
+        const tokenKey =
+            linkToken != null && String(linkToken).trim() !== ""
+                ? String(linkToken).trim()
+                : userToken;
+        if (!userToken) return;
+        try {
+            await saveChat(userToken, "user", "chat", tokenKey);
+            window.buffetQrUserChatPersisted = true;
+        } catch (chatErr) {
+            console.warn("Buffet user token chat save:", chatErr);
+        }
+    }
+
     async function fetchOrderStatusOnce(token, replyText = null, bookingId = null) {
         const activeVendor = await AppUtils.getActiveVendor();
         let payload = {};
@@ -1112,6 +1125,7 @@ onDOMReady(async function () {
                     PushHealthMonitorService.startMonitor(token, data.vendor_id);
                     await AppUtils.setToken(String(resolved));
                     buffetPushLinked = true;
+                    await persistBuffetQrUserChatIfNeeded(resolved);
                 }
             }
             if (!replyText) {
@@ -1234,6 +1248,7 @@ onDOMReady(async function () {
                 PushHealthMonitorService.startMonitor(token, data.vendor_id);
                 if (type === "buffetstatus" && resolved != null && String(resolved).trim() !== "") {
                     await AppUtils.setToken(String(resolved));
+                    await persistBuffetQrUserChatIfNeeded(resolved);
                 }
             }
             return data;  // << important: return the fetched data
