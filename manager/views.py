@@ -995,7 +995,9 @@ def get_booking_list(request):
             unread_map = _build_unread_notifications_map(
                 vendor, [booking.id for booking in booking_list]
             )
-            serialized = serialize_dine_flash_manager_bookings(booking_list, unread_map)
+            serialized = serialize_dine_flash_manager_bookings(
+                booking_list, unread_map, vendor=vendor, request=request
+            )
             t_serialize_ms = (time.perf_counter() - t2) * 1000
 
             grouped = _group_serialized_bookings(booking_list, serialized)

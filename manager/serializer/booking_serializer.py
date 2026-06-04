@@ -24,15 +24,52 @@ def _dine_flash_seat_display_parts(order):
     return seat, display
 
 
-def serialize_dine_flash_manager_bookings(booking_list, unread_map):
+def _dine_flash_tracking_base(vendor, request):
+    """
+    Build the shared prefix of the Dine Flash customer tracking/chat URL.
+
+    All bookings in a manager list belong to the same vendor, so the
+    location_id/vendor_id portion is computed once and the per-booking
+    booking_no/booking_id are appended later. Returns None when the URL
+    cannot be built (e.g. no request available), preserving the legacy
+    ``tracking_url: None`` behaviour for callers that opt out.
+    """
+    if vendor is None or request is None:
+        return None
+
+    project = getattr(settings, "PROJECT_NAME", "").lower()
+    try:
+        tracking_path = reverse("orders:home")
+        return request.build_absolute_uri(
+            f"{tracking_path}?location_id={vendor.location_id}"
+            f"&vendor_id={vendor.vendor_id}&"
+        )
+    except Exception:
+        return request.build_absolute_uri(
+            f"/{project}/home/?location_id={vendor.location_id}"
+            f"&vendor_id={vendor.vendor_id}&"
+        )
+
+
+def serialize_dine_flash_manager_bookings(booking_list, unread_map, vendor=None, request=None):
     """
     Build manager APK booking rows without DRF (Dine Flash list endpoints only).
     Response shape matches BookingSerializer + dine_flash to_representation extras.
+
+    When both ``vendor`` and ``request`` are supplied, ``tracking_url`` is
+    populated with the customer tracking/chat URL for each booking. Callers
+    that omit them keep the legacy ``tracking_url: None`` behaviour.
     """
+    tracking_base = _dine_flash_tracking_base(vendor, request)
     rows = []
     for order in booking_list:
         utility = order.utility
         _, display = _dine_flash_seat_display_parts(order)
+        if tracking_base:
+            booking_no = order.table_booking_no or ""
+            tracking_url = f"{tracking_base}booking_no={booking_no}&booking_id={order.id}"
+        else:
+            tracking_url = None
         rows.append(
             {
                 "id": order.id,
@@ -45,7 +82,7 @@ def serialize_dine_flash_manager_bookings(booking_list, unread_map):
                 "booked_time": order.created_at,
                 "new_notifications": unread_map.get(order.id, 0),
                 "utility_name": utility.display_name if utility else None,
-                "tracking_url": None,
+                "tracking_url": tracking_url,
                 "table_no": order.seat_no,
                 "seat_no": order.seat_no,
                 "table_booking_no_display": display,
