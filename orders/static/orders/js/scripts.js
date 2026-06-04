@@ -698,9 +698,10 @@ onDOMReady(async function () {
                 // ✅ Step 2: Subscribe for push notifications
                 try {
                     if (isDineFlashBuffetSurface) {
-                        // dine_flash_buffet: linking runs in fetchOrderStatusOnce right after check-status
-                        // succeeds (canonical token_no), before modal/chat work — avoids missing early
-                        // utility pushes while the first session UI is still rendering.
+                        // dine_flash_buffet: guaranteed post-permission subscribe. handleToken runs from
+                        // the permission-deferred callback, so permission is granted here (unlike the early
+                        // buffetStatusFetchPromise). fetchOrderStatusOnce still links canonical token_no as fallback.
+                        await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         // bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
