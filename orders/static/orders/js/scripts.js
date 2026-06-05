@@ -1185,7 +1185,9 @@ onDOMReady(async function () {
 
                     // Build the full order-detail snapshot as ONE message so it can be
                     // tracked, deduplicated and replaced as a single unit.
-                    const snapshotPayload = { type: "buffet_order_details", ...data };
+                    // `manual_lookup` selects the compact single-row summary renderer;
+                    // the auto/QR order-created card keeps the original full renderer.
+                    const snapshotPayload = { type: "buffet_order_details", ...data, manual_lookup: manualEntry };
                     const snapshotHtml = ChatTemplateService.build({
                         type: "buffet_order_details",
                         text: snapshotPayload,
