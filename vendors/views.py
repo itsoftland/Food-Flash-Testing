@@ -237,35 +237,22 @@ def save_subscription(request):
                 order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
             elif _is_dine_flash_buffet_server():
-                # Link push subscription to the buffet order: token_no, primary key, or bill / table ref.
+                # Dine Flash Buffet resolves orders by token_no only, mirroring
+                # check_status(). The previous id / table_booking_no fallbacks were
+                # not used by any supported Buffet flow and could mis-link a browser
+                # to an unintended order.
                 raw = token_number
                 order = None
-                if raw not in (None, ""):
-                    try:
-                        n = int(raw)
-                    except (TypeError, ValueError):
-                        n = None
-                    if n is not None:
-                        order = (
-                            Order.objects.filter(token_no=n, vendor=vendor)
-                            .order_by("-created_at")
-                            .first()
-                        )
-                        if not order:
-                            order = (
-                                Order.objects.filter(id=n, vendor=vendor)
-                                .order_by("-created_at")
-                                .first()
-                            )
-                    if not order:
-                        order = (
-                            Order.objects.filter(
-                                table_booking_no=str(raw).strip(),
-                                vendor=vendor,
-                            )
-                            .order_by("-created_at")
-                            .first()
-                        )
+                try:
+                    n = int(raw)
+                except (TypeError, ValueError):
+                    n = None
+                if n is not None:
+                    order = (
+                        Order.objects.filter(token_no=n, vendor=vendor)
+                        .order_by("-created_at")
+                        .first()
+                    )
                 logger.info(
                     "🔍 [dine_flash_buffet] save_subscription token_number=%r -> order_id=%s",
                     raw,
