@@ -95,31 +95,34 @@ export const ChatRestoreService = (() => {
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.sequence_code,msg.passenger_name);
           });
         } else if (window.BASE && window.BASE.includes('/dine_flash_buffet/')) {
-          // Track orders whose status cards were restored so a QR reload does not duplicate them.
-          window.buffetRestoredOrderTokens = new Set();
-          const buffetServerTypes = new Set([
-            "buffet_utilities_status_summary",
-            "buffet_ready_utilities_summary",
-            "buffet_item_update",
-            "buffet_item_preparing",
-            "buffet_item_ready",
-            "buffet_item_cancelled",
-            "buffet_item_delivered",
-            "buffet_utilities_status",
-            "buffet_utilities_ready",
-            "order_delivered",
-            "buffet_manager",
-            "manager",
-          ]);
-          cachedMessages.forEach(msg => {
-            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
-            if (
-              msg.sender === "server" &&
-              msg.token_no != null &&
-              buffetServerTypes.has(msg.type)
-            ) {
-              window.buffetRestoredOrderTokens.add(String(msg.token_no));
+          // Snapshot-based dedup: ONLY a full order-detail snapshot ("buffet_order_details")
+          // marks a token as already-rendered. Incremental item updates, manager messages,
+          // utility/status pushes and delivered notices are NOT snapshots and never gate a
+          // manual lookup. A QR reload that restores a snapshot will skip re-rendering it.
+          window.buffetOrderSnapshotTokens = new Set();
+
+          // A token may have several saved snapshots (repeated manual lookups). Render only
+          // the latest snapshot per token and drop the stale duplicates so the chat shows
+          // a single, current order-details card after restore.
+          const latestSnapshotIndexByToken = new Map();
+          cachedMessages.forEach((msg, idx) => {
+            if (msg.type === "buffet_order_details" && msg.token_no != null) {
+              latestSnapshotIndexByToken.set(String(msg.token_no), idx);
             }
+          });
+
+          cachedMessages.forEach((msg, idx) => {
+            if (msg.type === "buffet_order_details" && msg.token_no != null) {
+              const tokenKey = String(msg.token_no);
+              // Skip every snapshot for this token except the most recent one.
+              if (latestSnapshotIndexByToken.get(tokenKey) !== idx) {
+                return;
+              }
+              appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
+              window.buffetOrderSnapshotTokens.add(tokenKey);
+              return;
+            }
+            appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
           });
         } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
           cachedMessages.forEach(msg => {

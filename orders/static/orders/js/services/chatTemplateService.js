@@ -411,6 +411,52 @@ function buildBuffetItemStatusMessage(payload) {
   `;
 }
 
+/**
+ * Dine Flash Buffet only — full order-detail snapshot rendered as ONE chat message.
+ *
+ * A "snapshot" is the complete picture of an order pulled from the backend (all item
+ * lines + the current station/utilities summary). It is intentionally a single message
+ * so it can be deduplicated and replaced as one unit. Incremental status updates,
+ * manager messages, utility pushes, etc. are NOT snapshots and are never built here.
+ */
+function buildBuffetOrderDetailsSnapshot(payload) {
+  const tokenNo = payload.token_no != null ? payload.token_no : "";
+  const aliasName = payload.alias_name;
+
+  const items = Array.isArray(payload.items) ? [...payload.items] : [];
+  // API omits "created" lines, so order by updated_at to keep the timeline stable.
+  items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+
+  const itemsHtml = items
+    .map((item) =>
+      buildBuffetItemStatusMessage({
+        ...item,
+        type: "buffet_item_update",
+        item_name: item.name,
+        alias_name: aliasName,
+      })
+    )
+    .join("");
+
+  const utilities = Array.isArray(payload.utilities_status) ? payload.utilities_status : [];
+  const utilitiesHtml = utilities.length
+    ? buildBuffetUtilitiesStatusSummary({
+        type: "buffet_utilities_status_summary",
+        utilities,
+        alias_name: aliasName,
+        token_no: tokenNo,
+        status: payload.status,
+      })
+    : "";
+
+  return `
+    <div class="buffet-order-details-snapshot" data-buffet-snapshot-token="${tokenNo}">
+        ${itemsHtml}
+        ${utilitiesHtml}
+    </div>
+  `;
+}
+
 function buildBuffetDeliveredMessage(payload) {
   return `
     <div class="response-title">
@@ -558,6 +604,8 @@ export const ChatTemplateService = {
       case "item_cancelled":
       case "item_operation_closed":
         return buildBuffetItemStatusMessage(payload);
+      case "buffet_order_details":
+        return buildBuffetOrderDetailsSnapshot(payload);
       case "order_delivered":
         return buildBuffetDeliveredMessage(payload);
       case "foodstatus":

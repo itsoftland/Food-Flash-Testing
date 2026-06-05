@@ -9,7 +9,7 @@ import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
-import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260521_1";
+import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260605_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";
@@ -935,7 +935,7 @@ onDOMReady(async function () {
                 }
                 appendMessage(message, "user", "", "chat", message);
                 await saveChat(message, "user", "chat", message);
-                await fetchOrderStatusOnce(message);
+                await fetchOrderStatusOnce(message, null, null, { manualEntry: true });
             } else {
                 appendMessage(message, 'user', null);
             }
@@ -1055,7 +1055,50 @@ onDOMReady(async function () {
         }
     }
 
-    async function fetchOrderStatusOnce(token, replyText = null, bookingId = null) {
+    // -------------------------------------------------------------------------
+    // Dine Flash Buffet only — full order-detail snapshot tracking.
+    //
+    // A "snapshot" = the complete order-details card rendered from a backend lookup.
+    // We track which tokens currently have a snapshot on screen so that:
+    //   • QR reloads do not duplicate the restored snapshot,
+    //   • repeated manual token entry replaces the snapshot instead of stacking copies.
+    // Incremental status updates, manager messages and utility pushes are NOT snapshots
+    // and never touch this store.
+    // -------------------------------------------------------------------------
+    function ensureBuffetSnapshotTokenStore() {
+        if (!(window.buffetOrderSnapshotTokens instanceof Set)) {
+            window.buffetOrderSnapshotTokens = new Set();
+        }
+        return window.buffetOrderSnapshotTokens;
+    }
+
+    function buffetSnapshotExists(tokenKey) {
+        if (!tokenKey) return false;
+        if (ensureBuffetSnapshotTokenStore().has(tokenKey)) return true;
+        const chatContainer = document.getElementById("chat-container");
+        return !!(
+            chatContainer &&
+            chatContainer.querySelector(
+                `.message-row.server [data-buffet-snapshot-token="${tokenKey}"]`
+            )
+        );
+    }
+
+    function removeBuffetSnapshot(tokenKey) {
+        if (!tokenKey) return;
+        const chatContainer = document.getElementById("chat-container");
+        if (chatContainer) {
+            chatContainer
+                .querySelectorAll(`[data-buffet-snapshot-token="${tokenKey}"]`)
+                .forEach((node) => {
+                    const row = node.closest(".message-row");
+                    (row || node).remove();
+                });
+        }
+        ensureBuffetSnapshotTokenStore().delete(tokenKey);
+    }
+
+    async function fetchOrderStatusOnce(token, replyText = null, bookingId = null, options = {}) {
         const activeVendor = await AppUtils.getActiveVendor();
         let payload = {};
         let type = '';
@@ -1135,73 +1178,43 @@ onDOMReady(async function () {
                         data.token_no != null && String(data.token_no).trim() !== ""
                             ? data.token_no
                             : token
-                    );
-                    const buffetCardsAlreadyRestored =
-                        buffetEarlyPushLink &&
-                        buffetTokenKey &&
-                        window.buffetRestoredOrderTokens instanceof Set &&
-                        window.buffetRestoredOrderTokens.has(buffetTokenKey);
+                    ).trim();
+                    const snapshotToken =
+                        data.token_no != null ? data.token_no : token;
+                    const manualEntry = options.manualEntry === true;
 
-                    if (!buffetCardsAlreadyRestored) {
-                        // Sort items chronologically by updated_at (API omits "created" lines).
-                        const sortedItems = (Array.isArray(data.items) ? data.items : []).sort(
-                            (a, b) => new Date(a.updated_at) - new Date(b.updated_at)
+                    // Build the full order-detail snapshot as ONE message so it can be
+                    // tracked, deduplicated and replaced as a single unit.
+                    const snapshotPayload = { type: "buffet_order_details", ...data };
+                    const snapshotHtml = ChatTemplateService.build({
+                        type: "buffet_order_details",
+                        text: snapshotPayload,
+                    });
+
+                    const snapshotAlreadyShown = buffetSnapshotExists(buffetTokenKey);
+
+                    // Manual valid token entry must ALWAYS show the latest details. If a
+                    // snapshot already exists (restored or from an earlier lookup), replace
+                    // it in place instead of stacking a duplicate card.
+                    // QR / auto flows keep dedup: an already-present snapshot is left as-is.
+                    if (manualEntry || !snapshotAlreadyShown) {
+                        if (manualEntry) {
+                            removeBuffetSnapshot(buffetTokenKey);
+                        }
+                        appendMessage(
+                            snapshotHtml,
+                            "server",
+                            null,
+                            "buffet_order_details",
+                            snapshotToken
                         );
-
-                        for (const item of sortedItems) {
-                            const itemPayload = {
-                                type: "buffet_item_update",
-                                ...item,
-                                item_name: item.name,
-                                alias_name: data.alias_name,
-                            };
-                            const itemHTML = ChatTemplateService.build({
-                                type: "buffet_item_update",
-                                text: itemPayload,
-                            });
-                            appendMessage(
-                                itemHTML,
-                                "server",
-                                null,
-                                "buffet_item_update",
-                                data.token_no
-                            );
-                            await saveChat(
-                                itemPayload,
-                                "server",
-                                "buffet_item_update",
-                                data.token_no
-                            );
-                        }
-                        if (
-                            Array.isArray(data.utilities_status) &&
-                            data.utilities_status.length > 0
-                        ) {
-                            const summaryPayload = {
-                                type: "buffet_utilities_status_summary",
-                                utilities: data.utilities_status,
-                                alias_name: data.alias_name,
-                                token_no: data.token_no,
-                                status: data.status,
-                            };
-                            const summaryHtml = ChatTemplateService.build({
-                                type: "buffet_utilities_status_summary",
-                                text: summaryPayload,
-                            });
-                            appendMessage(
-                                summaryHtml,
-                                "server",
-                                null,
-                                "buffet_utilities_status_summary",
-                                data.token_no
-                            );
-                            await saveChat(
-                                summaryPayload,
-                                "server",
-                                "buffet_utilities_status_summary",
-                                data.token_no
-                            );
-                        }
+                        ensureBuffetSnapshotTokenStore().add(buffetTokenKey);
+                        await saveChat(
+                            snapshotPayload,
+                            "server",
+                            "buffet_order_details",
+                            snapshotToken
+                        );
                     }
                 } else {
                     const messageHTML = ChatTemplateService.build({
