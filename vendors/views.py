@@ -225,10 +225,20 @@ def save_subscription(request):
 
         # If token provided, try to link with order (optional)
         if token_number:
+            is_buffet = _is_dine_flash_buffet_server()
+
+            # Single-active-order model (Food / Dine / Airline Flash):
             # Prevent a single PushSubscription from accumulating links to multiple
             # orders/tokens over time (can cause cross-flavour leakage when projects
             # share the same browser in the past).
-            subscription.tokens.clear()
+            #
+            # Dine Flash Buffet only: a customer chat session can legitimately watch
+            # several active buffet orders at once, so we DO NOT clear here. Existing
+            # links are preserved and the resolved order is added below (M2M add is
+            # idempotent). Stale links are removed by the auto_clear scheduler when the
+            # underlying order is deleted, so links cannot grow unbounded.
+            if not is_buffet:
+                subscription.tokens.clear()
 
             if project_name == "airline_flash":
                 order = Order.objects.filter(sequence_code=token_number, vendor=vendor).order_by('-created_at').first()
@@ -236,7 +246,7 @@ def save_subscription(request):
             elif project_name == "dine_flash":
                 order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
-            elif _is_dine_flash_buffet_server():
+            elif is_buffet:
                 # Dine Flash Buffet resolves orders by token_no only, mirroring
                 # check_status(). The previous id / table_booking_no fallbacks were
                 # not used by any supported Buffet flow and could mis-link a browser
@@ -263,9 +273,20 @@ def save_subscription(request):
                 logger.info(f"🔍 Lookup via token_no for food flash: {token_number}")
 
             if order:
+                # Idempotent: adding an already-linked order is a no-op, so buffet
+                # health-monitor refreshes and repeated subscribes never duplicate links.
                 subscription.tokens.add(order)
-                logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
+                if is_buffet:
+                    logger.info(
+                        "🔗 [dine_flash_buffet] Linked subscription %s with Order %s "
+                        "(Token=%s); subscription now linked to %s order(s)",
+                        subscription.id, order.id, token_number, subscription.tokens.count(),
+                    )
+                else:
+                    logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
             else:
+                # Invalid / unresolved token. For buffet this leaves existing linked
+                # orders untouched (no clear ran above) and adds no new link.
                 logger.warning(f"⚠️ No order found for token={token_number}, vendor_id={vendor_id}")
 
         return Response({"message": "Subscription saved successfully."}, status=200)
