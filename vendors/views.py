@@ -226,18 +226,20 @@ def save_subscription(request):
         # If token provided, try to link with order (optional)
         if token_number:
             is_buffet = _is_dine_flash_buffet_server()
+            is_dine_flash = project_name == "dine_flash"
 
-            # Single-active-order model (Food / Dine / Airline Flash):
+            # Single-active-order model (Food / Airline Flash):
             # Prevent a single PushSubscription from accumulating links to multiple
             # orders/tokens over time (can cause cross-flavour leakage when projects
             # share the same browser in the past).
             #
-            # Dine Flash Buffet only: a customer chat session can legitimately watch
-            # several active buffet orders at once, so we DO NOT clear here. Existing
-            # links are preserved and the resolved order is added below (M2M add is
-            # idempotent). Stale links are removed by the auto_clear scheduler when the
-            # underlying order is deleted, so links cannot grow unbounded.
-            if not is_buffet:
+            # Multi-booking model (Dine Flash + Dine Flash Buffet): a customer can
+            # legitimately watch several active bookings/orders at once from the same
+            # browser, so we DO NOT clear here. Existing links are preserved and the
+            # resolved order is added below (M2M add is idempotent). Stale links are
+            # removed by the auto_clear scheduler when the underlying order is deleted,
+            # so links cannot grow unbounded.
+            if not is_buffet and not is_dine_flash:
                 subscription.tokens.clear()
 
             if project_name == "airline_flash":

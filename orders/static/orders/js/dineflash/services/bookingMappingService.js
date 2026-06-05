@@ -134,6 +134,54 @@ const BookingMappingService = (function () {
         return list;
     }
 
+    /**
+     * Return every booking_id known to this browser as normalized strings.
+     * Flattens all trimmed-number buckets and handles legacy object entries.
+     */
+    function getAllBookingIds() {
+        const mapData = localStorage.getItem(STORAGE_KEY);
+        if (!mapData) return [];
+
+        let mapping;
+        try {
+            mapping = JSON.parse(mapData);
+        } catch (e) {
+            return [];
+        }
+
+        const ids = [];
+        Object.values(mapping || {}).forEach((list) => {
+            let entries = list;
+
+            // Backward compatibility (object → array)
+            if (!Array.isArray(entries)) {
+                entries = [entries];
+            }
+
+            entries.forEach((item) => {
+                const id =
+                    item && typeof item === "object" ? item.booking_id : item;
+                if (id !== null && id !== undefined) {
+                    ids.push(String(id).trim());
+                }
+            });
+        });
+
+        return ids;
+    }
+
+    /**
+     * BOOKING_ID_MAP membership check.
+     * Returns true when the given booking_id belongs to this browser's
+     * known Dine Flash bookings (regardless of which booking is "active").
+     */
+    function hasBookingId(bookingId) {
+        if (bookingId === null || bookingId === undefined) return false;
+        const target = String(bookingId).trim();
+        if (!target) return false;
+        return getAllBookingIds().includes(target);
+    }
+
     function clearMappings() {
         localStorage.removeItem(STORAGE_KEY);
     }
@@ -143,6 +191,8 @@ const BookingMappingService = (function () {
         saveMappings,
         getBookingId,
         getBookingNo,
+        getAllBookingIds,
+        hasBookingId,
         clearMappings
     };
 

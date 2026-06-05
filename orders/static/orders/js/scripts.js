@@ -383,9 +383,17 @@ onDOMReady(async function () {
                     normalizeProjectName(expectedProject) !== "dineflashbuffet"
                 ) {
                     const incomingBookingId = normalizeBookingId(pushData?.booking_id);
-                    const activeBookingId = getActiveDineBookingId();
-                    // Only process pushes for the currently active Dine booking.
-                    if (incomingBookingId && activeBookingId && incomingBookingId !== activeBookingId) {
+                    const knownBookingIds = BookingMappingService.getAllBookingIds();
+                    // Accept the push when its booking_id belongs to this browser's
+                    // known Dine Flash bookings (BOOKING_ID_MAP membership) — NOT only
+                    // the currently active booking. This lets every visible Dine Flash
+                    // booking receive its own notifications. Active-booking selection is
+                    // reserved for outbound actions and never suppresses inbound pushes.
+                    if (
+                        incomingBookingId &&
+                        knownBookingIds.length > 0 &&
+                        !knownBookingIds.includes(incomingBookingId)
+                    ) {
                         return;
                     }
                 }
