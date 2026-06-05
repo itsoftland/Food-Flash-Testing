@@ -122,3 +122,73 @@
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
 }
+
+/* Dine Flash Buffet — compact order-details snapshot summary (one row per item) */
+.buffet-order-summary {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #1565c0;
+}
+
+.buffet-summary-token {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1565c0;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    border-bottom: 2px solid #e3eefb;
+}
+
+.buffet-summary-token-value {
+    color: #0d3f69;
+}
+
+.buffet-summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid #eef1f4;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.buffet-summary-row:last-child {
+    border-bottom: none;
+}
+
+.buffet-summary-name {
+    font-weight: 700;
+    color: #222;
+}
+
+.buffet-summary-qty {
+    font-weight: 600;
+    color: #555;
+}
+
+.buffet-summary-variant {
+    color: #666;
+}
+
+.buffet-summary-note {
+    color: #777;
+    font-style: italic;
+}
+
+.buffet-summary-sep {
+    color: #c2c8ce;
+}
+
+.buffet-summary-status {
+    margin-left: auto;
+}
+
+.buffet-summary-empty {
+    padding: 8px 0;
+    font-size: 0.9rem;
+}

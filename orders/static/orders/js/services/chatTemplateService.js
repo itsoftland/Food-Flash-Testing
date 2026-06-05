@@ -419,6 +419,50 @@ function buildBuffetItemStatusMessage(payload) {
  * so it can be deduplicated and replaced as one unit. Incremental status updates,
  * manager messages, utility pushes, etc. are NOT snapshots and are never built here.
  */
+function toBuffetStatusLabel(statusKey) {
+  return String(statusKey || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Dine Flash Buffet snapshot only — render a single order item as ONE consolidated row:
+ *   item name | Qty: n | option/variant + modifiers | Note: ... | Status
+ * Options/variants and modifiers are not distinguished in the data; both live in
+ * `customizations`. `remarks` is surfaced as an optional note cell.
+ */
+function buildBuffetSnapshotItemRow(item) {
+  const itemName = item.name || item.item_name || "Item";
+  const statusKey = String(item.status || "unknown").toLowerCase();
+  const statusClass = statusClassMap[statusKey] || "unknown-color";
+  const statusLabel = toBuffetStatusLabel(statusKey) || "Unknown";
+
+  const qty = item.quantity != null ? Number(item.quantity) : 1;
+  const qtyDisplay = Number.isFinite(qty) ? qty : 1;
+
+  const cust = Array.isArray(item.customizations) ? item.customizations : [];
+  const custStr = cust.map((c) => String(c).trim()).filter(Boolean).join(", ");
+  const remarks = (item.remarks || "").trim();
+
+  const cells = [
+    `<span class="buffet-summary-name">${itemName}</span>`,
+    `<span class="buffet-summary-qty">Qty: ${qtyDisplay}</span>`,
+  ];
+  if (custStr) {
+    cells.push(`<span class="buffet-summary-variant">${custStr}</span>`);
+  }
+  if (remarks) {
+    cells.push(`<span class="buffet-summary-note">Note: ${remarks}</span>`);
+  }
+  cells.push(
+    `<span class="buffet-summary-status buffet-status-badge ${statusClass}">${statusLabel}</span>`
+  );
+
+  return `<div class="buffet-summary-row">${cells.join(
+    '<span class="buffet-summary-sep">|</span>'
+  )}</div>`;
+}
+
 function buildBuffetOrderDetailsSnapshot(payload) {
   const tokenNo = payload.token_no != null ? payload.token_no : "";
   const aliasName = payload.alias_name;
@@ -427,32 +471,27 @@ function buildBuffetOrderDetailsSnapshot(payload) {
   // API omits "created" lines, so order by updated_at to keep the timeline stable.
   items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
 
-  const itemsHtml = items
-    .map((item) =>
-      buildBuffetItemStatusMessage({
-        ...item,
-        type: "buffet_item_update",
-        item_name: item.name,
-        alias_name: aliasName,
-      })
-    )
-    .join("");
+  // Compact single-row-per-item summary. We intentionally do NOT group by status
+  // (no separate READY/PREPARING/CREATED sections) and do NOT reuse the full
+  // per-item status cards — the snapshot is one consolidated order summary.
+  const rowsHtml = items.map((item) => buildBuffetSnapshotItemRow(item)).join("");
+  const bodyHtml = rowsHtml
+    ? rowsHtml
+    : `<div class="buffet-summary-empty text-muted">No order items yet.</div>`;
 
-  const utilities = Array.isArray(payload.utilities_status) ? payload.utilities_status : [];
-  const utilitiesHtml = utilities.length
-    ? buildBuffetUtilitiesStatusSummary({
-        type: "buffet_utilities_status_summary",
-        utilities,
-        alias_name: aliasName,
-        token_no: tokenNo,
-        status: payload.status,
-      })
-    : "";
+  const tokenHeader =
+    tokenNo !== ""
+      ? `<div class="buffet-summary-token">Token No: <span class="buffet-summary-token-value">${tokenNo}</span></div>`
+      : "";
 
   return `
-    <div class="buffet-order-details-snapshot" data-buffet-snapshot-token="${tokenNo}">
-        ${itemsHtml}
-        ${utilitiesHtml}
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${aliasName || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-order-details-snapshot buffet-order-summary" data-buffet-snapshot-token="${tokenNo}">
+        ${tokenHeader}
+        ${bodyHtml}
     </div>
   `;
 }
