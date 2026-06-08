@@ -916,7 +916,9 @@ onDOMReady(async function () {
                 bookingNo = BookingMappingService.getBookingNo(message);
                 bookingId = BookingMappingService.getBookingId(message);
                 if (!bookingNo) {
+                    appendMessage(message, 'user', null);
                     appendMessage(`Invalid Booking Number. Please check and try again.`, 'server', null);
+                    chatInput.value = '';
                     return; // Stop further processing
                 }
                 console.log("Booking No for display:", bookingNo);
