@@ -951,7 +951,7 @@ onDOMReady(async function () {
                 bookingId = BookingMappingService.getBookingId(message); 
                 setActiveDineBookingId(bookingId);
                 await saveChat(bookingNo, 'user', 'chat',bookingId);
-                await fetchOrderStatusOnce(bookingNo); // Use bookingNo as tokenNo
+                await fetchOrderStatusOnce(bookingNo, null, bookingId); // Pass booking_id so payload uses it (not booking_no)
             } else if (!isDineFlashBuffetSurface) {
                 await saveChat(message, 'user', 'chat',message);
                 await fetchOrderStatusOnce(message); // Use message as tokenNo  
@@ -996,7 +996,7 @@ onDOMReady(async function () {
 
         bookingList.forEach(item => {
 
-            const trimmed = item.booking_no.split("-")[1];
+            const trimmed = BookingMappingService.getTrimmedKey(item.booking_no);
 
             // Outer container (no more button-inside-button issue)
             const wrapper = document.createElement("div");

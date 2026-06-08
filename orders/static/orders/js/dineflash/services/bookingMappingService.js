@@ -1,3 +1,4 @@
+console.log("NEW BOOKING MAPPING SERVICE LOADED");
 // orders/static/orders/js/dineflash/services/bookingMappingService.js
 //
 // Dine Flash ONLY. This module is imported by scripts.js and every call site is
@@ -106,6 +107,19 @@ const BookingMappingService = (function () {
     }
 
     /**
+     * Derive the BOOKING_ID_MAP bucket key from a Dine Flash booking number.
+     * - Prefixed numbers key on the suffix:  "VIP-5" → "5", "TB1-4" → "4"
+     * - Non-prefixed numbers key on the whole value: "136" → "136"
+     * Previously `bookingNo.split("-")[1]` returned undefined for non-prefixed
+     * numbers, bucketing them under the literal key "undefined".
+     */
+    function getTrimmedKey(bookingNo) {
+        if (bookingNo === null || bookingNo === undefined) return null;
+        const str = String(bookingNo);
+        return str.includes("-") ? str.split("-")[1] : str;
+    }
+
+    /**
      * Extract mapping from QR code
      * Example URL: ...?booking_no=TB1-4&booking_id=62
      */
@@ -115,8 +129,8 @@ const BookingMappingService = (function () {
 
         if (!bookingNo || !bookingId) return;
 
-        // Extract trimmed number (TB1-4 → "4")
-        const trimmed = bookingNo.split("-")[1];
+        // Derive bucket key (TB1-4 → "4", VIP-5 → "5", 136 → "136")
+        const trimmed = getTrimmedKey(bookingNo);
 
         const newMappingEntry = {
             booking_no: bookingNo,
@@ -279,6 +293,7 @@ const BookingMappingService = (function () {
         hasBookingId,
         clearMappings,
         getCurrentBusinessDay,
+        getTrimmedKey,
     };
 
 })();
