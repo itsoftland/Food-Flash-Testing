@@ -363,6 +363,26 @@ def home(request):
         else:
             if not fallback_ok:
                 return HttpResponseBadRequest("Invalid QR link.")
+
+        # Dine Flash only: expose the vendor's business-day start hour so the
+        # client can stamp/filter BOOKING_ID_MAP entries by business day and
+        # avoid the false "multiple bookings" chooser caused by counter reuse
+        # across business days. Empty string => client falls back to local
+        # calendar date. This context key is consumed ONLY by the
+        # dine_flash-gated block in orders/index.html.
+        business_day_start_hour = ""
+        try:
+            vendor = get_vendor(vendor_id)
+            start_hour = getattr(getattr(vendor, "config", None), "business_day_start_hour", None)
+            if start_hour is not None:
+                business_day_start_hour = start_hour.strftime("%H:%M:%S")
+        except Exception:
+            business_day_start_hour = ""
+        return render(
+            request,
+            'orders/index.html',
+            {"BUSINESS_DAY_START_HOUR": business_day_start_hour},
+        )
     return render(request, 'orders/index.html')
 
 def vibration_test(request):

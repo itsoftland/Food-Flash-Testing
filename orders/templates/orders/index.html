@@ -98,5 +98,13 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if PROJECT_NAME == 'dine_flash' %}
+<script>
+    // Dine Flash only: vendor business-day start hour ("HH:MM:SS" or "").
+    // Used by bookingMappingService.js to scope manual booking lookup to the
+    // current business day. Not referenced by any other flavour.
+    window.BUSINESS_DAY_START_HOUR = "{{ BUSINESS_DAY_START_HOUR|default:'' }}";
+</script>
+{% endif %}
 <script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}&cb=20260519_2"></script>
 {% endblock %}
