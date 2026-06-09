@@ -206,11 +206,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  // Dine Flash only: an extra "Booking No" column is shown. Other flash
+  // variants (buffet, airline, food, service, calleron) are unaffected.
+  const isDineFlash = window.PROJECT_NAME === "dine_flash";
+
   function renderTable(orders) {
     tableBody.innerHTML = "";
 
+    // Base columns + the Dine Flash "Booking No" column when applicable.
+    const colCount = isDineFlash ? 10 : 9;
+
     if (orders.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="8" class="text-center">No orders found.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center">No orders found.</td></tr>`;
       return;
     }
 
@@ -218,10 +225,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const createdDate = new Date(order.created_at);
       const readyDate = order.ready_status ? new Date(order.ready_status) : null;
 
+      const bookingCell = isDineFlash
+        ? `<td>${order.table_booking_no || "N/A"}</td>`
+        : "";
+
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${index + 1}</td>
         <td>${order.token_no}</td>
+        ${bookingCell}
         <td>${order.status}</td>
         <td>${order.counter_no}</td>
         <td>${order.vendor_name || "Not Assigned"}</td>

@@ -505,6 +505,8 @@ class OrderSerializer(serializers.ModelSerializer):
     device_id = serializers.IntegerField(source='device.id', allow_null=True, read_only=True)
     device_name = serializers.CharField(source='device.serial_no', allow_null=True, read_only=True)
     ready_status = serializers.SerializerMethodField()
+    # Dine Flash only. ArchivedOrder has no table_booking_no, so read it safely.
+    table_booking_no = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -523,11 +525,15 @@ class OrderSerializer(serializers.ModelSerializer):
             'device_id',
             'device_name',
             'outlet_name',
-            'ready_status'
+            'ready_status',
+            'table_booking_no'
         ]
 
     def get_outlet_name(self, obj):
         return obj.vendor.admin_outlet.customer_name if obj.vendor and obj.vendor.admin_outlet else None
+
+    def get_table_booking_no(self, obj):
+        return getattr(obj, 'table_booking_no', None)
     def get_ready_status(self, obj):
         if obj.status_history.exists():
             first_ready_status = obj.status_history.filter(new_status__iexact='ready').order_by('changed_at').first()

@@ -93,7 +93,7 @@
         </form>
 
         <!-- Enhanced scrollable table -->
-        <div class="table-wrapper">
+        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash' %} table-wrapper--dine-flash{% endif %}">
             <!-- Static header -->
             <div class="table-header">
                 <table class="table table-bordered bg-light-gray mb-0">
@@ -101,6 +101,9 @@
                         <tr>
                             <th>Id</th>
                             <th>Token No</th>
+                            {% if PROJECT_NAME == "dine_flash" %}
+                            <th>Booking No</th>
+                            {% endif %}
                             <th>Current Status</th>
                             <th>Counter No</th>
                             <th>Outlet Name</th>
