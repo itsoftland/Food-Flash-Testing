@@ -28,10 +28,14 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AndroidAPK,VendorConfig,
                             OrderStatusHistory,ArchivedOrderStatusHistory,
                             Utility,TVDeviceConfig,UtilityOption,
-                            TVAdvertisement)
+                            TVAdvertisement,BuffetOrderItem)
 
 from static.utils.functions.validation import validate_fields
-from static.utils.functions.utils import get_time_ranges,get_filtered_date_range
+from static.utils.functions.utils import (
+    get_time_ranges,
+    get_filtered_date_range,
+    get_vendor_business_day_range,
+)
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
 from vendors.utils import (
@@ -1451,6 +1455,27 @@ def order_counts_summary(request):
     })
 
 
+def _buffet_business_day_date_q(vendors_qs, outlet_id=None):
+    """
+    Dine Flash Buffet: match kitchen/manager "today" using each vendor's business day
+    window (timezone + business_day_start_hour), not calendar midnight UTC.
+    """
+    vendors = vendors_qs
+    if outlet_id:
+        vendors = vendors.filter(id=outlet_id)
+    clauses = []
+    for vendor in vendors:
+        start, end = get_vendor_business_day_range(vendor)
+        if start and end:
+            clauses.append(Q(vendor=vendor, created_at__gte=start, created_at__lt=end))
+    if not clauses:
+        return Q(pk__in=[])
+    date_q = clauses[0]
+    for clause in clauses[1:]:
+        date_q |= clause
+    return date_q
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def filtered_orders(request):
@@ -1462,6 +1487,7 @@ def filtered_orders(request):
         return Response({"error": "Admin outlet not linked to this user."}, status=403)
 
     vendors_qs = admin_outlet.vendors.all()
+    is_buffet = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash_buffet"
 
     # ✅ Prepare base queryset for both models
     base_filter = {
@@ -1478,8 +1504,21 @@ def filtered_orders(request):
         base_filter['device__id'] = device_id
 
     status = request.GET.get('status')
-    if status in ['preparing', 'ready']:
-        base_filter['status'] = status
+    if status:
+        if is_buffet:
+            buffet_statuses = {
+                'created', 'preparing', 'ready', 'delivered', 'cancelled', 'operation_closed',
+            }
+            if status in buffet_statuses:
+                item_qs = BuffetOrderItem.objects.filter(
+                    status=status,
+                    order__vendor__in=vendors_qs,
+                )
+                if outlet_id:
+                    item_qs = item_qs.filter(order__vendor__id=outlet_id)
+                base_filter['id__in'] = item_qs.values('order_id').distinct()
+        elif status in ['preparing', 'ready']:
+            base_filter['status'] = status
 
     shown = request.GET.get('shown_on_tv')
 
@@ -1499,15 +1538,22 @@ def filtered_orders(request):
     date_range = request.GET.get('range', 'today')
     from_date = request.GET.get('from')
     to_date = request.GET.get('to')
-    
-    start, end = get_filtered_date_range(date_range, from_date, to_date)
-    if start and end:
-        base_filter['created_at__gte'] = start
-        base_filter['created_at__lt'] = end
+
+    buffet_date_q = None
+    if is_buffet and date_range == 'today':
+        buffet_date_q = _buffet_business_day_date_q(vendors_qs, outlet_id)
+    else:
+        start, end = get_filtered_date_range(date_range, from_date, to_date)
+        if start and end:
+            base_filter['created_at__gte'] = start
+            base_filter['created_at__lt'] = end
 
     # ✅ Apply same filter to both Order and ArchivedOrder
     active_orders = Order.objects.filter(**base_filter)
     archived_orders = ArchivedOrder.objects.filter(**base_filter)
+    if buffet_date_q is not None:
+        active_orders = active_orders.filter(buffet_date_q)
+        archived_orders = archived_orders.filter(buffet_date_q)
 
     # ✅ Combine both lists and sort by created_at descending
     combined_orders = sorted(

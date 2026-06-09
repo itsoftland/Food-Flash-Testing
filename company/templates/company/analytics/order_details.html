@@ -44,8 +44,16 @@
                 <label class="small mb-1">Status</label>
                 <select class="form-control form-control-sm" id="status-filter">
                 <option value="">All</option>
+                {% if PROJECT_NAME == "dine_flash_buffet" %}
+                <option value="created">Created</option>
                 <option value="preparing">Preparing</option>
                 <option value="ready">Ready</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+                {% else %}
+                <option value="preparing">Preparing</option>
+                <option value="ready">Ready</option>
+                {% endif %}
                 </select>
             </div>
             <div class="col-md-2 col-6">
@@ -93,7 +101,7 @@
         </form>
 
         <!-- Enhanced scrollable table -->
-        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash' %} table-wrapper--dine-flash{% endif %}">
+        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash' or PROJECT_NAME == 'dine_flash_buffet' %} table-wrapper--dine-flash{% endif %}">
             <!-- Static header -->
             <div class="table-header">
                 <table class="table table-bordered bg-light-gray mb-0">
@@ -103,6 +111,8 @@
                             <th>Token No</th>
                             {% if PROJECT_NAME == "dine_flash" %}
                             <th>Booking No</th>
+                            {% elif PROJECT_NAME == "dine_flash_buffet" %}
+                            <th>Table No</th>
                             {% endif %}
                             <th>Current Status</th>
                             <th>Counter No</th>
