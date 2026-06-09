@@ -952,7 +952,12 @@ onDOMReady(async function () {
                 }
                 appendMessage(message, "user", "", "chat", message);
                 await saveChat(message, "user", "chat", message);
-                await fetchOrderStatusOnce(message, null, null, { manualEntry: true });
+                try {
+                    await fetchOrderStatusOnce(message, null, null, { manualEntry: true });
+                } finally {
+                    // Buffet manual lookup only: clear even when check-status returns 400.
+                    chatInput.value = "";
+                }
             } else {
                 appendMessage(message, 'user', null);
             }
