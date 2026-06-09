@@ -853,6 +853,13 @@ onDOMReady(async function () {
     sendButton.addEventListener('click', async function () {
         let message = chatInput.value.trim();
         if (message === '') return;
+        // Dine Flash only: clear the input immediately after capture so the typed
+        // value cannot be re-sent during the saveChat / fetchOrderStatusOnce awaits
+        // (prevents the visible lag + accidental double-submit). `message` is already
+        // captured above; no Dine Flash path re-reads chatInput.value after this point.
+        if (window.BASE && window.BASE.includes('/dine_flash/')) {
+            chatInput.value = '';
+        }
         const actualSequence = chatInput.dataset.actualSequence;
 
         if (window.BASE && window.BASE.includes('/airline_flash/') && actualSequence) {
