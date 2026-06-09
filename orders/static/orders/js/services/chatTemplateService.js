@@ -473,9 +473,34 @@ function buildBuffetOrderDetailsSnapshotCompact(payload) {
   const tokenNo = payload.token_no != null ? payload.token_no : "";
   const aliasName = payload.alias_name;
 
-  const items = Array.isArray(payload.items) ? [...payload.items] : [];
-  // API omits "created" lines, so order by updated_at to keep the timeline stable.
-  items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+  // Manual lookup must show the COMPLETE order. `utilities_status` carries every
+  // ordered line (including ones still at "created"), whereas `payload.items`
+  // omits "created" lines and would hide un-progressed items. Flatten the utility
+  // groups into per-item rows; fall back to `payload.items` only when the full
+  // collection is unavailable.
+  const groups = Array.isArray(payload.utilities_status)
+    ? payload.utilities_status
+    : null;
+
+  let items;
+  if (groups && groups.length) {
+    items = groups.flatMap((group) =>
+      (Array.isArray(group.lines) ? group.lines : []).map((line) => ({
+        id: line.item_id,
+        name: group.name,
+        status: line.status || "created", // default missing status -> Created
+        quantity: line.quantity,
+        customizations: Array.isArray(line.customizations)
+          ? line.customizations
+          : [],
+        remarks: (line.remarks || "").trim(),
+      }))
+    );
+  } else {
+    items = Array.isArray(payload.items) ? [...payload.items] : [];
+    // Legacy fallback path keeps the timeline stable; `items` omits "created".
+    items.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+  }
 
   const rowsHtml = items.map((item) => buildBuffetSnapshotItemRow(item)).join("");
   const bodyHtml = rowsHtml
