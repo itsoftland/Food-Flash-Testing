@@ -6,7 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction, close_old_connections
-from django.db.models import Count, Exists, Max, OuterRef
+from django.db.models import Count, Exists, F, Max, OuterRef
 from django.urls import reverse
 
 from rest_framework import status
@@ -192,6 +192,7 @@ def _dine_flash_bookings_queryset(vendor, start_dt, end_dt, utility_id=None, uti
             "utility__id",
             "utility__display_name",
             "utility__display_code",
+            "call_count",
         )
     )
     if utility_code:
@@ -1974,7 +1975,9 @@ def manager_booking_update(request):
         # === Step 3: Validate action type ===
         allowed_actions = ["allocated", "occupied", "operation_closed", "booking_cancelled", "message",
                            "utility_transfer"]
-        
+        if project_name == "dine_flash":
+            allowed_actions.append("call")
+
         if action not in allowed_actions:
             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -2281,6 +2284,13 @@ def manager_booking_update(request):
             ).start()
             push_errors = []
             logger.info("📤 Manager message push queued asynchronously for booking %s", booking_id)
+
+        elif action_type == "call":
+            if project_name != "dine_flash":
+                return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.info("📞 Call action for booking %s by manager %s", booking_id, manager.name)
+            Order.objects.filter(pk=booking.pk).update(call_count=F("call_count") + 1)
 
         # === Step 8: Return final response ===
         return Response({

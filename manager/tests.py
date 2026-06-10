@@ -36,6 +36,7 @@ class DineFlashManagerPerfTests(SimpleTestCase):
             created_at=None,
             seat_no="T12",
             utility=utility,
+            call_count=3,
         )
         rows = serialize_dine_flash_manager_bookings([order], {7: 2})
         self.assertEqual(len(rows), 1)
@@ -43,6 +44,7 @@ class DineFlashManagerPerfTests(SimpleTestCase):
         self.assertEqual(row["new_notifications"], 2)
         self.assertEqual(row["utility_name"], "Patio")
         self.assertEqual(row["table_booking_no_display"], "A-3 [T12]")
+        self.assertEqual(row["call_count"], 3)
         self.assertIsNone(row["tracking_url"])
 
     @override_settings(PROJECT_NAME="dine_flash")

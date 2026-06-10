@@ -86,6 +86,7 @@ def serialize_dine_flash_manager_bookings(booking_list, unread_map, vendor=None,
                 "table_no": order.seat_no,
                 "seat_no": order.seat_no,
                 "table_booking_no_display": display,
+                "call_count": getattr(order, "call_count", 0) or 0,
             }
         )
     return rows

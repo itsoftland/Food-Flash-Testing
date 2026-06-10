@@ -408,6 +408,7 @@ class Order(models.Model):
     )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)
+    call_count = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"Token {self.token_no} ({self.vendor.name})"
