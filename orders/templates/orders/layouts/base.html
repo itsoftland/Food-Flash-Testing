@@ -48,7 +48,7 @@
 
     <!-- Header -->
     <header class="bg-white custom-header">
-        <h1 class="header-title">{{ PROJECT_DISPLAY_NAME }}</h1>
+        <h1 class="header-title">{% block header_title %}{{ PROJECT_DISPLAY_NAME }}{% endblock %}</h1>
         {% block header_heading %}{% endblock %}
     </header>
 
