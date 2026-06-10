@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   } catch (err) {
     console.error('Failed to load companies:', err);
-    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">Error loading company data</td></tr>`;
   }
 });
 
@@ -141,6 +141,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 // small helpers
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function showLicenseDates() {
+  const project = (window.PROJECT_NAME || '').toLowerCase().trim();
+  return project === 'dine_flash' || project === 'dine_flash_buffet';
+}
+
+function getTableColspan() {
+  return showLicenseDates() ? 8 : 6;
+}
+
+function formatLicenseDateTime(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+
+  const pad = n => String(n).padStart(2, '0');
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  const year = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = pad(d.getMinutes());
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+
+  return `${day}-${month}-${year} ${pad(hours)}:${minutes} ${ampm}`;
+}
 const company_status = {
   'Pending': 'Pending',
   'Approve': 'Approved',
@@ -282,7 +309,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
     const companies = data.results || data;
 
     if (!companies || companies.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="text-center">No companies registered yet.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center">No companies registered yet.</td></tr>`;
       return companies || [];
     }
 
@@ -299,6 +326,11 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
         : raw === 'Block' ? 'badge-danger'
         : 'badge-light';
 
+      const licenseDateCells = showLicenseDates()
+        ? `<td data-label="License Start Date & Time">${esc(formatLicenseDateTime(company.product_from_date))}</td>
+        <td data-label="License End Date & Time">${esc(formatLicenseDateTime(company.product_to_date))}</td>`
+        : '';
+
       const row = document.createElement('tr');
       row.dataset.companyId = id;
       row.innerHTML = `
@@ -307,6 +339,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
         <td data-label="Contact Person">${esc(company.customer_contact_person || '-')}</td>
         <td data-label="Phone">${esc(company.phone_number || '-')}</td>
         <td data-label="Status"><span class="badge ${badgeClass}">${statusLabel}</span></td>
+        ${licenseDateCells}
         <td class="license-cell" data-label="Licence">
           <button class="license-btn" data-company-id="${id}">License Validate</button>
         </td>
@@ -317,7 +350,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
     return companies;
   } catch (err) {
     console.error('Failed to load companies:', err);
-    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading company data</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">Error loading company data</td></tr>`;
     return [];
   }
 }

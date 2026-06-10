@@ -1,0 +1,145 @@
+{% extends 'company/layouts/base.html' %}
+{% load static %}
+
+{% block title %}Table QR Generator{% endblock %}
+
+{% block extra_css %}
+<style>
+  .qr-preview-wrap {
+    display: none;
+    text-align: center;
+  }
+  .qr-preview-wrap.visible {
+    display: block;
+  }
+  #qr-canvas {
+    max-width: 280px;
+    width: 100%;
+    height: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .generated-url-box {
+    word-break: break-all;
+    font-size: 0.9rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  #print-area {
+    display: none;
+  }
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    #print-area, #print-area * {
+      visibility: visible;
+    }
+    #print-area {
+      display: block !important;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      text-align: center;
+      padding: 40px 20px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 720px;">
+  <h2 class="mb-2">Table QR Generator</h2>
+  <p class="text-muted mb-4">
+    Generate a QR code for a buffet table. Customers scan it to open the booking page with the table number prefilled.
+  </p>
+
+  {% if vendor_error %}
+  <div class="alert alert-warning" role="alert">{{ vendor_error }}</div>
+  {% else %}
+  <div class="card shadow-sm border-0 rounded-3 p-4">
+    <div class="mb-3">
+      <label for="vendor-select" class="form-label fw-bold">Outlet <span class="text-danger">*</span></label>
+      <select
+        id="vendor-select"
+        class="form-select form-select-lg"
+        {% if vendors|length == 1 %}disabled{% endif %}
+        required
+      >
+        {% if vendors|length > 1 %}
+        <option value="">-- Select outlet --</option>
+        {% endif %}
+        {% for v in vendors %}
+        <option value="{{ v.vendor_id }}" {% if vendors|length == 1 %}selected{% endif %}>
+          {{ v.name }}{% if v.location %} — {{ v.location }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      {% if vendors|length == 1 %}
+      <small class="text-muted mt-1 d-block">Your account has one outlet; it is selected automatically.</small>
+      {% else %}
+      <small class="text-muted mt-1 d-block">Select the outlet this table QR belongs to.</small>
+      {% endif %}
+      <div id="vendor-error" class="invalid-feedback d-block" style="display: none;"></div>
+    </div>
+
+    <div class="mb-3">
+      <label for="table-no-input" class="form-label fw-bold">Table Number <span class="text-danger">*</span></label>
+      <input
+        type="number"
+        id="table-no-input"
+        class="form-control form-control-lg"
+        min="1"
+        step="1"
+        inputmode="numeric"
+        placeholder="e.g. 12"
+        required
+      >
+      <div id="table-no-error" class="invalid-feedback d-block" style="display: none;"></div>
+    </div>
+
+    <button type="button" id="generate-qr-btn" class="btn btn-golden btn-lg w-100 fw-bold shadow-sm mb-4">
+      Generate QR
+    </button>
+
+    <div id="qr-preview-wrap" class="qr-preview-wrap">
+      <h5 class="mb-3">Table <span id="preview-table-no"></span></h5>
+      <canvas id="qr-canvas" aria-label="Table booking QR code"></canvas>
+
+      <div class="mt-4 text-start">
+        <label class="form-label fw-bold">Generated URL</label>
+        <div id="generated-url" class="generated-url-box mb-3"></div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" id="copy-url-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-copy me-1"></i> Copy URL
+          </button>
+          <button type="button" id="download-qr-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-download me-1"></i> Download QR
+          </button>
+          <button type="button" id="print-qr-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-print me-1"></i> Print QR
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div id="print-area">
+  <h2 id="print-vendor-name"></h2>
+  <p class="mb-1">Table <span id="print-table-no"></span></p>
+  <img id="print-qr-image" alt="Table QR code" style="max-width: 320px; margin: 20px auto;">
+  <p class="text-muted mt-3" style="font-size: 0.9rem;">Scan to start ordering</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'company/js/vendor/qrcode.min.js' %}"></script>
+<script type="module" src="{% static 'company/js/tableQrGenerator.js' %}?v={{ APP_VERSION }}"></script>
+{% endblock %}

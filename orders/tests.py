@@ -391,3 +391,39 @@ class DineFlashBookTableFcmTests(SimpleTestCase):
         self.assertEqual(payload["booking_id"], 99)
         self.assertEqual(payload["utility_name"], "Patio")
         self.assertNotIn("updated_by", payload)
+
+
+class BuffetTableQrTokenTests(SimpleTestCase):
+    def test_sign_and_unsign_round_trip(self):
+        from orders.buffet_table_qr import sign_buffet_table_qr, unsign_buffet_table_qr
+
+        token = sign_buffet_table_qr(800706, 12)
+        payload = unsign_buffet_table_qr(token)
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["vendor_id"], "800706")
+        self.assertEqual(payload["table_no"], "12")
+
+    def test_tampered_token_rejected(self):
+        from orders.buffet_table_qr import sign_buffet_table_qr, unsign_buffet_table_qr
+
+        token = sign_buffet_table_qr(800706, 25)
+        tampered = token[:-4] + "xxxx"
+        self.assertIsNone(unsign_buffet_table_qr(tampered))
+
+    def test_zero_table_number_invalid(self):
+        from orders.buffet_table_qr import is_valid_buffet_table_no, sign_buffet_table_qr
+
+        self.assertFalse(is_valid_buffet_table_no(0))
+        self.assertFalse(is_valid_buffet_table_no("0"))
+        with self.assertRaises(ValueError):
+            sign_buffet_table_qr(800706, 0)
+
+    def test_positive_integer_validation(self):
+        from orders.buffet_table_qr import is_valid_buffet_table_no
+
+        self.assertTrue(is_valid_buffet_table_no(1))
+        self.assertTrue(is_valid_buffet_table_no("42"))
+        self.assertFalse(is_valid_buffet_table_no(-1))
+        self.assertFalse(is_valid_buffet_table_no("abc"))
+        self.assertFalse(is_valid_buffet_table_no(""))

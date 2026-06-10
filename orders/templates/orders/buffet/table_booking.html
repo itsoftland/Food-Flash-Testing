@@ -92,20 +92,29 @@
 
         const tableInput = document.getElementById("table_number");
 
-        // ✅ Automatic Table Identification (Buffet Only)
-        if (window.PROJECT_NAME === "dine_flash_buffet" && tableInput) {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tableNo = urlParams.get("table_no");
-
-            // Validate: Must be a non-empty numeric value
-            if (tableNo && /^[0-9]+$/.test(tableNo)) {
-                tableInput.value = tableNo;
+        function applyPrefilledTable(tableNo, lockField) {
+            if (!tableInput || !tableNo || !/^[1-9]\d*$/.test(tableNo)) {
+                return;
+            }
+            tableInput.value = tableNo;
+            if (lockField) {
                 tableInput.readOnly = true;
-                
-                // UX: Visual cues for non-editable auto-filled state
                 tableInput.style.backgroundColor = "#f8f9fa";
                 tableInput.style.cursor = "not-allowed";
                 tableInput.title = "Table number auto-filled via QR code";
+            }
+        }
+
+        if (window.PROJECT_NAME === "dine_flash_buffet" && tableInput) {
+            const serverPrefilled = "{{ prefilled_table_no|default:''|escapejs }}";
+            const tableFromQr = {{ table_from_qr|yesno:"true,false" }};
+
+            if (serverPrefilled) {
+                applyPrefilledTable(serverPrefilled, tableFromQr);
+            } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                const legacyTableNo = urlParams.get("table_no");
+                applyPrefilledTable(legacyTableNo, true);
             }
         }
 
@@ -121,10 +130,9 @@
                 tableError.style.display = "block";
                 return false;
             }
-            // Restrict to numeric only
-            if (!/^[0-9]+$/.test(value)) {
+            if (!/^[1-9]\d*$/.test(value)) {
                 tableInput.classList.add("is-invalid");
-                tableError.textContent = "Please enter numeric table number only.";
+                tableError.textContent = "Please enter a positive table number.";
                 tableError.style.display = "block";
                 return false;
             }

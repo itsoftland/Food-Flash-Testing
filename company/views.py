@@ -6,6 +6,9 @@ from django.db import transaction
 from django.db.models import Max, Q
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
+from django.http import Http404
+from django.urls import reverse
+from urllib.parse import quote
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.core.files.base import ContentFile
@@ -38,6 +41,7 @@ from static.utils.functions.utils import (
 )
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
+from orders.buffet_table_qr import is_valid_buffet_table_no, sign_buffet_table_qr
 from vendors.utils import (
     buffet_utility_image_payload,
     validate_buffet_food_type,
@@ -921,6 +925,105 @@ def update_user_utilities(request):
 @login_required
 def buffet_kitchen(request):
     return render(request, 'company/buffet_kitchen.html')
+
+@login_required
+def table_qr_generator(request):
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
+        raise Http404()
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    vendors = []
+    vendor_error = None
+
+    if not admin_outlet:
+        vendor_error = "Your account is not linked to a company outlet."
+    else:
+        vendors = list(admin_outlet.vendors.order_by("id"))
+        if not vendors:
+            vendor_error = "No outlet found for your account. Please create an outlet first."
+
+    return render(
+        request,
+        "company/table_qr_generator.html",
+        {
+            "vendors": vendors,
+            "vendor_error": vendor_error,
+        },
+    )
+
+
+def _resolve_buffet_table_qr_vendor(admin_outlet, vendor_id):
+    """
+    Resolve the vendor for buffet table QR generation.
+
+    - Single-vendor accounts: use that vendor when vendor_id is omitted.
+    - Multi-vendor accounts: vendor_id is required and must belong to admin_outlet.
+    """
+    vendors_qs = admin_outlet.vendors.order_by("id")
+    vendor_count = vendors_qs.count()
+    if vendor_count == 0:
+        return None, "No outlet configured for your account."
+
+    vendor_id_text = str(vendor_id).strip() if vendor_id is not None else ""
+    if not vendor_id_text:
+        if vendor_count == 1:
+            return vendors_qs.first(), None
+        return None, "Please select an outlet."
+
+    vendor = vendors_qs.filter(vendor_id=vendor_id_text).first()
+    if not vendor:
+        try:
+            vendor = vendors_qs.filter(vendor_id=int(vendor_id_text)).first()
+        except (TypeError, ValueError):
+            vendor = None
+    if not vendor:
+        return None, "Invalid or unauthorized outlet."
+    return vendor, None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_buffet_table_qr(request):
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return Response({"error": "Outlet not found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+    vendor, vendor_error = _resolve_buffet_table_qr_vendor(admin_outlet, request.data.get("vendor_id"))
+    if vendor_error:
+        status_code = status.HTTP_400_BAD_REQUEST
+        if vendor is None and "unauthorized" in vendor_error.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        return Response({"error": vendor_error}, status=status_code)
+
+    table_no = request.data.get("table_no")
+    if not is_valid_buffet_table_no(table_no):
+        return Response(
+            {"error": "Table number must be a positive integer."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        qr_token = sign_buffet_table_qr(vendor.vendor_id, table_no)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    booking_path = reverse("buffet_table_booking")
+    qr_url = request.build_absolute_uri(f"{booking_path}?qr_token={quote(qr_token, safe='')}")
+
+    return Response(
+        {
+            "qr_url": qr_url,
+            "qr_token": qr_token,
+            "table_no": str(int(str(table_no).strip())),
+            "vendor_name": vendor.name,
+            "vendor_location": vendor.location or "",
+        },
+        status=status.HTTP_200_OK,
+    )
+
 
 @login_required
 def utility_user_mapping(request):

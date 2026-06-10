@@ -289,6 +289,13 @@
                 <p>Food / Utility Mapping</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="{% url 'company:table_qr_generator' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'table_qr_generator' %}active{% endif %}">
+                <i class="nav-icon fas fa-qrcode"></i>
+                <p>Table QR Generator</p>
+              </a>
+            </li>
             {% endif %}
 
           </ul>

@@ -116,6 +116,7 @@ const RELATIVE_API_ENDPOINTS = {
   UTILITY_LIST: "api/utility_list/",
   TABLE_BOOKING: "api/book_table/",
   DINE_FLASH_QR_EXCHANGE: "api/dine_flash_qr_exchange/",
+  GENERATE_BUFFET_TABLE_QR: "company/api/generate_buffet_table_qr/",
 };
 
 const RELATIVE_WEB_ENDPOINTS = {

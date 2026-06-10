@@ -33,6 +33,10 @@
                 <th>Contact Person</th>
                 <th>Phone</th>
                 <th>Status</th>
+                {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" %}
+                <th>License Start Date &amp; Time</th>
+                <th>License End Date &amp; Time</th>
+                {% endif %}
                 <th>Licence Validate</th>
               </tr>
             </thead>

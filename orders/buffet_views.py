@@ -24,6 +24,7 @@ from vendors.models import (
 )
 from manager.utils.utils import reset_counters_if_new_business_day
 from core.config.status_choices import STATUS_CHOICES_MAP
+from orders.buffet_table_qr import is_valid_buffet_table_no, unsign_buffet_table_qr
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "").strip().lower()
@@ -226,7 +227,24 @@ def buffet_submit_order(request):
 @permission_classes([AllowAny])
 def buffet_table_booking(request):
     vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
-    
+    prefilled_table_no = None
+    table_from_qr = False
+
+    if project_name == "dine_flash_buffet":
+        qr_token = request.GET.get("qr_token")
+        if qr_token:
+            payload = unsign_buffet_table_qr(qr_token)
+            if payload and Vendor.objects.filter(vendor_id=payload["vendor_id"]).exists():
+                vendor_id = payload["vendor_id"]
+                prefilled_table_no = payload["table_no"]
+                table_from_qr = True
+
+        if not table_from_qr:
+            legacy_table_no = request.GET.get("table_no")
+            if legacy_table_no and is_valid_buffet_table_no(legacy_table_no):
+                prefilled_table_no = str(int(str(legacy_table_no).strip()))
+                table_from_qr = True
+
     utilities_enabled = False
     phone_number_enabled = False
 
@@ -237,7 +255,9 @@ def buffet_table_booking(request):
             phone_number_enabled = vendor.config.phone_number_enabled
 
     context = {
-        "vendor_id": vendor_id,
+        "vendor_id": vendor_id or "",
+        "prefilled_table_no": prefilled_table_no or "",
+        "table_from_qr": table_from_qr,
         "UTILITIES_ENABLED": utilities_enabled,
         "PHONE_NUMBER_ENABLED": phone_number_enabled,
         **_buffet_workflow_context(1),
