@@ -104,6 +104,10 @@
     // Used by bookingMappingService.js to scope manual booking lookup to the
     // current business day. Not referenced by any other flavour.
     window.BUSINESS_DAY_START_HOUR = "{{ BUSINESS_DAY_START_HOUR|default:'' }}";
+    {% if DINE_FLASH_TRACKING_BOOTSTRAP_JSON %}
+    // Signed-token home links (?t=...) — same bootstrap as legacy query params.
+    window.DINE_FLASH_TRACKING_BOOTSTRAP = {{ DINE_FLASH_TRACKING_BOOTSTRAP_JSON|safe }};
+    {% endif %}
 </script>
 {% endif %}
 <script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}&cb=20260519_2"></script>

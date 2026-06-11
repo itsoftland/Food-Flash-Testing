@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.urls import reverse
 from vendors.models import Order, ChatMessage
 from django.conf import settings
+from orders.dine_flash_tracking_token import build_dine_flash_encrypted_tracking_url
 project_name = getattr(settings, "PROJECT_NAME", "food_flash")
 
 
@@ -68,8 +69,12 @@ def serialize_dine_flash_manager_bookings(booking_list, unread_map, vendor=None,
         if tracking_base:
             booking_no = order.table_booking_no or ""
             tracking_url = f"{tracking_base}booking_no={booking_no}&booking_id={order.id}"
+            encrypted_tracking_url = build_dine_flash_encrypted_tracking_url(
+                vendor, order, request
+            )
         else:
             tracking_url = None
+            encrypted_tracking_url = None
         rows.append(
             {
                 "id": order.id,
@@ -83,6 +88,7 @@ def serialize_dine_flash_manager_bookings(booking_list, unread_map, vendor=None,
                 "new_notifications": unread_map.get(order.id, 0),
                 "utility_name": utility.display_name if utility else None,
                 "tracking_url": tracking_url,
+                "encrypted_tracking_url": encrypted_tracking_url,
                 "table_no": order.seat_no,
                 "seat_no": order.seat_no,
                 "table_booking_no_display": display,

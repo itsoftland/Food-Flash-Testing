@@ -33,6 +33,7 @@ from static.utils.functions.utils import get_vendor_business_day_range, get_vend
 from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
+from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -274,14 +275,8 @@ def _is_manager_created_booking_link(request, vendor_id):
     return False
 
 
-def _is_dine_flash_order_tracking_link(request, vendor_id):
-    """
-    Dine Flash: allow opening tracking home with booking id/no (no QR session).
-    Matches URLs returned after a successful customer table booking.
-    """
-    booking_id = request.GET.get("booking_id")
-    booking_no = request.GET.get("booking_no")
-
+def _dine_flash_order_tracking_exists(vendor_id, booking_id=None, booking_no=None):
+    """Return True when a Dine Flash order exists for the given tracking identifiers."""
     if not booking_id and not booking_no:
         return False
 
@@ -293,6 +288,30 @@ def _is_dine_flash_order_tracking_link(request, vendor_id):
             return False
 
     return qs.filter(table_booking_no=str(booking_no)).exists()
+
+
+def _is_dine_flash_order_tracking_link(request, vendor_id):
+    """
+    Dine Flash: allow opening tracking home with booking id/no (no QR session).
+    Matches URLs returned after a successful customer table booking.
+    """
+    return _dine_flash_order_tracking_exists(
+        vendor_id,
+        booking_id=request.GET.get("booking_id"),
+        booking_no=request.GET.get("booking_no"),
+    )
+
+
+def _dine_flash_business_day_start_hour(vendor_id):
+    """Vendor business-day start hour for Dine Flash home bootstrap (HH:MM:SS or "")."""
+    try:
+        vendor = get_vendor(vendor_id)
+        start_hour = getattr(getattr(vendor, "config", None), "business_day_start_hour", None)
+        if start_hour is not None:
+            return start_hour.strftime("%H:%M:%S")
+    except Exception:
+        pass
+    return ""
 
 
 @api_view(["GET"])
@@ -348,6 +367,27 @@ def outlet_selection(request):
 
 def home(request):
     if project_name == "dine_flash":
+        tracking_token = request.GET.get("t")
+        if tracking_token:
+            payload = unsign_dine_flash_tracking_token(tracking_token)
+            if not payload:
+                return HttpResponseBadRequest("Invalid tracking link.")
+            vendor_id = payload["vendor_id"]
+            if not _dine_flash_order_tracking_exists(
+                vendor_id,
+                booking_id=payload.get("booking_id"),
+                booking_no=payload.get("booking_no"),
+            ):
+                return HttpResponseBadRequest("Invalid tracking link.")
+            return render(
+                request,
+                "orders/index.html",
+                {
+                    "BUSINESS_DAY_START_HOUR": _dine_flash_business_day_start_hour(vendor_id),
+                    "DINE_FLASH_TRACKING_BOOTSTRAP_JSON": json.dumps(payload),
+                },
+            )
+
         vendor_id = request.GET.get("vendor_id")
         if not vendor_id:
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
@@ -370,18 +410,10 @@ def home(request):
         # across business days. Empty string => client falls back to local
         # calendar date. This context key is consumed ONLY by the
         # dine_flash-gated block in orders/index.html.
-        business_day_start_hour = ""
-        try:
-            vendor = get_vendor(vendor_id)
-            start_hour = getattr(getattr(vendor, "config", None), "business_day_start_hour", None)
-            if start_hour is not None:
-                business_day_start_hour = start_hour.strftime("%H:%M:%S")
-        except Exception:
-            business_day_start_hour = ""
         return render(
             request,
             'orders/index.html',
-            {"BUSINESS_DAY_START_HOUR": business_day_start_hour},
+            {"BUSINESS_DAY_START_HOUR": _dine_flash_business_day_start_hour(vendor_id)},
         )
     return render(request, 'orders/index.html')
 

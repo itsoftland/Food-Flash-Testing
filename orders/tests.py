@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -427,3 +428,91 @@ class BuffetTableQrTokenTests(SimpleTestCase):
         self.assertFalse(is_valid_buffet_table_no(-1))
         self.assertFalse(is_valid_buffet_table_no("abc"))
         self.assertFalse(is_valid_buffet_table_no(""))
+
+
+class DineFlashTrackingTokenTests(SimpleTestCase):
+    def test_sign_unsign_roundtrip(self):
+        from orders.dine_flash_tracking_token import (
+            sign_dine_flash_tracking_token,
+            unsign_dine_flash_tracking_token,
+        )
+
+        token = sign_dine_flash_tracking_token(
+            vendor_id="108029",
+            location_id="KZ01",
+            booking_id=213,
+            booking_no="147",
+        )
+        payload = unsign_dine_flash_tracking_token(token)
+        self.assertEqual(
+            payload,
+            {
+                "vendor_id": "108029",
+                "location_id": "KZ01",
+                "booking_id": "213",
+                "booking_no": "147",
+            },
+        )
+
+    def test_tampered_tracking_token_rejected(self):
+        from orders.dine_flash_tracking_token import (
+            sign_dine_flash_tracking_token,
+            unsign_dine_flash_tracking_token,
+        )
+
+        token = sign_dine_flash_tracking_token(
+            vendor_id="108029",
+            location_id="KZ01",
+            booking_id="213",
+            booking_no="147",
+        )
+        self.assertIsNone(unsign_dine_flash_tracking_token(token[:-4] + "xxxx"))
+
+
+class DineFlashHomeTrackingTokenTests(SimpleTestCase):
+    @override_settings(PROJECT_NAME="dine_flash")
+    @patch("orders.views._dine_flash_order_tracking_exists", return_value=True)
+    @patch("orders.views._dine_flash_business_day_start_hour", return_value="06:00:00")
+    def test_home_accepts_signed_tracking_token(
+        self, mock_business_hour, mock_tracking_exists
+    ):
+        from django.test import RequestFactory
+
+        from orders.dine_flash_tracking_token import sign_dine_flash_tracking_token
+        from orders.views import home
+
+        token = sign_dine_flash_tracking_token(
+            vendor_id="108029",
+            location_id="KZ01",
+            booking_id="213",
+            booking_no="147",
+        )
+        request = RequestFactory().get(f"/dine_flash/home/?t={token}")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+        mock_tracking_exists.assert_called_once_with(
+            "108029",
+            booking_id="213",
+            booking_no="147",
+        )
+        content = response.content.decode()
+        self.assertIn("window.DINE_FLASH_TRACKING_BOOTSTRAP", content)
+        self.assertIn('"vendor_id": "108029"', content)
+        self.assertIn('"booking_no": "147"', content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_home_rejects_invalid_signed_tracking_token(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?t=not-a-valid-token")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Invalid tracking link", response.content)

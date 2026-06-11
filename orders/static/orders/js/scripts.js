@@ -126,10 +126,18 @@ onDOMReady(async function () {
     const chatInput = document.getElementById('chat-input');
     const sendButton = document.getElementById('send-button');
     const urlParams = new URLSearchParams(window.location.search);
-    let locationId = urlParams.get("location_id");
-    const vendorFromQR = urlParams.get('vendor_id');
-    const tokenFromQR = urlParams.get('token_no') || urlParams.get('sequence_code') || urlParams.get('booking_no');
-    const bookingIdfromQR = urlParams.get('booking_id');
+    const dineFlashBootstrap =
+        window.DINE_FLASH_TRACKING_BOOTSTRAP &&
+        typeof window.DINE_FLASH_TRACKING_BOOTSTRAP === "object"
+            ? window.DINE_FLASH_TRACKING_BOOTSTRAP
+            : null;
+    let locationId = dineFlashBootstrap?.location_id ?? urlParams.get("location_id");
+    const vendorFromQR = dineFlashBootstrap?.vendor_id ?? urlParams.get('vendor_id');
+    const tokenFromQR = dineFlashBootstrap?.booking_no
+        ?? urlParams.get('token_no')
+        ?? urlParams.get('sequence_code')
+        ?? urlParams.get('booking_no');
+    const bookingIdfromQR = dineFlashBootstrap?.booking_id ?? urlParams.get('booking_id');
     const passengerName = urlParams.get('passenger_name');
     const toggleBtn = document.getElementById("toggleArrowBtn");
     const pageWrapper = document.querySelector(".page-wrapper");
