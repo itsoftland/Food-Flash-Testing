@@ -15,6 +15,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+from orders.dine_flash_tracking_token import build_dine_flash_encrypted_tracking_url
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
@@ -76,6 +77,13 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "food_flash").lower()
+
+
+def _dine_flash_book_table_encrypted_tracking_url(vendor, order, request):
+    """Signed tracking URL for manager book_table responses (Dine Flash only)."""
+    if project_name != "dine_flash":
+        return None
+    return build_dine_flash_encrypted_tracking_url(vendor, order, request)
 
 
 def _resolve_vendor_for_manager(request):
@@ -500,6 +508,11 @@ def book_table(request):
             "tracking_url": tracking_url,
             "message": "Duplicate booking detected. Returning existing ticket.",
         }
+        encrypted_tracking_url = _dine_flash_book_table_encrypted_tracking_url(
+            vendor, existing_order, request
+        )
+        if encrypted_tracking_url is not None:
+            resp_data["encrypted_tracking_url"] = encrypted_tracking_url
         return Response(resp_data, status=status.HTTP_200_OK)
 
 
@@ -593,6 +606,11 @@ def book_table(request):
                     "tracking_url": tracking_url,
                     "message": "Booking created successfully.",
                 }
+                encrypted_tracking_url = _dine_flash_book_table_encrypted_tracking_url(
+                    vendor_locked, booking_obj, request
+                )
+                if encrypted_tracking_url is not None:
+                    resp_data["encrypted_tracking_url"] = encrypted_tracking_url
 
                 logger.info(
                     "[book_table] Booking created | vendor=%s, token_no=%s, booking_no=%s, manager_id=%s",

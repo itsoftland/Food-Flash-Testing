@@ -1,11 +1,16 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
+from rest_framework.test import APIRequestFactory
 
 from manager.serializer.booking_serializer import serialize_dine_flash_manager_bookings
 from orders.dine_flash_tracking_token import unsign_dine_flash_tracking_token
-from manager.views import _dine_flash_requested_utility_filter
+from manager.views import (
+    _dine_flash_book_table_encrypted_tracking_url,
+    _dine_flash_requested_utility_filter,
+    book_table,
+)
 from manager.utils.dine_flash_request_perf import (
     should_trace_manager_request,
     ensure_request_trace,
@@ -190,3 +195,178 @@ class DineFlashManagerPerfTests(SimpleTestCase):
         trace = getattr(request, "_dine_flash_perf")
         self.assertIn("handler_ms", trace)
         self.assertEqual(trace["segments"].get("cache"), "miss")
+
+
+class _VendorStub:
+    objects = MagicMock()
+
+
+class ManagerBookTableEncryptedTrackingUrlTests(SimpleTestCase):
+    def _vendor(self):
+        vendor = _VendorStub()
+        vendor.id = 1
+        vendor.pk = 1
+        vendor.vendor_id = "108029"
+        vendor.location_id = "KZ01"
+        vendor.name = "Test Outlet"
+        vendor.alias_name = ""
+        vendor.config = SimpleNamespace(use_utilities=False)
+        _VendorStub.objects.select_for_update.return_value.select_related.return_value.get.return_value = (
+            vendor
+        )
+        return vendor
+
+    def _order_qs_mock(self, duplicate_order=None, last_token_no=None):
+        duplicate_chain = MagicMock()
+        duplicate_chain.filter.return_value = duplicate_chain
+        duplicate_chain.first.return_value = duplicate_order
+
+        token_chain = MagicMock()
+        last_booking = (
+            SimpleNamespace(token_no=last_token_no) if last_token_no is not None else None
+        )
+        token_chain.select_for_update.return_value.order_by.return_value.first.return_value = (
+            last_booking
+        )
+
+        order_model = MagicMock()
+        order_model.objects.filter.side_effect = [duplicate_chain, token_chain]
+        return order_model
+
+    def _book_table_request(self, factory):
+        request = factory.post(
+            "/dine_flash/manager/api/book_table/",
+            {"customer_name": "Jane Doe", "no_of_guests": 2},
+            format="json",
+        )
+        request.user = MagicMock()
+        request.user.profile_roles.order_by.return_value.values_list.return_value.first.return_value = (
+            1
+        )
+        return request
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    @patch("manager.views.reverse", return_value="/dine_flash/home/")
+    def test_dine_flash_helper_builds_encrypted_tracking_url(self, mock_reverse):
+        vendor = self._vendor()
+        order = SimpleNamespace(id=221, table_booking_no="155")
+        request = SimpleNamespace(
+            build_absolute_uri=lambda path: f"http://testserver{path}"
+        )
+        with patch("manager.views.project_name", "dine_flash"):
+            url = _dine_flash_book_table_encrypted_tracking_url(vendor, order, request)
+        self.assertTrue(url.startswith("http://testserver/dine_flash/home/?t="))
+        payload = unsign_dine_flash_tracking_token(url.split("?t=", 1)[1])
+        self.assertEqual(
+            payload,
+            {
+                "vendor_id": "108029",
+                "location_id": "KZ01",
+                "booking_id": "221",
+                "booking_no": "155",
+            },
+        )
+
+    @patch("manager.views.project_name", "food_flash")
+    def test_non_dine_flash_helper_returns_none(self):
+        vendor = self._vendor()
+        order = SimpleNamespace(id=221, table_booking_no="155")
+        request = SimpleNamespace(build_absolute_uri=lambda path: f"http://testserver{path}")
+        self.assertIsNone(
+            _dine_flash_book_table_encrypted_tracking_url(vendor, order, request)
+        )
+
+    @patch("manager.views.project_name", "dine_flash")
+    @patch("manager.views.transaction.atomic")
+    @patch("manager.views.OrdersSerializer")
+    @patch("manager.views._resolve_vendor_for_manager")
+    @patch("manager.views.reverse", return_value="/dine_flash/home/")
+    def test_new_booking_includes_encrypted_tracking_url(
+        self, mock_reverse, mock_resolve_vendor, mock_serializer_cls, mock_atomic
+    ):
+        mock_atomic.return_value.__enter__ = lambda self: self
+        mock_atomic.return_value.__exit__ = lambda *args: False
+
+        vendor = self._vendor()
+        mock_resolve_vendor.return_value = vendor
+
+        booking = SimpleNamespace(id=221, token_no=155, table_booking_no="155")
+        serializer = MagicMock()
+        serializer.is_valid.return_value = True
+        serializer.save.return_value = booking
+        mock_serializer_cls.return_value = serializer
+
+        with patch("manager.views.Order", self._order_qs_mock(last_token_no=154)):
+            factory = APIRequestFactory()
+            response = book_table(self._book_table_request(factory))
+
+        self.assertEqual(response.status_code, 201)
+        data = response.data
+        self.assertEqual(
+            data["tracking_url"],
+            "http://testserver/dine_flash/home/?location_id=KZ01&vendor_id=108029"
+            "&booking_no=155&booking_id=221",
+        )
+        self.assertIn("encrypted_tracking_url", data)
+        payload = unsign_dine_flash_tracking_token(
+            data["encrypted_tracking_url"].split("?t=", 1)[1]
+        )
+        self.assertEqual(payload["booking_id"], "221")
+        self.assertEqual(payload["booking_no"], "155")
+
+    @patch("manager.views.project_name", "dine_flash")
+    @patch("manager.views._resolve_vendor_for_manager")
+    @patch("manager.views.reverse", return_value="/dine_flash/home/")
+    def test_duplicate_booking_includes_encrypted_tracking_url(
+        self, mock_reverse, mock_resolve_vendor
+    ):
+        vendor = self._vendor()
+        mock_resolve_vendor.return_value = vendor
+        existing_order = SimpleNamespace(id=221, token_no=155, table_booking_no="155")
+
+        with patch(
+            "manager.views.Order",
+            self._order_qs_mock(duplicate_order=existing_order),
+        ):
+            factory = APIRequestFactory()
+            response = book_table(self._book_table_request(factory))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.data
+        self.assertEqual(
+            data["message"], "Duplicate booking detected. Returning existing ticket."
+        )
+        self.assertIn("encrypted_tracking_url", data)
+        payload = unsign_dine_flash_tracking_token(
+            data["encrypted_tracking_url"].split("?t=", 1)[1]
+        )
+        self.assertEqual(payload["booking_id"], "221")
+        self.assertEqual(payload["booking_no"], "155")
+
+    @patch("manager.views.project_name", "food_flash")
+    @patch("manager.views.transaction.atomic")
+    @patch("manager.views.OrdersSerializer")
+    @patch("manager.views._resolve_vendor_for_manager")
+    @patch("manager.views.reverse", return_value="/food_flash/home/")
+    def test_food_flash_book_table_omits_encrypted_tracking_url(
+        self, mock_reverse, mock_resolve_vendor, mock_serializer_cls, mock_atomic
+    ):
+        mock_atomic.return_value.__enter__ = lambda self: self
+        mock_atomic.return_value.__exit__ = lambda *args: False
+
+        vendor = self._vendor()
+        mock_resolve_vendor.return_value = vendor
+
+        booking = SimpleNamespace(id=10, token_no=1, table_booking_no="1")
+        serializer = MagicMock()
+        serializer.is_valid.return_value = True
+        serializer.save.return_value = booking
+        mock_serializer_cls.return_value = serializer
+
+        with patch("manager.views.Order", self._order_qs_mock()):
+            factory = APIRequestFactory()
+            response = book_table(self._book_table_request(factory))
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("tracking_url", response.data)
+        self.assertNotIn("encrypted_tracking_url", response.data)
