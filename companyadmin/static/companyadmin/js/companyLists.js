@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // single event delegation for license buttons
     tableBody.addEventListener('click', async (e) => {
       const btn = e.target.closest('button.license-btn');
-      if (!btn) return;
+      if (!btn || btn.disabled) return;
 
       // get company ID
       const companyId = btn.dataset.companyId;
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
         if (authData.Authenticationstatus === 'Approve') {
-          updateCellToVerified(row,"Validated");
+          updateCellToVerified(row, "Validated", authData.ProductFromDate, authData.ProductToDate);
           payload = JSON.stringify({
             authentication_status: authData.Authenticationstatus,
             product_registration_id: authData.ProductRegistrationId,
@@ -168,6 +168,19 @@ function formatLicenseDateTime(value) {
 
   return `${day}-${month}-${year} ${pad(hours)}:${minutes} ${ampm}`;
 }
+
+function isLicenseCurrentlyValid(fromDate, toDate) {
+  if (!fromDate || !toDate) return false;
+
+  const start = new Date(fromDate);
+  const end = new Date(toDate);
+  const now = new Date();
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+
+  return start.getTime() <= now.getTime() && now.getTime() <= end.getTime();
+}
+
 const company_status = {
   'Pending': 'Pending',
   'Approve': 'Approved',
@@ -184,7 +197,7 @@ function restore(btn) {
   btn.disabled = false;
   if (btn.dataset._orig) btn.innerText = btn.dataset._orig;
 }
-function markVerified(btn,statusText) {
+function markVerified(btn, statusText, fromDate = null, toDate = null) {
   btn.classList.remove('btn-outline-primary');
   if (statusText === "Validated"){
     btn.classList.add('verified');
@@ -196,10 +209,11 @@ function markVerified(btn,statusText) {
   btn.disabled = true;
   btn.innerText = statusText;
   setTimeout(() => {
-    btn.disabled = false;
+    const keepDisabled = showLicenseDates() && isLicenseCurrentlyValid(fromDate, toDate);
     btn.classList.remove('verified');
     btn.classList.remove('expired');
     btn.innerText = 'License Validate';
+    btn.disabled = keepDisabled;
   }, 3000);
 }
 
@@ -289,9 +303,9 @@ async function pollAuthentication(customerId, btn,fetchWithAutoRefresh, API_ENDP
 }
 
 // update DOM cell to show Verified (minimal)
-function updateCellToVerified(row,statusText) {
+function updateCellToVerified(row, statusText, fromDate = null, toDate = null) {
   const btn = row.querySelector('button.license-btn');
-  if (btn) markVerified(btn,statusText);
+  if (btn) markVerified(btn, statusText, fromDate, toDate);
 }
 
 async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
@@ -331,6 +345,10 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
         <td data-label="License End Date & Time">${esc(formatLicenseDateTime(company.product_to_date))}</td>`
         : '';
 
+      const licenseValid = showLicenseDates()
+        && isLicenseCurrentlyValid(company.product_from_date, company.product_to_date);
+      const disabledAttr = licenseValid ? ' disabled' : '';
+
       const row = document.createElement('tr');
       row.dataset.companyId = id;
       row.innerHTML = `
@@ -341,7 +359,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
         <td data-label="Status"><span class="badge ${badgeClass}">${statusLabel}</span></td>
         ${licenseDateCells}
         <td class="license-cell" data-label="Licence">
-          <button class="license-btn" data-company-id="${id}">License Validate</button>
+          <button class="license-btn" data-company-id="${id}"${disabledAttr}>License Validate</button>
         </td>
       `;
       tableBody.appendChild(row);
