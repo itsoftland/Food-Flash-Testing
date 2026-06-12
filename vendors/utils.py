@@ -706,8 +706,13 @@ def build_tv_config_payload(
             if not qr_url and request:
                 # Default to dynamic project path if empty
                 qr_url = request.build_absolute_uri('/dine_flash/table_booking/')
-            if vendor_id:
-                qr_url = _append_vendor_id_to_qr_url(qr_url, vendor_id)
+            if qr_url:
+                # Android TV appends hashed QR params client-side; omit vendor_id here.
+                parts = urlsplit(str(qr_url).strip())
+                qr_url = (
+                    urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip('/'), '', ''))
+                    + '/?'
+                )
 
             payload.update({
                 "qr_placement": tv_config.qr_placement,
