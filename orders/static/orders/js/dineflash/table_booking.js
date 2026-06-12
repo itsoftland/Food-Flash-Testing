@@ -99,18 +99,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         PermissionService = permissionModule.PermissionService;
 
         const urlVendorId = getParam("vendor_id");
-        qrDate = getParam("qr_date");
-        qrTime = getParam("qr_time");
+        const resolvedVendorId =
+            typeof window.RESOLVED_VENDOR_ID === "string" ? window.RESOLVED_VENDOR_ID.trim() : "";
+        qrDate = getParam("qr_date") || (typeof window.QR_DATE === "string" ? window.QR_DATE.trim() : "") || null;
+        qrTime = getParam("qr_time") || (typeof window.QR_TIME === "string" ? window.QR_TIME.trim() : "") || null;
         qrSession = getParam("qr_session");
 
-        // Vendor ID priority: URL -> stored
-        if (urlVendorId) {
-            vendorId = parseInt(urlVendorId, 10);
+        // Vendor ID priority: URL -> server-resolved (hashed QR) -> stored
+        const effectiveVendorId = urlVendorId || resolvedVendorId;
+        if (effectiveVendorId) {
+            vendorId = parseInt(effectiveVendorId, 10);
             // persist for future loads (handles iOS fallback)
             if (!isNaN(vendorId)) {
                 await vendorStore.setVendorId(vendorId);
             } else {
-                console.warn("Invalid vendor_id in URL:", urlVendorId);
+                console.warn("Invalid vendor_id in URL:", effectiveVendorId);
                 vendorId = await vendorStore.getVendorId();
             }
         } else {

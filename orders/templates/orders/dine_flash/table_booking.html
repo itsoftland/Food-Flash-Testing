@@ -186,6 +186,7 @@
 <script>
     window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
     {% if IS_DINE_FLASH %}
+    window.RESOLVED_VENDOR_ID = "{{ vendor_id|default:'' }}";
     window.QR_EXPIRY_MINUTES = {{ QR_EXPIRY_MINUTES|default:0 }};
     window.QR_DATE = "{{ QR_DATE }}";
     window.QR_TIME = "{{ QR_TIME }}";

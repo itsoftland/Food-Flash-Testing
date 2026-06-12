@@ -34,12 +34,7 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
-from .qr_crypto import (
-    HASHED_QUERY_PARAM,
-    build_qr_hash,
-    canonical_query_string,
-    resolve_qr_data,
-)
+from .dine_flash.qr_validation import extract_data_from_url, resolve_qr_data
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -449,182 +444,52 @@ def public_register(request):
     return render(request, 'orders/public_register.html', context)
 
 
-def _dine_flash_qr_hash_expiry_options(vendor_id, vendor_prefetched=None):
-    """Expiry minute values to try when reconstructing a hashed Dine Flash TV QR."""
-    expiry = _get_dine_flash_qr_expiry_minutes(vendor_id, vendor_prefetched=vendor_prefetched)
-    if expiry <= 0:
-        return [0]
-    return [max(1, int(expiry))]
+def _extract_dine_flash_qr_data_hex(request):
+    """Dine Flash only: read SHA256 `data` from ?url= scanned link or ?data= query param."""
+    scanned_url = request.GET.get("url", "")
+    if scanned_url:
+        return extract_data_from_url(scanned_url)
+    return (request.GET.get("data") or "").strip()
 
 
-def _dine_flash_qr_debug_hash_repr(hash_value):
-    """Truncated hash for temporary debug logs (full SHA-256 hex is 64 chars)."""
-    h = (hash_value or "").strip()
-    if len(h) <= 16:
-        return h
-    return f"{h[:8]}...{h[-8:]}"
-
-
-def _dine_flash_qr_hash_params(vendor_id, expiry, at_dt, extra_params=None):
-    """Param dict hashed into ?data= (matches resolve_qr_data / Android QrPayloadHelper)."""
-    merged = {k: str(v) for k, v in (extra_params or {}).items()}
-    merged.update(
-        {
-            "vendor_id": str(vendor_id),
-            "qr_date": at_dt.strftime("%Y-%m-%d"),
-            "qr_time": at_dt.strftime("%H:%M:%S"),
-            "qr_expiry_minutes": str(expiry),
-        }
-    )
-    return merged
-
-
-def _log_dine_flash_qr_hash_params_snapshot(label, params, received_hash):
-    """Log every field that is hashed into ?data= plus canonical string and hash comparison."""
-    canonical = canonical_query_string(params)
-    computed_hash = build_qr_hash(params)
-    received = (received_hash or "").strip().lower()
-    logger.info(
-        "[DINE_FLASH_QR_DEBUG] hash params %s | vendor_id=%s qr_date=%s qr_time=%s "
-        "qr_expiry_minutes=%s canonical=%s computed_hash=%s received_hash=%s matches=%s",
-        label,
-        params.get("vendor_id"),
-        params.get("qr_date"),
-        params.get("qr_time"),
-        params.get("qr_expiry_minutes"),
-        canonical,
-        _dine_flash_qr_debug_hash_repr(computed_hash),
-        _dine_flash_qr_debug_hash_repr(received),
-        computed_hash == received,
-    )
-
-
-def _resolve_dine_flash_qr_from_hash(received_data, request):
+def _resolve_dine_flash_hashed_qr(data_hex, request):
     """
-    Dine Flash only: recover vendor_id / qr_date / qr_time from ?data=<sha256-hex>.
-    Returns ResolvedQrPayload or None.
+    Dine Flash only: recover QR payload using Android-team qr_validation.resolve_qr_data().
     """
-    vendor_id_hint = request.GET.get("vendor_id")
-    now = timezone.localtime(timezone.now())
+    vendor_id_hint_raw = request.GET.get("vendor_id")
+    vendor_id_hint = (
+        int(vendor_id_hint_raw)
+        if vendor_id_hint_raw and str(vendor_id_hint_raw).isdigit()
+        else None
+    )
+    now = timezone.localtime()
 
     if vendor_id_hint:
-        vendor_qs = Vendor.objects.select_related("config").filter(vendor_id=vendor_id_hint)
-    else:
-        vendor_qs = Vendor.objects.select_related("config").all()
+        return resolve_qr_data(
+            data_hex,
+            vendor_id_hint=vendor_id_hint,
+            qr_expiry_minutes_hint=_get_dine_flash_qr_expiry_minutes(vendor_id_hint),
+            now=now,
+            clock_skew_seconds=90,
+        )
 
-    received_normalized = received_data.strip().lower()
-    logger.info(
-        "[DINE_FLASH_QR_DEBUG] hash resolution started | server_now=%s received_hash=%s",
-        now.strftime("%Y-%m-%d %H:%M:%S"),
-        _dine_flash_qr_debug_hash_repr(received_normalized),
+    for vid in Vendor.objects.values_list("vendor_id", flat=True):
+        payload = resolve_qr_data(
+            data_hex,
+            vendor_id_hint=vid,
+            qr_expiry_minutes_hint=_get_dine_flash_qr_expiry_minutes(vid),
+            now=now,
+            clock_skew_seconds=90,
+        )
+        if payload:
+            return payload
+
+    return resolve_qr_data(
+        data_hex,
+        qr_expiry_minutes_hint=1,
+        now=now,
+        clock_skew_seconds=90,
     )
-
-    vendors_checked = 0
-    expiry_values_checked = []
-    for vendor in vendor_qs:
-        vendors_checked += 1
-        vid = vendor.vendor_id
-        expiry_options = _dine_flash_qr_hash_expiry_options(vid, vendor_prefetched=vendor)
-        for expiry in expiry_options:
-            expiry_values_checked.append(expiry)
-            window_minutes = max(expiry, 1) if expiry > 0 else 30
-            window_start = now - timedelta(minutes=window_minutes)
-            window_end = now + timedelta(seconds=5)
-            logger.info(
-                "[DINE_FLASH_QR_DEBUG] resolve_qr_data attempt | vendor_id=%s qr_expiry_minutes=%s "
-                "window_start=%s window_end=%s",
-                vid,
-                expiry,
-                window_start.strftime("%Y-%m-%d %H:%M:%S"),
-                window_end.strftime("%Y-%m-%d %H:%M:%S"),
-            )
-            for label, at_dt in (
-                ("window_start", window_start),
-                ("server_now", now),
-                ("window_end", window_end),
-            ):
-                _log_dine_flash_qr_hash_params_snapshot(
-                    label,
-                    _dine_flash_qr_hash_params(vid, expiry, at_dt),
-                    received_normalized,
-                )
-            payload = resolve_qr_data(
-                received_data,
-                vendor_ids=[vid],
-                expiry_minutes_options=[expiry],
-                extra_params={},
-                now=now,
-            )
-            if payload:
-                matched_params = {
-                    "vendor_id": str(payload.vendor_id),
-                    "qr_date": payload.qr_date,
-                    "qr_time": payload.qr_time,
-                    "qr_expiry_minutes": str(payload.qr_expiry_minutes),
-                }
-                logger.info(
-                    "[DINE_FLASH_QR_DEBUG] Payload reconstructed | vendor_id=%s qr_date=%s qr_time=%s "
-                    "qr_expiry_minutes=%s canonical=%s",
-                    payload.vendor_id,
-                    payload.qr_date,
-                    payload.qr_time,
-                    payload.qr_expiry_minutes,
-                    canonical_query_string(matched_params),
-                )
-                return payload
-            logger.info(
-                "[DINE_FLASH_QR_DEBUG] resolve_qr_data no match | vendor_id=%s qr_expiry_minutes=%s",
-                vid,
-                expiry,
-            )
-    logger.warning(
-        "[DINE_FLASH_QR_DEBUG] hash resolution failed | hash=%s hash_length=%s "
-        "vendors_checked=%s expiry_values_checked=%s",
-        _dine_flash_qr_debug_hash_repr(received_data),
-        len(received_data.strip()),
-        vendors_checked,
-        expiry_values_checked,
-    )
-    return None
-
-
-def _try_redirect_dine_flash_hashed_qr(request):
-    """
-    When ?data=<hash> is present, reconstruct legacy QR params and redirect.
-    Returns an HttpResponse to send, or None to continue the normal table_booking flow.
-    """
-    received_data = (request.GET.get(HASHED_QUERY_PARAM) or "").strip()
-    if not received_data:
-        return None
-    if request.GET.get("qr_session"):
-        return None
-
-    if len(received_data) != 64:
-        return HttpResponseBadRequest("Invalid QR link.")
-
-    payload = _resolve_dine_flash_qr_from_hash(received_data, request)
-    if payload is None:
-        return HttpResponseBadRequest("QR expired. Please scan the new QR code on the TV.")
-
-    from django.urls import reverse
-    from urllib.parse import urlencode
-
-    legacy_params = {
-        "vendor_id": str(payload.vendor_id),
-        "qr_date": payload.qr_date,
-        "qr_time": payload.qr_time,
-    }
-    redirect_url = request.build_absolute_uri(
-        f"{reverse('table_booking')}?{urlencode(legacy_params)}"
-    )
-    logger.info(
-        "[DINE_FLASH_QR_DEBUG] redirecting to legacy URL | vendor_id=%s qr_date=%s qr_time=%s redirect_url=%s",
-        payload.vendor_id,
-        payload.qr_date,
-        payload.qr_time,
-        redirect_url,
-    )
-    return redirect(redirect_url)
 
 
 def table_booking(request):
@@ -633,47 +498,34 @@ def table_booking(request):
 
     vendor_prefetch = None
     qr_expiry_minutes = 0
+    vendor_id_from_qr = None
+    resolved_qr_date = ""
+    resolved_qr_time = ""
 
     if project_name == "dine_flash":
-        received_hash_raw = (request.GET.get(HASHED_QUERY_PARAM) or "").strip()
-        if HASHED_QUERY_PARAM in request.GET:
-            logger.info(
-                "[DINE_FLASH_QR_DEBUG] table_booking received ?data= | path=%s query_string=%s hash_length=%s",
-                request.path,
-                request.META.get("QUERY_STRING", ""),
-                len(received_hash_raw),
-            )
-
-        hashed_qr_response = _try_redirect_dine_flash_hashed_qr(request)
-        if hashed_qr_response is not None:
-            return hashed_qr_response
-
         vendor_id_from_qr = request.GET.get("vendor_id")
         qr_date = request.GET.get("qr_date")
         qr_time = request.GET.get("qr_time")
         qr_session = request.GET.get("qr_session")
-        if not received_hash_raw and vendor_id_from_qr:
-            logger.info(
-                "[DINE_FLASH_QR_DEBUG] table_booking post-redirect query params | vendor_id=%s qr_date=%s qr_time=%s",
-                vendor_id_from_qr,
-                qr_date,
-                qr_time,
-            )
+
+        if not qr_session:
+            data_hex = _extract_dine_flash_qr_data_hex(request)
+            if data_hex:
+                if len(data_hex) != 64:
+                    return HttpResponseBadRequest("Invalid QR link.")
+                payload = _resolve_dine_flash_hashed_qr(data_hex, request)
+                if payload is None:
+                    return HttpResponseBadRequest(
+                        "QR expired. Please scan the new QR code on the TV."
+                    )
+                if payload.vendor_id is not None:
+                    vendor_id_from_qr = str(payload.vendor_id)
+                qr_date = payload.qr_date
+                qr_time = payload.qr_time
+                resolved_qr_date = payload.qr_date
+                resolved_qr_time = payload.qr_time
+
         if not vendor_id_from_qr:
-            hash_processing_attempted = (
-                bool(received_hash_raw)
-                and not qr_session
-                and len(received_hash_raw) == 64
-            )
-            logger.info(
-                "[DINE_FLASH_QR_DEBUG] Invalid QR link vendor id required | vendor_id=%r qr_date=%r qr_time=%r "
-                "hash_processing_attempted=%s reconstruction_succeeded=%s",
-                vendor_id_from_qr,
-                qr_date,
-                qr_time,
-                hash_processing_attempted,
-                False,
-            )
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
         vendor_prefetch = Vendor.objects.select_related("config").filter(
             vendor_id=vendor_id_from_qr
@@ -690,7 +542,10 @@ def table_booking(request):
         if not ok:
             return HttpResponseBadRequest(msg)
 
-    vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
+    if project_name == "dine_flash" and vendor_id_from_qr:
+        vendor_id = vendor_id_from_qr
+    else:
+        vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
 
     utilities_enabled = False  # default fallback
     phone_number_enabled = False  # default fallback
@@ -736,7 +591,9 @@ def table_booking(request):
             )
             if sess_row and sess_row.expires_at:
                 qr_expires_epoch = int(sess_row.expires_at.timestamp())
-        elif request.GET.get("qr_date") and request.GET.get("qr_time"):
+        elif (resolved_qr_date and resolved_qr_time) or (
+            request.GET.get("qr_date") and request.GET.get("qr_time")
+        ):
             # Match _create_dine_flash_qr_session: countdown is from load/exchange time,
             # not TV qr_date/qr_time + window (avoids wrong timer until qr_exchange returns).
             expires_at = timezone.localtime(timezone.now()) + timedelta(minutes=qr_expiry_minutes)
@@ -744,8 +601,8 @@ def table_booking(request):
         # Expose QR info for countdown + safe URL rewriting.
         context.update(
             {
-                "QR_DATE": request.GET.get("qr_date") or "",
-                "QR_TIME": request.GET.get("qr_time") or "",
+                "QR_DATE": resolved_qr_date or request.GET.get("qr_date") or "",
+                "QR_TIME": resolved_qr_time or request.GET.get("qr_time") or "",
                 "QR_EXPIRY_MINUTES": qr_expiry_minutes,
                 "QR_SESSION": qr_session_ctx,
                 "QR_EXPIRES_AT_EPOCH": qr_expires_epoch,
