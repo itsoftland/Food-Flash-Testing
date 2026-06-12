@@ -34,7 +34,12 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
-from .qr_crypto import HASHED_QUERY_PARAM, resolve_qr_data
+from .qr_crypto import (
+    HASHED_QUERY_PARAM,
+    build_qr_hash,
+    canonical_query_string,
+    resolve_qr_data,
+)
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -460,6 +465,40 @@ def _dine_flash_qr_debug_hash_repr(hash_value):
     return f"{h[:8]}...{h[-8:]}"
 
 
+def _dine_flash_qr_hash_params(vendor_id, expiry, at_dt, extra_params=None):
+    """Param dict hashed into ?data= (matches resolve_qr_data / Android QrPayloadHelper)."""
+    merged = {k: str(v) for k, v in (extra_params or {}).items()}
+    merged.update(
+        {
+            "vendor_id": str(vendor_id),
+            "qr_date": at_dt.strftime("%Y-%m-%d"),
+            "qr_time": at_dt.strftime("%H:%M:%S"),
+            "qr_expiry_minutes": str(expiry),
+        }
+    )
+    return merged
+
+
+def _log_dine_flash_qr_hash_params_snapshot(label, params, received_hash):
+    """Log every field that is hashed into ?data= plus canonical string and hash comparison."""
+    canonical = canonical_query_string(params)
+    computed_hash = build_qr_hash(params)
+    received = (received_hash or "").strip().lower()
+    logger.info(
+        "[DINE_FLASH_QR_DEBUG] hash params %s | vendor_id=%s qr_date=%s qr_time=%s "
+        "qr_expiry_minutes=%s canonical=%s computed_hash=%s received_hash=%s matches=%s",
+        label,
+        params.get("vendor_id"),
+        params.get("qr_date"),
+        params.get("qr_time"),
+        params.get("qr_expiry_minutes"),
+        canonical,
+        _dine_flash_qr_debug_hash_repr(computed_hash),
+        _dine_flash_qr_debug_hash_repr(received),
+        computed_hash == received,
+    )
+
+
 def _resolve_dine_flash_qr_from_hash(received_data, request):
     """
     Dine Flash only: recover vendor_id / qr_date / qr_time from ?data=<sha256-hex>.
@@ -473,6 +512,13 @@ def _resolve_dine_flash_qr_from_hash(received_data, request):
     else:
         vendor_qs = Vendor.objects.select_related("config").all()
 
+    received_normalized = received_data.strip().lower()
+    logger.info(
+        "[DINE_FLASH_QR_DEBUG] hash resolution started | server_now=%s received_hash=%s",
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        _dine_flash_qr_debug_hash_repr(received_normalized),
+    )
+
     vendors_checked = 0
     expiry_values_checked = []
     for vendor in vendor_qs:
@@ -481,11 +527,27 @@ def _resolve_dine_flash_qr_from_hash(received_data, request):
         expiry_options = _dine_flash_qr_hash_expiry_options(vid, vendor_prefetched=vendor)
         for expiry in expiry_options:
             expiry_values_checked.append(expiry)
+            window_minutes = max(expiry, 1) if expiry > 0 else 30
+            window_start = now - timedelta(minutes=window_minutes)
+            window_end = now + timedelta(seconds=5)
             logger.info(
-                "[DINE_FLASH_QR_DEBUG] resolve_qr_data attempt | vendor_id=%s qr_expiry_minutes=%s",
+                "[DINE_FLASH_QR_DEBUG] resolve_qr_data attempt | vendor_id=%s qr_expiry_minutes=%s "
+                "window_start=%s window_end=%s",
                 vid,
                 expiry,
+                window_start.strftime("%Y-%m-%d %H:%M:%S"),
+                window_end.strftime("%Y-%m-%d %H:%M:%S"),
             )
+            for label, at_dt in (
+                ("window_start", window_start),
+                ("server_now", now),
+                ("window_end", window_end),
+            ):
+                _log_dine_flash_qr_hash_params_snapshot(
+                    label,
+                    _dine_flash_qr_hash_params(vid, expiry, at_dt),
+                    received_normalized,
+                )
             payload = resolve_qr_data(
                 received_data,
                 vendor_ids=[vid],
@@ -494,18 +556,27 @@ def _resolve_dine_flash_qr_from_hash(received_data, request):
                 now=now,
             )
             if payload:
+                matched_params = {
+                    "vendor_id": str(payload.vendor_id),
+                    "qr_date": payload.qr_date,
+                    "qr_time": payload.qr_time,
+                    "qr_expiry_minutes": str(payload.qr_expiry_minutes),
+                }
                 logger.info(
-                    "[DINE_FLASH_QR_DEBUG] Payload reconstructed\n"
-                    "vendor_id=%s\n"
-                    "qr_date=%s\n"
-                    "qr_time=%s\n"
-                    "qr_expiry_minutes=%s",
+                    "[DINE_FLASH_QR_DEBUG] Payload reconstructed | vendor_id=%s qr_date=%s qr_time=%s "
+                    "qr_expiry_minutes=%s canonical=%s",
                     payload.vendor_id,
                     payload.qr_date,
                     payload.qr_time,
                     payload.qr_expiry_minutes,
+                    canonical_query_string(matched_params),
                 )
                 return payload
+            logger.info(
+                "[DINE_FLASH_QR_DEBUG] resolve_qr_data no match | vendor_id=%s qr_expiry_minutes=%s",
+                vid,
+                expiry,
+            )
     logger.warning(
         "[DINE_FLASH_QR_DEBUG] hash resolution failed | hash=%s hash_length=%s "
         "vendors_checked=%s expiry_values_checked=%s",
