@@ -467,15 +467,34 @@ def _resolve_dine_flash_qr_from_hash(received_data, request):
 
     for vendor in vendor_qs:
         vid = vendor.vendor_id
-        payload = resolve_qr_data(
-            received_data,
-            vendor_ids=[vid],
-            expiry_minutes_options=_dine_flash_qr_hash_expiry_options(vid, vendor_prefetched=vendor),
-            extra_params={},
-            now=now,
-        )
-        if payload:
-            return payload
+        expiry_options = _dine_flash_qr_hash_expiry_options(vid, vendor_prefetched=vendor)
+        for expiry in expiry_options:
+            logger.info(
+                "[dine_flash_hashed_qr] processing vendor/expiry | vendor_id=%s expiry=%s",
+                vid,
+                expiry,
+            )
+            payload = resolve_qr_data(
+                received_data,
+                vendor_ids=[vid],
+                expiry_minutes_options=[expiry],
+                extra_params={},
+                now=now,
+            )
+            if payload:
+                logger.info(
+                    "[dine_flash_hashed_qr] resolve_qr_data succeeded | vendor_id=%s qr_date=%s qr_time=%s qr_expiry_minutes=%s",
+                    payload.vendor_id,
+                    payload.qr_date,
+                    payload.qr_time,
+                    payload.qr_expiry_minutes,
+                )
+                return payload
+            logger.info(
+                "[dine_flash_hashed_qr] resolve_qr_data returned no payload | vendor_id=%s expiry=%s",
+                vid,
+                expiry,
+            )
     return None
 
 
@@ -493,8 +512,15 @@ def _try_redirect_dine_flash_hashed_qr(request):
     if len(received_data) != 64:
         return HttpResponseBadRequest("Invalid QR link.")
 
+    logger.info(
+        "[dine_flash_hashed_qr] hashed QR branch started | path=%s hash_length=%s",
+        request.path,
+        len(received_data),
+    )
+
     payload = _resolve_dine_flash_qr_from_hash(received_data, request)
     if payload is None:
+        logger.warning("[dine_flash_hashed_qr] hash resolution failed completely")
         return HttpResponseBadRequest("QR expired. Please scan the new QR code on the TV.")
 
     from django.urls import reverse
@@ -508,6 +534,13 @@ def _try_redirect_dine_flash_hashed_qr(request):
     redirect_url = request.build_absolute_uri(
         f"{reverse('table_booking')}?{urlencode(legacy_params)}"
     )
+    logger.info(
+        "[dine_flash_hashed_qr] redirecting to legacy URL | vendor_id=%s qr_date=%s qr_time=%s redirect_url=%s",
+        payload.vendor_id,
+        payload.qr_date,
+        payload.qr_time,
+        redirect_url,
+    )
     return redirect(redirect_url)
 
 
@@ -519,6 +552,15 @@ def table_booking(request):
     qr_expiry_minutes = 0
 
     if project_name == "dine_flash":
+        if HASHED_QUERY_PARAM in request.GET:
+            received_data_raw = (request.GET.get(HASHED_QUERY_PARAM) or "").strip()
+            logger.info(
+                "[dine_flash_hashed_qr] table_booking received ?data= | path=%s data_exists=%s hash_length=%s",
+                request.path,
+                bool(received_data_raw),
+                len(received_data_raw),
+            )
+
         hashed_qr_response = _try_redirect_dine_flash_hashed_qr(request)
         if hashed_qr_response is not None:
             return hashed_qr_response
@@ -528,6 +570,9 @@ def table_booking(request):
         qr_time = request.GET.get("qr_time")
         qr_session = request.GET.get("qr_session")
         if not vendor_id_from_qr:
+            logger.info(
+                "[dine_flash_hashed_qr] hashed QR processing completed | vendor_id still missing",
+            )
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
         vendor_prefetch = Vendor.objects.select_related("config").filter(
             vendor_id=vendor_id_from_qr
