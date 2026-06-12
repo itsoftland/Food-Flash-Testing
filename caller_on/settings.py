@@ -467,6 +467,9 @@ TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
+# Dine Flash TV QR: must match Android QrPayloadHelper.QR_ENCRYPTION_SECRET
+QR_ENCRYPTION_SECRET = os.getenv("QR_ENCRYPTION_SECRET", "qflash-tv-qr-payload-v1")
+
 # === STATIC & MEDIA FILES ===
 STATIC_URL = "/"+PROJECT_NAME +'/static/'
 # To support project-level static

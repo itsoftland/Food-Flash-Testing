@@ -518,11 +518,31 @@ class DineFlashHomeTrackingTokenTests(SimpleTestCase):
         self.assertIn(b"Invalid tracking link", response.content)
 
 
-class QrValidationTests(SimpleTestCase):
-    def test_build_qr_hash_and_resolve_known_vector(self):
+def _encrypt_qr_payload_for_test(params, *, iv=None, secret=None):
+    import base64
+
+    from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    from orders.dine_flash.qr_crypto import _derive_aes_key, canonical_query_string
+
+    plain = canonical_query_string(params)
+    key = _derive_aes_key(secret)
+    iv_bytes = iv or (b"\x11" * 16)
+    padder = padding.PKCS7(128).padder()
+    padded = padder.update(plain.encode("utf-8")) + padder.finalize()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv_bytes))
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(padded) + encryptor.finalize()
+    raw = iv_bytes + ciphertext
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+class QrCryptoTests(SimpleTestCase):
+    def test_legacy_hash_resolve_with_vendor_hint(self):
         from datetime import datetime
 
-        from orders.dine_flash.qr_validation import build_qr_hash, extract_data_from_url, resolve_qr_data
+        from orders.dine_flash.qr_crypto import build_qr_hash, resolve_legacy_hashed_qr_data
 
         fixed_now = datetime(2026, 6, 11, 18, 13, 37)
         params = {
@@ -533,7 +553,7 @@ class QrValidationTests(SimpleTestCase):
         }
         data = build_qr_hash(params)
 
-        resolved = resolve_qr_data(
+        resolved = resolve_legacy_hashed_qr_data(
             data,
             vendor_id_hint=101,
             qr_expiry_minutes_hint=1,
@@ -545,56 +565,71 @@ class QrValidationTests(SimpleTestCase):
         self.assertEqual(resolved.vendor_id, 101)
         self.assertEqual(resolved.qr_date, "2026-06-11")
         self.assertEqual(resolved.qr_time, "18:13:37")
-        self.assertEqual(resolved.qr_expiry_minutes, 1)
 
-        url = f"https://example.com/dine_flash/table_booking/?data={data}"
-        self.assertEqual(extract_data_from_url(url), data)
-
-    def test_resolve_returns_none_for_malformed_hash(self):
-        from orders.dine_flash.qr_validation import resolve_qr_data
-
-        self.assertIsNone(resolve_qr_data("tooshort", vendor_id_hint=101))
-        self.assertIsNone(resolve_qr_data("", vendor_id_hint=101))
-
-    def test_resolve_returns_none_for_invalid_hash(self):
+    def test_decrypt_qr_data_encrypted_round_trip(self):
         from datetime import datetime
 
-        from orders.dine_flash.qr_validation import resolve_qr_data
+        from orders.dine_flash.qr_crypto import decrypt_qr_data, extract_data_param
 
-        invalid = "a" * 64
-        resolved = resolve_qr_data(
-            invalid,
-            vendor_id_hint=101,
-            qr_expiry_minutes_hint=1,
-            now=datetime(2026, 6, 11, 18, 13, 37),
-            clock_skew_seconds=90,
-        )
-        self.assertIsNone(resolved)
-
-    def test_resolve_returns_none_when_qr_expired(self):
-        from datetime import datetime, timedelta
-
-        from orders.dine_flash.qr_validation import build_qr_hash, resolve_qr_data
-
-        issued_at = datetime(2026, 6, 11, 18, 0, 0)
+        fixed_now = datetime(2026, 6, 11, 18, 13, 37)
         params = {
             "vendor_id": "101",
-            "qr_date": issued_at.strftime("%Y-%m-%d"),
-            "qr_time": issued_at.strftime("%H:%M:%S"),
+            "qr_date": "2026-06-11",
+            "qr_time": "18:13:37",
+            "qr_expiry_minutes": "5",
+        }
+        encrypted = _encrypt_qr_payload_for_test(params)
+        resolved = decrypt_qr_data(encrypted, now=fixed_now)
+
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.vendor_id, 101)
+        self.assertEqual(resolved.qr_expiry_minutes, 5)
+
+        url = f"https://example.com/dine_flash/table_booking/?data={encrypted}"
+        self.assertEqual(extract_data_param(url), encrypted)
+
+    def test_decrypt_qr_data_legacy_auto_detect(self):
+        from datetime import datetime
+
+        from orders.dine_flash.qr_crypto import build_qr_hash, decrypt_qr_data
+
+        fixed_now = datetime(2026, 6, 11, 18, 13, 37)
+        params = {
+            "qr_date": "2026-06-11",
+            "qr_time": "18:13:37",
             "qr_expiry_minutes": "1",
         }
         data = build_qr_hash(params)
-        now = issued_at + timedelta(minutes=2)
+        resolved = decrypt_qr_data(data, now=fixed_now)
 
-        self.assertIsNone(
-            resolve_qr_data(
-                data,
-                vendor_id_hint=101,
-                qr_expiry_minutes_hint=1,
-                now=now,
-                clock_skew_seconds=90,
-            )
-        )
+        self.assertIsNotNone(resolved)
+        self.assertIsNone(resolved.vendor_id)
+
+    def test_decrypt_qr_data_returns_none_for_empty_or_invalid(self):
+        from datetime import datetime
+
+        from orders.dine_flash.qr_crypto import decrypt_qr_data
+
+        self.assertIsNone(decrypt_qr_data("", now=datetime(2026, 6, 11, 18, 13, 37)))
+        self.assertIsNone(decrypt_qr_data("not-valid-base64", now=datetime(2026, 6, 11, 18, 13, 37)))
+        self.assertIsNone(decrypt_qr_data("a" * 64, now=datetime(2026, 6, 11, 18, 13, 37)))
+
+    def test_decrypt_qr_data_returns_none_when_expired(self):
+        from datetime import datetime, timedelta
+
+        from orders.dine_flash.qr_crypto import decrypt_qr_data
+
+        fixed_now = datetime(2026, 6, 11, 18, 0, 0)
+        params = {
+            "vendor_id": "101",
+            "qr_date": fixed_now.strftime("%Y-%m-%d"),
+            "qr_time": fixed_now.strftime("%H:%M:%S"),
+            "qr_expiry_minutes": "1",
+        }
+        encrypted = _encrypt_qr_payload_for_test(params)
+        now = fixed_now + timedelta(minutes=2)
+
+        self.assertIsNone(decrypt_qr_data(encrypted, now=now))
 
 
 class DineFlashHashedQrTableBookingTests(SimpleTestCase):
@@ -614,13 +649,11 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
     @override_settings(PROJECT_NAME="dine_flash")
     @patch("orders.views.render")
     @patch("orders.views._validate_dine_flash_qr_time")
-    @patch("orders.views._get_dine_flash_qr_expiry_minutes", return_value=1)
     @patch("orders.views.Vendor.objects")
     @patch("orders.views.project_name", "dine_flash")
-    def test_table_booking_accepts_hashed_qr_without_redirect(
+    def test_table_booking_accepts_encrypted_qr(
         self,
         mock_vendor_objects,
-        mock_get_expiry,
         mock_validate_qr_time,
         mock_render,
     ):
@@ -629,7 +662,6 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
         from django.http import HttpResponse
         from django.test import RequestFactory
 
-        from orders.dine_flash.qr_validation import build_qr_hash
         from orders.views import table_booking
 
         mock_validate_qr_time.return_value = (True, None)
@@ -641,17 +673,16 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
             "qr_time": "18:13:37",
             "qr_expiry_minutes": "1",
         }
-        data_hash = build_qr_hash(params)
+        encrypted = _encrypt_qr_payload_for_test(params)
 
         vendor = self._vendor(101)
-        mock_vendor_objects.values_list.return_value = [101]
         mock_vendor_objects.select_related.return_value.filter.return_value.first.return_value = (
             vendor
         )
         mock_render.return_value = HttpResponse("ok")
 
         with patch("orders.views.timezone.localtime", return_value=fixed_now):
-            request = RequestFactory().get(f"/dine_flash/table_booking/?data={data_hash}")
+            request = RequestFactory().get(f"/dine_flash/table_booking/?data={encrypted}")
             response = table_booking(request)
 
         self.assertEqual(response.status_code, 200)
@@ -662,13 +693,10 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
         self.assertEqual(context["QR_TIME"], "18:13:37")
 
     @patch("orders.views.project_name", "dine_flash")
-    @patch("orders.views.Vendor.objects")
-    def test_table_booking_rejects_invalid_hash(self, mock_vendor_objects):
+    def test_table_booking_rejects_invalid_hash(self):
         from django.test import RequestFactory
 
         from orders.views import table_booking
-
-        mock_vendor_objects.values_list.return_value = [101]
 
         invalid_hash = "b" * 64
         request = RequestFactory().get(f"/dine_flash/table_booking/?data={invalid_hash}")
@@ -678,7 +706,7 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
         self.assertIn(b"QR expired", response.content)
 
     @patch("orders.views.project_name", "dine_flash")
-    def test_table_booking_rejects_malformed_hash(self):
+    def test_table_booking_rejects_unreadable_data(self):
         from django.test import RequestFactory
 
         from orders.views import table_booking
@@ -687,7 +715,7 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
         response = table_booking(request)
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn(b"Invalid QR link", response.content)
+        self.assertIn(b"QR expired", response.content)
 
     @patch("orders.views.render")
     @patch("orders.views.project_name", "food_flash")
@@ -695,7 +723,6 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
         from django.http import HttpResponse
         from django.test import RequestFactory
 
-        from orders.dine_flash.qr_validation import build_qr_hash
         from orders.views import table_booking
 
         mock_render.return_value = HttpResponse("ok")
@@ -706,8 +733,8 @@ class DineFlashHashedQrTableBookingTests(SimpleTestCase):
             "qr_time": "18:13:37",
             "qr_expiry_minutes": "1",
         }
-        data_hash = build_qr_hash(params)
-        request = RequestFactory().get(f"/food_flash/table_booking/?data={data_hash}")
+        encrypted = _encrypt_qr_payload_for_test(params)
+        request = RequestFactory().get(f"/food_flash/table_booking/?data={encrypted}")
         response = table_booking(request)
 
         self.assertEqual(response.status_code, 200)

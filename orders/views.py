@@ -34,7 +34,7 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
-from .dine_flash.qr_validation import extract_data_from_url, resolve_qr_data
+from .dine_flash.qr_crypto import decrypt_qr_from_request, extract_data_param
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -444,54 +444,6 @@ def public_register(request):
     return render(request, 'orders/public_register.html', context)
 
 
-def _extract_dine_flash_qr_data_hex(request):
-    """Dine Flash only: read SHA256 `data` from ?url= scanned link or ?data= query param."""
-    scanned_url = request.GET.get("url", "")
-    if scanned_url:
-        return extract_data_from_url(scanned_url)
-    return (request.GET.get("data") or "").strip()
-
-
-def _resolve_dine_flash_hashed_qr(data_hex, request):
-    """
-    Dine Flash only: recover QR payload using Android-team qr_validation.resolve_qr_data().
-    """
-    vendor_id_hint_raw = request.GET.get("vendor_id")
-    vendor_id_hint = (
-        int(vendor_id_hint_raw)
-        if vendor_id_hint_raw and str(vendor_id_hint_raw).isdigit()
-        else None
-    )
-    now = timezone.localtime()
-
-    if vendor_id_hint:
-        return resolve_qr_data(
-            data_hex,
-            vendor_id_hint=vendor_id_hint,
-            qr_expiry_minutes_hint=_get_dine_flash_qr_expiry_minutes(vendor_id_hint),
-            now=now,
-            clock_skew_seconds=90,
-        )
-
-    for vid in Vendor.objects.values_list("vendor_id", flat=True):
-        payload = resolve_qr_data(
-            data_hex,
-            vendor_id_hint=vid,
-            qr_expiry_minutes_hint=_get_dine_flash_qr_expiry_minutes(vid),
-            now=now,
-            clock_skew_seconds=90,
-        )
-        if payload:
-            return payload
-
-    return resolve_qr_data(
-        data_hex,
-        qr_expiry_minutes_hint=1,
-        now=now,
-        clock_skew_seconds=90,
-    )
-
-
 def table_booking(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
@@ -501,6 +453,7 @@ def table_booking(request):
     vendor_id_from_qr = None
     resolved_qr_date = ""
     resolved_qr_time = ""
+    resolved_qr_expiry_minutes = 0
 
     if project_name == "dine_flash":
         vendor_id_from_qr = request.GET.get("vendor_id")
@@ -509,15 +462,37 @@ def table_booking(request):
         qr_session = request.GET.get("qr_session")
 
         if not qr_session:
-            data_hex = _extract_dine_flash_qr_data_hex(request)
-            if data_hex:
-                if len(data_hex) != 64:
-                    return HttpResponseBadRequest("Invalid QR link.")
-                payload = _resolve_dine_flash_hashed_qr(data_hex, request)
+            scanned_url = request.GET.get("url", "")
+            data_value = extract_data_param(scanned_url) if scanned_url else extract_data_param(request)
+            if data_value:
+                data_preview = (
+                    f"{data_value[:8]}...{data_value[-8:]}"
+                    if len(data_value) > 16
+                    else data_value
+                )
+                logger.info(
+                    "[dine_flash_qr] before decrypt | data=%s data_length=%s remote_addr=%s",
+                    data_preview,
+                    len(data_value),
+                    request.META.get("REMOTE_ADDR"),
+                )
+                payload = decrypt_qr_from_request(request)
                 if payload is None:
+                    logger.warning(
+                        "[dine_flash_qr] after decrypt failed | reason=unresolved_or_expired data_length=%s",
+                        len(data_value),
+                    )
                     return HttpResponseBadRequest(
                         "QR expired. Please scan the new QR code on the TV."
                     )
+                resolved_qr_expiry_minutes = max(1, int(payload.qr_expiry_minutes or 1))
+                logger.info(
+                    "[dine_flash_qr] after decrypt | vendor_id=%s qr_date=%s qr_time=%s qr_expiry_minutes=%s",
+                    payload.vendor_id,
+                    payload.qr_date,
+                    payload.qr_time,
+                    payload.qr_expiry_minutes,
+                )
                 if payload.vendor_id is not None:
                     vendor_id_from_qr = str(payload.vendor_id)
                 qr_date = payload.qr_date
@@ -530,9 +505,15 @@ def table_booking(request):
         vendor_prefetch = Vendor.objects.select_related("config").filter(
             vendor_id=vendor_id_from_qr
         ).first()
-        qr_expiry_minutes = max(
-            1, _get_dine_flash_qr_expiry_minutes(vendor_id_from_qr, vendor_prefetched=vendor_prefetch)
-        )
+        if resolved_qr_expiry_minutes:
+            qr_expiry_minutes = resolved_qr_expiry_minutes
+        else:
+            qr_expiry_minutes = max(
+                1,
+                _get_dine_flash_qr_expiry_minutes(
+                    vendor_id_from_qr, vendor_prefetched=vendor_prefetch
+                ),
+            )
         if qr_session:
             ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id_from_qr)
         else:

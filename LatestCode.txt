@@ -1,0 +1,72 @@
+1. Install dependency
+===============================
+pip install cryptography
+
+
+2. settings.py
+===============================
+QR_ENCRYPTION_SECRET = "qflash-tv-qr-payload-v1"  # must match Android
+TIME_ZONE = "Asia/Kolkata"
+USE_TZ = True
+
+
+3. Copy crypto module into your app
+====================================
+ dine_flash/qr_crypto.py
+
+
+
+# dine_flash/qr_crypto.py  (from scripts/qr_django_validation_reference.py)
+from django.utils import timezone
+from dine_flash.qr_crypto import decrypt_qr_from_request, decrypt_qr_data, extract_data_param
+# Option A — user opens scanned URL in browser (most common)
+payload = decrypt_qr_from_request(request)
+# Option B — you have the full scanned URL string
+url = "https://py.softlandindia.net/dine_flash/table_booking/?data=AbCdEf..."
+payload = decrypt_qr_data(url, now=timezone.localtime())
+# Option C — you already have only the data value
+data_value = request.GET.get("data", "")
+payload = decrypt_qr_data(data_value, now=timezone.localtime())
+
+
+
+
+4. Django view
+===================
+# dine_flash/views.py
+from django.http import HttpRequest, JsonResponse
+from django.views import View
+from django.utils import timezone
+from .qr_crypto import decrypt_qr_data, extract_data_param, qr_payload_to_dict
+def table_booking_view(request: HttpRequest):
+  """
+  Handles:
+    /dine_flash/table_booking/?data=<encrypted-base64url>
+  """
+  data_value = extract_data_param(request)
+  if not data_value:
+      return JsonResponse({"valid": False, "error": "Missing data parameter"}, status=400)
+  now = timezone.localtime()
+  if timezone.is_aware(now):
+      now = timezone.make_naive(now, timezone.get_current_timezone())
+  payload = decrypt_qr_data(data_value, now=now)
+  if payload is None:
+      return JsonResponse(
+          {"valid": False, "error": "Invalid, expired, or unreadable QR data"},
+          status=403,
+      )
+  vendor_id = payload.vendor_id
+  qr_date = payload.qr_date
+  qr_time = payload.qr_time
+  qr_expiry_minutes = payload.qr_expiry_minutes
+  # your booking logic here using vendor_id, etc.
+  return JsonResponse({"valid": True, **qr_payload_to_dict(payload)})
+  
+  
+Or use the class-based view from scripts/django_table_booking_view_example.py:
+
+
+from dine_flash.views import TableBookingView
+urlpatterns = [
+    path("dine_flash/table_booking/", TableBookingView.as_view(), name="table_booking"),
+]
