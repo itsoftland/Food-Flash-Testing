@@ -34,6 +34,7 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
+from .qr_crypto import HASHED_QUERY_PARAM, resolve_qr_data
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -442,6 +443,74 @@ def public_register(request):
 
     return render(request, 'orders/public_register.html', context)
 
+
+def _dine_flash_qr_hash_expiry_options(vendor_id, vendor_prefetched=None):
+    """Expiry minute values to try when reconstructing a hashed Dine Flash TV QR."""
+    expiry = _get_dine_flash_qr_expiry_minutes(vendor_id, vendor_prefetched=vendor_prefetched)
+    if expiry <= 0:
+        return [0]
+    return [max(1, int(expiry))]
+
+
+def _resolve_dine_flash_qr_from_hash(received_data, request):
+    """
+    Dine Flash only: recover vendor_id / qr_date / qr_time from ?data=<sha256-hex>.
+    Returns ResolvedQrPayload or None.
+    """
+    vendor_id_hint = request.GET.get("vendor_id")
+    now = timezone.localtime(timezone.now())
+
+    if vendor_id_hint:
+        vendor_qs = Vendor.objects.select_related("config").filter(vendor_id=vendor_id_hint)
+    else:
+        vendor_qs = Vendor.objects.select_related("config").all()
+
+    for vendor in vendor_qs:
+        vid = vendor.vendor_id
+        payload = resolve_qr_data(
+            received_data,
+            vendor_ids=[vid],
+            expiry_minutes_options=_dine_flash_qr_hash_expiry_options(vid, vendor_prefetched=vendor),
+            extra_params={},
+            now=now,
+        )
+        if payload:
+            return payload
+    return None
+
+
+def _try_redirect_dine_flash_hashed_qr(request):
+    """
+    When ?data=<hash> is present, reconstruct legacy QR params and redirect.
+    Returns an HttpResponse to send, or None to continue the normal table_booking flow.
+    """
+    received_data = (request.GET.get(HASHED_QUERY_PARAM) or "").strip()
+    if not received_data:
+        return None
+    if request.GET.get("qr_session"):
+        return None
+
+    if len(received_data) != 64:
+        return HttpResponseBadRequest("Invalid QR link.")
+
+    payload = _resolve_dine_flash_qr_from_hash(received_data, request)
+    if payload is None:
+        return HttpResponseBadRequest("QR expired. Please scan the new QR code on the TV.")
+
+    from django.urls import reverse
+    from urllib.parse import urlencode
+
+    legacy_params = {
+        "vendor_id": str(payload.vendor_id),
+        "qr_date": payload.qr_date,
+        "qr_time": payload.qr_time,
+    }
+    redirect_url = request.build_absolute_uri(
+        f"{reverse('table_booking')}?{urlencode(legacy_params)}"
+    )
+    return redirect(redirect_url)
+
+
 def table_booking(request):
     if request.method != "GET":
         return HttpResponseBadRequest("Invalid request method.")
@@ -450,6 +519,10 @@ def table_booking(request):
     qr_expiry_minutes = 0
 
     if project_name == "dine_flash":
+        hashed_qr_response = _try_redirect_dine_flash_hashed_qr(request)
+        if hashed_qr_response is not None:
+            return hashed_qr_response
+
         vendor_id_from_qr = request.GET.get("vendor_id")
         qr_date = request.GET.get("qr_date")
         qr_time = request.GET.get("qr_time")

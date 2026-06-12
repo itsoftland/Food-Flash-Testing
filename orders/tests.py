@@ -516,3 +516,148 @@ class DineFlashHomeTrackingTokenTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Invalid tracking link", response.content)
+
+
+class QrCryptoTests(SimpleTestCase):
+    def test_build_qr_hash_known_vector(self):
+        from datetime import datetime
+
+        from orders.qr_crypto import build_qr_hash, resolve_qr_data
+
+        params = {
+            "vendor_id": "101",
+            "qr_date": "2026-06-11",
+            "qr_time": "18:13:37",
+            "qr_expiry_minutes": "1",
+        }
+        data = build_qr_hash(params)
+
+        resolved = resolve_qr_data(
+            data,
+            vendor_ids=[101],
+            expiry_minutes_options=[1],
+            now=datetime(2026, 6, 11, 18, 13, 37),
+        )
+
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.vendor_id, 101)
+        self.assertEqual(resolved.qr_date, "2026-06-11")
+        self.assertEqual(resolved.qr_time, "18:13:37")
+        self.assertEqual(resolved.qr_expiry_minutes, 1)
+
+    def test_resolve_returns_none_for_malformed_hash(self):
+        from orders.qr_crypto import resolve_qr_data
+
+        self.assertIsNone(resolve_qr_data("tooshort", vendor_ids=[101]))
+        self.assertIsNone(resolve_qr_data("", vendor_ids=[101]))
+
+    def test_resolve_returns_none_for_invalid_hash(self):
+        from datetime import datetime
+
+        from orders.qr_crypto import resolve_qr_data
+
+        invalid = "a" * 64
+        resolved = resolve_qr_data(
+            invalid,
+            vendor_ids=[101],
+            expiry_minutes_options=[1],
+            now=datetime(2026, 6, 11, 18, 13, 37),
+        )
+        self.assertIsNone(resolved)
+
+
+class DineFlashHashedQrTableBookingTests(SimpleTestCase):
+    def _vendor(self, vendor_id=101):
+        return SimpleNamespace(
+            vendor_id=vendor_id,
+            config=SimpleNamespace(qr_expiry_minutes=1, use_utilities=False, phone_number_enabled=False),
+        )
+
+    @patch("orders.views.project_name", "dine_flash")
+    @patch("orders.views._get_dine_flash_qr_expiry_minutes", return_value=1)
+    @patch("orders.views.Vendor.objects")
+    def test_table_booking_redirects_hashed_qr_to_legacy_url(
+        self, mock_vendor_objects, mock_expiry
+    ):
+        from datetime import datetime
+
+        from django.test import RequestFactory
+
+        from orders.qr_crypto import build_qr_hash
+        from orders.views import table_booking
+
+        fixed_now = datetime(2026, 6, 11, 18, 13, 37)
+        params = {
+            "vendor_id": "101",
+            "qr_date": "2026-06-11",
+            "qr_time": "18:13:37",
+            "qr_expiry_minutes": "1",
+        }
+        data_hash = build_qr_hash(params)
+
+        vendor = self._vendor(101)
+        mock_vendor_objects.select_related.return_value.all.return_value = [vendor]
+
+        with patch("orders.views.timezone.localtime", return_value=fixed_now):
+            request = RequestFactory().get(f"/dine_flash/table_booking/?data={data_hash}")
+            response = table_booking(request)
+
+        self.assertEqual(response.status_code, 302)
+        location = response["Location"]
+        self.assertIn("vendor_id=101", location)
+        self.assertIn("qr_date=2026-06-11", location)
+        self.assertIn("qr_time=18%3A13%3A37", location)
+        self.assertNotIn("data=", location)
+
+    @patch("orders.views.project_name", "dine_flash")
+    @patch("orders.views.Vendor.objects")
+    def test_table_booking_rejects_invalid_hash(self, mock_vendor_objects):
+        from django.test import RequestFactory
+
+        from orders.views import table_booking
+
+        vendor = self._vendor(101)
+        mock_vendor_objects.select_related.return_value.all.return_value = [vendor]
+
+        invalid_hash = "b" * 64
+        request = RequestFactory().get(f"/dine_flash/table_booking/?data={invalid_hash}")
+        response = table_booking(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"QR expired", response.content)
+
+    @patch("orders.views.project_name", "dine_flash")
+    def test_table_booking_rejects_malformed_hash(self):
+        from django.test import RequestFactory
+
+        from orders.views import table_booking
+
+        request = RequestFactory().get("/dine_flash/table_booking/?data=abc123")
+        response = table_booking(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Invalid QR link", response.content)
+
+    @patch("orders.views.render")
+    @patch("orders.views.project_name", "food_flash")
+    def test_table_booking_ignores_hash_on_non_dine_flash(self, mock_render):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        from orders.qr_crypto import build_qr_hash
+        from orders.views import table_booking
+
+        mock_render.return_value = HttpResponse("ok")
+
+        params = {
+            "vendor_id": "101",
+            "qr_date": "2026-06-11",
+            "qr_time": "18:13:37",
+            "qr_expiry_minutes": "1",
+        }
+        data_hash = build_qr_hash(params)
+        request = RequestFactory().get(f"/food_flash/table_booking/?data={data_hash}")
+        response = table_booking(request)
+
+        self.assertEqual(response.status_code, 200)
+        mock_render.assert_called_once()
