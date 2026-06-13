@@ -173,6 +173,124 @@ html, body {
     width: 100px; min-width: 100px; max-width: 100px;
 }   /* Order Details */
 
+/* -------------------------------------------------------------------------
+   Dine Flash Buffet only: 6-column layout (Table No, no status/counter/device/ready).
+   Scoped to .table-wrapper--dine-flash-buffet so other flavours are unaffected.
+   ------------------------------------------------------------------------- */
+.table-wrapper--dine-flash-buffet .table-header th {
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: keep-all;
+    overflow: visible;
+    text-overflow: clip;
+    vertical-align: top;
+    line-height: 1.2;
+}
+
+.table-wrapper--dine-flash-buffet .table-body-container td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(1),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(1) {
+    width: 40px; min-width: 40px; max-width: 40px;
+}   /* Id */
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(2),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(2) {
+    width: 65px; min-width: 65px; max-width: 65px;
+}   /* Token No */
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(3),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(3) {
+    width: 110px; min-width: 110px; max-width: 110px;
+}   /* Table No */
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(4),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(4) {
+    width: 180px; min-width: 180px; max-width: 180px;
+}   /* Outlet Name */
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(5),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(5) {
+    width: 140px; min-width: 140px; max-width: 140px;
+}   /* Created Time */
+
+.table-wrapper--dine-flash-buffet .table-header th:nth-child(6),
+.table-wrapper--dine-flash-buffet .table-body-container td:nth-child(6) {
+    width: 100px; min-width: 100px; max-width: 100px;
+}   /* Order Details */
+
+/* Buffet order utilities detail modal */
+.buffet-order-utilities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.buffet-utility-detail-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: #fafafa;
+}
+
+.buffet-utility-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.buffet-utility-name {
+    margin: 0;
+    font-weight: 700;
+    color: #333;
+}
+
+.buffet-utility-qty {
+    font-size: 0.85rem;
+    color: #666;
+    background: #eee;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.buffet-utility-detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+}
+
+.buffet-utility-label {
+    color: #666;
+}
+
+.buffet-utility-status {
+    font-weight: 600;
+    color: #d97a1f;
+    text-transform: capitalize;
+}
+
+.buffet-utility-time {
+    font-weight: 500;
+    color: #333;
+    text-align: right;
+}
+
+.buffet-utility-meta {
+    font-size: 0.88rem;
+    color: #555;
+    margin-top: 6px;
+}
+
 /* Cell content styling */
 .table-body-container td {
     overflow: hidden;

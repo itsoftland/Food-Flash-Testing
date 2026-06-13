@@ -31,7 +31,7 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AndroidAPK,VendorConfig,
                             OrderStatusHistory,ArchivedOrderStatusHistory,
                             Utility,TVDeviceConfig,UtilityOption,
-                            TVAdvertisement,BuffetOrderItem)
+                            TVAdvertisement,BuffetOrderItem,ChatMessage)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import (
@@ -1727,6 +1727,163 @@ def order_status_timeline(request, order_id):
     # ✅ Step 5: Serialize combined data
     serializer = OrderStatusHistorySerializer(combined_history, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def _buffet_item_status_history_from_chat(booking_id, vendor_id):
+    """
+    Dine Flash Buffet: derive per-line status history from system ChatMessage rows
+    (each buffet_item_update is recorded when kitchen/manager changes item status).
+    Returns item_id -> {status, changed_at, item_name, customizations, remarks}.
+    """
+    history = {}
+    messages = ChatMessage.objects.filter(
+        booking_id=booking_id,
+        vendor_id=vendor_id,
+        sender='system',
+    ).order_by('-created_at')
+
+    for msg in messages:
+        if not msg.message_text:
+            continue
+        try:
+            payload = json.loads(msg.message_text)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if payload.get('type') != 'buffet_item_update':
+            continue
+        raw_item_id = payload.get('item_id')
+        if raw_item_id is None:
+            continue
+        try:
+            item_id = int(raw_item_id)
+        except (TypeError, ValueError):
+            continue
+        if item_id in history:
+            continue
+        history[item_id] = {
+            'status': payload.get('status'),
+            'changed_at': msg.created_at,
+            'item_name': payload.get('item_name'),
+            'customizations': payload.get('customizations') if isinstance(payload.get('customizations'), list) else [],
+            'remarks': (payload.get('remarks') or '').strip(),
+        }
+    return history
+
+
+def _buffet_latest_status_change_at(item, chat_history):
+    """
+    Latest status change time for a buffet line.
+    - created (no chat transition yet): item.created_at
+    - all other statuses: most recent buffet_item_update ChatMessage, with
+      updated_at fallback when chat is missing but a status save occurred.
+    """
+    entry = chat_history.get(item.id)
+    if entry and entry.get('changed_at'):
+        return entry['changed_at']
+    status = (item.status or '').strip().lower()
+    if status == 'created':
+        return item.created_at
+    if item.updated_at and item.created_at and item.updated_at > item.created_at:
+        return item.updated_at
+    return None
+
+
+def _resolve_buffet_order_for_company(order_id, vendors_qs):
+    """
+    Resolve list-row id to the source Order id used by BuffetOrderItem / ChatMessage.
+    Active rows use Order.id; archived rows use ArchivedOrder.original_order_id.
+    """
+    order = (
+        Order.objects.filter(id=order_id, vendor__in=vendors_qs)
+        .select_related('vendor')
+        .first()
+    )
+    if order:
+        return order, order.id, order.token_no, order.table_booking_no, order.vendor
+
+    archived = (
+        ArchivedOrder.objects.filter(id=order_id, vendor__in=vendors_qs)
+        .select_related('vendor')
+        .first()
+    )
+    if archived:
+        return None, archived.original_order_id, archived.token_no, None, archived.vendor
+    return None, None, None, None, None
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def buffet_order_utilities_detail(request, order_id):
+    """
+    Dine Flash Buffet company Order Details: utilities/services for one order.
+    Each BuffetOrderItem is returned separately with current status and latest
+    status change time (ChatMessage for transitions; created_at when still created).
+    """
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        admin_outlet = request.user.admin_outlet
+    except AttributeError:
+        return Response({"error": "Admin outlet not linked to this user."}, status=403)
+
+    vendors_qs = admin_outlet.vendors.all()
+    order, source_order_id, token_no, table_booking_no, vendor = _resolve_buffet_order_for_company(
+        order_id, vendors_qs
+    )
+    if source_order_id is None or vendor is None:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    chat_history = _buffet_item_status_history_from_chat(source_order_id, vendor.id)
+
+    if order and table_booking_no is None:
+        table_booking_no = order.table_booking_no
+
+    items = list(
+        BuffetOrderItem.objects.filter(order_id=source_order_id)
+        .select_related('utility')
+        .order_by('utility_id', 'id')
+    )
+
+    utilities = []
+    if items:
+        for item in items:
+            latest_change = _buffet_latest_status_change_at(item, chat_history)
+            customizations = item.customizations if isinstance(item.customizations, list) else []
+            utilities.append({
+                'id': item.id,
+                'utility_name': item.utility.display_name if item.utility else 'Unknown',
+                'status': item.status,
+                'latest_status_change_at': latest_change.isoformat() if latest_change else None,
+                'quantity': item.quantity,
+                'customizations': customizations,
+                'remarks': (item.remarks or '').strip(),
+                'is_grouped': item.is_grouped,
+            })
+    else:
+        for item_id, entry in sorted(chat_history.items()):
+            changed_at = entry.get('changed_at')
+            utilities.append({
+                'id': item_id,
+                'utility_name': entry.get('item_name') or 'Unknown',
+                'status': entry.get('status') or 'unknown',
+                'latest_status_change_at': changed_at.isoformat() if changed_at else None,
+                'quantity': 1,
+                'customizations': entry.get('customizations') or [],
+                'remarks': entry.get('remarks') or '',
+                'is_grouped': False,
+            })
+
+    if not utilities:
+        return Response({"detail": "No utilities found for this order."}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({
+        'order_id': order_id,
+        'token_no': token_no,
+        'table_booking_no': table_booking_no,
+        'utilities': utilities,
+    }, status=status.HTTP_200_OK)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

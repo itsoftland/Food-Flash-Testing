@@ -66,6 +66,7 @@ urlpatterns = [
     path('api/order_counts_summary/', views.order_counts_summary, name='order_counts_summary'),
     path('api/filtered_orders/', views.filtered_orders, name='get_orders'),
     path('api/order_status_timeline/<int:order_id>/', views.order_status_timeline, name='order_status_timeline'),
+    path('api/buffet_order_utilities/<int:order_id>/', views.buffet_order_utilities_detail, name='buffet_order_utilities_detail'),
     path('api/dashboard_metrics/', views.dashboard_metrics, name='dashboard_metrics'),  
     path('api/license_check/',views.license_check,name='license_check'),
     path('api/update_outlet_settings/',views.update_outlet_settings,name='update_outlet_settings'),

@@ -101,7 +101,7 @@
         </form>
 
         <!-- Enhanced scrollable table -->
-        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash' or PROJECT_NAME == 'dine_flash_buffet' %} table-wrapper--dine-flash{% endif %}">
+        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash_buffet' %} table-wrapper--dine-flash-buffet{% elif PROJECT_NAME == 'dine_flash' %} table-wrapper--dine-flash{% endif %}">
             <!-- Static header -->
             <div class="table-header">
                 <table class="table table-bordered bg-light-gray mb-0">
@@ -114,12 +114,18 @@
                             {% elif PROJECT_NAME == "dine_flash_buffet" %}
                             <th>Table No</th>
                             {% endif %}
+                            {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Current Status</th>
                             <th>Counter No</th>
+                            {% endif %}
                             <th>Outlet Name</th>
+                            {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Device No</th>
+                            {% endif %}
                             <th>Created Time</th>
+                            {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Ready Time</th>
+                            {% endif %}
                             <th>Order Details</th>
                         </tr>
                     </thead>

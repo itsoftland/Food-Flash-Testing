@@ -138,6 +138,112 @@ document.addEventListener('DOMContentLoaded', async () => {
     modal.querySelector('.modal-dialog').style.width = newWidth + 'px';
   }
 
+  function formatDateTime(isoString) {
+    if (!isoString) return "N/A";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  }
+
+  function formatCustomizations(customizations) {
+    if (!Array.isArray(customizations) || customizations.length === 0) return "";
+    const text = customizations.map((c) => String(c).trim()).filter(Boolean).join(", ");
+    return text ? `<div class="buffet-utility-meta"><strong>Customizations:</strong> ${text}</div>` : "";
+  }
+
+  function formatRemarks(remarks) {
+    const text = (remarks || "").trim();
+    return text ? `<div class="buffet-utility-meta"><strong>Remarks:</strong> ${text}</div>` : "";
+  }
+
+  function restoreTimelineModalLayout() {
+    const modal = document.getElementById('timelineModal');
+    if (!modal) return;
+    modal.querySelector('.modal-dialog').classList.add('custom-timeline-modal');
+    modal.querySelector('.modal-dialog').style.width = '';
+    const titleEl = modal.querySelector('.modal-title');
+    if (titleEl) titleEl.textContent = 'Order Timeline';
+    const bodyEl = modal.querySelector('.modal-body');
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <div class="timeline-container">
+          <div class="timeline-track"></div>
+        </div>
+      `;
+    }
+  }
+
+  async function showBuffetOrderUtilities(orderId) {
+    const url = `${API_ENDPOINTS.BUFFET_ORDER_UTILITIES}${orderId}/`;
+
+    try {
+      const res = await fetchWithAutoRefresh(url);
+      const payload = await res.json();
+
+      if (!res.ok) {
+        alert(payload.detail || "No utilities found for this order.");
+        return;
+      }
+
+      const utilities = Array.isArray(payload.utilities) ? payload.utilities : [];
+      if (!utilities.length) {
+        alert("No utilities found for this order.");
+        return;
+      }
+
+      const modal = document.getElementById('timelineModal');
+      modal.querySelector('.modal-dialog').classList.remove('custom-timeline-modal');
+      modal.querySelector('.modal-dialog').style.width = '';
+
+      const titleParts = [`Order #${payload.token_no ?? ""}`];
+      if (payload.table_booking_no) {
+        titleParts.push(`Table ${payload.table_booking_no}`);
+      }
+      modal.querySelector('.modal-title').textContent = `Order Utilities — ${titleParts.join(" · ")}`;
+
+      const cardsHtml = utilities.map((utility) => {
+        const status = (utility.status || "unknown").toUpperCase();
+        const qtyBadge = utility.is_grouped && utility.quantity > 1
+          ? `<span class="buffet-utility-qty">Qty: ${utility.quantity}</span>`
+          : (utility.quantity > 1 ? `<span class="buffet-utility-qty">Qty: ${utility.quantity}</span>` : "");
+
+        return `
+          <div class="buffet-utility-detail-card">
+            <div class="buffet-utility-detail-header">
+              <h6 class="buffet-utility-name">${utility.utility_name || "Unknown"}</h6>
+              ${qtyBadge}
+            </div>
+            <div class="buffet-utility-detail-row">
+              <span class="buffet-utility-label">Current Status</span>
+              <span class="buffet-utility-status">${status}</span>
+            </div>
+            <div class="buffet-utility-detail-row">
+              <span class="buffet-utility-label">Latest Status Change</span>
+              <span class="buffet-utility-time">${formatDateTime(utility.latest_status_change_at)}</span>
+            </div>
+            ${formatCustomizations(utility.customizations)}
+            ${formatRemarks(utility.remarks)}
+          </div>
+        `;
+      }).join("");
+
+      modal.querySelector('.modal-body').innerHTML = `
+        <div class="buffet-order-utilities-list">${cardsHtml}</div>
+      `;
+
+      const utilitiesModal = bootstrap.Modal.getOrCreateInstance(modal, {
+        backdrop: 'static',
+        keyboard: false
+      });
+      modal.addEventListener('hidden.bs.modal', restoreTimelineModalLayout, { once: true });
+      utilitiesModal.show();
+
+    } catch (error) {
+      console.error("Failed to load order utilities:", error);
+      alert("Failed to load order utilities. See console for details.");
+    }
+  }
+
   async function showOrderTimeline(orderId) {
     const url = `${API_ENDPOINTS.ORDER_TIMELINE}${orderId}/`;
 
@@ -150,8 +256,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      restoreTimelineModalLayout();
+
       const timelineHtml = timeline.map((item, index) => {
-        const prevStatus = index > 0 ? timeline[index - 1].new_status : "Created";
         const changedBy = item.changed_by || "System";
         const readableTime = timeAgo(new Date(item.changed_at));
         
@@ -167,10 +274,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).join("");
 
       document.querySelector("#timelineModal .timeline-track").innerHTML = timelineHtml;
-      // Call this after timeline items are inserted
       adjustModalWidth();
 
-      const timelineModal = new bootstrap.Modal(document.getElementById('timelineModal'), {
+      const timelineModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('timelineModal'), {
         backdrop: 'static',
         keyboard: false
       });
@@ -212,10 +318,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isDineFlashBuffet = window.PROJECT_NAME === "dine_flash_buffet";
   const showTableBookingCol = isDineFlash || isDineFlashBuffet;
 
+  function getTableColCount() {
+    if (isDineFlashBuffet) return 6;
+    if (showTableBookingCol) return 10;
+    return 9;
+  }
+
   function renderTable(orders) {
     tableBody.innerHTML = "";
 
-    const colCount = showTableBookingCol ? 10 : 9;
+    const colCount = getTableColCount();
 
     if (orders.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center">No orders found.</td></tr>`;
@@ -230,19 +342,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `<td>${order.table_booking_no || "N/A"}</td>`
         : "";
 
+      const statusCells = isDineFlashBuffet
+        ? ""
+        : `
+        <td>${order.status}</td>
+        <td>${order.counter_no}</td>
+      `;
+
+      const deviceCell = isDineFlashBuffet
+        ? ""
+        : `<td>${order.device_name || "Not Assigned"}</td>`;
+
+      const readyCell = isDineFlashBuffet
+        ? ""
+        : `<td>${readyDate ? `${readyDate.toLocaleDateString()}<br>${readyDate.toLocaleTimeString()}` : "N/A"}</td>`;
+
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${index + 1}</td>
         <td>${order.token_no}</td>
         ${bookingCell}
-        <td>${order.status}</td>
-        <td>${order.counter_no}</td>
+        ${statusCells}
         <td>${order.vendor_name || "Not Assigned"}</td>
-        <td>${order.device_name || "Not Assigned"}</td>
+        ${deviceCell}
         <td>${createdDate.toLocaleDateString()}<br>${createdDate.toLocaleTimeString()}</td>
-        <td>${readyDate ? `${readyDate.toLocaleDateString()}<br>${readyDate.toLocaleTimeString()}` : "N/A"}</td>
+        ${readyCell}
         <td>
-          <button class="icon-btn view-timeline-btn" title="View Timeline" data-order-id="${order.id}">
+          <button class="icon-btn view-timeline-btn" title="View Order Details" data-order-id="${order.id}">
             <i class="fa-regular fa-eye"></i>
           </button>
         </td>
@@ -255,7 +381,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll(".view-timeline-btn").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const orderId = e.currentTarget.dataset.orderId;
-        await showOrderTimeline(orderId);
+        if (isDineFlashBuffet) {
+          await showBuffetOrderUtilities(orderId);
+        } else {
+          await showOrderTimeline(orderId);
+        }
       });
     });
   }

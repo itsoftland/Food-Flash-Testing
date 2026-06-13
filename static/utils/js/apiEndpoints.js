@@ -56,6 +56,7 @@ const RELATIVE_API_ENDPOINTS = {
   ORDER_COUNTS_SUMMARY: "company/api/order_counts_summary/",
   FILTERED_ORDERS: "company/api/filtered_orders/",
   ORDER_TIMELINE: "company/api/order_status_timeline/",
+  BUFFET_ORDER_UTILITIES: "company/api/buffet_order_utilities/",
   GET_COMPANIES: "companyadmin/api/company_lists/",
   PRODUCT_REGISTRATION: "companyadmin/api/product-registration/",
   PRODUCT_AUTH_URL: "companyadmin/api/product-authentication/",
