@@ -117,11 +117,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Actions
       const actions = document.createElement('div');
       actions.className = 'banner-actions';
-      actions.innerHTML = `
-        <button onclick="viewBanner('${banner.image_url}')" title="View">
-          <i class="fas fa-eye"></i>
-        </button>
-      `;
+      const viewBtn = document.createElement('button');
+      viewBtn.type = 'button';
+      viewBtn.title = 'View';
+      viewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+      viewBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        viewBanner(banner.image_url);
+      });
+      actions.appendChild(viewBtn);
 
       tile.appendChild(image);
       tile.appendChild(actions);
@@ -193,9 +197,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  window.viewBanner = (url) => {
+  const isDineFlashBannerPreview =
+    window.PROJECT_NAME === 'dine_flash' || window.PROJECT_NAME === 'dine_flash_buffet';
+
+  const viewBanner = (url) => {
     modalImage.src = url;
-    $('#bannerModal').modal('show');
+    const bannerModalEl = document.getElementById('bannerModal');
+    if (!bannerModalEl) return;
+
+    if (isDineFlashBannerPreview) {
+      bootstrap.Modal.getOrCreateInstance(bannerModalEl).show();
+    } else {
+      $('#bannerModal').modal('show');
+    }
   };
 
   window.deleteBanner = async (id) => {
