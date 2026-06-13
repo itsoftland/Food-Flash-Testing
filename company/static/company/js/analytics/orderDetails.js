@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Import modules once
   const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
-  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const apiVersion = window.APP_VERSION ? `?v=${encodeURIComponent(window.APP_VERSION)}` : "";
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js${apiVersion}`);
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
@@ -173,11 +174,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function buffetOrderUtilitiesUrl(orderId) {
+    const base =
+      API_ENDPOINTS.BUFFET_ORDER_UTILITIES ||
+      `${window.BASE}company/api/buffet_order_utilities/`;
+    return `${base}${orderId}/`;
+  }
+
   async function showBuffetOrderUtilities(orderId) {
-    const url = `${API_ENDPOINTS.BUFFET_ORDER_UTILITIES}${orderId}/`;
+    const url = buffetOrderUtilitiesUrl(orderId);
 
     try {
       const res = await fetchWithAutoRefresh(url);
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        console.error("Expected JSON from buffet order utilities API, got:", contentType, url);
+        alert("Failed to load order utilities. The utilities API may be unavailable.");
+        return;
+      }
+
       const payload = await res.json();
 
       if (!res.ok) {
