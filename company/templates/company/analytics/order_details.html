@@ -116,14 +116,16 @@
                             {% endif %}
                             {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Current Status</th>
+                            {% if PROJECT_NAME != "dine_flash" %}
                             <th>Counter No</th>
+                            {% endif %}
                             {% endif %}
                             <th>Outlet Name</th>
                             {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Device No</th>
                             {% endif %}
                             <th>Created Time</th>
-                            {% if PROJECT_NAME != "dine_flash_buffet" %}
+                            {% if PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "dine_flash" %}
                             <th>Ready Time</th>
                             {% endif %}
                             <th>Order Details</th>

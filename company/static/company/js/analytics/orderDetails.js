@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function getTableColCount() {
     if (isDineFlashBuffet) return 6;
-    if (showTableBookingCol) return 10;
+    if (isDineFlash) return 8;
     return 9;
   }
 
@@ -359,7 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const statusCells = isDineFlashBuffet
         ? ""
-        : `
+        : isDineFlash
+          ? `<td>${order.status}</td>`
+          : `
         <td>${order.status}</td>
         <td>${order.counter_no}</td>
       `;
@@ -368,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? ""
         : `<td>${order.device_name || "Not Assigned"}</td>`;
 
-      const readyCell = isDineFlashBuffet
+      const readyCell = (isDineFlashBuffet || isDineFlash)
         ? ""
         : `<td>${readyDate ? `${readyDate.toLocaleDateString()}<br>${readyDate.toLocaleTimeString()}` : "N/A"}</td>`;
 
