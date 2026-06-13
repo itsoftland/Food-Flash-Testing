@@ -171,8 +171,12 @@ def save_subscription(request):
 
             # Dine Flash Buffet: outlets often keep food_flash (or foodflash*) project_code while
             # the customer PWA runs on dine_flash_buffet — same vendor/orders, stricter server slug.
+            # Dine Flash IIS/QC env suffixes (e.g. dineflashiis) use the same pattern but do not
+            # prefix-match dineflashbuffet, so accept the dineflash* family here too.
             v_compact = v_project_norm.replace(" ", "")
-            if not is_match and _is_dine_flash_buffet_server() and v_compact.startswith("foodflash"):
+            if not is_match and _is_dine_flash_buffet_server() and (
+                v_compact.startswith("foodflash") or v_compact.startswith("dineflash")
+            ):
                 is_match = True
 
             if not is_match:
