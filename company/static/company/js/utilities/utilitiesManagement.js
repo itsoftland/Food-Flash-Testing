@@ -204,7 +204,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const statusLabel = utility.is_active ? 'Active' : 'Inactive';
 
       row.innerHTML = `
-        <td class="utility-id-cell">${escapeHtml(String(utility.id))}</td>
         <td>${escapeHtml(utility.utility_name)}</td>
         <td>${escapeHtml(utility.display_name)}</td>
         ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `

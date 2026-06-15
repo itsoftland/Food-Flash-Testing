@@ -72,13 +72,6 @@
   pointer-events: none;
 }
 
-/* Primary key column */
-.utilities-table .utility-id-cell {
-  font-variant-numeric: tabular-nums;
-  color: #6c757d;
-  white-space: nowrap;
-}
-
 /* Utilities Table Container */
 .utilities-table-container {
   background: #fff;
