@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/get_utility_user_devices/', views.get_utility_user_devices, name='get_utility_user_devices'),
     path('api/unmap_utility_user_devices/<device_id>/', views.unmap_utility_user_devices, name='unmap_utility_user_devices'),
     path('api/map_utility_user_devices/<device_id>/', views.map_utility_user_devices, name='map_utility_user_devices'),
+    path('api/release_android_apk/<device_id>/', views.release_android_apk, name='release_android_apk'),
     path('api/map_user/<int:user_id>/', views.map_user, name='map_user'),
     path('api/unmap_user/<int:user_id>/', views.unmap_user, name='unmap_user'),
     path('api/update_user_utilities/', views.update_user_utilities, name='update_user_utilities'),

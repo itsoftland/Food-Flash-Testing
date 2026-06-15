@@ -764,6 +764,42 @@ def unmap_utility_user_devices(request, device_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def release_android_apk(request, device_id):
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    if project not in ("dine_flash", "dine_flash_buffet"):
+        return Response({"error": "Not available for this project."}, status=status.HTTP_403_FORBIDDEN)
+
+    admin_outlet = getattr(request.user, 'admin_outlet', None)
+    if not admin_outlet:
+        return Response({"error": "AdminOutlet not associated with this user."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        apk_device = AndroidAPK.objects.get(id=device_id)
+    except AndroidAPK.DoesNotExist:
+        return Response({"error": "Android APK device not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if apk_device.admin_outlet != admin_outlet:
+        return Response({"error": "You do not have permission to modify this device."}, status=status.HTTP_403_FORBIDDEN)
+
+    device_pk = apk_device.id
+    mac_address = apk_device.mac_address
+    customer_id = admin_outlet.customer_id
+    username = request.user.username
+
+    logger.info(
+        "[APK_RELEASE] Releasing AndroidAPK — device_id=%s mac_address=%s customer_id=%s username=%s",
+        device_pk,
+        mac_address,
+        customer_id,
+        username,
+    )
+
+    apk_device.delete()
+
+    return Response({"message": "Device released successfully."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def map_manager_devices(request, device_id):
     admin_outlet = getattr(request.user, 'admin_outlet', None)
     if not admin_outlet:

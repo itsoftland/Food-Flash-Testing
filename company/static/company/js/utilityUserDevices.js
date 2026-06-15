@@ -17,6 +17,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tableBody = document.getElementById('utility-user-devices-table-body');
   const filterDropdown = document.getElementById('deviceFilter');
+  const showReleaseDevice = (window.PROJECT_NAME || '').trim().toLowerCase() === 'dine_flash_buffet';
+
+  const RELEASE_DEVICE_CONFIRM = {
+    title: 'Release Device',
+    message: 'This will remove device ownership from the current outlet/customer.<br><br>The device will need to be registered again before use.<br><br>Continue?',
+    confirmButtonText: 'Release Device',
+    cancelButtonText: 'Cancel',
+  };
 
   loadDevices('all');
 
@@ -55,6 +63,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const iconClass = isMapped ? 'fa-link-slash' : 'fa-link';
         const iconTitle = isMapped ? 'Unlink Device' : 'Link Device';
         const userClass = isMapped ? 'name' : 'text-muted';
+        const releaseButton = showReleaseDevice ? `
+                <button class="icon-btn icon-release-device"
+                        data-toggle="tooltip"
+                        title="Release Device"
+                        data-id="${device.id}"
+                        data-mac_address="${device.mac_address}">
+                  <i class="fa-solid fa-mobile-screen-button"></i>
+                </button>` : '';
 
         const row = `
           <tr>
@@ -72,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         data-mapped="${isMapped}">
                   <i class="fa-solid ${iconClass}"></i>
                 </button>
+                ${releaseButton}
               </td>
           </tr>
         `;
@@ -81,6 +98,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       $('[data-toggle="tooltip"]').tooltip('dispose').tooltip();
       attachActionListeners();
+      if (showReleaseDevice) {
+        attachReleaseListeners();
+      }
     } catch (error) {
       console.error('Error loading utility user devices:', error);
     }
@@ -120,6 +140,37 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } else {
           openMapDeviceModal(deviceId, macAddress);
+        }
+      });
+    });
+  }
+
+  function attachReleaseListeners() {
+    document.querySelectorAll('.icon-release-device').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const deviceId = btn.dataset.id;
+        const macAddress = btn.dataset.mac_address;
+
+        const confirmed = await ConfirmModalService.show(RELEASE_DEVICE_CONFIRM);
+        if (!confirmed) return;
+
+        try {
+          const res = await fetchWithAutoRefresh(`${API_ENDPOINTS.RELEASE_ANDROID_APK}${deviceId}/`, {
+            method: 'POST',
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            ModalService.showError(`Error: ${err.error || 'Unable to release device.'}`);
+            return;
+          }
+
+          ModalService.showSuccess(`Device #${macAddress} released successfully.`, () => {
+            loadDevices(filterDropdown.value);
+          });
+        } catch (err) {
+          console.error('Error releasing utility user device:', err);
+          ModalService.showError('Unexpected error occurred while releasing device.');
         }
       });
     });

@@ -72,6 +72,7 @@ const RELATIVE_API_ENDPOINTS = {
   GET_UTILITY_USER_DEVICES: "company/api/get_utility_user_devices/",
   MAP_UTILITY_USER_DEVICES: "company/api/map_utility_user_devices/",
   UNMAP_UTILITY_USER_DEVICES: "company/api/unmap_utility_user_devices/",
+  RELEASE_ANDROID_APK: "company/api/release_android_apk/",
   ASSIGN_USER: "company/api/map_user/",
   UNASSIGN_USER: "company/api/unmap_user/",
   BANNER_UPLOAD: "company/api/banner_upload/",

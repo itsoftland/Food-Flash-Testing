@@ -1,11 +1,27 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.utils import timezone
 
-from vendors.models import AdminOutlet, Vendor, VendorConfig, Device, AndroidDevice, AdvertisementImage, AdvertisementProfile, AdvertisementProfileAssignment, Order, ArchivedOrder, OrderStatusHistory, ArchivedOrderStatusHistory, Utility
+from vendors.models import (
+    AdminOutlet,
+    Vendor,
+    VendorConfig,
+    Device,
+    AndroidDevice,
+    AndroidAPK,
+    UserProfile,
+    AdvertisementImage,
+    AdvertisementProfile,
+    AdvertisementProfileAssignment,
+    Order,
+    ArchivedOrder,
+    OrderStatusHistory,
+    ArchivedOrderStatusHistory,
+    Utility,
+)
 
 class CompanyViewsAPITests(TestCase):
     def setUp(self):
@@ -271,3 +287,74 @@ class CompanyViewsAPITests(TestCase):
         if url_profile:
             resp = self.client.delete(url_profile)
             self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+@override_settings(PROJECT_NAME="dine_flash")
+class AndroidApkReleaseTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="df_admin", password="pass1234")
+        self.client = APIClient()
+        self.client.login(username="df_admin", password="pass1234")
+
+        self.admin_outlet = AdminOutlet.objects.create(
+            user=self.user,
+            customer_name="Dine Flash Co",
+            customer_id=501,
+            locations=[{"CityA": "C1"}],
+            authentication_status="Approve",
+            product_to_date=timezone.now() + timezone.timedelta(days=30),
+        )
+
+        self.other_user = User.objects.create_user(username="other_admin", password="pass1234")
+        self.other_outlet = AdminOutlet.objects.create(
+            user=self.other_user,
+            customer_name="Other Co",
+            customer_id=502,
+            locations=[{"CityB": "C2"}],
+            authentication_status="Approve",
+            product_to_date=timezone.now() + timezone.timedelta(days=30),
+        )
+
+        self.manager_profile = UserProfile.objects.create(
+            user=self.user,
+            name="Outlet Manager",
+            role="outlet_manager",
+            admin_outlet=self.admin_outlet,
+        )
+
+        self.apk_device = AndroidAPK.objects.create(
+            token="tok-apk-1",
+            mac_address="AA:BB:CC:DD:EE:FF",
+            apk_version="1.0.0",
+            admin_outlet=self.admin_outlet,
+            user_profile=self.manager_profile,
+        )
+
+    def test_release_android_apk_deletes_owned_device(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    def test_release_android_apk_rejects_other_outlet(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        other_client = APIClient()
+        other_client.login(username="other_admin", password="pass1234")
+        resp = other_client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    def test_unmap_manager_devices_unchanged(self):
+        url = reverse("company:unmap_manager_devices", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.apk_device.refresh_from_db()
+        self.assertIsNone(self.apk_device.user_profile)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    @override_settings(PROJECT_NAME="calleron")
+    def test_release_android_apk_rejects_non_dine_flash_projects(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
