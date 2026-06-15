@@ -364,9 +364,6 @@ function buildBuffetUtilitiesStatusSummary(payload) {
       <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
     </div>
     <div class="buffet-status-card buffet-ready-summary-card">
-        <div class="buffet-item-header">
-            <span class="buffet-item-name">Stations (current status)</span>
-        </div>
         ${
           String(payload.status || "").toLowerCase() === "created"
             ? `<div class="buffet-status-body small fw-semibold mb-2 pb-2 border-bottom border-light">order created</div>`
