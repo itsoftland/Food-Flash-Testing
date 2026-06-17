@@ -23,6 +23,15 @@ export const PushSubscriptionService = (() => {
                 return;
             }
 
+            const isDineFlash =
+                typeof window !== "undefined" &&
+                window.BASE?.includes("/dine_flash/") &&
+                !window.BASE?.includes("/dine_flash_buffet/");
+
+            if (isDineFlash) {
+                console.info("[dine_flash] Push subscribe start", { booking_id: token, vendor_id });
+            }
+
             if (Notification.permission !== "granted") {
                 console.error("Notification permission is not granted.");
                 return;
@@ -94,6 +103,13 @@ export const PushSubscriptionService = (() => {
 
             if (response.ok) {
                 console.log("Push subscription saved/updated successfully.");
+                if (isDineFlash) {
+                    console.info("[dine_flash] Push subscribe saved", {
+                        booking_id: token,
+                        vendor_id,
+                        browser_id: browserId,
+                    });
+                }
             } else {
                 console.error("Failed to save subscription to server.");
             }

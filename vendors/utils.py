@@ -387,10 +387,28 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
         f"📦 Found {sub_count} subscription(s) for order_id={getattr(order, 'pk', None)} "
         f"token_no={getattr(order, 'token_no', None)}"
     )
+    if project_name == "dine_flash" and isinstance(payload, dict):
+        logger.info(
+            "[dine_flash] notify_web_push subscription lookup | order_id=%s booking_id=%s "
+            "status=%s type=%s subscription_count=%s",
+            getattr(order, "pk", None),
+            payload.get("booking_id"),
+            payload.get("status"),
+            payload.get("type"),
+            sub_count,
+        )
 
     if sub_count == 0:
         msg = f"No push subscriptions found for token_no={order.token_no}, vendor_id={vendor.id}"
-        logger.warning(msg)
+        if project_name == "dine_flash" and isinstance(payload, dict):
+            logger.warning(
+                "[dine_flash] No push subscriptions for order_id=%s booking_id=%s vendor_id=%s",
+                getattr(order, "pk", None),
+                payload.get("booking_id"),
+                vendor.id,
+            )
+        else:
+            logger.warning(msg)
         return [msg]
 
     errors = []
@@ -418,6 +436,14 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
             try:
                 _, _ = future.result()
                 sub.mark_as_success()
+                if project_name == "dine_flash":
+                    logger.info(
+                        "[dine_flash] Web push delivered | subscription_id=%s browser_id=%s "
+                        "order_id=%s",
+                        sub.id,
+                        sub.browser_id,
+                        getattr(order, "pk", None),
+                    )
                 try:
                     save_server_chat_message(payload, vendor, sub, sequence_code)
                 except Exception as chat_err:
@@ -521,7 +547,6 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
         token_no = payload.get("token_no")
         msg_type = payload.get("type")
         booking_id = payload.get("booking_id")
-        print(booking_id)
 
         # Build text as JSON (ensures consistent format)
         text = payload
@@ -553,7 +578,18 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
                 timestamp=now(),
                 is_read=False,
                 is_send=True
-        )
+            )
+            if project_name == "dine_flash":
+                logger.info(
+                    "[dine_flash] save_server_chat_message | message_id=%s booking_id=%s "
+                    "subscription_id=%s browser_id=%s type=%s status=%s",
+                    message.message_id,
+                    booking_id,
+                    subscription.id,
+                    subscription.browser_id,
+                    msg_type,
+                    payload.get("status"),
+                )
         else:
             message = WebChatMessage.objects.create(
                 message_id=uuid.uuid4(),
@@ -572,9 +608,7 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
 
     except Exception as e:
         # Don’t raise — just log and move on, since chat should not block order update
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"[save_server_chat_message] Failed: {e}")
+        logger.error("[save_server_chat_message] Failed: %s", e)
         return None
 
 

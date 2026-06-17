@@ -493,9 +493,18 @@ onDOMReady(async function () {
                         appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
                         break;
                     case 'dinestatus':
+                        if (
+                            window.BASE?.includes('/dine_flash/') &&
+                            !window.BASE?.includes('/dine_flash_buffet/')
+                        ) {
+                            console.info("[dine_flash] PUSH_STATUS_UPDATE dinestatus", {
+                                booking_id: pushData.booking_id,
+                                status: pushData.status,
+                                utility_name: pushData.utility_name,
+                            });
+                        }
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
-                        console.log("booking_id", pushData.booking_id);
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
                     

@@ -124,6 +124,17 @@ self.addEventListener("push", (event) => {
 
   const payload = event.data.json();
 
+  const isDineFlashPush =
+    projectsMatch(EXPECTED_PROJECT, "dine_flash") &&
+    payload?.type === "dinestatus";
+  if (isDineFlashPush) {
+    console.info("[dine_flash] SW push received", {
+      booking_id: payload.booking_id,
+      status: payload.status,
+      token_no: payload.token_no,
+    });
+  }
+
   // Filter out unrelated flavour pushes.
   const incomingProject =
     payload?.project != null ? String(payload.project).toLowerCase().trim() : null;

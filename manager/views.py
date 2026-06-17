@@ -2214,14 +2214,39 @@ def manager_booking_update(request):
             # Web push: obey cooldown as in existing allocated flow
             cooldown = getattr(settings, "PUSH_COOLDOWN_SECONDS", 1)
             if not booking.notified_at or (timezone.now() - booking.notified_at) > timedelta(seconds=cooldown):
-                logger.info("📤 Sending web push for utility_transfer...")
+                if project_name == "dine_flash":
+                    logger.info(
+                        "[dine_flash] Sending web push | action=%s booking_id=%s status=%s type=%s",
+                        action_type,
+                        booking_id,
+                        payload.get("status"),
+                        payload.get("type"),
+                    )
+                else:
+                    logger.info("📤 Sending web push for utility_transfer...")
                 push_errors = notify_web_push(booking, vendor, payload)
+                if project_name == "dine_flash":
+                    logger.info(
+                        "[dine_flash] Web push complete | action=%s booking_id=%s "
+                        "success=%s errors=%s",
+                        action_type,
+                        booking_id,
+                        not bool(push_errors),
+                        push_errors or "none",
+                    )
                 booking.refresh_from_db()
                 booking.notified_at = timezone.now()
                 booking.save(update_fields=["notified_at"])
                 logger.info("🕒 Booking %s marked as notified at %s", booking_id, booking.notified_at)
             else:
-                logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
+                if project_name == "dine_flash":
+                    logger.info(
+                        "[dine_flash] Web push skipped (cooldown) | action=%s booking_id=%s",
+                        action_type,
+                        booking_id,
+                    )
+                else:
+                    logger.info("⏳ Cooldown active. Skipping web push for %s", booking_id)
         elif action_type == "occupied":
             logger.info("🔔 Occupied Booking %s by manager %s", booking_id, manager.name)
             status_to_update = "occupied"  # Enforce correct state

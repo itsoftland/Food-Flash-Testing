@@ -288,12 +288,41 @@ def save_subscription(request):
                         "(Token=%s); subscription now linked to %s order(s)",
                         subscription.id, order.id, token_number, subscription.tokens.count(),
                     )
+                elif is_dine_flash:
+                    logger.info(
+                        "[dine_flash] Linked subscription %s with booking_id=%s order_id=%s "
+                        "(booking_no=%s); subscription now linked to %s order(s)",
+                        subscription.id,
+                        token_number,
+                        order.id,
+                        getattr(order, "table_booking_no", None),
+                        subscription.tokens.count(),
+                    )
                 else:
                     logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
             else:
                 # Invalid / unresolved token. For buffet this leaves existing linked
                 # orders untouched (no clear ran above) and adds no new link.
-                logger.warning(f"⚠️ No order found for token={token_number}, vendor_id={vendor_id}")
+                if is_dine_flash:
+                    logger.warning(
+                        "[dine_flash] No order found for booking_id=%s vendor_id=%s browser_id=%s",
+                        token_number,
+                        vendor_id,
+                        browser_id,
+                    )
+                else:
+                    logger.warning(f"⚠️ No order found for token={token_number}, vendor_id={vendor_id}")
+
+        if project_name == "dine_flash":
+            linked_order_ids = list(subscription.tokens.values_list("id", flat=True))
+            logger.info(
+                "[dine_flash] save_subscription complete | browser_id=%s subscription_id=%s "
+                "vendor_id=%s linked_order_ids=%s",
+                browser_id,
+                subscription.id,
+                vendor_id,
+                linked_order_ids,
+            )
 
         return Response({"message": "Subscription saved successfully."}, status=200)
 
