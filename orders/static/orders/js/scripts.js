@@ -231,7 +231,14 @@ onDOMReady(async function () {
 
     async function resumePushSubscriptionIfNeeded() {
         const activeVendor = await AppUtils.getActiveVendor();
-        if (!activeVendor) return;
+        if (!activeVendor) {
+            if (isDineFlashTableBookingSurface) {
+                console.info("[dine_flash] resumePushSubscriptionIfNeeded early return", {
+                    reason: "missing active vendor",
+                });
+            }
+            return;
+        }
         // Buffet post-order redirect links push in fetchOrderStatusOnce — avoid old saved token.
         if (tokenFromQR && isDineFlashBuffetSurface && !isOpenedFromPush) {
             return;
@@ -239,8 +246,22 @@ onDOMReady(async function () {
         const token = tokenFromQR
             ? String(tokenFromQR).trim()
             : (await AppUtils.getToken());
-        if (!token) return;
+        if (!token) {
+            if (isDineFlashTableBookingSurface) {
+                console.info("[dine_flash] resumePushSubscriptionIfNeeded early return", {
+                    reason: "missing token",
+                });
+            }
+            return;
+        }
         try {
+            if (isDineFlashTableBookingSurface) {
+                console.info("[dine_flash] resumePushSubscriptionIfNeeded calling subscribe", {
+                    token,
+                    vendor_id: activeVendor,
+                    notification_permission: Notification.permission,
+                });
+            }
             await PushSubscriptionService.subscribe(token, activeVendor);
         } catch (err) {
             console.error("❌ Subscription resume failed:", err);
@@ -729,6 +750,13 @@ onDOMReady(async function () {
                         await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         // bookingId = BookingMappingService.getBookingId(tokenFromQR.split("-")[1]);
+                        console.info("[dine_flash] handleToken calling subscribe", {
+                            booking_id: bookingIdfromQR,
+                            booking_no: tokenFromQR,
+                            vendor_id: vendorId,
+                            notification_permission: Notification.permission,
+                            url: window.location?.href,
+                        });
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
                         // await PushSubscriptionService.subscribe(bookingId, vendorId);
                     } else {
@@ -1280,6 +1308,11 @@ onDOMReady(async function () {
                 AppUtils.notifyOrderReady(data);
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
+                console.info("[dine_flash] fetchOrderStatusOnce calling subscribe", {
+                    booking_id: bookingId,
+                    vendor_id: data.vendor_id,
+                    notification_permission: Notification.permission,
+                });
                 await PushSubscriptionService.subscribe(bookingId, data.vendor_id);
                 PushHealthMonitorService.startMonitor(bookingId, data.vendor_id);
             }
