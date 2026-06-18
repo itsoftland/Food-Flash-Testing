@@ -104,7 +104,7 @@ export const PushSubscriptionService = (() => {
                     const subAfterSubscribe = subscription?.toJSON?.() || {};
                     dineFlashLog("pushManager.subscribe succeeded", {
                         endpoint_present: Boolean(subAfterSubscribe.endpoint),
-                        browser_id: AppUtils.getBrowserId(),
+                        browser_id: AppUtils.storageGet("browser_id") || null,
                         subscription_obtained: true,
                     });
                 } catch (err) {
@@ -122,7 +122,7 @@ export const PushSubscriptionService = (() => {
                         const subAfterRetry = subscription?.toJSON?.() || {};
                         dineFlashLog("pushManager.subscribe succeeded (retry)", {
                             endpoint_present: Boolean(subAfterRetry.endpoint),
-                            browser_id: AppUtils.getBrowserId(),
+                            browser_id: AppUtils.storageGet("browser_id") || null,
                             subscription_obtained: true,
                         });
                     } catch (retryErr) {
@@ -142,7 +142,7 @@ export const PushSubscriptionService = (() => {
                 const subReuse = subscription?.toJSON?.() || {};
                 dineFlashLog("Reusing existing push subscription", {
                     endpoint_present: Boolean(subReuse.endpoint),
-                    browser_id: AppUtils.getBrowserId(),
+                    browser_id: AppUtils.storageGet("browser_id") || null,
                 });
             }
 

@@ -143,6 +143,14 @@ def save_subscription(request):
         token_number = data.get("token_number")
         vendor_id = data.get("vendor_id")
 
+        if project_name == "dine_flash":
+            logger.info(
+                "[dine_flash] save_subscription incoming | token_number=%s vendor_id=%s browser_id=%s",
+                token_number,
+                vendor_id,
+                browser_id,
+            )
+
         if not endpoint or not browser_id or not vendor_id:
             logger.warning("⚠️ Missing required subscription fields: endpoint=%s, browser_id=%s, vendor_id=%s",
                            endpoint, browser_id, vendor_id)
@@ -251,7 +259,17 @@ def save_subscription(request):
                 logger.info(f"🔍 Lookup via sequence_code for airline_flash: {token_number}")
             elif project_name == "dine_flash":
                 order = Order.objects.filter(id=token_number, vendor=vendor).order_by('-created_at').first()
-                logger.info(f"🔍 Lookup via booking_reference for dine flash: {token_number}")
+                logger.info(
+                    "[dine_flash] save_subscription order lookup | token_number=%s order_found=%s "
+                    "order_id=%s booking_no=%s vendor_id=%s browser_id=%s subscription_id=%s",
+                    token_number,
+                    order is not None,
+                    getattr(order, "id", None),
+                    getattr(order, "table_booking_no", None) if order else None,
+                    vendor_id,
+                    browser_id,
+                    getattr(subscription, "id", None),
+                )
             elif is_buffet:
                 # Dine Flash Buffet resolves orders by token_no only, mirroring
                 # check_status(). The previous id / table_booking_no fallbacks were
@@ -281,7 +299,29 @@ def save_subscription(request):
             if order:
                 # Idempotent: adding an already-linked order is a no-op, so buffet
                 # health-monitor refreshes and repeated subscribes never duplicate links.
+                if is_dine_flash:
+                    logger.info(
+                        "[dine_flash] before subscription.tokens.add | subscription_id=%s order_id=%s "
+                        "booking_id=%s booking_no=%s browser_id=%s vendor_id=%s",
+                        subscription.id,
+                        order.id,
+                        token_number,
+                        getattr(order, "table_booking_no", None),
+                        browser_id,
+                        vendor_id,
+                    )
                 subscription.tokens.add(order)
+                if is_dine_flash:
+                    logger.info(
+                        "[dine_flash] after subscription.tokens.add | subscription_id=%s order_id=%s "
+                        "booking_id=%s booking_no=%s browser_id=%s vendor_id=%s",
+                        subscription.id,
+                        order.id,
+                        token_number,
+                        getattr(order, "table_booking_no", None),
+                        browser_id,
+                        vendor_id,
+                    )
                 if is_buffet:
                     logger.info(
                         "🔗 [dine_flash_buffet] Linked subscription %s with Order %s "

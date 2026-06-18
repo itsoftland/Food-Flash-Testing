@@ -75,6 +75,26 @@ export const PermissionService = (() => {
 
     const finalizeAgreeGranted = async (granted, logDenyReason) => {
         if (granted) {
+            if (
+                typeof window !== "undefined" &&
+                window.BASE?.includes("/dine_flash/") &&
+                !window.BASE?.includes("/dine_flash_buffet/")
+            ) {
+                const dineFlashBootstrap =
+                    window.DINE_FLASH_TRACKING_BOOTSTRAP &&
+                    typeof window.DINE_FLASH_TRACKING_BOOTSTRAP === "object"
+                        ? window.DINE_FLASH_TRACKING_BOOTSTRAP
+                        : null;
+                console.info("[dine_flash] notification permission granted", {
+                    booking_id: dineFlashBootstrap?.booking_id ?? new URLSearchParams(window.location.search).get("booking_id"),
+                    booking_no:
+                        dineFlashBootstrap?.booking_no ??
+                        new URLSearchParams(window.location.search).get("booking_no"),
+                    browser_id: AppUtils.storageGet("browser_id") || null,
+                    notification_permission: Notification.permission,
+                    url: window.location?.href,
+                });
+            }
             AppUtils.showToast("Notifications enabled");
             if (typeof deferredCallback === "function") {
                 await deferredCallback();

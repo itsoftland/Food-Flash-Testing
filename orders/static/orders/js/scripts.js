@@ -218,6 +218,15 @@ onDOMReady(async function () {
         (window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
     const isDineFlashTableBookingSurface =
         (window.BASE && window.BASE.includes("/dine_flash/")) && !isDineFlashBuffetSurface;
+    if (isDineFlashTableBookingSurface && tokenFromQR && bookingIdfromQR) {
+        console.info("[dine_flash] page init booking available", {
+            booking_id: bookingIdfromQR,
+            booking_no: tokenFromQR,
+            vendor_id: vendorFromQR,
+            browser_id: AppUtils.storageGet("browser_id") || null,
+            url: window.location?.href,
+        });
+    }
     // Set before VendorUIService.init so restore does not race with post-booking status fetch.
     if (isDineFlashTableBookingSurface && tokenFromQR && !isOpenedFromPush) {
         window.dineFlashBookingFromRedirect = true;
