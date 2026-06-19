@@ -1,7 +1,16 @@
+import BookingMappingService from './dineflash/services/bookingMappingService.js';
+import { IosPwaInstallService } from './services/iosPwaInstallService.js';
+
 // ─────────────────────────────────────
 // Base URL Setup
 // ─────────────────────────────────────
 const base = window.BASE || '/caller_on/';
+
+/** Dine Flash table-booking only — excludes dine_flash_buffet. */
+function isDineFlashTableBooking() {
+    const name = (window.PROJECT_NAME || '').trim().toLowerCase();
+    return name === 'dine_flash';
+}
 
 // ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
@@ -15,25 +24,62 @@ const base = window.BASE || '/caller_on/';
     const hasVendorId = await AppUtils.getActiveVendor();
     const hasTokenNo = await AppUtils.getToken();
 
-    // ✅ Condition 1: If vendor_id and token_no are present → redirect to /home/
+    // ✅ Condition 1: If vendor_id and/or token are present → redirect to /home/
     if (hasVendorId || hasTokenNo) {
         const locationId = hasLocationParam ? urlParams.get("location_id") : await AppUtils.get();
 
-        if (locationId) {
-            const newUrl = new URL(`${window.location.origin}${base}home/`);
-            newUrl.searchParams.set("location_id", locationId);
-            newUrl.searchParams.set("vendor_id",hasVendorId);
-            newUrl.searchParams.set("token_no", hasTokenNo);
-            // ✅ Preserve from_push if present
-            if (urlParams.has("from_push")) {
-                newUrl.searchParams.set("from_push", urlParams.get("from_push"));
-            }
-
-            window.location.replace(newUrl.toString());
-        } else {
+        if (!locationId) {
             console.warn("Missing location_id for home redirect.");
+            return;
         }
 
+        if (isDineFlashTableBooking()) {
+            const booking = BookingMappingService.resolveRelaunchBooking({
+                activeBookingId: AppUtils.storageGet("activeDineBookingId"),
+                bookingNoHint: hasTokenNo,
+            });
+
+            if (booking) {
+                const newUrl = new URL(`${window.location.origin}${base}home/`);
+                newUrl.searchParams.set("location_id", locationId);
+                if (hasVendorId) {
+                    newUrl.searchParams.set("vendor_id", hasVendorId);
+                }
+                newUrl.searchParams.set("booking_id", booking.booking_id);
+                if (booking.booking_no) {
+                    newUrl.searchParams.set("booking_no", booking.booking_no);
+                }
+                if (urlParams.has("from_push")) {
+                    newUrl.searchParams.set("from_push", urlParams.get("from_push"));
+                }
+                if (urlParams.has("standalone")) {
+                    newUrl.searchParams.set("standalone", urlParams.get("standalone"));
+                }
+                if (urlParams.has("v")) {
+                    newUrl.searchParams.set("v", urlParams.get("v"));
+                }
+
+                window.location.replace(newUrl.toString());
+                return;
+            }
+
+            console.warn(
+                "[dine_flash] PWA relaunch: no resolvable booking; staying on outlet selection."
+            );
+            return;
+        }
+
+        const newUrl = new URL(`${window.location.origin}${base}home/`);
+        newUrl.searchParams.set("location_id", locationId);
+        newUrl.searchParams.set("vendor_id", hasVendorId);
+        if (hasTokenNo) {
+            newUrl.searchParams.set("token_no", hasTokenNo);
+        }
+        if (urlParams.has("from_push")) {
+            newUrl.searchParams.set("from_push", urlParams.get("from_push"));
+        }
+
+        window.location.replace(newUrl.toString());
         return;
     }
 
@@ -53,8 +99,6 @@ const base = window.BASE || '/caller_on/';
 // ─────────────────────────────────────
 // Main Logic: Run after DOM is ready
 // ─────────────────────────────────────
-import { IosPwaInstallService } from './services/iosPwaInstallService.js';
-
 let locationId = null;
 
 document.addEventListener("DOMContentLoaded", async function () {

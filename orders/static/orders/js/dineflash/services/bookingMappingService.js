@@ -284,6 +284,228 @@ const BookingMappingService = (function () {
         localStorage.removeItem(STORAGE_KEY);
     }
 
+    // -------------------------------------------------------------------------
+    // PWA relaunch helpers (Phase 1)
+    //
+    // Safe, no-throw readers for resolving booking_no + booking_id on iOS Home
+    // Screen cold start. Phase 2 wires these into outlet_selection.js.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Normalize a booking_id for storage comparisons.
+     * Mirrors scripts.js normalizeBookingId / hasBookingId string rules.
+     */
+    function normalizeId(value) {
+        if (value === null || value === undefined) return null;
+        const s = String(value).trim();
+        if (!s || s === "undefined" || s === "NaN") return null;
+        return s;
+    }
+
+    /**
+     * Parse BOOKING_ID_MAP from localStorage without throwing.
+     * Returns {} for missing, malformed, or non-object top-level values.
+     */
+    function loadMapping() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return {};
+
+            const parsed = JSON.parse(raw);
+            if (
+                parsed === null ||
+                typeof parsed !== "object" ||
+                Array.isArray(parsed)
+            ) {
+                return {};
+            }
+            return parsed;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /**
+     * Derive booking_id from a bucket entry.
+     * Handles modern objects, legacy unstamped objects, and primitive IDs.
+     */
+    function extractBookingId(entry) {
+        if (entry === null || entry === undefined) return null;
+        if (typeof entry === "object" && !Array.isArray(entry)) {
+            return normalizeId(entry.booking_id);
+        }
+        return normalizeId(entry);
+    }
+
+    /**
+     * Derive booking_no from a bucket entry.
+     * Only reads explicit booking_no on objects — never treats a primitive ID
+     * as a booking number.
+     */
+    function extractBookingNo(entry) {
+        if (entry === null || entry === undefined) return null;
+        if (typeof entry === "object" && !Array.isArray(entry)) {
+            if (entry.booking_no === null || entry.booking_no === undefined) {
+                return null;
+            }
+            const s = String(entry.booking_no).trim();
+            return s || null;
+        }
+        return null;
+    }
+
+    /**
+     * Reverse-scan BOOKING_ID_MAP for a booking_id.
+     * Never throws; returns null when not found or on read failure.
+     *
+     * @param {string|number} bookingId
+     * @param {{ currentBusinessDayOnly?: boolean }} [options]
+     * @returns {{ booking_id: string, booking_no: string|null, business_day: string|null, isStale: boolean }|null}
+     */
+    function findEntryByBookingId(bookingId, options) {
+        try {
+            const currentBusinessDayOnly =
+                !options || options.currentBusinessDayOnly !== false;
+
+            const target = normalizeId(bookingId);
+            if (!target) return null;
+
+            const mapping = loadMapping();
+            const buckets = Object.values(mapping);
+
+            for (let i = 0; i < buckets.length; i++) {
+                const list = normalizeList(buckets[i]);
+                for (let j = 0; j < list.length; j++) {
+                    const entry = list[j];
+                    const entryId = extractBookingId(entry);
+                    if (!entryId || entryId !== target) continue;
+
+                    const isStale = !isCurrentBusinessDay(entry);
+                    if (currentBusinessDayOnly && isStale) continue;
+
+                    return {
+                        booking_id: entryId,
+                        booking_no: extractBookingNo(entry),
+                        business_day:
+                            entry &&
+                            typeof entry === "object" &&
+                            !Array.isArray(entry)
+                                ? entry.business_day || null
+                                : null,
+                        isStale,
+                    };
+                }
+            }
+        } catch (e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the validated relaunch pair returned to outlet_selection.js.
+     * booking_no may be null when only booking_id is known (primitive entries).
+     */
+    function toRelaunchResult(entry) {
+        if (!entry) return null;
+
+        const booking_id = normalizeId(entry.booking_id);
+        if (!booking_id) return null;
+
+        let booking_no = null;
+        if (entry.booking_no !== null && entry.booking_no !== undefined) {
+            const s = String(entry.booking_no).trim();
+            booking_no = s || null;
+        }
+
+        return { booking_no, booking_id };
+    }
+
+    /**
+     * Resolve booking_no + booking_id for Dine Flash PWA relaunch.
+     * Never throws; returns null when no unambiguous booking can be resolved.
+     *
+     * Precedence:
+     *   1. activeBookingId → current-business-day map entry
+     *   2. activeBookingId found but stale → null (no token fallback)
+     *   3. bookingNoHint (token) → singular current-day bucket match only
+     *
+     * @param {{ activeBookingId?: string|number, bookingNoHint?: string|number }} [params]
+     * @returns {{ booking_no: string|null, booking_id: string }|null}
+     */
+    function resolveRelaunchBooking({ activeBookingId, bookingNoHint } = {}) {
+        try {
+            const normalizedActiveId = normalizeId(activeBookingId);
+
+            // Path 1: activeDineBookingId (session pointer) — wins over token hint.
+            if (normalizedActiveId) {
+                const current = findEntryByBookingId(normalizedActiveId, {
+                    currentBusinessDayOnly: true,
+                });
+                if (current) {
+                    const result = toRelaunchResult(current);
+                    if (result) return result;
+                }
+
+                const stale = findEntryByBookingId(normalizedActiveId, {
+                    currentBusinessDayOnly: false,
+                });
+                if (stale) {
+                    // Stale session — do not redirect and do not token-fallback.
+                    return null;
+                }
+
+                // activeId present but not in map (corrupt / cleared map).
+                return null;
+            }
+
+            // Path 2: token hint — only when activeBookingId is absent.
+            const hint =
+                bookingNoHint === null || bookingNoHint === undefined
+                    ? null
+                    : String(bookingNoHint).trim() || null;
+            if (!hint) return null;
+
+            const trimmed = getTrimmedKey(hint);
+            if (!trimmed) return null;
+
+            const ids = getBookingId(trimmed);
+            const nos = getBookingNo(trimmed);
+
+            if (Array.isArray(ids) || Array.isArray(nos)) return null;
+            if (ids === null || ids === undefined || nos === null || nos === undefined) {
+                return null;
+            }
+
+            const booking_id = normalizeId(ids);
+            if (!booking_id) return null;
+
+            const booking_no =
+                typeof nos === "string" || typeof nos === "number"
+                    ? String(nos).trim() || null
+                    : null;
+            if (!booking_no) return null;
+
+            // Pairing check: reject inconsistent map state.
+            const verified = findEntryByBookingId(booking_id, {
+                currentBusinessDayOnly: true,
+            });
+            if (
+                verified &&
+                verified.booking_no &&
+                verified.booking_no !== booking_no
+            ) {
+                return null;
+            }
+
+            return { booking_no, booking_id };
+        } catch (e) {
+            console.warn("[dine_flash] resolveRelaunchBooking failed", e);
+            return null;
+        }
+    }
+
     return {
         processBookingFromQR,
         saveMappings,
@@ -294,6 +516,8 @@ const BookingMappingService = (function () {
         clearMappings,
         getCurrentBusinessDay,
         getTrimmedKey,
+        findEntryByBookingId,
+        resolveRelaunchBooking,
     };
 
 })();
