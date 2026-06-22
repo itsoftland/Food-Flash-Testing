@@ -34,6 +34,10 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
+from .dine_flash.booking_resolve import (
+    DineFlashBookingResolveStatus,
+    resolve_dine_flash_booking,
+)
 from .dine_flash.qr_crypto import decrypt_qr_from_request, extract_data_param
 from .serializers import (
     AdminOutletSerializer,
@@ -348,6 +352,93 @@ def dine_flash_qr_exchange(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def resolve_booking(request):
+    """
+    Dine Flash only: read-only booking resolver for PWA relaunch.
+    """
+    if project_name != "dine_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    vendor_id = request.data.get("vendor_id")
+    booking_no = request.data.get("booking_no")
+    location_id = request.data.get("location_id")
+
+    logger.info(
+        "[dine_flash] resolve_booking request | vendor_id=%s booking_no=%s location_id=%s",
+        vendor_id,
+        booking_no,
+        location_id,
+    )
+
+    try:
+        result = resolve_dine_flash_booking(
+            vendor_id=vendor_id,
+            booking_no=booking_no,
+            location_id=location_id,
+        )
+
+        if result.status == DineFlashBookingResolveStatus.FOUND:
+            logger.info(
+                "[dine_flash] resolve_booking found | vendor_id=%s booking_no=%s booking_id=%s",
+                result.data.get("vendor_id"),
+                result.data.get("booking_no"),
+                result.data.get("booking_id"),
+            )
+            return Response(
+                {"status": "found", **result.data},
+                status=status.HTTP_200_OK,
+            )
+
+        if result.status == DineFlashBookingResolveStatus.INVALID_INPUT:
+            logger.info(
+                "[dine_flash] resolve_booking invalid_input | vendor_id=%s booking_no=%s",
+                vendor_id,
+                booking_no,
+            )
+            return Response(
+                {"status": DineFlashBookingResolveStatus.INVALID_INPUT.value},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if result.status == DineFlashBookingResolveStatus.AMBIGUOUS:
+            logger.info(
+                "[dine_flash] resolve_booking ambiguous | vendor_id=%s booking_no=%s",
+                vendor_id,
+                booking_no,
+            )
+            return Response(
+                {"status": DineFlashBookingResolveStatus.AMBIGUOUS.value},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if result.status in (
+            DineFlashBookingResolveStatus.NOT_FOUND_OR_STALE,
+            DineFlashBookingResolveStatus.VENDOR_NOT_FOUND,
+        ):
+            return Response(
+                {"status": result.status.value},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        logger.exception(
+            "[dine_flash] resolve_booking unhandled status | status=%s",
+            result.status,
+        )
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except Exception:
+        logger.exception("[dine_flash] resolve_booking unexpected failure")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
 
 def outlet_selection(request):
     location_id = request.GET.get("location_id")

@@ -1,4 +1,5 @@
 import BookingMappingService from './dineflash/services/bookingMappingService.js';
+import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchService.js';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 
 // ─────────────────────────────────────
@@ -63,8 +64,42 @@ function isDineFlashTableBooking() {
                 return;
             }
 
+            const relaunchResult = await resolveBookingForRelaunch({
+                vendor_id: hasVendorId,
+                booking_no: hasTokenNo,
+                location_id: locationId,
+            });
+
+            if (relaunchResult.outcome === "found") {
+                const resolvedBooking = relaunchResult.booking;
+                const newUrl = new URL(`${window.location.origin}${base}home/`);
+                newUrl.searchParams.set("location_id", resolvedBooking.location_id);
+                if (resolvedBooking.vendor_id) {
+                    newUrl.searchParams.set("vendor_id", resolvedBooking.vendor_id);
+                }
+                newUrl.searchParams.set("booking_id", resolvedBooking.booking_id);
+                if (resolvedBooking.booking_no) {
+                    newUrl.searchParams.set("booking_no", resolvedBooking.booking_no);
+                }
+                if (urlParams.has("from_push")) {
+                    newUrl.searchParams.set("from_push", urlParams.get("from_push"));
+                }
+                if (urlParams.has("standalone")) {
+                    newUrl.searchParams.set("standalone", urlParams.get("standalone"));
+                }
+                if (urlParams.has("v")) {
+                    newUrl.searchParams.set("v", urlParams.get("v"));
+                }
+
+                window.location.replace(newUrl.toString());
+                return;
+            }
+
             console.warn(
-                "[dine_flash] PWA relaunch: no resolvable booking; staying on outlet selection."
+                "[dine_flash] PWA relaunch:",
+                relaunchResult.outcome === "preserve"
+                    ? relaunchResult.reason
+                    : "no resolvable booking; staying on outlet selection."
             );
             return;
         }
