@@ -125,8 +125,7 @@ async function resolveBookingForRelaunch({
     location_id,
 } = {}) {
     const { fetchWithAutoRefresh, API_ENDPOINTS } = await getDependencies();
-    const base = window.BASE || "/caller_on/";
-    const url = `${base}${API_ENDPOINTS.DINE_FLASH_RESOLVE_BOOKING}`;
+    const url = API_ENDPOINTS.DINE_FLASH_RESOLVE_BOOKING;
     const body = buildRequestBody({ vendor_id, booking_no, location_id });
 
     let response;
