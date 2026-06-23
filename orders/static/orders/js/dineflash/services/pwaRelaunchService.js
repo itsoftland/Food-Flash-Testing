@@ -66,6 +66,12 @@ function mapResolvePayload(data) {
     const status = data.status;
 
     if (status === "found") {
+        console.log("[dine_flash] resolve_booking found booking", {
+            booking_id: data.booking_id,
+            booking_no: data.booking_no,
+            vendor_id: data.vendor_id,
+            location_id: data.location_id,
+        });
         return {
             outcome: "found",
             booking: {
@@ -78,6 +84,7 @@ function mapResolvePayload(data) {
     }
 
     if (status === "not_found_or_stale") {
+        console.warn("[dine_flash] resolve_booking stale booking detected");
         clearStaleDineFlashBookingTokens();
         return { outcome: "stale" };
     }
@@ -124,6 +131,8 @@ async function resolveBookingForRelaunch({
 
     let response;
     try {
+        console.log("[dine_flash] resolve_booking url", url);
+        console.log("[dine_flash] resolve_booking request", body);
         response = await fetchWithAutoRefresh(url, {
             method: "POST",
             body: JSON.stringify(body),
@@ -135,6 +144,7 @@ async function resolveBookingForRelaunch({
     let data;
     try {
         data = await response.json();
+        console.log("[dine_flash] resolve_booking response", data);
     } catch (e) {
         return preserve("json_parse_failure");
     }

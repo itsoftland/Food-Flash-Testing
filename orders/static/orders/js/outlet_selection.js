@@ -64,11 +64,17 @@ function isDineFlashTableBooking() {
                 return;
             }
 
+            console.log("[dine_flash] relaunch: entering backend fallback", {
+                vendor_id: hasVendorId,
+                booking_no: hasTokenNo,
+                location_id: locationId,
+            });
             const relaunchResult = await resolveBookingForRelaunch({
                 vendor_id: hasVendorId,
                 booking_no: hasTokenNo,
                 location_id: locationId,
             });
+            console.log("[dine_flash] relaunch result", relaunchResult);
 
             if (relaunchResult.outcome === "found") {
                 const resolvedBooking = relaunchResult.booking;
