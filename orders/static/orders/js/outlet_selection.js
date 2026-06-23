@@ -24,10 +24,14 @@ function isDineFlashTableBooking() {
     const hasLocationParam = urlParams.has("location_id");
     const hasVendorId = await AppUtils.getActiveVendor();
     const hasTokenNo = await AppUtils.getToken();
+    console.log("[dine_flash] IIFE vendor", hasVendorId);
+    console.log("[dine_flash] IIFE token", hasTokenNo);
 
     // ✅ Condition 1: If vendor_id and/or token are present → redirect to /home/
     if (hasVendorId || hasTokenNo) {
         const locationId = hasLocationParam ? urlParams.get("location_id") : await AppUtils.get();
+        console.log("[dine_flash] IIFE location", locationId);
+        console.log("[dine_flash] IIFE hasLocationParam", hasLocationParam);
 
         if (!locationId) {
             console.warn("Missing location_id for home redirect.");
