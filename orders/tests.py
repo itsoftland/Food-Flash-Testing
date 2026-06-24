@@ -627,9 +627,70 @@ class QrCryptoTests(SimpleTestCase):
             "qr_expiry_minutes": "1",
         }
         encrypted = _encrypt_qr_payload_for_test(params)
-        now = fixed_now + timedelta(minutes=2)
+        now = fixed_now + timedelta(minutes=2, seconds=1)
 
         self.assertIsNone(decrypt_qr_data(encrypted, now=now))
+
+    def test_decrypt_qr_data_allows_boundary_grace_period(self):
+        from datetime import datetime, timedelta
+
+        from orders.dine_flash.qr_crypto import decrypt_qr_data
+
+        issued_at = datetime(2026, 6, 11, 13, 0, 0)
+        params = {
+            "vendor_id": "101",
+            "qr_date": issued_at.strftime("%Y-%m-%d"),
+            "qr_time": issued_at.strftime("%H:%M:%S"),
+            "qr_expiry_minutes": "5",
+        }
+        encrypted = _encrypt_qr_payload_for_test(params)
+
+        for now in (
+            issued_at + timedelta(minutes=5, seconds=30),
+            issued_at + timedelta(minutes=5, seconds=59),
+        ):
+            with self.subTest(now=now):
+                self.assertIsNotNone(decrypt_qr_data(encrypted, now=now))
+
+        self.assertIsNone(
+            decrypt_qr_data(encrypted, now=issued_at + timedelta(minutes=6, seconds=1))
+        )
+
+
+class DineFlashQrTimeValidationTests(SimpleTestCase):
+    def test_validate_dine_flash_qr_time_allows_boundary_grace_period(self):
+        from datetime import datetime, timedelta
+
+        from django.utils import timezone
+
+        from orders.views import _validate_dine_flash_qr_time
+
+        tz = timezone.get_current_timezone()
+        issued_at = timezone.make_aware(datetime(2026, 6, 11, 13, 0, 0), tz)
+
+        with patch("orders.views.timezone.localtime") as mock_localtime, patch(
+            "orders.views.timezone.now", return_value=issued_at
+        ):
+            for offset_seconds in (330, 359):
+                with self.subTest(offset_seconds=offset_seconds):
+                    mock_localtime.return_value = issued_at + timedelta(seconds=offset_seconds)
+                    ok, msg = _validate_dine_flash_qr_time(
+                        "2026-06-11",
+                        "13:00:00",
+                        "101",
+                        expiry_minutes=5,
+                    )
+                    self.assertTrue(ok, msg)
+
+            mock_localtime.return_value = issued_at + timedelta(minutes=6, seconds=1)
+            ok, msg = _validate_dine_flash_qr_time(
+                "2026-06-11",
+                "13:00:00",
+                "101",
+                expiry_minutes=5,
+            )
+            self.assertFalse(ok)
+            self.assertIn("QR expired", msg)
 
 
 class DineFlashHashedQrTableBookingTests(SimpleTestCase):

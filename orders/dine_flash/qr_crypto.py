@@ -30,6 +30,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 # Must match QrPayloadHelper.QR_ENCRYPTION_SECRET on Android.
 DEFAULT_QR_ENCRYPTION_SECRET = "qflash-tv-qr-payload-v1"
 
+# Dine Flash only: tolerate scan-before-expiry / request-after-expiry boundary timing.
+_DINE_FLASH_QR_SCAN_GRACE_SECONDS = 60
+
 
 def get_qr_encryption_secret() -> str:
     try:
@@ -194,7 +197,10 @@ def qr_payload_from_params(
     except ValueError:
         return None
 
-    if check_expiry and now > issued_at + timedelta(minutes=expiry_minutes):
+    max_age = timedelta(minutes=expiry_minutes) + timedelta(
+        seconds=_DINE_FLASH_QR_SCAN_GRACE_SECONDS
+    )
+    if check_expiry and now > issued_at + max_age:
         return None
 
     return QrPayload(

@@ -38,7 +38,11 @@ from .dine_flash.booking_resolve import (
     DineFlashBookingResolveStatus,
     resolve_dine_flash_booking,
 )
-from .dine_flash.qr_crypto import decrypt_qr_from_request, extract_data_param
+from .dine_flash.qr_crypto import (
+    _DINE_FLASH_QR_SCAN_GRACE_SECONDS,
+    decrypt_qr_from_request,
+    extract_data_param,
+)
 from .serializers import (
     AdminOutletSerializer,
     VendorLogoSerializer,
@@ -179,7 +183,9 @@ def _validate_dine_flash_qr_time(qr_date, qr_time, vendor_id, expiry_minutes=Non
         expiry_min = max(1, _get_dine_flash_qr_expiry_minutes(vendor_id))
     else:
         expiry_min = max(1, int(expiry_minutes))
-    max_age = timedelta(minutes=expiry_min)
+    max_age = timedelta(minutes=expiry_min) + timedelta(
+        seconds=_DINE_FLASH_QR_SCAN_GRACE_SECONDS
+    )
 
     # Allow small client clock skew into the future.
     if qr_dt - now_dt > timedelta(seconds=30):
