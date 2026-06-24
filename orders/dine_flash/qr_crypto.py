@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 DEFAULT_QR_ENCRYPTION_SECRET = "qflash-tv-qr-payload-v1"
 
 # Dine Flash only: tolerate scan-before-expiry / request-after-expiry boundary timing.
-_DINE_FLASH_QR_SCAN_GRACE_SECONDS = 60
+_DINE_FLASH_QR_SCAN_GRACE_SECONDS = 180
 
 
 def get_qr_encryption_secret() -> str:
