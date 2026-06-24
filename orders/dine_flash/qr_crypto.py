@@ -182,7 +182,7 @@ def qr_payload_from_params(
         return None
 
     try:
-        expiry_minutes = max(1, int(params.get("qr_expiry_minutes", "1")))
+        expiry_minutes = max(1, int(params.get("qr_expiry_minutes", "5")))
     except ValueError:
         expiry_minutes = 1
 
