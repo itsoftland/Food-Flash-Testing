@@ -13,6 +13,12 @@ function isDineFlashTableBooking() {
     return name === 'dine_flash';
 }
 
+/** Dine Flash Buffet only — excludes dine_flash table-booking. */
+function isDineFlashBuffet() {
+    const name = (window.PROJECT_NAME || '').trim().toLowerCase();
+    return name === 'dine_flash_buffet';
+}
+
 // ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
 // ─────────────────────────────────────
@@ -33,7 +39,10 @@ function isDineFlashTableBooking() {
         console.log("[dine_flash] IIFE location", locationId);
         console.log("[dine_flash] IIFE hasLocationParam", hasLocationParam);
 
-        if (!locationId) {
+        // Buffet iOS PWA relaunch: allow the redirect without location_id ONLY when a
+        // valid activeVendor exists (token + vendor are required downstream by check_status).
+        const buffetRelaunchBypass = isDineFlashBuffet() && !!hasVendorId;
+        if (!locationId && !buffetRelaunchBypass) {
             console.warn("Missing location_id for home redirect.");
             return;
         }
@@ -115,8 +124,12 @@ function isDineFlashTableBooking() {
         }
 
         const newUrl = new URL(`${window.location.origin}${base}home/`);
-        newUrl.searchParams.set("location_id", locationId);
-        newUrl.searchParams.set("vendor_id", hasVendorId);
+        if (locationId) {
+            newUrl.searchParams.set("location_id", locationId);
+        }
+        if (hasVendorId) {
+            newUrl.searchParams.set("vendor_id", hasVendorId);
+        }
         if (hasTokenNo) {
             newUrl.searchParams.set("token_no", hasTokenNo);
         }
