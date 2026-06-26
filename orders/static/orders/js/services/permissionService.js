@@ -114,6 +114,16 @@ export const PermissionService = (() => {
         btn.style.pointerEvents = "";
     };
 
+    /** Notification API is absent in some browsers (e.g. iOS Safari non-PWA tab). */
+    const isNotificationSupported = () =>
+        typeof Notification !== "undefined" &&
+        typeof Notification.requestPermission === "function";
+
+    /** Hotfix scope: Dine Flash booking page only (excludes Buffet, Home, other flavours). */
+    const isDineFlashBookingPage = () =>
+        String(window.PROJECT_NAME || "").toLowerCase() === "dine_flash" &&
+        String(window.location?.pathname || "").toLowerCase().includes("/table_booking/");
+
     const waitForPermissionWithTimeout = async (permissionPromise, timeoutMs = 2500) => {
         if (!permissionPromise) return null;
         const timeoutResult = "__permission_timeout__";
@@ -153,6 +163,19 @@ export const PermissionService = (() => {
                 cleanupBackdrop();
                 const granted = await requestPermissions();
                 await finalizeAgreeGranted(granted, true);
+                return;
+            }
+
+            // Dine Flash booking page on a browser without the Notification API
+            // (e.g. iOS Safari non-PWA tab) would otherwise throw a ReferenceError
+            // here. Close the modal, still unlock sound, and skip notification work.
+            if (isDineFlashBookingPage() && !isNotificationSupported()) {
+                bsModalInstance?.hide();
+                cleanupBackdrop();
+                queueMicrotask(() => {
+                    void AppUtils.unlockNotificationSound();
+                });
+                await finalizeAgreeGranted(false, false);
                 return;
             }
 
