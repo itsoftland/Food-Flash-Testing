@@ -29,6 +29,18 @@ const EXPECTED_PROJECT = (() => {
   }
 })();
 
+// ⚠️ TEMP DIAGNOSTIC (iOS chat-card loss). Dine Flash AND Dine Flash Buffet
+// deployments only (EXPECTED_PROJECT derived from SW scope). Logs how many window
+// clients a push is delivered to, and which branch the notification click takes.
+// Remove with the other `[diag]` logs once root cause is found.
+function dineFlashSwDiag(label, data) {
+  if (EXPECTED_PROJECT !== "dine_flash" && EXPECTED_PROJECT !== "dine_flash_buffet") return;
+  console.info(`[diag][${EXPECTED_PROJECT}] ${label}`, {
+    ts: new Date().toISOString(),
+    ...(data || {}),
+  });
+}
+
 function normalizeProjectName(value) {
   return String(value || "")
     .toLowerCase()
@@ -196,6 +208,17 @@ self.addEventListener("push", (event) => {
         }
       });
 
+      dineFlashSwDiag("push -> PUSH_STATUS_UPDATE dispatched to window clients", {
+        booking_id: payload?.booking_id,
+        token_no: payload?.token_no,
+        type: payload?.type,
+        window_client_count: allClients.length,
+        matching_client_count: allClients.filter(
+          (c) => projectsMatch(EXPECTED_PROJECT, inferProjectFromUrl(c?.url))
+        ).length,
+        will_show_system_notification: shouldShowSystemNotification,
+      });
+
       if (shouldShowSystemNotification) {
         const customTitle = payload.title || "🍽 New Update";
         const customBody = payload.body || "You have a new update.";
@@ -259,6 +282,13 @@ self.addEventListener("notificationclick", (event) => {
         }
 
       const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+      dineFlashSwDiag("notificationclick", {
+        booking_id: pushData?.booking_id,
+        token_no: pushData?.token_no,
+        window_client_count: allClients.length,
+        branch: allClients.length > 0 ? "focus + OPEN_CHAT" : "openWindow ?from_push=true",
+      });
 
       if (allClients.length > 0) {
         const client = allClients[0];

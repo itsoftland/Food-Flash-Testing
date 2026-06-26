@@ -17,6 +17,21 @@ try {
 
 let vendorUiReadyPromise = Promise.resolve();
 
+// ⚠️ TEMP DIAGNOSTIC (iOS chat-card loss). Dine Flash AND Dine Flash Buffet only;
+// logs whether the vendor bar triggers an EARLY restore (which can clear cards
+// before bootstrap). Remove with the other `[diag]` logs.
+function dineFlashVendorDiag(label, data) {
+    const base = window.BASE || "";
+    const isDineFlashBuffet = base.includes("/dine_flash_buffet/");
+    const isDineFlash = base.includes("/dine_flash/");
+    if (!isDineFlash && !isDineFlashBuffet) return;
+    const projectLabel = isDineFlashBuffet ? "dine_flash_buffet" : "dine_flash";
+    console.info(`[diag][${projectLabel}] ${label}`, {
+        ts: new Date().toISOString(),
+        ...(data || {}),
+    });
+}
+
 export const VendorUIService = {
     ready() {
         return vendorUiReadyPromise;
@@ -100,6 +115,16 @@ export const VendorUIService = {
                     String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet" &&
                     window.buffetQrTokenFromRedirect;
                 const skipRestoreForDineFlashBookingRedirect = Boolean(window.dineFlashBookingFromRedirect);
+                dineFlashVendorDiag("VendorUIService restore decision", {
+                    vendor_id: vendor.vendor_id,
+                    browser_id_present: Boolean(browser_id),
+                    skip_buffet_qr_redirect: Boolean(skipRestoreForBuffetQrRedirect),
+                    skip_dine_flash_booking_redirect: skipRestoreForDineFlashBookingRedirect,
+                    will_restore:
+                        Boolean(browser_id) &&
+                        !skipRestoreForBuffetQrRedirect &&
+                        !skipRestoreForDineFlashBookingRedirect,
+                });
                 if (browser_id && !skipRestoreForBuffetQrRedirect && !skipRestoreForDineFlashBookingRedirect) {
                     ChatRestoreService.restore(vendor.vendor_id);
                 } else if (!browser_id) {

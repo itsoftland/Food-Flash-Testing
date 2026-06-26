@@ -3,6 +3,21 @@ import { ChatHistoryService } from "./chatHistoryService.js";
 import { appendMessage } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
+// ⚠️ TEMP DIAGNOSTIC (iOS chat-card loss). Dine Flash AND Dine Flash Buffet only;
+// logs when chat history restore runs/clears the container so a clear-after-append
+// race is visible on the timeline. Remove with the other `[diag]` logs.
+function dineFlashRestoreDiag(label, data) {
+  const base = window.BASE || "";
+  const isDineFlashBuffet = base.includes("/dine_flash_buffet/");
+  const isDineFlash = base.includes("/dine_flash/");
+  if (!isDineFlash && !isDineFlashBuffet) return;
+  const projectLabel = isDineFlashBuffet ? "dine_flash_buffet" : "dine_flash";
+  console.info(`[diag][${projectLabel}] ${label}`, {
+    ts: new Date().toISOString(),
+    ...(data || {}),
+  });
+}
+
 function isDineFlashBuffetRestoreSurface() {
   const base = window.BASE || "";
   if (base.includes("/dine_flash_buffet/")) return true;
@@ -72,6 +87,10 @@ export const ChatRestoreService = (() => {
         lastRestoredVendorId = vendorId;
 
         const browserId = AppUtils.getBrowserId();
+        dineFlashRestoreDiag("restore START", {
+          vendor_id: vendorId,
+          browser_id_present: Boolean(browserId),
+        });
         if (!browserId) {
           console.warn("ChatRestoreService: No browser ID, skipping restore.");
           return false;
@@ -85,6 +104,11 @@ export const ChatRestoreService = (() => {
           return false;
         }
 
+        dineFlashRestoreDiag("restore CLEARING chat container", {
+          vendor_id: vendorId,
+          chat_children_before_clear: chatContainer.childElementCount,
+          restored_message_count: cachedMessages.length,
+        });
         // Always clear when switching vendors
         chatContainer.innerHTML = "";
         
@@ -139,6 +163,11 @@ export const ChatRestoreService = (() => {
         // 🟡 Always insert welcome note at the top
         WelcomeMessageService.show(AppUtils.getSelectedOutletName() || "our outlet", chatContainer, { prepend: true });
 
+        dineFlashRestoreDiag("restore FINISH", {
+          vendor_id: vendorId,
+          restored_message_count: cachedMessages.length,
+          chat_children_after: chatContainer.childElementCount,
+        });
         return cachedMessages.length > 0;
       } catch (err) {
         console.error("ChatRestoreService.restore failed:", err);

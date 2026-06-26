@@ -74,6 +74,33 @@ onDOMReady(async function () {
     /** Buffet flavour only — `projectsMatch(x, "dine_flash")` is true for buffet because names share a prefix. */
     const isDineFlashBuffetProject = () =>
         normalizeProjectName(currentProject()) === "dineflashbuffet";
+
+    // ⚠️ TEMP DIAGNOSTIC (iOS chat-card loss). Structured timeline logging only —
+    // no business logic. Enabled for Dine Flash AND Dine Flash Buffet (excludes
+    // Food Flash, Airline Flash, and other flavours, because `projectsMatch(x,
+    // "dine_flash")` is true only for the dine_flash* family). Each log is prefixed
+    // with the active project. Remove all `[diag]` logs once root cause is found.
+    const dineFlashDiagEnabled = projectsMatch(currentProject(), "dine_flash");
+    const diagProjectLabel = currentProject();
+    const dineFlashDiag = (label, data) => {
+        if (!dineFlashDiagEnabled) return;
+        console.info(`[diag][${diagProjectLabel}] ${label}`, {
+            ts: new Date().toISOString(),
+            ...(data || {}),
+        });
+    };
+    dineFlashDiag("page init START", {
+        url: window.location?.href,
+        from_push: new URLSearchParams(window.location.search).get("from_push"),
+        controller_present:
+            typeof navigator !== "undefined" &&
+            "serviceWorker" in navigator &&
+            Boolean(navigator.serviceWorker.controller),
+        browser_id_present: Boolean(
+            (typeof AppUtils !== "undefined" && AppUtils.storageGet("browser_id")) || null
+        ),
+    });
+
     const ACTIVE_DINE_BOOKING_KEY = "activeDineBookingId";
     const normalizeBookingId = (value) => {
         if (value === null || value === undefined) return null;
@@ -377,10 +404,26 @@ onDOMReady(async function () {
             });
         });
 
+        dineFlashDiag("SW message listener REGISTERED", {
+            controller_present: Boolean(navigator.serviceWorker.controller),
+        });
         navigator.serviceWorker.addEventListener('message', async (event) => {
+            dineFlashDiag("SW message RECEIVED by page", {
+                type: event.data?.type,
+                has_payload: Boolean(event.data?.payload),
+            });
             if (event.data && event.data.type === "OPEN_CHAT") {
                 const payloadProject = event.data?.payload?.project;
+                dineFlashDiag("OPEN_CHAT received", {
+                    payload_project: payloadProject,
+                    booking_id: event.data?.payload?.booking_id,
+                    project_match: projectsMatch(currentProject(), payloadProject),
+                });
                 if (!projectsMatch(currentProject(), payloadProject)) {
+                    dineFlashDiag("OPEN_CHAT REJECTED: project mismatch", {
+                        expected: currentProject(),
+                        incoming: payloadProject,
+                    });
                     return;
                 }
                 // Call a function to display or refresh the chat view
@@ -392,6 +435,15 @@ onDOMReady(async function () {
             if (event.data?.type === 'PUSH_STATUS_UPDATE') {
                 const pushData = event.data.payload;
                 // console.log("Payload Recieved:",pushData)
+                dineFlashDiag("PUSH_STATUS_UPDATE received", {
+                    type: pushData?.type,
+                    project: pushData?.project,
+                    booking_id: pushData?.booking_id,
+                    token_no: pushData?.token_no,
+                    vendor_id: pushData?.vendor_id,
+                    status: pushData?.status,
+                    message_id: pushData?.message_id,
+                });
                 // Ignore cross-flavour messages (fixes food_flash -> airline_flash leakage).
                 const expectedProject = currentProject();
 
@@ -401,6 +453,10 @@ onDOMReady(async function () {
                 // If project identity doesn't match (or is missing), discard to avoid
                 // cross-flavour card updates.
                 if (!projectsMatch(expectedProject, incomingProject)) {
+                    dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: project mismatch", {
+                        expected: expectedProject,
+                        incoming: incomingProject,
+                    });
                     return;
                 }
                 if (
@@ -411,6 +467,10 @@ onDOMReady(async function () {
                     const expected = String(window.buffetQrTokenFromRedirect).trim();
                     const incoming = String(pushData.token_no).trim();
                     if (expected && incoming && expected !== incoming) {
+                        dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: buffet token mismatch (QR redirect window)", {
+                            expected_token: expected,
+                            incoming_token: incoming,
+                        });
                         return;
                     }
                 }
@@ -432,6 +492,10 @@ onDOMReady(async function () {
                         knownBookingIds.length > 0 &&
                         !knownBookingIds.includes(incomingBookingId)
                     ) {
+                        dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: booking_id not in BOOKING_ID_MAP", {
+                            incoming_booking_id: incomingBookingId,
+                            known_booking_ids: knownBookingIds,
+                        });
                         return;
                     }
                 }
@@ -455,6 +519,10 @@ onDOMReady(async function () {
                     const vendorIds = AppUtils.getStoredVendors();
                     VendorUIService.init(vendorIds);
                 }
+                dineFlashDiag("PUSH_STATUS_UPDATE filters PASSED -> updating chat", {
+                    booking_id: pushData?.booking_id,
+                    type: pushData?.type || (window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus'),
+                });
                 updateChatOnPush(pushData.vendor_id,pushData.logo_url,pushData.name);
                 let type = window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus';
                 const messageType = pushData.type || type;
@@ -490,7 +558,17 @@ onDOMReady(async function () {
                     case 'buffet_manager':
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'notification');
+                        dineFlashDiag("PUSH buffet_manager APPENDING card", {
+                            token_no: pushData.token_no,
+                            message_id: pushData.message_id,
+                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                            is_restoring_history: Boolean(window.isRestoringHistory),
+                        });
                         appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
+                        dineFlashDiag("PUSH buffet_manager APPENDED card", {
+                            token_no: pushData.token_no,
+                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                        });
                         break;
                     case 'item_preparing':
                     case 'item_ready':
@@ -505,7 +583,19 @@ onDOMReady(async function () {
                     case 'buffet_utilities_ready':
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
+                        dineFlashDiag("PUSH buffet item/status APPENDING card", {
+                            type: messageType,
+                            token_no: pushData.token_no,
+                            message_id: pushData.message_id,
+                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                            is_restoring_history: Boolean(window.isRestoringHistory),
+                        });
                         appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        dineFlashDiag("PUSH buffet item/status APPENDED card", {
+                            type: messageType,
+                            token_no: pushData.token_no,
+                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                        });
                         break;
                     case 'order_delivered':
                         AppUtils.notifyOrderReady(pushData);
@@ -535,7 +625,17 @@ onDOMReady(async function () {
                         }
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
+                        dineFlashDiag("PUSH dinestatus APPENDING card", {
+                            booking_id: pushData.booking_id,
+                            message_id: pushData.message_id,
+                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                            is_restoring_history: Boolean(window.isRestoringHistory),
+                        });
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                        dineFlashDiag("PUSH dinestatus APPENDED card", {
+                            booking_id: pushData.booking_id,
+                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                        });
                         break;
                     
                     case 'thankyou' :
@@ -1270,6 +1370,14 @@ onDOMReady(async function () {
                     });
 
                     const snapshotAlreadyShown = buffetSnapshotExists(buffetTokenKey);
+                    dineFlashDiag("fetchOrderStatusOnce buffet snapshot decision", {
+                        token: buffetTokenKey,
+                        snapshot_already_shown: snapshotAlreadyShown,
+                        manual_entry: manualEntry,
+                        will_append: manualEntry || !snapshotAlreadyShown,
+                        chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                        is_restoring_history: Boolean(window.isRestoringHistory),
+                    });
 
                     // Manual valid token entry must ALWAYS show the latest details. If a
                     // snapshot already exists (restored or from an earlier lookup), replace
@@ -1305,6 +1413,11 @@ onDOMReady(async function () {
                         await saveChat(data, 'server', type, data.sequence_code);
                     }
                     else if (type === 'dinestatus') {
+                        dineFlashDiag("fetchOrderStatusOnce APPENDING initial dinestatus card", {
+                            booking_id: bookingId,
+                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                            is_restoring_history: Boolean(window.isRestoringHistory),
+                        });
                         appendMessage(messageHTML, 'server', null, type, bookingId);
                         await saveChat(data, 'server', type, bookingId);
                     } 
@@ -1363,6 +1476,13 @@ onDOMReady(async function () {
         await VendorUIService.ready();
         const vendorId = await AppUtils.getActiveVendor();
         const browser_id = AppUtils.getCurrentBrowserId();
+
+        dineFlashDiag("showChatWindow", {
+            vendor_id: vendorId,
+            browser_id_present: Boolean(browser_id),
+            will_restore: Boolean(browser_id),
+            chat_children_current: chatContainer.childElementCount,
+        });
 
         if (!browser_id) {
             console.warn("No browser ID, skipping restore wait.");
