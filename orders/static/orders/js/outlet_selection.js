@@ -20,9 +20,52 @@ function isDineFlashBuffet() {
 }
 
 // ─────────────────────────────────────
+// Dine Flash relaunch staging UI (dine_flash table-booking only)
+// ─────────────────────────────────────
+// For Dine Flash table-booking the landing page is only a transient PWA
+// relaunch staging page; manual outlet selection has no valid downstream flow.
+// While the relaunch IIFE runs we hide the outlet-selection UI and surface a
+// relaunch status using the app's existing Bootstrap styling. Everything here
+// is gated to dine_flash and never runs for other flavours.
+const DINE_FLASH_RELAUNCH_FAILED_MSG =
+    "We couldn't restore your previous booking. Please scan the restaurant QR code again to continue.";
+
+// Set true just before a successful relaunch redirect so the failed-relaunch
+// message is not flashed while the page is navigating away.
+let dineFlashRedirecting = false;
+
+function initDineFlashRelaunchUI() {
+    const outletList = document.getElementById("outlet-list");
+    const continueBtn = document.getElementById("continue-btn");
+    const title = document.querySelector(".container .title");
+
+    [outletList, continueBtn, title].forEach((el) => {
+        if (el) el.style.display = "none";
+    });
+
+    const container = document.querySelector(".container") || document.body;
+    const status = document.createElement("div");
+    status.id = "dine-flash-relaunch-status";
+    status.className = "text-center py-5";
+    status.innerHTML = `
+        <div class="spinner-border text-warning" role="status" aria-hidden="true"></div>
+        <p class="mt-3 mb-0">Restoring your booking...</p>
+    `;
+    container.appendChild(status);
+
+    return {
+        fail(message) {
+            status.innerHTML = `<p class="mb-0">${message}</p>`;
+        },
+    };
+}
+
+const dineFlashRelaunchUI = isDineFlashTableBooking() ? initDineFlashRelaunchUI() : null;
+
+// ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
 // ─────────────────────────────────────
-(async function redirectIfMissingLocationId() {
+const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
 
     const currentUrl = new URL(window.location.href);
     const urlParams = currentUrl.searchParams;
@@ -73,6 +116,7 @@ function isDineFlashBuffet() {
                     newUrl.searchParams.set("v", urlParams.get("v"));
                 }
 
+                dineFlashRedirecting = true;
                 window.location.replace(newUrl.toString());
                 return;
             }
@@ -110,6 +154,7 @@ function isDineFlashBuffet() {
                     newUrl.searchParams.set("v", urlParams.get("v"));
                 }
 
+                dineFlashRedirecting = true;
                 window.location.replace(newUrl.toString());
                 return;
             }
@@ -147,12 +192,26 @@ function isDineFlashBuffet() {
         if (locationIdFromStorage) {
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set("location_id", locationIdFromStorage);
+            dineFlashRedirecting = true;
             window.location.replace(newUrl.toString());
         } else {
             console.warn("No location_id found in URL or storage.");
         }
     }
 })();
+
+// Dine Flash table-booking only: when the relaunch IIFE settles without
+// redirecting to /home/, the previous booking could not be restored. Keep the
+// outlet-selection UI hidden and replace the loading message with guidance to
+// rescan. .finally() preserves the original (non-dine) promise behaviour,
+// including rejection propagation, since the callback is a no-op there.
+if (isDineFlashTableBooking()) {
+    dineFlashRelaunchFlow.finally(() => {
+        if (!dineFlashRedirecting) {
+            dineFlashRelaunchUI?.fail(DINE_FLASH_RELAUNCH_FAILED_MSG);
+        }
+    });
+}
 
 // ─────────────────────────────────────
 // Main Logic: Run after DOM is ready
