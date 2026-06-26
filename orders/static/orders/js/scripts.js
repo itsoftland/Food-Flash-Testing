@@ -89,6 +89,7 @@ onDOMReady(async function () {
             ...(data || {}),
         });
     };
+    console.info("REACHED LINE 92");
     dineFlashDiag("page init START", {
         url: window.location?.href,
         from_push: new URLSearchParams(window.location.search).get("from_push"),
