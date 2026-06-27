@@ -190,6 +190,14 @@ self.addEventListener("push", (event) => {
         includeUncontrolled: true,
       });
 
+      console.info("[dine_flash][diag] window clients", {
+        booking_id: payload?.booking_id,
+        booking_no: payload?.booking_no,
+        type: payload?.type,
+        client_count: allClients.length,
+        urls: allClients.map(client => client.url),
+      });
+
       let shouldShowSystemNotification = true;
 
       allClients.forEach((client) => {
