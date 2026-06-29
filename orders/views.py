@@ -60,6 +60,63 @@ base = getattr(settings, 'LOGIN_URL')
 project_name = getattr(settings, "PROJECT_NAME", "calleron")
 
 
+# ⚠️ TEMP DIAGNOSTIC (iOS push-delivery investigation).
+# Flavours that ship the client/SW push-pipeline breadcrumbs. Everything else
+# is ignored so the endpoint stays a no-op for unrelated deployments.
+DINE_FLASH_DIAG_PROJECTS = ("dine_flash", "dine_flash_buffet")
+
+# Stable field order keeps the structured `[diag]` line grep-friendly.
+_DINE_FLASH_DIAG_FIELDS = (
+    "step",
+    "branch",
+    "message_id",
+    "booking_id",
+    "token_no",
+    "browser_id",
+    "project",
+    "type",
+    "client_count",
+    "reason",
+    "source",
+    "error",
+)
+
+# Defensive cap so a malformed/oversized client value can never bloat the logs.
+_DINE_FLASH_DIAG_MAX_VALUE_LEN = 200
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def dine_flash_client_diag(request):
+    """
+    TEMP DIAGNOSTIC endpoint (iOS push-delivery chain investigation).
+
+    The page and Service Worker POST one breadcrumb per pipeline step here so a
+    single push can be traced end-to-end in the server logs without Safari Web
+    Inspector. Logging only — no DB writes, no business logic. Returns 200
+    immediately. Safe to delete together with the matching client `[diag]` logs
+    once the root cause is found.
+    """
+    # Only the dine_flash family emits these breadcrumbs; no-op elsewhere.
+    if project_name not in DINE_FLASH_DIAG_PROJECTS:
+        return Response(status=status.HTTP_200_OK)
+
+    data = request.data if isinstance(request.data, dict) else {}
+
+    parts = []
+    for key in _DINE_FLASH_DIAG_FIELDS:
+        value = data.get(key)
+        if value is None or value == "":
+            continue
+        value = str(value)[:_DINE_FLASH_DIAG_MAX_VALUE_LEN]
+        parts.append("%s=%s" % (key, value))
+
+    logger.info("[%s][diag] %s", project_name, " ".join(parts))
+
+    return Response(status=status.HTTP_200_OK)
+
+
 def _send_to_managers_async(vendor, data, title=None, body=None):
     """
     Fire-and-forget manager notification so customer-facing APIs do not block.

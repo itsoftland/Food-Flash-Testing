@@ -41,6 +41,32 @@ function dineFlashSwDiag(label, data) {
   });
 }
 
+// ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). POSTs a single breadcrumb to the
+// server (/api/dine_flash_client_diag/) so a push can be traced end-to-end
+// without Safari Web Inspector. Dine Flash + Dine Flash Buffet only. Fire-and-
+// forget, never throws, never blocks push delivery. Remove with the other
+// `[diag]` logs once root cause is found.
+function dineFlashClientDiag(step, fields) {
+  if (EXPECTED_PROJECT !== "dine_flash" && EXPECTED_PROJECT !== "dine_flash_buffet") return;
+  try {
+    const root = BASE_URL || self.registration.scope; // both end with "/"
+    const url = `${root}api/dine_flash_client_diag/`;
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true, // survive the SW going idle after the push handler
+      body: JSON.stringify({
+        step,
+        source: "service_worker",
+        timestamp: Date.now(),
+        ...(fields || {}),
+      }),
+    }).catch(() => {});
+  } catch (e) {
+    // Diagnostics must never affect push delivery.
+  }
+}
+
 function normalizeProjectName(value) {
   return String(value || "")
     .toLowerCase()
@@ -136,6 +162,13 @@ self.addEventListener("push", (event) => {
 
   const payload = event.data.json();
 
+  dineFlashClientDiag("SW_PUSH_RECEIVED", {
+    message_id: payload?.message_id,
+    booking_id: payload?.booking_id,
+    token_no: payload?.token_no,
+    type: payload?.type,
+  });
+
   const isDineFlashPush =
     projectsMatch(EXPECTED_PROJECT, "dine_flash") &&
     payload?.type === "dinestatus";
@@ -199,6 +232,14 @@ self.addEventListener("push", (event) => {
       });
 
       let shouldShowSystemNotification = true;
+
+      dineFlashClientDiag("SW_POSTMESSAGE_SENT", {
+        message_id: payload?.message_id,
+        booking_id: payload?.booking_id,
+        token_no: payload?.token_no,
+        client_count: allClients.length,
+        type: payload?.type,
+      });
 
       allClients.forEach((client) => {
         const clientProject = inferProjectFromUrl(client?.url);
@@ -299,6 +340,15 @@ self.addEventListener("notificationclick", (event) => {
       });
 
       if (allClients.length > 0) {
+        dineFlashClientDiag("NOTIFICATIONCLICK_BRANCH", {
+          branch: "focus_existing_client",
+          message_id: pushData?.message_id,
+          booking_id: pushData?.booking_id,
+          token_no: pushData?.token_no,
+          browser_id: pushData?.browser_id,
+          project: EXPECTED_PROJECT,
+          client_count: allClients.length,
+        });
         const client = allClients[0];
         client.focus();
         client.postMessage({ type: "OPEN_CHAT", payload: pushData });
@@ -327,6 +377,16 @@ self.addEventListener("notificationclick", (event) => {
 
         const targetUrl = `${BASE_URL || self.registration.scope}?from_push=true`;
         // console.log("[Service Worker] 🌐 Opening page from push:", targetUrl);
+
+        dineFlashClientDiag("NOTIFICATIONCLICK_BRANCH", {
+          branch: "open_new_window",
+          message_id: pushData?.message_id,
+          booking_id: pushData?.booking_id,
+          token_no: pushData?.token_no,
+          browser_id: pushData?.browser_id,
+          project: EXPECTED_PROJECT,
+          client_count: allClients.length,
+        });
 
         const openedClient = await self.clients.openWindow(targetUrl);
         if (openedClient) {

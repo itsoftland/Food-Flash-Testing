@@ -89,6 +89,41 @@ onDOMReady(async function () {
             ...(data || {}),
         });
     };
+
+    // ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Mirrors dineFlashDiag to the
+    // console AND POSTs the breadcrumb to /api/dine_flash_client_diag/ so a push
+    // can be traced end-to-end in the server logs without Safari Web Inspector.
+    // Fire-and-forget, never throws, never blocks the UI. Remove with the other
+    // `[diag]` logs once root cause is found.
+    const dineFlashClientDiag = (step, fields) => {
+        if (!dineFlashDiagEnabled) return;
+        const data = fields || {};
+        dineFlashDiag(step, data);
+        try {
+            const browserId =
+                (typeof AppUtils !== "undefined" && AppUtils.getCurrentBrowserId?.()) || null;
+            const url = `${AppUtils.getStartUrl()}api/dine_flash_client_diag/`;
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken":
+                        (typeof AppUtils !== "undefined" && AppUtils.getCSRFToken?.()) || "",
+                },
+                credentials: "same-origin",
+                keepalive: true,
+                body: JSON.stringify({
+                    step,
+                    source: "page",
+                    browser_id: browserId,
+                    timestamp: Date.now(),
+                    ...data,
+                }),
+            }).catch(() => {});
+        } catch (e) {
+            // Diagnostics must never break the page.
+        }
+    };
     console.info("REACHED LINE 92");
     dineFlashDiag("page init START", {
         url: window.location?.href,
@@ -409,6 +444,13 @@ onDOMReady(async function () {
             controller_present: Boolean(navigator.serviceWorker.controller),
         });
         navigator.serviceWorker.addEventListener('message', async (event) => {
+            const diagPayload = event.data?.payload || {};
+            dineFlashClientDiag("PAGE_MESSAGE_RECEIVED", {
+                type: event.data?.type,
+                message_id: diagPayload.message_id,
+                booking_id: diagPayload.booking_id,
+                token_no: diagPayload.token_no,
+            });
             dineFlashDiag("SW message RECEIVED by page", {
                 type: event.data?.type,
                 has_payload: Boolean(event.data?.payload),
@@ -454,6 +496,13 @@ onDOMReady(async function () {
                 // If project identity doesn't match (or is missing), discard to avoid
                 // cross-flavour card updates.
                 if (!projectsMatch(expectedProject, incomingProject)) {
+                    dineFlashClientDiag("FILTER_REJECTED", {
+                        reason: "project_mismatch",
+                        message_id: pushData?.message_id,
+                        booking_id: pushData?.booking_id,
+                        token_no: pushData?.token_no,
+                        type: pushData?.type,
+                    });
                     dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: project mismatch", {
                         expected: expectedProject,
                         incoming: incomingProject,
@@ -468,6 +517,13 @@ onDOMReady(async function () {
                     const expected = String(window.buffetQrTokenFromRedirect).trim();
                     const incoming = String(pushData.token_no).trim();
                     if (expected && incoming && expected !== incoming) {
+                        dineFlashClientDiag("FILTER_REJECTED", {
+                            reason: "token_mismatch",
+                            message_id: pushData?.message_id,
+                            booking_id: pushData?.booking_id,
+                            token_no: pushData?.token_no,
+                            type: pushData?.type,
+                        });
                         dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: buffet token mismatch (QR redirect window)", {
                             expected_token: expected,
                             incoming_token: incoming,
@@ -493,6 +549,13 @@ onDOMReady(async function () {
                         knownBookingIds.length > 0 &&
                         !knownBookingIds.includes(incomingBookingId)
                     ) {
+                        dineFlashClientDiag("FILTER_REJECTED", {
+                            reason: "booking_mismatch",
+                            message_id: pushData?.message_id,
+                            booking_id: pushData?.booking_id,
+                            token_no: pushData?.token_no,
+                            type: pushData?.type,
+                        });
                         dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: booking_id not in BOOKING_ID_MAP", {
                             incoming_booking_id: incomingBookingId,
                             known_booking_ids: knownBookingIds,
@@ -520,6 +583,12 @@ onDOMReady(async function () {
                     const vendorIds = AppUtils.getStoredVendors();
                     VendorUIService.init(vendorIds);
                 }
+                dineFlashClientDiag("FILTERS_PASSED", {
+                    message_id: pushData?.message_id,
+                    booking_id: pushData?.booking_id,
+                    token_no: pushData?.token_no,
+                    type: pushData?.type,
+                });
                 dineFlashDiag("PUSH_STATUS_UPDATE filters PASSED -> updating chat", {
                     booking_id: pushData?.booking_id,
                     type: pushData?.type || (window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus'),
@@ -535,6 +604,7 @@ onDOMReady(async function () {
                 });
 
                 // Handle different message types
+                try {
                 switch (messageType) {
                     case 'offers':
                         AppUtils.playNotificationSound(pushData.vibration_pattern,pushData.vibration_duration);
@@ -647,6 +717,22 @@ onDOMReady(async function () {
 
                     default:
                         console.warn("Unhandled push message type:", messageType);
+                }
+                dineFlashClientDiag("UI_APPENDED", {
+                    message_id: pushData?.message_id,
+                    booking_id: pushData?.booking_id,
+                    token_no: pushData?.token_no,
+                    type: messageType,
+                });
+                } catch (uiErr) {
+                    dineFlashClientDiag("UI_APPEND_FAILED", {
+                        message_id: pushData?.message_id,
+                        booking_id: pushData?.booking_id,
+                        token_no: pushData?.token_no,
+                        type: messageType,
+                        error: (uiErr && (uiErr.message || String(uiErr))) || "unknown",
+                    });
+                    throw uiErr; // preserve original error propagation
                 }
             }
         });
