@@ -447,6 +447,20 @@ def resolve_booking(request):
 
 
 def outlet_selection(request):
+    # Dine Flash Buffet only: the outlet-selection landing page requires a
+    # location_id that the buffet QR/order flow never provides, so it dead-ends
+    # on the "Location ID is missing" toast. Buffet vendor/token context is
+    # restored on /home/ from persisted storage (activeVendor, token, browser_id),
+    # which explicitly tolerates a missing location_id. Send buffet launches
+    # straight to /home/ and preserve the full query string so flags like
+    # ?from_push=true, ?standalone=true and ?v=... reach the home flow unchanged.
+    if project_name == "dine_flash_buffet":
+        target = f"{request.path.rstrip('/')}/home/"
+        query_string = request.META.get("QUERY_STRING", "")
+        if query_string:
+            target = f"{target}?{query_string}"
+        return redirect(target)
+
     location_id = request.GET.get("location_id")
     context = {}
 
