@@ -182,6 +182,14 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
             newUrl.searchParams.set("from_push", urlParams.get("from_push"));
         }
 
+        // Buffet only: signal that a relaunch redirect is in flight so the
+        // DOMContentLoaded location check can skip the false "Location ID is
+        // missing" toast while navigation completes. Flag only; redirect URL
+        // and destination are unchanged. Other flavours (food/airline) fall
+        // through here without setting it, preserving their behaviour.
+        if (isDineFlashBuffet()) {
+            dineFlashRedirecting = true;
+        }
         window.location.replace(newUrl.toString());
         return;
     }
@@ -247,6 +255,25 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (locationId) {
         AppUtils.set(locationId); // Stores in both localStorage and cookie
     } else {
+        // Dine Flash Buffet PWA relaunch only: the relaunch IIFE
+        // (redirectIfMissingLocationId) may still be resolving activeVendor /
+        // token / location from IndexedDB / cookie. Each fallback tier adds a
+        // ~200ms timer, so the IIFE reaches location.replace() AFTER this branch
+        // would otherwise show the "Location ID is missing" toast — producing a
+        // false flash right before the redirect. Wait for the relaunch decision
+        // first so the toast can only appear when no redirect will occur.
+        // Gated to buffet so no other flavour's timing changes.
+        if (isDineFlashBuffet()) {
+            try {
+                await dineFlashRelaunchFlow;
+            } catch (err) {
+                console.warn("[dine_flash_buffet] relaunch flow failed:", err);
+            }
+            if (dineFlashRedirecting) {
+                return; // Redirect in progress; page is unloading.
+            }
+        }
+
         // Try to get from fallback (this path usually won't run due to early redirect)
         locationId = await AppUtils.get();
 
