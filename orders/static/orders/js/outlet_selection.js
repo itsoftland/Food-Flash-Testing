@@ -63,48 +63,6 @@ function initDineFlashRelaunchUI() {
 const dineFlashRelaunchUI = isDineFlashTableBooking() ? initDineFlashRelaunchUI() : null;
 
 // ─────────────────────────────────────
-// Dine Flash Buffet relaunch loading state (dine_flash_buffet only)
-// ─────────────────────────────────────
-// Cosmetic only. While the relaunch IIFE decides whether to redirect to /home/,
-// briefly showing the outlet-selection page is jarring for a returning Buffet
-// user. Mirror the table-booking staging UI: hide the outlet UI and show a
-// simple "Restoring your order..." spinner. Unlike table-booking, Buffet must
-// reveal the normal outlet page again when no relaunch occurs, so this helper
-// returns hide() which removes the overlay and restores the hidden elements.
-// No relaunch, redirect, or storage logic is involved here.
-function initBuffetRelaunchUI() {
-    const outletList = document.getElementById("outlet-list");
-    const continueBtn = document.getElementById("continue-btn");
-    const title = document.querySelector(".container .title");
-    const hidden = [outletList, continueBtn, title];
-
-    hidden.forEach((el) => {
-        if (el) el.style.display = "none";
-    });
-
-    const container = document.querySelector(".container") || document.body;
-    const status = document.createElement("div");
-    status.id = "buffet-relaunch-status";
-    status.className = "text-center py-5";
-    status.innerHTML = `
-        <div class="spinner-border text-warning" role="status" aria-hidden="true"></div>
-        <p class="mt-3 mb-0">Restoring your order...</p>
-    `;
-    container.appendChild(status);
-
-    return {
-        hide() {
-            status.remove();
-            hidden.forEach((el) => {
-                if (el) el.style.display = "";
-            });
-        },
-    };
-}
-
-const buffetRelaunchUI = isDineFlashBuffet() ? initBuffetRelaunchUI() : null;
-
-// ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
 // ─────────────────────────────────────
 const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
@@ -259,19 +217,6 @@ if (isDineFlashTableBooking()) {
     dineFlashRelaunchFlow.finally(() => {
         if (!dineFlashRedirecting) {
             dineFlashRelaunchUI?.fail(DINE_FLASH_RELAUNCH_FAILED_MSG);
-        }
-    });
-}
-
-// Dine Flash Buffet only: when the relaunch IIFE settles WITHOUT redirecting,
-// no relaunch is possible — hide the "Restoring your order..." loading state and
-// reveal the normal outlet-selection page (existing behaviour). When a redirect
-// is in flight we leave the overlay up so navigation to /home/ stays seamless.
-// Cosmetic only; the IIFE's relaunch/redirect logic is untouched.
-if (isDineFlashBuffet()) {
-    dineFlashRelaunchFlow.finally(() => {
-        if (!dineFlashRedirecting) {
-            buffetRelaunchUI?.hide();
         }
     });
 }
