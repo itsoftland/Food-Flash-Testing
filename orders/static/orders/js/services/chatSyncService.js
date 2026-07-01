@@ -35,6 +35,33 @@ function isDineFlashBuffetSurface() {
     return String(window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
 }
 
+// ⚠️ TEMP DIAGNOSTIC (iOS sync recovery). POSTs breadcrumbs to
+// /api/dine_flash_client_diag/ — server logs only, no console output.
+function dineFlashClientDiag(step, fields) {
+    if (!isDineFlashBuffetSurface()) return;
+    try {
+        const url = `${AppUtils.getStartUrl()}api/dine_flash_client_diag/`;
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": AppUtils.getCSRFToken?.() || "",
+            },
+            credentials: "same-origin",
+            keepalive: true,
+            body: JSON.stringify({
+                step,
+                source: "page",
+                browser_id: AppUtils.getBrowserId?.() || AppUtils.getCurrentBrowserId?.() || null,
+                timestamp: Date.now(),
+                ...(fields || {}),
+            }),
+        }).catch(() => {});
+    } catch (e) {
+        // Diagnostics must never break sync.
+    }
+}
+
 function isEnabled() {
     return isIosDevice() && isStandalonePwa() && isDineFlashBuffetSurface();
 }
@@ -249,10 +276,51 @@ export const ChatSyncService = (() => {
 
             const messages = (await ChatHistoryService.load(vendorId, browserId)) || [];
 
+            dineFlashClientDiag("SYNC_LOADED", {
+                vendor_id: vendorId,
+                browser_id: browserId,
+                message_count: messages.length,
+            });
+
             for (const msg of messages) {
-                if (!isRecoverableMessage(msg)) continue;
-                if (!passesBuffetQrTokenGuard(msg)) continue;
-                if (isAlreadyHandled(msg, vendorId)) continue;
+                dineFlashClientDiag("SYNC_ROW", {
+                    booking_id: resolveBookingId(msg),
+                    token_no: msg.token_no,
+                    type: resolveMessageType(msg),
+                    browser_id: browserId,
+                });
+
+                const recoverable = isRecoverableMessage(msg);
+
+                let qrGuard = false;
+                let alreadyHandled = false;
+
+                if (recoverable) {
+                    qrGuard = passesBuffetQrTokenGuard(msg);
+
+                    if (qrGuard) {
+                        alreadyHandled = isAlreadyHandled(msg, vendorId);
+                    }
+                }
+
+                dineFlashClientDiag("SYNC_CHECK", {
+                    booking_id: resolveBookingId(msg),
+                    token_no: msg.token_no,
+                    type: resolveMessageType(msg),
+                    recoverable,
+                    qr_guard: qrGuard,
+                    already_handled: alreadyHandled,
+                });
+
+                if (!recoverable) continue;
+                if (!qrGuard) continue;
+                if (alreadyHandled) continue;
+
+                dineFlashClientDiag("SYNC_APPENDING", {
+                    booking_id: resolveBookingId(msg),
+                    token_no: msg.token_no,
+                    type: resolveMessageType(msg),
+                });
 
                 appendMessage(
                     msg.rendered,
@@ -261,6 +329,13 @@ export const ChatSyncService = (() => {
                     msg.type,
                     msg.token_no
                 );
+
+                dineFlashClientDiag("SYNC_APPENDED", {
+                    booking_id: resolveBookingId(msg),
+                    token_no: msg.token_no,
+                    type: resolveMessageType(msg),
+                });
+
                 registerPushDelivered(msg, vendorId);
             }
         } catch (err) {
