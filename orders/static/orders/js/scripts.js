@@ -8,6 +8,7 @@ import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./servic
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js";
+import { ChatSyncService } from "./services/chatSyncService.js";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260605_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
@@ -372,6 +373,7 @@ onDOMReady(async function () {
             .map(id => parseInt(id))
             .filter(id => Number.isInteger(id) && !isNaN(id));
         await VendorUIService.init(vendorIds);
+        ChatSyncService.init();
     }
 
     const isAndroid = /Android/i.test(navigator.userAgent);
@@ -593,6 +595,9 @@ onDOMReady(async function () {
                     booking_id: pushData?.booking_id,
                     type: pushData?.type || (window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus'),
                 });
+                if (ChatSyncService.isAlreadyHandled(pushData)) {
+                    return;
+                }
                 updateChatOnPush(pushData.vendor_id,pushData.logo_url,pushData.name);
                 let type = window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus';
                 const messageType = pushData.type || type;
@@ -724,6 +729,7 @@ onDOMReady(async function () {
                     token_no: pushData?.token_no,
                     type: messageType,
                 });
+                ChatSyncService.registerPushDelivered(pushData);
                 } catch (uiErr) {
                     dineFlashClientDiag("UI_APPEND_FAILED", {
                         message_id: pushData?.message_id,

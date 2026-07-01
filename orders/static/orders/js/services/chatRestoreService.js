@@ -1,5 +1,6 @@
 // orders/static/orders/js/services/chatRestoreService.js
 import { ChatHistoryService } from "./chatHistoryService.js";
+import { ChatSyncService } from "./chatSyncService.js";
 import { appendMessage } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
@@ -81,6 +82,8 @@ export const ChatRestoreService = (() => {
       return Promise.resolve(true);
     }
 
+    ChatSyncService.resetForVendor(vendorId);
+
     restorePromise = (async () => {
       try {
         window.isRestoringHistory = true;
@@ -97,6 +100,7 @@ export const ChatRestoreService = (() => {
         }
 
         const cachedMessages = await ChatHistoryService.load(vendorId, browserId) || [];
+        ChatSyncService.seedFromMessages(cachedMessages, vendorId);
         const chatContainer = document.getElementById("chat-container");
 
         if (!chatContainer) {
