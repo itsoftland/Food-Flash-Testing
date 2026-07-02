@@ -65,6 +65,14 @@ function isDineFlashDiagSurface() {
 
 // ⚠️ TEMP DIAGNOSTIC (iOS sync recovery). POSTs breadcrumbs to
 // /api/dine_flash_client_diag/ — server logs only, no console output.
+function syncDiagFields(extra) {
+    return {
+        browser_id: AppUtils.getBrowserId?.() || AppUtils.getCurrentBrowserId?.() || null,
+        project: currentProject(),
+        ...(extra || {}),
+    };
+}
+
 function dineFlashClientDiag(step, fields) {
     if (!isDineFlashDiagSurface()) return;
     try {
@@ -287,9 +295,20 @@ export const ChatSyncService = (() => {
     }
 
     async function syncMissing() {
-        if (!isEnabled()) return;
-        if (window.isRestoringHistory === true) return;
-        if (syncInProgress) return;
+        dineFlashClientDiag("SYNC_ENTER", syncDiagFields());
+
+        if (!isEnabled()) {
+            dineFlashClientDiag("SYNC_SKIP_NOT_ENABLED", syncDiagFields());
+            return;
+        }
+        if (window.isRestoringHistory === true) {
+            dineFlashClientDiag("SYNC_SKIP_RESTORE_ACTIVE", syncDiagFields());
+            return;
+        }
+        if (syncInProgress) {
+            dineFlashClientDiag("SYNC_SKIP_ALREADY_RUNNING", syncDiagFields());
+            return;
+        }
 
         syncInProgress = true;
         try {
@@ -297,10 +316,16 @@ export const ChatSyncService = (() => {
                 activeVendorId != null
                     ? parseInt(activeVendorId, 10)
                     : await AppUtils.getActiveVendor();
-            if (!vendorId) return;
+            if (!vendorId) {
+                dineFlashClientDiag("SYNC_SKIP_NO_VENDOR", syncDiagFields());
+                return;
+            }
 
             const browserId = AppUtils.getBrowserId();
-            if (!browserId) return;
+            if (!browserId) {
+                dineFlashClientDiag("SYNC_SKIP_NO_BROWSER_ID", syncDiagFields());
+                return;
+            }
 
             const messages = (await ChatHistoryService.load(vendorId, browserId)) || [];
 
@@ -384,11 +409,19 @@ export const ChatSyncService = (() => {
             clearInterval(periodicTimerId);
         }
         periodicTimerId = setInterval(() => {
+            dineFlashClientDiag("SYNC_TIMER_TICK", syncDiagFields());
             syncMissing();
         }, SYNC_INTERVAL_MS);
+        dineFlashClientDiag("SYNC_TIMER_STARTED", syncDiagFields({
+            interval_ms: SYNC_INTERVAL_MS,
+        }));
     }
 
     function init() {
+        dineFlashClientDiag("SYNC_INIT", syncDiagFields({
+            vendor_id: activeVendorId != null ? activeVendorId : null,
+        }));
+
         if (!isEnabled()) return;
         startPeriodicSync();
 
@@ -396,15 +429,29 @@ export const ChatSyncService = (() => {
         listenersBound = true;
 
         document.addEventListener("visibilitychange", () => {
+            dineFlashClientDiag("VISIBILITY_CHANGE", syncDiagFields());
             if (document.visibilityState === "visible") {
                 syncMissing();
             }
         });
 
         window.addEventListener("pageshow", (event) => {
+            dineFlashClientDiag("PAGE_SHOW", syncDiagFields());
             if (event.persisted || document.visibilityState === "visible") {
                 syncMissing();
             }
+        });
+
+        window.addEventListener("pagehide", () => {
+            dineFlashClientDiag("PAGE_HIDE", syncDiagFields());
+        });
+
+        window.addEventListener("focus", () => {
+            dineFlashClientDiag("WINDOW_FOCUS", syncDiagFields());
+        });
+
+        window.addEventListener("blur", () => {
+            dineFlashClientDiag("WINDOW_BLUR", syncDiagFields());
         });
     }
 

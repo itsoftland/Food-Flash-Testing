@@ -82,6 +82,7 @@ _DINE_FLASH_DIAG_FIELDS = (
     "already_handled",
     "client_count",
     "matching_client_count",
+    "interval_ms",
     "reason",
     "source",
     "error",
