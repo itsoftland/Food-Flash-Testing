@@ -1,7 +1,8 @@
 // orders/static/orders/js/services/chatSyncService.js
 //
-// iOS Buffet PWA-only recovery when the service worker cannot postMessage to
-// any window client (client_count=0). Android and other flavours are untouched:
+// iOS standalone PWA recovery when the service worker cannot postMessage to
+// any window client (client_count=0). Covers Dine Flash Buffet and Dine Flash
+// table booking. Android, desktop, and Safari browser tabs are untouched:
 // every entry point returns immediately when isEnabled() is false.
 
 import { ChatHistoryService } from "./chatHistoryService.js";
@@ -17,6 +18,17 @@ const RECOVERABLE_TYPES = new Set([
     "buffet_manager",
     "buffet_utilities_status",
     "order_delivered",
+]);
+
+const DINE_FLASH_RECOVERABLE_DINESTATUS_STATUSES = new Set([
+    "allocated",
+    "occupied",
+    "booking_cancelled",
+]);
+
+const DINE_FLASH_EXCLUDED_DINESTATUS_STATUSES = new Set([
+    "waiting",
+    "created",
 ]);
 
 const SYNC_INTERVAL_MS = 60 * 1000;
@@ -59,6 +71,17 @@ function isDineFlashBuffetSurface() {
     return String(window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
 }
 
+function isDineFlashTableBookingSurface() {
+    const project = String(window.PROJECT_NAME || "").trim().toLowerCase();
+    if (project === "dine_flash_buffet") return false;
+    if (project === "dine_flash") return true;
+    const path = String(window.location?.pathname || "").toLowerCase();
+    if (path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet")) {
+        return false;
+    }
+    return path.includes("/dine_flash") || path.includes("/dineflash");
+}
+
 function isDineFlashDiagSurface() {
     return projectsMatch(currentProject(), "dine_flash");
 }
@@ -99,7 +122,9 @@ function dineFlashClientDiag(step, fields) {
 }
 
 function isEnabled() {
-    return isIosDevice() && isStandalonePwa() && isDineFlashBuffetSurface();
+    return isIosDevice()
+        && isStandalonePwa()
+        && (isDineFlashBuffetSurface() || isDineFlashTableBookingSurface());
 }
 
 function hashString(str) {
@@ -150,7 +175,10 @@ function resolveMessageType(source) {
         innerType === "buffet_utilities_status" ||
         innerType === "buffet_utilities_ready" ||
         innerType === "buffet_manager" ||
-        innerType === "order_delivered"
+        innerType === "order_delivered" ||
+        innerType === "dinestatus" ||
+        innerType === "dine_manager" ||
+        innerType === "thankyou"
     ) {
         return innerType;
     }
@@ -183,6 +211,16 @@ function resolveVendorId(source, fallbackVendorId) {
     ).trim();
 }
 
+function resolveStatus(source) {
+    const payload = resolvePayload(source);
+    return String(payload?.status ?? "").trim().toLowerCase();
+}
+
+function resolveSeat(source) {
+    const payload = resolvePayload(source);
+    return String(payload?.seat_no ?? payload?.table_number ?? "").trim();
+}
+
 function resolveItemId(source) {
     const payload = resolvePayload(source);
     return String(payload?.item_id ?? "").trim();
@@ -198,6 +236,35 @@ function resolveMessageId(source) {
     const messageId = payload?.message_id ?? source?.message_id;
     if (messageId == null || messageId === "") return "";
     return String(messageId).trim();
+}
+
+function isDineFlashRecoverableMessage(source) {
+    if (!source || typeof source !== "object") return false;
+
+    const sender = String(source.sender ?? "").toLowerCase();
+    if (sender && sender !== "server") return false;
+
+    const type = resolveMessageType(source);
+    if (!type) return false;
+
+    if (type === "dinestatus") {
+        const status = resolveStatus(source);
+        if (!status || DINE_FLASH_EXCLUDED_DINESTATUS_STATUSES.has(status)) {
+            return false;
+        }
+        return DINE_FLASH_RECOVERABLE_DINESTATUS_STATUSES.has(status);
+    }
+
+    if (type === "thankyou") {
+        const status = resolveStatus(source);
+        return !status || status === "operation_closed";
+    }
+
+    if (type === "dine_manager") {
+        return true;
+    }
+
+    return false;
 }
 
 function fingerprint(source, fallbackVendorId) {
@@ -232,11 +299,31 @@ function fingerprint(source, fallbackVendorId) {
         return `${vendorId}|${bookingId}|buffet_utilities_status|${hashString(normalizedUtilities)}`;
     }
 
+    if (type === "dinestatus") {
+        return `${vendorId}|${bookingId}|dinestatus|${resolveStatus(source)}|${resolveSeat(source)}`;
+    }
+
+    if (type === "dine_manager") {
+        const messageId = resolveMessageId(source);
+        if (messageId) {
+            return `${vendorId}|${bookingId}|dine_manager|${messageId}`;
+        }
+        return `${vendorId}|${bookingId}|dine_manager|${hashString(resolveBody(source))}`;
+    }
+
+    if (type === "thankyou") {
+        return `${vendorId}|${bookingId}|thankyou|operation_closed`;
+    }
+
     return `${vendorId}|${bookingId}|${type}`;
 }
 
 function isRecoverableMessage(source) {
     if (!source || typeof source !== "object") return false;
+
+    if (isDineFlashTableBookingSurface()) {
+        return isDineFlashRecoverableMessage(source);
+    }
 
     const sender = String(source.sender ?? "").toLowerCase();
     if (sender && sender !== "server") return false;
@@ -245,6 +332,47 @@ function isRecoverableMessage(source) {
     if (!type || type === "buffet_order_details") return false;
 
     return RECOVERABLE_TYPES.has(type);
+}
+
+function resolveAppendKey(msg) {
+    const type = resolveMessageType(msg);
+    if (
+        isDineFlashTableBookingSurface()
+        && (type === "dinestatus" || type === "dine_manager" || type === "thankyou")
+    ) {
+        return msg.booking_id ?? resolveBookingId(msg);
+    }
+    return msg.token_no;
+}
+
+function passesBuffetQrTokenGuard(msg) {
+    if (!window.buffetQrTokenFromRedirect || msg?.token_no == null) {
+        return true;
+    }
+    const expected = String(window.buffetQrTokenFromRedirect).trim();
+    const incoming = String(msg.token_no).trim();
+    if (expected && incoming && expected !== incoming) {
+        return false;
+    }
+    return true;
+}
+
+function passesDineFlashBookingGuard(msg) {
+    if (!isDineFlashTableBookingSurface()) return true;
+
+    const active = String(AppUtils.storageGet?.("activeDineBookingId") || "").trim();
+    if (!active) return true;
+
+    const incoming = resolveBookingId(msg);
+    if (!incoming) return true;
+
+    return incoming === active;
+}
+
+function passesRecoveryGuard(msg) {
+    if (!passesBuffetQrTokenGuard(msg)) return false;
+    if (!passesDineFlashBookingGuard(msg)) return false;
+    return true;
 }
 
 export const ChatSyncService = (() => {
@@ -280,18 +408,6 @@ export const ChatSyncService = (() => {
         if (!isEnabled()) return;
         activeVendorId = vendorId != null ? String(vendorId) : null;
         handledFingerprints = new Set();
-    }
-
-    function passesBuffetQrTokenGuard(msg) {
-        if (!window.buffetQrTokenFromRedirect || msg?.token_no == null) {
-            return true;
-        }
-        const expected = String(window.buffetQrTokenFromRedirect).trim();
-        const incoming = String(msg.token_no).trim();
-        if (expected && incoming && expected !== incoming) {
-            return false;
-        }
-        return true;
     }
 
     async function syncMissing() {
@@ -347,13 +463,13 @@ export const ChatSyncService = (() => {
 
                 const recoverable = isRecoverableMessage(msg);
 
-                let qrGuard = false;
+                let recoveryGuard = false;
                 let alreadyHandled = false;
 
                 if (recoverable) {
-                    qrGuard = passesBuffetQrTokenGuard(msg);
+                    recoveryGuard = passesRecoveryGuard(msg);
 
-                    if (qrGuard) {
+                    if (recoveryGuard) {
                         alreadyHandled = isAlreadyHandled(msg, vendorId);
                     }
                 }
@@ -363,19 +479,22 @@ export const ChatSyncService = (() => {
                     token_no: msg.token_no,
                     type: resolveMessageType(msg),
                     recoverable,
-                    qr_guard: qrGuard,
+                    qr_guard: recoveryGuard,
                     already_handled: alreadyHandled,
                     project: currentProject(),
                 });
 
                 if (!recoverable) continue;
-                if (!qrGuard) continue;
+                if (!recoveryGuard) continue;
                 if (alreadyHandled) continue;
+
+                const messageType = resolveMessageType(msg);
+                const appendKey = resolveAppendKey(msg);
 
                 dineFlashClientDiag("SYNC_APPENDING", {
                     booking_id: resolveBookingId(msg),
                     token_no: msg.token_no,
-                    type: resolveMessageType(msg),
+                    type: messageType,
                     project: currentProject(),
                 });
 
@@ -383,14 +502,14 @@ export const ChatSyncService = (() => {
                     msg.rendered,
                     msg.sender,
                     msg.timestamp,
-                    msg.type,
-                    msg.token_no
+                    messageType,
+                    appendKey
                 );
 
                 dineFlashClientDiag("SYNC_APPENDED", {
                     booking_id: resolveBookingId(msg),
                     token_no: msg.token_no,
-                    type: resolveMessageType(msg),
+                    type: messageType,
                     project: currentProject(),
                 });
 
