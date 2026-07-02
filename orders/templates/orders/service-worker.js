@@ -166,7 +166,9 @@ self.addEventListener("push", (event) => {
     message_id: payload?.message_id,
     booking_id: payload?.booking_id,
     token_no: payload?.token_no,
+    browser_id: payload?.browser_id,
     type: payload?.type,
+    project: EXPECTED_PROJECT,
   });
 
   const isDineFlashPush =
@@ -223,12 +225,17 @@ self.addEventListener("push", (event) => {
         includeUncontrolled: true,
       });
 
-      console.info("[dine_flash][diag] window clients", {
+      const matchingClients = allClients.filter((client) =>
+        projectsMatch(EXPECTED_PROJECT, inferProjectFromUrl(client?.url))
+      );
+
+      console.info(`[${EXPECTED_PROJECT}][diag] window clients`, {
         booking_id: payload?.booking_id,
         booking_no: payload?.booking_no,
         type: payload?.type,
         client_count: allClients.length,
-        urls: allClients.map(client => client.url),
+        matching_client_count: matchingClients.length,
+        urls: allClients.map((client) => client.url),
       });
 
       let shouldShowSystemNotification = true;
@@ -237,8 +244,11 @@ self.addEventListener("push", (event) => {
         message_id: payload?.message_id,
         booking_id: payload?.booking_id,
         token_no: payload?.token_no,
+        browser_id: payload?.browser_id,
         client_count: allClients.length,
+        matching_client_count: matchingClients.length,
         type: payload?.type,
+        project: EXPECTED_PROJECT,
       });
 
       allClients.forEach((client) => {
@@ -262,9 +272,7 @@ self.addEventListener("push", (event) => {
         token_no: payload?.token_no,
         type: payload?.type,
         window_client_count: allClients.length,
-        matching_client_count: allClients.filter(
-          (c) => projectsMatch(EXPECTED_PROJECT, inferProjectFromUrl(c?.url))
-        ).length,
+        matching_client_count: matchingClients.length,
         will_show_system_notification: shouldShowSystemNotification,
       });
 

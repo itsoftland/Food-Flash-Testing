@@ -29,16 +29,44 @@ function isStandalonePwa() {
     return Boolean(window.navigator.standalone);
 }
 
+function normalizeProjectName(value) {
+    return String(value || "").toLowerCase().replace(/[_-]/g, "").trim();
+}
+
+function projectsMatch(expected, incoming) {
+    const e = normalizeProjectName(expected);
+    const i = normalizeProjectName(incoming);
+    if (!e || !i) return false;
+    return e === i || e.startsWith(i) || i.startsWith(e);
+}
+
+function currentProject() {
+    const project = String(window.PROJECT_NAME || "").trim().toLowerCase();
+    if (project) return project;
+    const path = String(window.location?.pathname || "").toLowerCase();
+    if (path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet")) {
+        return "dine_flash_buffet";
+    }
+    if (path.includes("/dine_flash") || path.includes("/dineflash")) {
+        return "dine_flash";
+    }
+    return project;
+}
+
 function isDineFlashBuffetSurface() {
     const project = String(window.PROJECT_NAME || "").trim().toLowerCase();
     if (project === "dine_flash_buffet") return true;
     return String(window.location?.pathname || "").toLowerCase().includes("/dine_flash_buffet");
 }
 
+function isDineFlashDiagSurface() {
+    return projectsMatch(currentProject(), "dine_flash");
+}
+
 // ⚠️ TEMP DIAGNOSTIC (iOS sync recovery). POSTs breadcrumbs to
 // /api/dine_flash_client_diag/ — server logs only, no console output.
 function dineFlashClientDiag(step, fields) {
-    if (!isDineFlashBuffetSurface()) return;
+    if (!isDineFlashDiagSurface()) return;
     try {
         const url = `${AppUtils.getStartUrl()}api/dine_flash_client_diag/`;
         fetch(url, {
@@ -280,6 +308,7 @@ export const ChatSyncService = (() => {
                 vendor_id: vendorId,
                 browser_id: browserId,
                 message_count: messages.length,
+                project: currentProject(),
             });
 
             for (const msg of messages) {
@@ -288,6 +317,7 @@ export const ChatSyncService = (() => {
                     token_no: msg.token_no,
                     type: resolveMessageType(msg),
                     browser_id: browserId,
+                    project: currentProject(),
                 });
 
                 const recoverable = isRecoverableMessage(msg);
@@ -310,6 +340,7 @@ export const ChatSyncService = (() => {
                     recoverable,
                     qr_guard: qrGuard,
                     already_handled: alreadyHandled,
+                    project: currentProject(),
                 });
 
                 if (!recoverable) continue;
@@ -320,6 +351,7 @@ export const ChatSyncService = (() => {
                     booking_id: resolveBookingId(msg),
                     token_no: msg.token_no,
                     type: resolveMessageType(msg),
+                    project: currentProject(),
                 });
 
                 appendMessage(
@@ -334,6 +366,7 @@ export const ChatSyncService = (() => {
                     booking_id: resolveBookingId(msg),
                     token_no: msg.token_no,
                     type: resolveMessageType(msg),
+                    project: currentProject(),
                 });
 
                 registerPushDelivered(msg, vendorId);

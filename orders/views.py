@@ -81,6 +81,7 @@ _DINE_FLASH_DIAG_FIELDS = (
     "qr_guard",
     "already_handled",
     "client_count",
+    "matching_client_count",
     "reason",
     "source",
     "error",

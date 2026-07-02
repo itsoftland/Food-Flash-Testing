@@ -452,6 +452,8 @@ onDOMReady(async function () {
                 message_id: diagPayload.message_id,
                 booking_id: diagPayload.booking_id,
                 token_no: diagPayload.token_no,
+                browser_id: diagPayload.browser_id,
+                project: currentProject(),
             });
             dineFlashDiag("SW message RECEIVED by page", {
                 type: event.data?.type,
@@ -503,7 +505,9 @@ onDOMReady(async function () {
                         message_id: pushData?.message_id,
                         booking_id: pushData?.booking_id,
                         token_no: pushData?.token_no,
+                        browser_id: pushData?.browser_id,
                         type: pushData?.type,
+                        project: currentProject(),
                     });
                     dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: project mismatch", {
                         expected: expectedProject,
@@ -524,7 +528,9 @@ onDOMReady(async function () {
                             message_id: pushData?.message_id,
                             booking_id: pushData?.booking_id,
                             token_no: pushData?.token_no,
+                            browser_id: pushData?.browser_id,
                             type: pushData?.type,
+                            project: currentProject(),
                         });
                         dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: buffet token mismatch (QR redirect window)", {
                             expected_token: expected,
@@ -556,7 +562,9 @@ onDOMReady(async function () {
                             message_id: pushData?.message_id,
                             booking_id: pushData?.booking_id,
                             token_no: pushData?.token_no,
+                            browser_id: pushData?.browser_id,
                             type: pushData?.type,
+                            project: currentProject(),
                         });
                         dineFlashDiag("PUSH_STATUS_UPDATE REJECTED: booking_id not in BOOKING_ID_MAP", {
                             incoming_booking_id: incomingBookingId,
@@ -589,13 +597,24 @@ onDOMReady(async function () {
                     message_id: pushData?.message_id,
                     booking_id: pushData?.booking_id,
                     token_no: pushData?.token_no,
+                    browser_id: pushData?.browser_id,
                     type: pushData?.type,
+                    project: currentProject(),
                 });
                 dineFlashDiag("PUSH_STATUS_UPDATE filters PASSED -> updating chat", {
                     booking_id: pushData?.booking_id,
                     type: pushData?.type || (window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus'),
                 });
                 if (ChatSyncService.isAlreadyHandled(pushData)) {
+                    dineFlashClientDiag("ALREADY_HANDLED_SKIP", {
+                        message_id: pushData?.message_id,
+                        booking_id: pushData?.booking_id,
+                        token_no: pushData?.token_no,
+                        browser_id: pushData?.browser_id,
+                        type: pushData?.type,
+                        project: currentProject(),
+                        already_handled: true,
+                    });
                     return;
                 }
                 updateChatOnPush(pushData.vendor_id,pushData.logo_url,pushData.name);
@@ -727,7 +746,9 @@ onDOMReady(async function () {
                     message_id: pushData?.message_id,
                     booking_id: pushData?.booking_id,
                     token_no: pushData?.token_no,
+                    browser_id: pushData?.browser_id,
                     type: messageType,
+                    project: currentProject(),
                 });
                 ChatSyncService.registerPushDelivered(pushData);
                 } catch (uiErr) {
@@ -735,7 +756,9 @@ onDOMReady(async function () {
                         message_id: pushData?.message_id,
                         booking_id: pushData?.booking_id,
                         token_no: pushData?.token_no,
+                        browser_id: pushData?.browser_id,
                         type: messageType,
+                        project: currentProject(),
                         error: (uiErr && (uiErr.message || String(uiErr))) || "unknown",
                     });
                     throw uiErr; // preserve original error propagation
