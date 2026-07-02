@@ -19,7 +19,7 @@ const RECOVERABLE_TYPES = new Set([
     "order_delivered",
 ]);
 
-const SYNC_INTERVAL_MS = 2 * 60 * 1000;
+const SYNC_INTERVAL_MS = 60 * 1000;
 
 function isIosDevice() {
     return /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
