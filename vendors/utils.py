@@ -629,7 +629,8 @@ def archive_order(order):
                 updated_by=order.updated_by,
                 created_at=order.created_at,
                 updated_at=order.updated_at,
-                created_date=order.created_date
+                created_date=order.created_date,
+                registration_batch_id=order.registration_batch_id,
             )
 
             # Step 2: Copy status history

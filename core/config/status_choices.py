@@ -114,6 +114,17 @@ STATUS_CHOICES_MAP = {
         ('cancelled', 'Cancelled'),      # Item cancelled
         ('operation_closed', 'Close Operation'),
     ],
+
+    # ---------------------------------------------------------------
+    # 🏥 HOSPITAL FLASH
+    # ---------------------------------------------------------------
+    "hospital_flash": [
+        ('registered', 'Registered'),
+        ('waiting', 'Waiting'),
+        ('called', 'Called'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ],
 }
 
 # -------------------------------------------------------------------

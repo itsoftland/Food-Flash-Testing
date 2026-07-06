@@ -1577,6 +1577,7 @@ def manifest(request):
         "service_flash": "serviceflash-mini-logo.webp",
         "dine_flash": "dineflash-mini-logo.webp",
         "dine_flash_buffet": "dineflash-mini-logo.webp",
+        "hospital_flash": "calleron-mini-logo.webp",
         "calleron": "calleron-mini-logo.webp",
     }
 

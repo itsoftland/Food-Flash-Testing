@@ -52,11 +52,23 @@ DINE_FLASH = {
 }
 
 # ----------------------------
+# Hospital Flash Icon Configuration
+# ----------------------------
+HOSPITAL_FLASH = {
+    "sidebar": {
+        "outlet_list": "fas fa-hospital",
+        "configurations": "fas fa-cogs",
+        "utilities": "fas fa-stethoscope",
+    }
+}
+
+# ----------------------------
 # Mapping of Project Key → Icon Sets
 # ----------------------------
 ICONS = {
     "default": DEFAULT,
     "food_flash": FOOD_FLASH,
     "airline_flash": AIRLINE_FLASH,
-    "dine_flash":DINE_FLASH
+    "dine_flash": DINE_FLASH,
+    "hospital_flash": HOSPITAL_FLASH,
 }

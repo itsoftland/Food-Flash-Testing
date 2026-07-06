@@ -156,6 +156,8 @@ class VendorConfig(models.Model):
     )
     continuous_booking_counter = models.PositiveIntegerField(default=0)
     phone_number_enabled = models.BooleanField(default=False)
+    mr_number_enabled = models.BooleanField(default=False)
+    bill_number_enabled = models.BooleanField(default=False)
     closing_message = models.TextField(
         help_text="Custom closing/thank you message",
         default=get_default_closing_message
@@ -405,6 +407,12 @@ class Order(models.Model):
         null=True,
         blank=True,
         related_name="current_orders"
+    )
+    registration_batch_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        editable=False,
     )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)
@@ -883,6 +891,12 @@ class ArchivedOrder(models.Model):
     customer_name = models.CharField(max_length=100, blank=True, null=True)
     no_of_packs = models.PositiveIntegerField(blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
+    registration_batch_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        editable=False,
+    )
 
     def __str__(self):
         return f"Archived Token {self.token_no}"

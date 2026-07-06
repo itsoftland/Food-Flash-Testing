@@ -10,14 +10,14 @@
 <link rel="stylesheet" href="{% static 'company/css/configurations.css' %}">
 {% endblock %}
 
-{% block title %}Configurations{% endblock %}
+{% block title %}{{ LABELS.sidebar.configurations }}{% endblock %}
 
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Configurations</h1>
+        <h1 class="page-title">{{ LABELS.sidebar.configurations }}</h1>
       </div>
     </div>
   </div>
@@ -51,7 +51,13 @@
                   <label class="form-check-label" for="phone_number_enabled">
                     <strong>Enable Phone Number Field</strong>
                     <br>
-                    <small class="text-muted">Show phone number field in table booking form</small>
+                    <small class="text-muted">
+                      {% if is_hospital_flash %}
+                      Show phone number field in patient registration form
+                      {% else %}
+                      Show phone number field in table booking form
+                      {% endif %}
+                    </small>
                   </label>
                 </div>
               </div>
@@ -60,13 +66,43 @@
                 <div class="form-check w-100">
                   <input class="form-check-input" type="checkbox" value="1" id="utilities_enabled" name="utilities_enabled">
                   <label class="form-check-label" for="utilities_enabled">
-                    <strong>Enable Utilities</strong>
+                    <strong>Enable {{ LABELS.sidebar.utilities }}</strong>
                     <br>
-                    <small class="text-muted">Activate utility management features</small>
+                    <small class="text-muted">
+                      {% if is_hospital_flash %}
+                      Activate department selection and department management features
+                      {% else %}
+                      Activate utility management features
+                      {% endif %}
+                    </small>
                   </label>
                 </div>
               </div>
             </div>
+            {% if is_hospital_flash %}
+            <div class="row mt-3">
+              <div class="col-lg-6 d-flex align-items-start mb-3 mb-lg-0">
+                <div class="form-check w-100">
+                  <input class="form-check-input" type="checkbox" value="1" id="mr_number_enabled" name="mr_number_enabled">
+                  <label class="form-check-label" for="mr_number_enabled">
+                    <strong>Enable MR Number Field</strong>
+                    <br>
+                    <small class="text-muted">Show MR number field in patient registration form</small>
+                  </label>
+                </div>
+              </div>
+              <div class="col-lg-6 d-flex align-items-start">
+                <div class="form-check w-100">
+                  <input class="form-check-input" type="checkbox" value="1" id="bill_number_enabled" name="bill_number_enabled">
+                  <label class="form-check-label" for="bill_number_enabled">
+                    <strong>Enable Bill Number Field</strong>
+                    <br>
+                    <small class="text-muted">Show bill number field in patient registration form</small>
+                  </label>
+                </div>
+              </div>
+            </div>
+            {% endif %}
             {% if is_dine_flash %}
             <div class="row mt-3">
               <div class="col-lg-6">

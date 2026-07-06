@@ -50,10 +50,12 @@ class OrdersSerializer(serializers.ModelSerializer):
             "current_utility"
         ]
 
-        is_dine = project_name in ["dine_flash", "dine_flash_buffet"]
+        is_dine = project_name in ["dine_flash", "dine_flash_buffet", "hospital_flash"]
         if not is_dine:
             for f in dine_fields:
                 fields.pop(f, None)
+
+        fields.pop("registration_batch_id", None)
 
         return fields
     def get_new_notifications(self, obj):

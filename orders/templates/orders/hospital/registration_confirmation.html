@@ -1,0 +1,51 @@
+{% extends "orders/hospital/layouts/hospital_customer_base.html" %}
+{% load static %}
+
+{% block header_title %}Registration Confirmed{% endblock %}
+
+{% block hospital_page_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/hospital/hospital_registration.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container public-register-container">
+    <div class="vendor-branding text-center mt-3">
+        {% if VENDOR_LOGO_URL %}
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="{{ VENDOR_LOGO_URL }}" alt="Branch Logo">
+        {% endif %}
+        <h2 id="vendor-name" class="vendor-name">{{ VENDOR_NAME|default:"" }}</h2>
+    </div>
+
+    <h4 class="form-section-title text-center mb-3">Registration Confirmed</h4>
+
+    <div class="registration-card-container mt-4">
+        <div class="registration-card p-4">
+            <div class="confirmation-patient mb-3">
+                <div class="text-muted small">Patient</div>
+                <div class="h5 mb-0" id="confirm-patient-name">—</div>
+            </div>
+
+            <div class="confirmation-tokens mb-4">
+                <div class="text-muted small mb-2">Department Tokens</div>
+                <div id="token-list"></div>
+            </div>
+
+            <div class="row g-3 button-row">
+                <div class="col-12">
+                    <button class="btn premium-primary-btn w-100" id="new-registration-btn" type="button">
+                        <i class="fas fa-user-plus me-2"></i> New Registration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.RESOLVED_VENDOR_ID = "{{ vendor_id|default:'' }}";
+</script>
+<script type="module" src="{% static 'orders/js/hospital/registration_confirmation.js' %}?v={{ APP_VERSION }}"></script>
+{% endblock %}

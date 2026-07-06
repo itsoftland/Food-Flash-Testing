@@ -305,6 +305,67 @@ DINE_FLASH_BUFFET = {
 }
 
 # ----------------------------
+# Hospital Flash Label Configuration
+# ----------------------------
+HOSPITAL_FLASH = {
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "company": "Hospital",
+        "register_company": "Register Hospital",
+        "company_list": "Hospital List",
+        "create_outlet": "Create Branch",
+        "outlet_list": "Branch List",
+        "outlet_update": "Update Outlet Data",
+        "order_update": "Queue Update",
+        "total_orders": "Total Patients",
+        "order_details": "Patient Details",
+        "configurations": "Configurations",
+        "utilities": "Departments",
+        "manage_utilities": "Manage Departments",
+        "new_utility": "New Department",
+    },
+    "dashboard": {
+        "title": "Hospital Flash Dashboard",
+        "body": "You can manage hospitals and view analytics from here.",
+    },
+    "company_dashboard": {
+        "title": "Hospital Dashboard",
+    },
+    "outlet_list": {
+        "title": "You can manage outlets from here.",
+    },
+    "outlet_update": {
+        "outlet_name": "Outlet Name",
+        "outlet_alias_name": "Outlet Alias Name",
+        "button": "Update Outlet Data",
+    },
+    "create_user": {
+        "outlet": "Outlet",
+        "select_outlet": "Select Outlet",
+    },
+    "registration": {
+        "title": "Hospital Registration",
+        "company_name": "Hospital Name",
+        "contact_phone": "Contact Number",
+        "email": "Hospital Email",
+        "gst": "Registration Number",
+        "contact_person": "Administrator Name",
+        "contact_manager_phone": "Administrator Contact Number",
+        "address1": "Hospital Address 1",
+        "address2": "Hospital Address 2",
+        "state": "State",
+        "city": "City",
+        "username": "Username",
+        "password": "Password",
+        "submit_button": "Register Hospital",
+    },
+    "select_outlet_modal": {
+        "title": "Select Outlet",
+        "instruction": "Please select your outlet to proceed.",
+    },
+}
+
+# ----------------------------
 # Mapping of Project Key → Labels
 # ----------------------------
 LABELS = {
@@ -312,5 +373,6 @@ LABELS = {
     "food_flash": FOOD_FLASH,
     "airline_flash": AIRLINE_FLASH,
     "dine_flash": DINE_FLASH,
-    "dine_flash_buffet": DINE_FLASH_BUFFET
+    "dine_flash_buffet": DINE_FLASH_BUFFET,
+    "hospital_flash": HOSPITAL_FLASH,
 }

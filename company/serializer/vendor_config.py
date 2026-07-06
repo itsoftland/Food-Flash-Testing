@@ -58,6 +58,8 @@ class VendorConfigUpdateSerializer(serializers.Serializer):
 
     # Optional configuration fields (ONLY those allowed to be updated)
     phone_number_enabled = serializers.BooleanField(required=False)
+    mr_number_enabled = serializers.BooleanField(required=False)
+    bill_number_enabled = serializers.BooleanField(required=False)
     use_utilities = serializers.BooleanField(required=False)
     qr_expiry_minutes = serializers.IntegerField(required=False, min_value=1, max_value=1440)
 

@@ -60,6 +60,7 @@ onDOMReady(async function () {
         if (path.includes('/airline_flash') || path.includes('/airlineflash')) return 'airline_flash';
         if (path.includes('/dine_flash_buffet') || path.includes('/dineflashbuffet')) return 'dine_flash_buffet';
         if (path.includes('/dine_flash') || path.includes('/dineflash')) return 'dine_flash';
+        if (path.includes('/hospital_flash') || path.includes('/hospitalflash')) return 'hospital_flash';
         if (path.includes('/food_flash') || path.includes('/foodflash')) return 'food_flash';
         const parts = path.split('/').filter(Boolean);
         return parts[0] || null;

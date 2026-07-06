@@ -1,0 +1,94 @@
+{% extends "orders/hospital/layouts/hospital_customer_base.html" %}
+{% load static %}
+
+{% block header_title %}Patient Registration{% endblock %}
+
+{% block hospital_page_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/hospital/hospital_registration.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container public-register-container">
+    <div class="vendor-branding text-center mt-3">
+        {% if VENDOR_LOGO_URL %}
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="{{ VENDOR_LOGO_URL }}" alt="Branch Logo">
+        {% endif %}
+        <h2 id="vendor-name" class="vendor-name">{{ VENDOR_NAME|default:"Patient Registration" }}</h2>
+    </div>
+
+    <h4 class="form-section-title text-center mb-3">Patient Registration</h4>
+
+    <div class="registration-card-container mt-4">
+        <div class="registration-card p-4">
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Patient Name <span class="required-asterisk">*</span></label>
+                    <input type="text" id="patient_name" class="form-control premium-input text-center"
+                        style="font-size: 1.2rem; padding: 10px;" placeholder="Enter patient name"
+                        autocomplete="name" maxlength="30" required>
+                    <div id="patient_name_error" class="invalid-feedback">Please enter a valid patient name.</div>
+                </div>
+            </div>
+
+            {% if PHONE_NUMBER_ENABLED %}
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Phone Number</label>
+                    <input type="tel" id="phone_number" class="form-control premium-input text-center"
+                        style="font-size: 1.2rem; padding: 10px;" placeholder="Enter phone number"
+                        autocomplete="tel" maxlength="20">
+                </div>
+            </div>
+            {% endif %}
+
+            {% if MR_NUMBER_ENABLED %}
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">MR Number</label>
+                    <input type="text" id="mr_number" class="form-control premium-input text-center"
+                        style="font-size: 1.2rem; padding: 10px;" placeholder="Enter MR number" maxlength="50">
+                </div>
+            </div>
+            {% endif %}
+
+            {% if BILL_NUMBER_ENABLED %}
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Bill Number</label>
+                    <input type="text" id="bill_number" class="form-control premium-input text-center"
+                        style="font-size: 1.2rem; padding: 10px;" placeholder="Enter bill number" maxlength="50">
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row g-2 mb-4">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Remarks (Optional)</label>
+                    <textarea id="remarks" rows="2" class="form-control premium-input"
+                        placeholder="Any notes for the registration desk" maxlength="200"></textarea>
+                </div>
+            </div>
+
+            <div class="row g-3 justify-content-between button-row mt-2">
+                <div class="col-12">
+                    <button class="btn premium-primary-btn w-100" id="continue-btn" type="button" style="font-size: 1.1rem;">
+                        <i class="fas fa-arrow-right me-2"></i> Continue to Departments
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.PHONE_NUMBER_ENABLED = "{{ PHONE_NUMBER_ENABLED|lower }}";
+    window.MR_NUMBER_ENABLED = "{{ MR_NUMBER_ENABLED|lower }}";
+    window.BILL_NUMBER_ENABLED = "{{ BILL_NUMBER_ENABLED|lower }}";
+    window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
+    window.RESOLVED_VENDOR_ID = "{{ vendor_id|default:'' }}";
+</script>
+<script type="module" src="{% static 'orders/js/hospital/patient_registration.js' %}?v={{ APP_VERSION }}"></script>
+{% endblock %}

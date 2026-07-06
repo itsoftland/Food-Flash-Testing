@@ -18,6 +18,7 @@ const EXPECTED_PROJECT = (() => {
     if (scope.includes("/airline_flash")) return "airline_flash";
     if (scope.includes("/dine_flash_buffet")) return "dine_flash_buffet";
     if (scope.includes("/dine_flash")) return "dine_flash";
+    if (scope.includes("/hospital_flash")) return "hospital_flash";
     if (scope.includes("/food_flash")) return "food_flash";
     
     // Fallback to last segment if none matches

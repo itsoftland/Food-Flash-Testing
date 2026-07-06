@@ -1,6 +1,7 @@
 from django.urls import path
 from .import views
 from . import buffet_views
+from . import hospital_views
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenRefreshView       # For refreshing access token
@@ -53,4 +54,25 @@ urlpatterns = [
     path('buffet/utility_selection/', buffet_views.buffet_utility_selection, name='buffet_utility_selection'),
     path('buffet/combined_options/', buffet_views.buffet_combined_options, name='buffet_combined_options'),
     path('buffet/order_confirmation/', buffet_views.buffet_order_confirmation, name='buffet_order_confirmation'),
+    # Hospital Flash URLs
+    path(
+        'hospital/patient_registration/',
+        hospital_views.hospital_patient_registration,
+        name='hospital_patient_registration',
+    ),
+    path(
+        'hospital/department_selection/',
+        hospital_views.hospital_department_selection,
+        name='hospital_department_selection',
+    ),
+    path(
+        'hospital/registration_confirmation/',
+        hospital_views.hospital_registration_confirmation,
+        name='hospital_registration_confirmation',
+    ),
+    path(
+        'api/hospital_patient_submit/',
+        hospital_views.hospital_patient_submit,
+        name='hospital_patient_submit',
+    ),
 ]

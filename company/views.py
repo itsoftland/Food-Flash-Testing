@@ -165,7 +165,10 @@ def configurations(request):
     return render(
         request,
         "company/configurations.html",
-        {"is_dine_flash": current_project == "dine_flash"},
+        {
+            "is_dine_flash": current_project == "dine_flash",
+            "is_hospital_flash": current_project == "hospital_flash",
+        },
     )
 
 @login_required

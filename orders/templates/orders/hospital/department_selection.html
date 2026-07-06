@@ -1,0 +1,59 @@
+{% extends "orders/hospital/layouts/hospital_customer_base.html" %}
+{% load static %}
+
+{% block header_title %}Select Departments{% endblock %}
+
+{% block hospital_page_css %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_register.css' %}">
+<link rel="stylesheet" href="{% static 'orders/css/hospital/hospital_registration.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container public-register-container">
+    <div class="vendor-branding text-center mt-3">
+        {% if VENDOR_LOGO_URL %}
+        <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="{{ VENDOR_LOGO_URL }}" alt="Branch Logo">
+        {% endif %}
+        <h2 id="vendor-name" class="vendor-name">{{ VENDOR_NAME|default:"" }}</h2>
+    </div>
+
+    <h4 class="form-section-title text-center mb-1">Select Departments</h4>
+    <p class="text-center text-muted small mb-3" id="patient-summary"></p>
+
+    <div class="registration-card-container mt-4">
+        <div class="registration-card p-4">
+            <div class="row g-2 mb-3 utility-section" id="utility-section">
+                <div class="col-12">
+                    <label class="form-label font-weight-bold">Choose one or more departments</label>
+                    <div id="utility-grid" class="utility-grid utility-grid-2col">
+                        <div class="col-12 text-muted small text-center py-2" id="utility-grid-loading">
+                            Loading departments…
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 justify-content-between button-row">
+                <div class="col-6 ps-1">
+                    <button class="btn btn-outline-secondary w-100" id="back-btn" type="button">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </button>
+                </div>
+                <div class="col-6 pe-1">
+                    <button class="btn premium-primary-btn w-100" id="submit-btn" type="button">
+                        <i class="fas fa-check me-1"></i> Register
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
+    window.RESOLVED_VENDOR_ID = "{{ vendor_id|default:'' }}";
+</script>
+<script type="module" src="{% static 'orders/js/hospital/department_selection.js' %}?v={{ APP_VERSION }}"></script>
+{% endblock %}

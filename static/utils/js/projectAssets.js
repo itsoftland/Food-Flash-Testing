@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', function () {
             favicon: `${base}orders/images/dine-flash-logo.ico`,
             apple: `${base}utils/Images/dineflash-mini-logo.webp`,
         },
+        hospital_flash: {
+            fullLogo: `${base}company/images/calleronlogo.webp`,
+            miniLogo: `${base}company/images/co_logo.webp`,
+            favicon: `${base}orders/images/calleron-logo.ico`,
+            apple: `${base}company/images/co_logo.webp`,
+        },
         calleron: {
             fullLogo: `${base}company/images/calleronlogo.webp`,
             miniLogo: `${base}company/images/co_logo.webp`,

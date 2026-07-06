@@ -226,13 +226,15 @@
                 </li>
               </ul>
             </li>
-            {% if PROJECT_NAME == "dine_flash" %}
+            {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "hospital_flash" %}
             <li class="nav-item">
               <a href="{% url 'company:configurations' %}" class="nav-link {% if request.resolver_match.url_name == 'configurations' %}active{% endif %}">
                 <i class="nav-icon {{ ICONS.sidebar.configurations }}"></i>
                 <p>{{ LABELS.sidebar.configurations }}</p>
               </a>
             </li>
+            {% endif %}
+            {% if PROJECT_NAME == "dine_flash" %}
             <li class="nav-item">
               <a href="{% url 'company:tv_configuration' %}" class="nav-link {% if request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv-alt"></i>
@@ -253,7 +255,7 @@
                 <li class="nav-item">
                   <a href="{% url 'company:utilities_management' %}" class="nav-link {% if request.resolver_match.url_name == 'utilities_management' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
-                    <p>Manage Utilities</p>
+                    <p>{{ LABELS.sidebar.manage_utilities|default:"Manage Utilities" }}</p>
                   </a>
                 </li>
                 <li class="nav-item">

@@ -47,6 +47,8 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'auto_delete_hours',
             'use_utilities',
             'phone_number_enabled',
+            'mr_number_enabled',
+            'bill_number_enabled',
             'qr_expiry_minutes',
         ]
 

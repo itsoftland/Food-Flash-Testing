@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outletsSelect = document.getElementById('outlets');
   const phoneNumberEnabledEl = document.getElementById('phone_number_enabled');
   const utilitiesEnabledEl = document.getElementById('utilities_enabled');
+  const mrNumberEnabledEl = document.getElementById('mr_number_enabled');
+  const billNumberEnabledEl = document.getElementById('bill_number_enabled');
   const qrExpiryMinutesEl = document.getElementById('qr_expiry_minutes');
 
   if (!configForm || !outletsSelect) return;
@@ -92,6 +94,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!vendorId) {
       phoneNumberEnabledEl.checked = false;
       utilitiesEnabledEl.checked = false;
+      if (mrNumberEnabledEl) mrNumberEnabledEl.checked = false;
+      if (billNumberEnabledEl) billNumberEnabledEl.checked = false;
       if (qrExpiryMinutesEl) qrExpiryMinutesEl.value = 5;
       return;
     }
@@ -109,6 +113,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       utilitiesEnabledEl.checked = Boolean(vendorConfig.use_utilities);
     } else {
       utilitiesEnabledEl.checked = false;
+    }
+
+    if (mrNumberEnabledEl) {
+      if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'mr_number_enabled')) {
+        mrNumberEnabledEl.checked = Boolean(vendorConfig.mr_number_enabled);
+      } else {
+        mrNumberEnabledEl.checked = false;
+      }
+    }
+
+    if (billNumberEnabledEl) {
+      if (vendorConfig && Object.prototype.hasOwnProperty.call(vendorConfig, 'bill_number_enabled')) {
+        billNumberEnabledEl.checked = Boolean(vendorConfig.bill_number_enabled);
+      } else {
+        billNumberEnabledEl.checked = false;
+      }
     }
 
     if (qrExpiryMinutesEl) {
@@ -156,6 +176,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       phone_number_enabled: Boolean(phoneNumberEnabledEl.checked),
       use_utilities: Boolean(utilitiesEnabledEl.checked)
     };
+    if (mrNumberEnabledEl) {
+      payload.mr_number_enabled = Boolean(mrNumberEnabledEl.checked);
+    }
+    if (billNumberEnabledEl) {
+      payload.bill_number_enabled = Boolean(billNumberEnabledEl.checked);
+    }
     if (qrExpiryMinutesEl) {
       payload.qr_expiry_minutes = Math.min(
         1440,

@@ -248,6 +248,8 @@ if PROJECT_NAME == 'airline_flash':
     BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'airline_flash_logs'
 elif PROJECT_NAME == 'dine_flash_buffet':
     BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'dine_flash_buffet_logs'
+elif PROJECT_NAME == 'hospital_flash':
+    BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'hospital_flash_logs'
 elif PROJECT_NAME == 'dine_flash':
     BASE_LOG_DIR = EXTERNAL_LOG_DIR / 'dine_flash_logs'
 else:
