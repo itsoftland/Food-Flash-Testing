@@ -602,7 +602,7 @@ class UserProfileCreateSerializer(serializers.Serializer):
             data['validated_utilities'] = utilities
 
         project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-        if project == "dine_flash_buffet":
+        if project in ("dine_flash_buffet", "hospital_flash"):
             role = data.get("role")
             vendor = data.get("vendor")
             admin_outlet = data.get("admin_outlet")

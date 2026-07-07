@@ -268,6 +268,16 @@
             </li>
             {% endif %}
 
+            {% if PROJECT_NAME == "hospital_flash" %}
+            <li class="nav-item">
+              <a href="{% url 'company:utility_user_mapping' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'utility_user_mapping' %}active{% endif %}">
+                <i class="nav-icon fas fa-user-tag"></i>
+                <p>Department Mapping</p>
+              </a>
+            </li>
+            {% endif %}
+
             {% if PROJECT_NAME == "dine_flash_buffet" %}
             <li class="nav-header">FOOD / UTILITY</li>
             <li class="nav-item">

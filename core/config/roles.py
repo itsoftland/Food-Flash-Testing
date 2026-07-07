@@ -29,5 +29,6 @@ ROLES = {
     "hospital_flash": {
         "admin_manager": "Admin Manager",
         "outlet_manager": "Outlet Manager",
+        "utility_user": "Department User",
     },
 }

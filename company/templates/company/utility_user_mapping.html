@@ -4,20 +4,20 @@
 {% block content %}
 <div class="container-fluid mt-4 max-w-lg mx-auto" style="max-width: 800px;">
     <div id="mapping-toast" class="mapping-toast" aria-live="polite" aria-atomic="true"></div>
-    <h2 class="mb-3">Utility User Mapping</h2>
-    <p class="text-muted mb-4">Map your Kitchen Staff (Utility Users) to specific Food Counters so they only receive relevant items in their kitchen view.</p>
+    <h2 class="mb-3">{% if PROJECT_NAME == "hospital_flash" %}Department User Mapping{% else %}Utility User Mapping{% endif %}</h2>
+    <p class="text-muted mb-4">{% if PROJECT_NAME == "hospital_flash" %}Map Department Users to individual departments so they only see relevant patient queue data.{% else %}Map your Kitchen Staff (Utility Users) to specific Food Counters so they only receive relevant items in their kitchen view.{% endif %}</p>
     
     <div class="card shadow-sm border-0 rounded-3 p-4 mt-3">
         <div class="mb-4">
-            <label class="form-label fw-bold">Select Utility User</label>
+            <label class="form-label fw-bold">{% if PROJECT_NAME == "hospital_flash" %}Select Department User{% else %}Select Utility User{% endif %}</label>
             <select id="user-select" class="form-select form-select-lg">
-                <option value="">-- Select Kitchen Staff --</option>
+                <option value="">{% if PROJECT_NAME == "hospital_flash" %}-- Select Department User --{% else %}-- Select Kitchen Staff --{% endif %}</option>
             </select>
-            <small class="text-muted mt-1 d-block">Only users with the 'Utility User' role will appear here.</small>
+            <small class="text-muted mt-1 d-block">{% if PROJECT_NAME == "hospital_flash" %}Only users with the 'Department User' role will appear here.{% else %}Only users with the 'Utility User' role will appear here.{% endif %}</small>
         <div class="mb-4">
-            <label class="form-label fw-bold">Assign Food Counters</label>
+            <label class="form-label fw-bold">{% if PROJECT_NAME == "hospital_flash" %}Assign Departments{% else %}Assign Food Counters{% endif %}</label>
             <div id="utilities-list" class="border p-3 rounded bg-light" style="max-height: 300px; overflow-y: auto;">
-                <div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>
+                <div class="text-muted text-center py-4">{% if PROJECT_NAME == "hospital_flash" %}Select a user first to view and assign departments.{% else %}Select a user first to view and assign counters.{% endif %}</div>
             </div>
         </div>
         
@@ -30,6 +30,19 @@
 
 {% block extra_js %}
 <script>
+    const IS_HOSPITAL_FLASH = {% if PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %};
+    const MAPPING_LABELS = IS_HOSPITAL_FLASH ? {
+        selectUser: '-- Select Department User --',
+        noEntities: 'No departments exist. Please create them first.',
+        selectFirst: 'Select a user first to view and assign departments.',
+        saved: 'Department mapping saved successfully.',
+    } : {
+        selectUser: '-- Select Kitchen Staff --',
+        noEntities: 'No food counters exist. Please create them first.',
+        selectFirst: 'Select a user first to view and assign counters.',
+        saved: 'Utility mapping saved successfully.',
+    };
+
     const toastEl = document.getElementById("mapping-toast");
 
     function showToast(message, type = "success") {
@@ -83,7 +96,7 @@
             .then(res => res.json())
             .then(data => {
                 const select = document.getElementById("user-select");
-                select.innerHTML = '<option value="">-- Select Kitchen Staff --</option>';
+                select.innerHTML = `<option value="">${MAPPING_LABELS.selectUser}</option>`;
                 const users = data.users || data;
                 
                 users.forEach(user => {
@@ -120,7 +133,7 @@
         container.innerHTML = "";
         
         if (allUtilities.length === 0) {
-            container.innerHTML = '<div class="text-danger">No food counters exist. Please create them first.</div>';
+            container.innerHTML = `<div class="text-danger">${MAPPING_LABELS.noEntities}</div>`;
             return;
         }
         
@@ -148,7 +161,7 @@
                 renderUtilityCheckboxes([]);
             }
         } else {
-            document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+            document.getElementById("utilities-list").innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.selectFirst}</div>`;
         }
     });
 
@@ -182,10 +195,10 @@
         .then(res => res.json())
         .then(data => {
             if (data.message) {
-                showToast("Utility mapping saved successfully.", "success");
+                showToast(MAPPING_LABELS.saved, "success");
                 loadUsers(); 
                 document.getElementById("user-select").value = "";
-                document.getElementById("utilities-list").innerHTML = '<div class="text-muted text-center py-4">Select a user first to view and assign counters.</div>';
+                document.getElementById("utilities-list").innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.selectFirst}</div>`;
             } else {
                 showToast(data.error || "Unable to save mapping.", "error");
             }

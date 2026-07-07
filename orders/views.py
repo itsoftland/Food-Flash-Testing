@@ -1259,12 +1259,13 @@ def login_api_view(request):
         return Response({'error': 'Invalid username or password.'}, status=status.HTTP_401_UNAUTHORIZED)
     login(request, user)
     refresh = RefreshToken.for_user(user)
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
     MANAGER_ROLE_MAP = {
         'admin_manager': 'Admin Manager',
         'outlet_manager': 'Outlet Manager',
         'outlet_staff': 'Outlet Staff',
         'web_manager': 'Web Manager',
-        'utility_user': 'Utility User',
+        'utility_user': 'Department User' if project == 'hospital_flash' else 'Utility User',
     }
     
     # 1. Manager Login (UserProfile with a specific role)

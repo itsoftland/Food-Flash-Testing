@@ -197,12 +197,13 @@ document.addEventListener('DOMContentLoaded', async() => {
 
     function formatRoles(roles) {
         if (!roles || !roles.length) return '-';
+        const isHospital = window.PROJECT_NAME === 'hospital_flash';
         const map = {
             admin_manager: 'Admin Manager',
             outlet_manager: 'Outlet Manager',
             order_manager: 'Order Manager',
             web_user: 'Web User',
-            utility_user: 'Utility User'
+            utility_user: isHospital ? 'Department User' : 'Utility User',
         };
         return roles
             .map(r => `<span class="badge mr-1" style="background-color: var(--chip-hover-bg); color: var(--text-dark); font-size: 0.95rem; padding: 0.35em 0.6em;">${map[r] || r}</span>`)
