@@ -1,0 +1,17 @@
+.hospital-group-dept-list {
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.hospital-group-dept-list .hospital-group-dept-check {
+  margin-bottom: 0.35rem;
+}
+
+.hospital-group-dept-list .hospital-group-dept-check:last-child {
+  margin-bottom: 0;
+}
+
+.hospital-group-dept-list--compact {
+  max-height: 180px;
+}

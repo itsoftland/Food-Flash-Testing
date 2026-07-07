@@ -1,4 +1,67 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  /* ------------------------------------
+     DOM references (hospital layout first — no API imports required)
+  ------------------------------------ */
+  const createUtilityForm = document.getElementById('create-utilities-form');
+  const vendorSelect = document.getElementById('vendor-select');
+  const utilityNameInput = document.querySelector('input[name="utility_name"]');
+  const displayNameInput = document.querySelector('input[name="display_name"]');
+  const displayCodeInput = document.querySelector('input[name="display_code"]');
+  const tokenModeSelect = document.querySelector('select[name="token_mode"]');
+  const prefixInput = document.querySelector('input[name="prefix"]');
+  const buffetImageInput = document.querySelector('input[name="buffet_utility_images"]');
+  const foodTypeSelect = document.querySelector('select[name="food_type"]');
+  const descriptionInput = document.querySelector('textarea[name="description"]');
+  const BUFFET_MAX_IMAGES = 3;
+  const isActiveCheckbox = document.querySelector('input[name="is_active"]');
+  const departmentTypeSelect = document.getElementById('department-type-select');
+  const isHospital = Boolean(departmentTypeSelect);
+  const groupDepartmentsSection = document.getElementById('group-departments-section');
+  const groupDepartmentsCheckboxes = document.getElementById('group-departments-checkboxes');
+  const displayCodeLabel = document.getElementById('display-code-label');
+  const tokenModeField = document.getElementById('token-mode-field');
+  const prefixField = document.getElementById('prefix-field');
+  const displayOrderInput = document.getElementById('display-order-input');
+  const serviceTimeInput = document.getElementById('service-time-input');
+  const preAnnouncementInput = document.getElementById('pre-announcement-input');
+  const priorityPrefixInput = document.getElementById('priority-prefix-input');
+
+  function getSelectedDepartmentType() {
+    if (!departmentTypeSelect) return 'INDIVIDUAL';
+    return departmentTypeSelect.value || 'INDIVIDUAL';
+  }
+
+  function updateHospitalFormLayout() {
+    if (!isHospital) return;
+
+    const isGroup = getSelectedDepartmentType() === 'GROUP';
+
+    if (groupDepartmentsSection) {
+      groupDepartmentsSection.style.display = isGroup ? 'flex' : 'none';
+    }
+    if (displayCodeLabel) {
+      displayCodeLabel.textContent = isGroup ? 'Package Code' : 'Display Code';
+    }
+    if (utilityNameInput) {
+      utilityNameInput.placeholder = isGroup
+        ? 'e.g. Executive Health Package 1'
+        : 'e.g. Laboratory';
+    }
+    if (tokenModeField) {
+      tokenModeField.style.display = isGroup ? 'none' : '';
+    }
+    if (prefixField) {
+      prefixField.style.display = isGroup ? 'none' : '';
+    }
+  }
+
+  if (isHospital && departmentTypeSelect) {
+    departmentTypeSelect.addEventListener('change', updateHospitalFormLayout);
+    updateHospitalFormLayout();
+  }
+
+  if (!createUtilityForm || !vendorSelect) return;
+
   if (!window.BASE) {
     throw new Error('window.BASE is not defined');
   }
@@ -15,28 +78,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modalModule = await import(
     `${window.BASE}static/utils/js/services/modalService.js`
   );
+  const groupDepartmentsUiModule = isHospital
+    ? await import(`${window.BASE}static/company/js/utilities/hospitalGroupDepartmentsUi.js`)
+    : null;
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
   const ModalService = modalModule.ModalService;
-
-  /* ------------------------------------
-     DOM references
-  ------------------------------------ */
-  const createUtilityForm = document.getElementById('create-utilities-form');
-  const vendorSelect = document.getElementById('vendor-select');
-  const utilityNameInput = document.querySelector('input[name="utility_name"]');
-  const displayNameInput = document.querySelector('input[name="display_name"]');
-  const displayCodeInput = document.querySelector('input[name="display_code"]');
-  const tokenModeSelect = document.querySelector('select[name="token_mode"]');
-  const prefixInput = document.querySelector('input[name="prefix"]');
-  const buffetImageInput = document.querySelector('input[name="buffet_utility_images"]');
-  const foodTypeSelect = document.querySelector('select[name="food_type"]');
-  const descriptionInput = document.querySelector('textarea[name="description"]');
-  const BUFFET_MAX_IMAGES = 3;
-  const isActiveCheckbox = document.querySelector('input[name="is_active"]');
-
-  if (!createUtilityForm || !vendorSelect) return;
+  const {
+    renderGroupDepartmentCheckboxes,
+    getSelectedGroupDepartmentIds,
+    setGroupDepartmentCheckboxMessage,
+  } = groupDepartmentsUiModule || {};
 
   /* ------------------------------------
      Token Mode Choices (from Utility model)
@@ -55,6 +108,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       tokenModeSelect.appendChild(option);
     });
   }
+
+  async function loadIndividualDepartmentsForGroup(vendorId, selectedIds = []) {
+    if (!isHospital || !groupDepartmentsCheckboxes || !vendorId) return;
+
+    setGroupDepartmentCheckboxMessage(groupDepartmentsCheckboxes, 'Loading departments...');
+
+    try {
+      const response = await fetchWithAutoRefresh(
+        `${API_ENDPOINTS.GET_UTILITIES}?vendor_id=${encodeURIComponent(vendorId)}`,
+        { method: 'GET' }
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to load departments');
+      }
+
+      const departments = (result.utilities || []).filter(
+        (utility) => utility.department_type !== 'GROUP' && utility.is_active
+      );
+
+      renderGroupDepartmentCheckboxes(groupDepartmentsCheckboxes, departments, selectedIds);
+    } catch (error) {
+      console.error('Failed to load individual departments:', error);
+      setGroupDepartmentCheckboxMessage(groupDepartmentsCheckboxes, 'Unable to load departments');
+    }
+  }
+
+  if (isHospital && departmentTypeSelect) {
+    departmentTypeSelect.addEventListener('change', () => {
+      if (getSelectedDepartmentType() === 'GROUP' && vendorSelect.value) {
+        loadIndividualDepartmentsForGroup(vendorSelect.value);
+      }
+    });
+  }
+
+  vendorSelect.addEventListener('change', () => {
+    if (isHospital) {
+      loadIndividualDepartmentsForGroup(vendorSelect.value);
+    }
+  });
 
   /* ------------------------------------
      Fetch vendors & populate outlets
@@ -115,9 +208,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const utilityName = utilityNameInput.value.trim();
     const displayName = displayNameInput.value.trim();
     const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
+    const departmentType = getSelectedDepartmentType();
+    const isGroupDepartment = isHospital && departmentType === 'GROUP';
     const displayCode = isBuffet ? "" : (displayCodeInput ? displayCodeInput.value.trim() : '');
-    const tokenMode = isBuffet ? 'continuous' : (tokenModeSelect ? tokenModeSelect.value.trim() : '');
-    const prefix = isBuffet ? null : (prefixInput ? prefixInput.value.trim() : '');
+    const tokenMode = isBuffet || isGroupDepartment
+      ? 'continuous'
+      : (tokenModeSelect ? tokenModeSelect.value.trim() : '');
+    const prefix = isBuffet || isGroupDepartment
+      ? null
+      : (prefixInput ? prefixInput.value.trim() : '');
     const isActive = isActiveCheckbox.checked;
 
     // Basic validation
@@ -129,13 +228,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       ModalService.showError('Display Name is required.');
       return;
     }
-    if (!isBuffet && !displayCode) {
+    if (!isBuffet && !isGroupDepartment && !displayCode) {
       ModalService.showError('Display Code is required.');
       return;
     }
-    if (!isBuffet && !tokenMode) {
+    if (!isBuffet && !isGroupDepartment && !tokenMode) {
       ModalService.showError('Token Mode is required.');
       return;
+    }
+
+    if (isHospital) {
+      const displayOrder = displayOrderInput ? parseInt(displayOrderInput.value, 10) : 0;
+      const serviceTime = serviceTimeInput ? parseInt(serviceTimeInput.value, 10) : 0;
+      const preAnnouncement = preAnnouncementInput ? parseInt(preAnnouncementInput.value, 10) : 0;
+      const priorityPrefix = priorityPrefixInput ? priorityPrefixInput.value.trim() : '';
+
+      if ([displayOrder, serviceTime, preAnnouncement].some((value) => Number.isNaN(value) || value < 0)) {
+        ModalService.showError('Display order, service time, and pre-announcement count must be 0 or greater.');
+        return;
+      }
+
+      if (isGroupDepartment) {
+        const selectedGroupIds = getSelectedGroupDepartmentIds(groupDepartmentsCheckboxes);
+        if (!selectedGroupIds.length) {
+          ModalService.showError('Please select at least one included department.');
+          return;
+        }
+      }
+
+      if (prefix && priorityPrefix && prefix.toUpperCase() === priorityPrefix.toUpperCase()) {
+        ModalService.showError('Priority prefix cannot be the same as prefix.');
+        return;
+      }
     }
 
     const foodType = isBuffet && foodTypeSelect ? foodTypeSelect.value.trim() : '';
@@ -176,7 +300,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         display_code: displayCode,
         token_mode: tokenMode,
         prefix: prefix,
-        is_active: isActive
+        is_active: isActive,
+        ...(isHospital ? {
+          department_type: departmentType,
+          display_order: displayOrderInput ? parseInt(displayOrderInput.value, 10) || 0 : 0,
+          approximate_service_time: serviceTimeInput ? parseInt(serviceTimeInput.value, 10) || 0 : 0,
+          pre_announcement_count: preAnnouncementInput ? parseInt(preAnnouncementInput.value, 10) || 0 : 0,
+          priority_prefix: priorityPrefixInput ? priorityPrefixInput.value.trim() : '',
+          group_department_ids: isGroupDepartment
+            ? getSelectedGroupDepartmentIds(groupDepartmentsCheckboxes)
+            : [],
+        } : {}),
       })
     };
 
@@ -214,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (response.ok) {
         ModalService.showSuccess(
-          'Utility created successfully!',
+          isHospital ? 'Department created successfully!' : 'Utility created successfully!',
           () => {
             createUtilityForm.reset();
             // Reset vendor select to default

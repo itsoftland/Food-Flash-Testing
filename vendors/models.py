@@ -183,6 +183,13 @@ class Utility(models.Model):
         (FOOD_TYPE_NON_VEG, "Non Veg"),
     ]
 
+    DEPARTMENT_TYPE_INDIVIDUAL = "INDIVIDUAL"
+    DEPARTMENT_TYPE_GROUP = "GROUP"
+    DEPARTMENT_TYPE_CHOICES = [
+        (DEPARTMENT_TYPE_INDIVIDUAL, "Individual Department"),
+        (DEPARTMENT_TYPE_GROUP, "Group Department"),
+    ]
+
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.CASCADE,
@@ -249,6 +256,38 @@ class Utility(models.Model):
                 allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]
             )
         ],
+    )
+
+    department_type = models.CharField(
+        max_length=20,
+        choices=DEPARTMENT_TYPE_CHOICES,
+        default=DEPARTMENT_TYPE_INDIVIDUAL,
+        help_text="Hospital Flash: individual department or group/package",
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Hospital Flash: sort order for department listings",
+    )
+    approximate_service_time = models.PositiveIntegerField(
+        default=0,
+        help_text="Hospital Flash: estimated service time in minutes",
+    )
+    pre_announcement_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Hospital Flash: number of patients to pre-announce",
+    )
+    priority_prefix = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        help_text="Hospital Flash: priority prefix (e.g. PL, PA, VIP)",
+    )
+    group_departments = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="included_in_groups",
+        help_text="Hospital Flash: individual departments included in a group/package",
     )
 
     class Meta:

@@ -5,6 +5,9 @@
 <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/forms.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
+{% if PROJECT_NAME == "hospital_flash" %}
+<link rel="stylesheet" href="{% static 'company/css/hospital_group_departments.css' %}">
+{% endif %}
 {% comment %} <link rel="stylesheet" href="{% static 'company/css/create_utility.css' %}"> {% endcomment %}
 {% endblock %}
 
@@ -36,30 +39,77 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Utility Name</label>
-                            <input type="text" name="utility_name" class="form-control" placeholder="e.g. South Indian Counter" required maxlength="30">
+                            <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Name{% else %}Utility Name{% endif %}</label>
+                            <input type="text" name="utility_name" id="utility-name-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. Laboratory{% else %}e.g. South Indian Counter{% endif %}" required maxlength="30">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Display Name</label>
-                            <input type="text" name="display_name" class="form-control" placeholder="e.g. Counter 1" required maxlength="20">
+                            <input type="text" name="display_name" id="display-name-input" class="form-control" placeholder="e.g. Counter 1" required maxlength="20">
                         </div>
                     </div>
 
-                    {% if PROJECT_NAME != "dine_flash_buffet" %}
+                    {% if PROJECT_NAME == "hospital_flash" %}
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Display Code</label>
-                            <input type="text" name="display_code" class="form-control" placeholder="e.g. SINC" maxlength="10">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="department-type-select">Department Type</label>
+                            <select id="department-type-select" name="department_type" class="form-select" required>
+                                <option value="INDIVIDUAL" selected>Individual Department</option>
+                                <option value="GROUP">Group Department</option>
+                            </select>
                         </div>
+                    </div>
+                    {% endif %}
+
+                    {% if PROJECT_NAME != "dine_flash_buffet" %}
+                    <div id="standard-utility-fields" class="row">
                         <div class="col-md-4 mb-3">
+                            <label class="form-label" id="display-code-label">Display Code</label>
+                            <input type="text" name="display_code" id="display-code-input" class="form-control" placeholder="e.g. SINC" maxlength="10">
+                        </div>
+                        <div class="col-md-4 mb-3" id="token-mode-field">
                             <label class="form-label">Token Mode</label>
                             <select name="token_mode" class="form-select">
                                 <!-- Populated by JS -->
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-4 mb-3" id="prefix-field">
                             <label class="form-label">Prefix</label>
                             <input type="text" name="prefix" class="form-control" placeholder="e.g. S" maxlength="4">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if PROJECT_NAME == "hospital_flash" %}
+                    <div id="group-departments-section" class="row" style="display: none;">
+                        <div class="col-12 mb-3">
+                            <label class="form-label" id="group-departments-label">Included Departments</label>
+                            <div
+                                id="group-departments-checkboxes"
+                                class="hospital-group-dept-list border rounded p-2"
+                                role="group"
+                                aria-labelledby="group-departments-label"
+                            >
+                                <p class="text-muted small mb-0">Select an outlet first to load departments</p>
+                            </div>
+                            <small class="form-text text-muted">Only individual departments can be included. Select at least one.</small>
+                        </div>
+                    </div>
+                    <div id="hospital-config-fields" class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label" for="display-order-input">Display Order</label>
+                            <input type="number" id="display-order-input" name="display_order" class="form-control" value="0" min="0" step="1">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label" for="service-time-input">Approximate Service Time (min)</label>
+                            <input type="number" id="service-time-input" name="approximate_service_time" class="form-control" value="0" min="0" step="1">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label" for="pre-announcement-input">Pre Announcement Count</label>
+                            <input type="number" id="pre-announcement-input" name="pre_announcement_count" class="form-control" value="0" min="0" step="1">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label" for="priority-prefix-input">Priority Prefix</label>
+                            <input type="text" id="priority-prefix-input" name="priority_prefix" class="form-control" placeholder="e.g. PL, PA, VIP" maxlength="4">
                         </div>
                     </div>
                     {% endif %}
@@ -96,7 +146,7 @@
                     </div>
 
                     <div class="mt-4">
-                        <button type="submit" class="btn btn-golden">Create Utility</button>
+                        <button type="submit" class="btn btn-golden">{% if PROJECT_NAME == "hospital_flash" %}Create Department{% else %}Create Utility{% endif %}</button>
                         <a href="{% url 'company:utilities_management' %}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>

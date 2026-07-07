@@ -3,7 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 from django.http import HttpResponseBadRequest, HttpResponseNotFound
 from django.shortcuts import render
 from rest_framework import status
@@ -199,7 +199,17 @@ def hospital_patient_submit(request):
             id__in=unique_utility_ids,
             vendor=vendor,
             is_active=True,
-        ).order_by("id")
+        )
+        .prefetch_related(
+            Prefetch(
+                "group_departments",
+                queryset=Utility.objects.filter(
+                    vendor=vendor,
+                    is_active=True,
+                ).order_by("display_order", "id"),
+            )
+        )
+        .order_by("id")
     )
     if len(utilities) != len(unique_utility_ids):
         return Response(
@@ -208,14 +218,44 @@ def hospital_patient_submit(request):
         )
 
     utility_by_id = {u.id: u for u in utilities}
-    ordered_utilities = [utility_by_id[uid] for uid in unique_utility_ids]
+    ordered_selected_utilities = [utility_by_id[uid] for uid in unique_utility_ids]
+
+    # Expand selected group departments into their included individual departments.
+    # Selected individual departments are kept as-is. Final execution order follows
+    # user selection order, while preventing duplicate token generation.
+    expanded_departments = []
+    seen_department_ids = set()
+    for selected_utility in ordered_selected_utilities:
+        if selected_utility.department_type == Utility.DEPARTMENT_TYPE_GROUP:
+            members = [
+                member
+                for member in selected_utility.group_departments.all()
+                if member.department_type == Utility.DEPARTMENT_TYPE_INDIVIDUAL
+            ]
+            for member in members:
+                if member.id in seen_department_ids:
+                    continue
+                seen_department_ids.add(member.id)
+                expanded_departments.append(member)
+            continue
+
+        if selected_utility.id in seen_department_ids:
+            continue
+        seen_department_ids.add(selected_utility.id)
+        expanded_departments.append(selected_utility)
+
+    if not expanded_departments:
+        return Response(
+            {"error": "Selected group department does not contain active individual departments."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     batch_id = uuid.uuid4()
     created_orders = []
 
     try:
         with transaction.atomic():
-            for utility in ordered_utilities:
+            for utility in expanded_departments:
                 reset_counters_if_new_business_day(vendor, utility)
                 vendor_config.refresh_from_db()
                 utility.refresh_from_db()

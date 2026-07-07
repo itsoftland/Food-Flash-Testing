@@ -15,10 +15,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modalModule = await import(
     `${window.BASE}static/utils/js/services/modalService.js`
   );
+  const isHospital = window.PROJECT_NAME === 'hospital_flash';
+  const groupDepartmentsUiModule = isHospital
+    ? await import(`${window.BASE}static/company/js/utilities/hospitalGroupDepartmentsUi.js`)
+    : null;
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
   const ModalService = modalModule.ModalService;
+  const {
+    renderGroupDepartmentCheckboxes,
+    getSelectedGroupDepartmentIds,
+    setGroupDepartmentCheckboxMessage,
+  } = groupDepartmentsUiModule || {};
 
   /* ------------------------------------
      DOM references
@@ -38,6 +47,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentPage = 1;
   const itemsPerPage = 4;
   const BUFFET_MAX_IMAGES = 3;
+
+  function formatDepartmentTypeLabel(utility) {
+    if (!utility) return '—';
+    if (utility.department_type === 'GROUP') {
+      return '<span class="badge bg-info text-dark">Package</span>';
+    }
+    return 'Individual';
+  }
+
+  async function loadIndividualDepartmentsForEdit(vendorId, selectedIds = []) {
+    if (!vendorId) return [];
+
+    const response = await fetchWithAutoRefresh(
+      `${API_ENDPOINTS.GET_UTILITIES}?vendor_id=${encodeURIComponent(vendorId)}`,
+      { method: 'GET' }
+    );
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error || 'Failed to load departments');
+    }
+
+    return (result.utilities || []).filter(
+      (item) => item.department_type !== 'GROUP' && item.is_active
+    ).map((item) => ({
+      ...item,
+      selected: selectedIds.includes(item.id),
+    }));
+  }
 
   function formatFoodTypeLabel(foodType) {
     if (foodType === 'veg') return 'Veg';
@@ -206,6 +243,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       row.innerHTML = `
         <td>${escapeHtml(utility.utility_name)}</td>
         <td>${escapeHtml(utility.display_name)}</td>
+        ${isHospital ? `
+        <td>${formatDepartmentTypeLabel(utility)}</td>
+        <td>${utility.display_order ?? 0}</td>
+        <td>${utility.priority_prefix ? escapeHtml(utility.priority_prefix) : '—'}</td>
+        ` : ''}
         ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
         <td><strong>${escapeHtml(utility.display_code)}</strong></td>
         <td>${utility.prefix ? escapeHtml(utility.prefix) : '—'}</td>
@@ -434,7 +476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <!-- Row 1: Utility Name & Display Name -->
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Utility Name</label>
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">${isHospital ? 'Department Name' : 'Utility Name'}</label>
             <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30" />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 30 characters</small>
           </div>
@@ -478,15 +520,59 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         ` : ''}
 
-        ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
-        <!-- Row 2: Display Code & Token Mode -->
+        ${isHospital ? `
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Display Code</label>
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Department Type</label>
+            <select id="edit-department-type" class="form-select form-select-sm">
+              <option value="INDIVIDUAL" ${utility.department_type !== 'GROUP' ? 'selected' : ''}>Individual Department</option>
+              <option value="GROUP" ${utility.department_type === 'GROUP' ? 'selected' : ''}>Group Department</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-2" id="edit-group-departments-row" style="${utility.department_type === 'GROUP' ? '' : 'display:none;'}">
+          <div class="form-group col-12 mb-2">
+            <label class="form-label" id="edit-group-departments-label" style="font-size: 0.9rem; margin-bottom: 4px;">Included Departments</label>
+            <div
+              id="edit-group-departments-checkboxes"
+              class="hospital-group-dept-list hospital-group-dept-list--compact border rounded p-2"
+              role="group"
+              aria-labelledby="edit-group-departments-label"
+            >
+              <p class="text-muted small mb-0" style="font-size: 0.75rem;">Loading departments...</p>
+            </div>
+            <small class="form-text text-muted" style="font-size: 0.75rem;">Only individual departments can be included. Select at least one.</small>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="form-group col-md-3 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Display Order</label>
+            <input type="number" id="edit-display-order" class="form-control form-control-sm" value="${utility.display_order ?? 0}" min="0" step="1" />
+          </div>
+          <div class="form-group col-md-3 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Service Time (min)</label>
+            <input type="number" id="edit-service-time" class="form-control form-control-sm" value="${utility.approximate_service_time ?? 0}" min="0" step="1" />
+          </div>
+          <div class="form-group col-md-3 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Pre Announcement</label>
+            <input type="number" id="edit-pre-announcement" class="form-control form-control-sm" value="${utility.pre_announcement_count ?? 0}" min="0" step="1" />
+          </div>
+          <div class="form-group col-md-3 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Priority Prefix</label>
+            <input type="text" id="edit-priority-prefix" class="form-control form-control-sm" value="${utility.priority_prefix ? escapeHtml(utility.priority_prefix) : ''}" maxlength="4" />
+          </div>
+        </div>
+        ` : ''}
+
+        ${window.PROJECT_NAME !== 'dine_flash_buffet' ? `
+        <!-- Row 2: Display Code & Token Mode -->
+        <div class="row g-2" id="edit-standard-fields">
+          <div class="form-group col-md-6 mb-2">
+            <label class="form-label" id="edit-display-code-label" style="font-size: 0.9rem; margin-bottom: 4px;">Display Code</label>
             <input type="text" id="edit-display-code" class="form-control form-control-sm" value="${escapeHtml(utility.display_code)}" maxlength="10" />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 10 characters</small>
           </div>
-          <div class="form-group col-md-6 mb-2">
+          <div class="form-group col-md-6 mb-2" id="edit-token-mode-field">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Token Mode</label>
             <select id="edit-token-mode" class="form-select form-select-sm">
               <option value="continuous" ${utility.token_mode === 'continuous' ? 'selected' : ''}>Continuous</option>
@@ -496,7 +582,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
 
         <!-- Row 3: Prefix -->
-        <div class="row g-2">
+        <div class="row g-2" id="edit-prefix-row">
           <div class="form-group col-md-6 mb-2">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Prefix</label>
             <input type="text" id="edit-prefix" class="form-control form-control-sm" value="${utility.prefix ? escapeHtml(utility.prefix) : ''}" maxlength="4" />
@@ -513,7 +599,66 @@ document.addEventListener('DOMContentLoaded', async () => {
       </form>
     `;
 
-    ModalService.showCustom({ title: 'Edit Utility', body, onShown: () => {
+    ModalService.showCustom({ title: isHospital ? 'Edit Department' : 'Edit Utility', body, onShown: async () => {
+      const departmentTypeEl = document.getElementById('edit-department-type');
+      const groupDepartmentsRow = document.getElementById('edit-group-departments-row');
+      const groupDepartmentsEl = document.getElementById('edit-group-departments-checkboxes');
+      const displayCodeLabelEl = document.getElementById('edit-display-code-label');
+      const tokenModeFieldEl = document.getElementById('edit-token-mode-field');
+      const prefixRowEl = document.getElementById('edit-prefix-row');
+
+      const updateEditHospitalLayout = () => {
+        if (!isHospital || !departmentTypeEl) return;
+        const isGroup = departmentTypeEl.value === 'GROUP';
+        if (groupDepartmentsRow) {
+          groupDepartmentsRow.style.display = isGroup ? '' : 'none';
+        }
+        if (displayCodeLabelEl) {
+          displayCodeLabelEl.textContent = isGroup ? 'Package Code' : 'Display Code';
+        }
+        if (tokenModeFieldEl) {
+          tokenModeFieldEl.style.display = isGroup ? 'none' : '';
+        }
+        if (prefixRowEl) {
+          prefixRowEl.style.display = isGroup ? 'none' : '';
+        }
+      };
+
+      if (isHospital && departmentTypeEl) {
+        departmentTypeEl.addEventListener('change', async () => {
+          updateEditHospitalLayout();
+          if (departmentTypeEl.value === 'GROUP' && groupDepartmentsEl) {
+            try {
+              const selectedIds = getSelectedGroupDepartmentIds(groupDepartmentsEl);
+              const departments = await loadIndividualDepartmentsForEdit(
+                utility.vendor_id,
+                selectedIds
+              );
+              renderGroupDepartmentCheckboxes(groupDepartmentsEl, departments, selectedIds);
+            } catch (error) {
+              console.error('Failed to load departments for edit:', error);
+              setGroupDepartmentCheckboxMessage(groupDepartmentsEl, 'Unable to load departments');
+            }
+          }
+        });
+        updateEditHospitalLayout();
+
+        try {
+          const selectedIds = Array.isArray(utility.group_department_ids)
+            ? utility.group_department_ids
+            : (utility.group_departments || []).map((item) => item.id);
+          const departments = await loadIndividualDepartmentsForEdit(utility.vendor_id, selectedIds);
+          if (groupDepartmentsEl) {
+            renderGroupDepartmentCheckboxes(groupDepartmentsEl, departments, selectedIds);
+          }
+        } catch (error) {
+          console.error('Failed to load departments for edit:', error);
+          if (groupDepartmentsEl) {
+            setGroupDepartmentCheckboxMessage(groupDepartmentsEl, 'Unable to load departments');
+          }
+        }
+      }
+
       // attach handler to save button (replace to avoid dup listeners)
       const saveBtn = document.getElementById('save-utility-btn');
       const newSave = saveBtn.cloneNode(true);
@@ -536,11 +681,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
+        const departmentType = isHospital
+          ? (document.getElementById('edit-department-type')?.value || 'INDIVIDUAL')
+          : 'INDIVIDUAL';
+        const isGroupDepartment = isHospital && departmentType === 'GROUP';
         const name = document.getElementById('edit-utility-name').value.trim();
         const dname = document.getElementById('edit-display-name').value.trim();
         const dcode = isBuffet ? "" : document.getElementById('edit-display-code').value.trim();
-        const tmode = isBuffet ? 'continuous' : document.getElementById('edit-token-mode').value;
-        const pref = isBuffet ? '' : document.getElementById('edit-prefix').value.trim();
+        const tmode = isBuffet || isGroupDepartment
+          ? 'continuous'
+          : document.getElementById('edit-token-mode').value;
+        const pref = isBuffet || isGroupDepartment
+          ? ''
+          : document.getElementById('edit-prefix').value.trim();
         let foodType = isBuffet
           ? (document.getElementById('edit-food-type')?.value || '').trim()
           : '';
@@ -563,9 +716,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isBuffet && !['veg', 'non_veg'].includes(foodType)) {
           return showInlineError('Please select Veg or Non Veg');
         }
-        if (!isBuffet && !dcode) return showInlineError('Display code is required');
-        if (!isBuffet && !tmode) return showInlineError('Token mode is required');
-        if (!isBuffet && (pref === '' || pref === null)) return showInlineError('Prefix is required');
+        if (!isBuffet && !isGroupDepartment && !dcode) return showInlineError('Display code is required');
+        if (!isBuffet && !isGroupDepartment && !tmode) return showInlineError('Token mode is required');
+        if (!isBuffet && !isGroupDepartment && (pref === '' || pref === null)) return showInlineError('Prefix is required');
+
+        if (isHospital) {
+          const displayOrder = parseInt(document.getElementById('edit-display-order')?.value || '0', 10);
+          const serviceTime = parseInt(document.getElementById('edit-service-time')?.value || '0', 10);
+          const preAnnouncement = parseInt(document.getElementById('edit-pre-announcement')?.value || '0', 10);
+          const priorityPrefix = document.getElementById('edit-priority-prefix')?.value.trim() || '';
+
+          if ([displayOrder, serviceTime, preAnnouncement].some((value) => Number.isNaN(value) || value < 0)) {
+            return showInlineError('Display order, service time, and pre-announcement count must be 0 or greater.');
+          }
+
+          if (isGroupDepartment) {
+            const selectedGroupIds = getSelectedGroupDepartmentIds(
+              document.getElementById('edit-group-departments-checkboxes')
+            );
+            if (!selectedGroupIds.length) {
+              return showInlineError('Please select at least one included department.');
+            }
+          }
+
+          if (pref && priorityPrefix && pref.toUpperCase() === priorityPrefix.toUpperCase()) {
+            return showInlineError('Priority prefix cannot be the same as prefix.');
+          }
+        }
 
         if (name.length > 30) return showInlineError('Utility name must be at most 30 characters');
         if (dname.length > 20) return showInlineError('Display name must be at most 20 characters');
@@ -643,7 +820,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 display_name: dname,
                 display_code: dcode,
                 token_mode: tmode,
-                prefix: pref
+                prefix: pref || null,
+                ...(isHospital ? {
+                  department_type: departmentType,
+                  display_order: parseInt(document.getElementById('edit-display-order')?.value || '0', 10) || 0,
+                  approximate_service_time: parseInt(document.getElementById('edit-service-time')?.value || '0', 10) || 0,
+                  pre_announcement_count: parseInt(document.getElementById('edit-pre-announcement')?.value || '0', 10) || 0,
+                  priority_prefix: document.getElementById('edit-priority-prefix')?.value.trim() || '',
+                  group_department_ids: isGroupDepartment
+                    ? getSelectedGroupDepartmentIds(document.getElementById('edit-group-departments-checkboxes'))
+                    : [],
+                } : {}),
               })
             });
           }
@@ -651,7 +838,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const result = await response.json();
 
           if (response.ok) {
-            if (isBuffet && result.utility) {
+            if ((isBuffet || isHospital) && result.utility) {
               const idx = utilitiesData.findIndex((u) => Number(u.id) === Number(utility.id));
               if (idx !== -1) {
                 utilitiesData[idx] = { ...utilitiesData[idx], ...result.utility };

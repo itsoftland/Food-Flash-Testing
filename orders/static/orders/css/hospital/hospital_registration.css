@@ -1,3 +1,47 @@
+.group-department-card {
+    border-color: rgba(13, 202, 240, 0.35);
+}
+
+.group-department-card.selected,
+.utility-item.group-department-card.multi-select.selected {
+    border-color: #0dcaf0;
+    background: #f0fbff;
+    box-shadow: 0 0 0 2px rgba(13, 202, 240, 0.2);
+}
+
+.group-department-display {
+    flex-direction: column;
+    gap: 6px;
+}
+
+.group-department-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #115087;
+    line-height: 1.2;
+}
+
+.group-department-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #055160;
+    background: #cff4fc;
+    border: 1px solid #9eeaf9;
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+.group-department-includes {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: #6c757d;
+    text-align: center;
+}
+
 .utility-item.multi-select.selected {
     border-color: #0d6efd;
     background: #f0f6ff;

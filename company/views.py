@@ -50,6 +50,9 @@ from vendors.utils import (
     apply_buffet_utility_image_changes,
     _collect_buffet_upload_files,
     _BUFFET_UTILITY_IMAGES_MAX_COUNT,
+    validate_hospital_utility_fields,
+    hospital_utility_payload,
+    apply_hospital_group_departments,
 )
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
@@ -1995,6 +1998,7 @@ def create_utility(request):
             return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+        is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
         if is_buffet:
             food_type_err = validate_buffet_food_type(food_type)
@@ -2021,13 +2025,26 @@ def create_utility(request):
             logger.warning("[UtilityCreate] display_code missing")
             return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not token_mode and not is_buffet:
+        hospital_department_type = None
+        if is_hospital:
+            from vendors.utils import validate_hospital_department_type
+            hospital_department_type, _ = validate_hospital_department_type(
+                request.data.get("department_type")
+            )
+        is_hospital_group = is_hospital and hospital_department_type == Utility.DEPARTMENT_TYPE_GROUP
+
+        if not token_mode and not is_buffet and not is_hospital_group:
             logger.warning("[UtilityCreate] token_mode missing")
             return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not prefix and not is_buffet:
+        if not prefix and not is_buffet and not is_hospital_group:
             logger.warning("[UtilityCreate] prefix missing")
             return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_hospital_group and not token_mode:
+            token_mode = Utility.TOKEN_MODE_CONTINUOUS
+        if is_hospital_group and not prefix:
+            prefix = None
 
         if len(utility_name) > 30:
             logger.warning(f"[UtilityCreate] Utility name too long: {utility_name}")
@@ -2056,6 +2073,16 @@ def create_utility(request):
         except Vendor.DoesNotExist:
             logger.error(f"[UtilityCreate] Vendor not found: {vendor_id}")
             return Response({"error": "Vendor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        hospital_fields = None
+        if is_hospital:
+            hospital_fields, hospital_err = validate_hospital_utility_fields(
+                request.data,
+                vendor=vendor,
+                prefix=prefix,
+            )
+            if hospital_err:
+                return Response({"error": hospital_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Utility Feature Check ----
         config = getattr(vendor, 'config', None)
@@ -2132,8 +2159,19 @@ def create_utility(request):
         if is_buffet:
             create_kwargs["food_type"] = food_type
             create_kwargs["description"] = description
+        if is_hospital and hospital_fields:
+            create_kwargs.update({
+                "department_type": hospital_fields["department_type"],
+                "display_order": hospital_fields["display_order"],
+                "approximate_service_time": hospital_fields["approximate_service_time"],
+                "pre_announcement_count": hospital_fields["pre_announcement_count"],
+                "priority_prefix": hospital_fields["priority_prefix"],
+            })
 
         utility = Utility.objects.create(**create_kwargs)
+
+        if is_hospital and hospital_fields:
+            apply_hospital_group_departments(utility, hospital_fields["group_members"])
 
         if is_buffet and buffet_uploads:
             upload_err = create_buffet_utility_images(utility, buffet_uploads)
@@ -2160,6 +2198,9 @@ def create_utility(request):
             utility_payload["food_type"] = utility.food_type
             utility_payload["description"] = utility.description
             utility_payload.update(buffet_utility_image_payload(request, utility))
+        if is_hospital:
+            utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)
+            utility_payload.update(hospital_utility_payload(utility))
 
         return Response(
             {
@@ -2884,6 +2925,7 @@ def get_utilities(request):
         # Get vendor_id from query parameter
         vendor_id = request.query_params.get('vendor_id')
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+        is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
         def _utilities_queryset():
             qs = Utility.objects.filter(
@@ -2891,6 +2933,10 @@ def get_utilities(request):
             ).select_related("vendor")
             if is_buffet:
                 qs = qs.prefetch_related("buffet_images")
+            if is_hospital:
+                qs = qs.prefetch_related("group_departments")
+            if is_hospital:
+                qs = qs.order_by("display_order", "id")
             return qs
 
         def _utility_row(utility):
@@ -2911,6 +2957,8 @@ def get_utilities(request):
                 row["food_type"] = utility.food_type
                 row["description"] = utility.description
                 row.update(buffet_utility_image_payload(request, utility))
+            if is_hospital:
+                row.update(hospital_utility_payload(utility))
             return row
 
         if vendor_id:
@@ -3101,6 +3149,7 @@ def update_utility(request):
             return Response({"error": "You don't have permission to modify this utility"}, status=status.HTTP_403_FORBIDDEN)
 
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
+        is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
         if is_buffet:
             # Keep existing food type when the client omits it (e.g. description-only edit).
@@ -3133,10 +3182,24 @@ def update_utility(request):
             return Response({"error": "display_name is required"}, status=status.HTTP_400_BAD_REQUEST)
         if not display_code and not is_buffet:
             return Response({"error": "display_code is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if not token_mode and not is_buffet:
+
+        hospital_department_type = None
+        if is_hospital:
+            from vendors.utils import validate_hospital_department_type
+            hospital_department_type, _ = validate_hospital_department_type(
+                request.data.get("department_type", utility.department_type)
+            )
+        is_hospital_group = is_hospital and hospital_department_type == Utility.DEPARTMENT_TYPE_GROUP
+
+        if not token_mode and not is_buffet and not is_hospital_group:
             return Response({"error": "token_mode is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if prefix is None and not is_buffet:
+        if prefix is None and not is_buffet and not is_hospital_group:
             return Response({"error": "prefix is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_hospital_group and not token_mode:
+            token_mode = Utility.TOKEN_MODE_CONTINUOUS
+        if is_hospital_group and prefix is None:
+            prefix = utility.prefix
 
         # Length validations (match create_utility checks)
         if len(utility_name) > 30:
@@ -3153,6 +3216,17 @@ def update_utility(request):
 
         vendor = utility.vendor
 
+        hospital_fields = None
+        if is_hospital:
+            hospital_fields, hospital_err = validate_hospital_utility_fields(
+                request.data,
+                vendor=vendor,
+                utility=utility,
+                prefix=prefix,
+            )
+            if hospital_err:
+                return Response({"error": hospital_err}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check vendor config allows utilities
         config = getattr(vendor, 'config', None)
         if config and config.use_utilities is False:
@@ -3168,7 +3242,7 @@ def update_utility(request):
         if Utility.objects.filter(vendor=vendor, display_code__iexact=display_code).exclude(id=utility.id).exists():
             return Response({"error": "Display code already exists for this vendor"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not is_buffet and Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exclude(id=utility.id).exists():
+        if not is_buffet and prefix and Utility.objects.filter(vendor=vendor, prefix__iexact=prefix).exclude(id=utility.id).exists():
             return Response({"error": "prefix must be unique for each vendor"}, status=status.HTTP_400_BAD_REQUEST)
 
         # All validations passed; update utility
@@ -3180,6 +3254,12 @@ def update_utility(request):
         if is_buffet:
             utility.food_type = food_type
             utility.description = description
+        if is_hospital and hospital_fields:
+            utility.department_type = hospital_fields["department_type"]
+            utility.display_order = hospital_fields["display_order"]
+            utility.approximate_service_time = hospital_fields["approximate_service_time"]
+            utility.pre_announcement_count = hospital_fields["pre_announcement_count"]
+            utility.priority_prefix = hospital_fields["priority_prefix"]
 
         if is_buffet:
             image_err = apply_buffet_utility_image_changes(utility, request)
@@ -3190,6 +3270,9 @@ def update_utility(request):
                 )
 
         utility.save()
+
+        if is_hospital and hospital_fields:
+            apply_hospital_group_departments(utility, hospital_fields["group_members"])
 
         utility_response = {
             "id": utility.id,
@@ -3205,6 +3288,9 @@ def update_utility(request):
             utility_response["food_type"] = utility.food_type
             utility_response["description"] = utility.description
             utility_response.update(buffet_utility_image_payload(request, utility))
+        if is_hospital:
+            utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)
+            utility_response.update(hospital_utility_payload(utility))
 
         return Response({
             "success": True,

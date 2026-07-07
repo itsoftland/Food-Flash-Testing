@@ -11,7 +11,7 @@ import secrets
 from django.http import JsonResponse,HttpResponseBadRequest
 from django.core.cache import cache
 from django.db import IntegrityError, transaction, close_old_connections
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 from django.views.decorators.cache import never_cache
 
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -24,7 +24,7 @@ from vendors.models import (Order, Vendor, AdminOutlet, AndroidDevice,
                             AdvertisementProfileAssignment,
                             UserProfile,ChatMessage,
                             Utility, UtilityOption, BuffetOrderItem)
-from vendors.utils import buffet_utility_image_absolute_url
+from vendors.utils import buffet_utility_image_absolute_url, hospital_utility_payload
 from vendors.serializers import OrdersSerializer
 
 from .utils import send_to_managers
@@ -2007,20 +2007,41 @@ def utility_list(request):
             )
 
         is_buffet = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash_buffet"
-        utilities_qs = Utility.objects.filter(
-            vendor=vendor,
-            is_active=True
-        ).only(
+        is_hospital = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "hospital_flash"
+
+        only_fields = [
             "id",
             "utility_name",
             "display_name",
             "display_code",
             "token_mode",
             "prefix",
-            *(["food_type", "description"] if is_buffet else []),
-        ).order_by("id")
+        ]
+        if is_buffet:
+            only_fields.extend(["food_type", "description"])
+        if is_hospital:
+            only_fields.extend([
+                "department_type",
+                "display_order",
+                "approximate_service_time",
+                "pre_announcement_count",
+                "priority_prefix",
+            ])
+
+        utilities_qs = Utility.objects.filter(
+            vendor=vendor,
+            is_active=True,
+        ).only(*only_fields)
+        utilities_qs = utilities_qs.order_by("display_order", "id") if is_hospital else utilities_qs.order_by("id")
         if is_buffet:
             utilities_qs = utilities_qs.prefetch_related("options", "buffet_images")
+        if is_hospital:
+            utilities_qs = utilities_qs.prefetch_related(
+                Prefetch(
+                    "group_departments",
+                    queryset=Utility.objects.order_by("display_order", "id"),
+                )
+            )
         utilities = list(utilities_qs)
 
         data = []
@@ -2049,6 +2070,8 @@ def utility_list(request):
                 row["image_url"] = buffet_utility_image_absolute_url(request, util)
                 if util.description:
                     row["description"] = util.description
+            if is_hospital:
+                row.update(hospital_utility_payload(util))
             data.append(row)
 
         logger.info(

@@ -70,6 +70,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    function isGroupDepartment(util) {
+        return util.department_type === "GROUP" || util.is_group_department === true;
+    }
+
+    function sortGroupDepartments(members) {
+        return [...members].sort((a, b) => {
+            const orderA = Number(a.display_order) || 0;
+            const orderB = Number(b.display_order) || 0;
+            if (orderA !== orderB) return orderA - orderB;
+            return (Number(a.id) || 0) - (Number(b.id) || 0);
+        });
+    }
+
+    function getGroupMemberNames(util) {
+        if (Array.isArray(util.group_departments) && util.group_departments.length) {
+            return sortGroupDepartments(util.group_departments)
+                .map((member) => member.display_name || member.utility_name)
+                .filter(Boolean);
+        }
+        if (Array.isArray(util.group_department_names) && util.group_department_names.length) {
+            return util.group_department_names.filter(Boolean);
+        }
+        return [];
+    }
+
     function renderDepartments(utilities) {
         const container = document.getElementById("utility-grid");
         if (!container) return;
@@ -83,9 +108,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         utilities.forEach((util) => {
             const item = document.createElement("div");
-            item.className = "utility-item premium-utility-card multi-select";
+            const isGroup = isGroupDepartment(util);
+            item.className = `utility-item premium-utility-card multi-select${
+                isGroup ? " group-department-card" : ""
+            }`;
             item.dataset.id = util.id;
-            item.innerHTML = `<div class="utility-display">${escapeHtml(util.display_name || util.utility_name)}</div>`;
+
+            const name = escapeHtml(util.display_name || util.utility_name);
+            if (isGroup) {
+                const memberNames = getGroupMemberNames(util);
+                const includesText = memberNames.length
+                    ? memberNames.map(escapeHtml).join(", ")
+                    : "No departments configured";
+                item.innerHTML = `
+                    <div class="utility-display group-department-display">
+                        <span class="group-department-name">${name}</span>
+                        <span class="group-department-badge">Package</span>
+                    </div>
+                    <div class="group-department-includes">Includes: ${includesText}</div>
+                `;
+            } else {
+                item.innerHTML = `<div class="utility-display">${name}</div>`;
+            }
+
             item.addEventListener("click", () => {
                 item.classList.toggle("selected");
             });

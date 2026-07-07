@@ -167,6 +167,225 @@ def buffet_utility_image_payload(request, utility):
     }
 
 
+def _parse_positive_int(value, field_name, allow_none=False):
+    """Return (int_value, error_message) for non-negative integer fields."""
+    if value is None or value == "":
+        if allow_none:
+            return 0, None
+        return 0, None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be a non-negative integer"
+    if parsed < 0:
+        return None, f"{field_name} must be greater than or equal to 0"
+    return parsed, None
+
+
+def validate_hospital_department_type(department_type):
+    from .models import Utility
+
+    if not department_type:
+        return Utility.DEPARTMENT_TYPE_INDIVIDUAL, None
+    department_type = str(department_type).strip().upper()
+    valid = {choice[0] for choice in Utility.DEPARTMENT_TYPE_CHOICES}
+    if department_type not in valid:
+        return None, "department_type must be INDIVIDUAL or GROUP"
+    return department_type, None
+
+
+def normalize_hospital_priority_prefix(priority_prefix):
+    if priority_prefix is None:
+        return None, None
+    priority_prefix = str(priority_prefix).strip()
+    if not priority_prefix:
+        return None, None
+    if len(priority_prefix) > 4:
+        return None, "priority_prefix must be max 4 characters"
+    return priority_prefix, None
+
+
+def validate_hospital_priority_prefix_conflict(prefix, priority_prefix):
+    if not prefix or not priority_prefix:
+        return None
+    if str(prefix).strip().upper() == str(priority_prefix).strip().upper():
+        return "Priority prefix cannot be the same as prefix"
+    return None
+
+
+def parse_hospital_group_department_ids(request_data):
+    raw = request_data.get("group_department_ids")
+    if raw is None:
+        raw = request_data.get("group_departments")
+    if raw is None or raw == "":
+        return [], None
+    if isinstance(raw, list):
+        ids = raw
+    elif isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            ids = parsed if isinstance(parsed, list) else [raw]
+        except (json.JSONDecodeError, TypeError):
+            ids = [part.strip() for part in raw.split(",") if part.strip()]
+    else:
+        return None, "group_department_ids must be a list of department IDs"
+    result = []
+    for value in ids:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            return None, "group_department_ids must contain valid integer IDs"
+    return result, None
+
+
+def validate_hospital_group_departments(vendor, department_type, group_department_ids, utility=None):
+    from .models import Utility
+
+    if department_type != Utility.DEPARTMENT_TYPE_GROUP:
+        return [], None
+
+    if not group_department_ids:
+        return [], "Group department must contain at least one individual department"
+
+    members = list(
+        Utility.objects.filter(
+            vendor=vendor,
+            id__in=group_department_ids,
+        )
+    )
+    found_ids = {member.id for member in members}
+    missing = [gid for gid in group_department_ids if gid not in found_ids]
+    if missing:
+        return [], "One or more included departments were not found for this outlet"
+
+    if utility and utility.id in found_ids:
+        return [], "Group department cannot include itself"
+
+    for member in members:
+        if member.department_type != Utility.DEPARTMENT_TYPE_INDIVIDUAL:
+            return [], "Group departments can only include individual departments"
+
+    return members, None
+
+
+def validate_hospital_utility_fields(
+    request_data,
+    *,
+    vendor,
+    utility=None,
+    prefix=None,
+):
+    """
+    Validate Hospital Flash department fields from API request data.
+    Returns (validated_dict, error_message).
+    """
+    from .models import Utility
+
+    department_type, type_err = validate_hospital_department_type(
+        request_data.get("department_type", Utility.DEPARTMENT_TYPE_INDIVIDUAL)
+    )
+    if type_err:
+        return None, type_err
+
+    display_order, display_order_err = _parse_positive_int(
+        request_data.get("display_order", 0),
+        "display_order",
+    )
+    if display_order_err:
+        return None, display_order_err
+
+    approximate_service_time, service_time_err = _parse_positive_int(
+        request_data.get("approximate_service_time", 0),
+        "approximate_service_time",
+    )
+    if service_time_err:
+        return None, service_time_err
+
+    pre_announcement_count, pre_announce_err = _parse_positive_int(
+        request_data.get("pre_announcement_count", 0),
+        "pre_announcement_count",
+    )
+    if pre_announce_err:
+        return None, pre_announce_err
+
+    priority_prefix, priority_prefix_err = normalize_hospital_priority_prefix(
+        request_data.get("priority_prefix")
+    )
+    if priority_prefix_err:
+        return None, priority_prefix_err
+
+    prefix_conflict_err = validate_hospital_priority_prefix_conflict(prefix, priority_prefix)
+    if prefix_conflict_err:
+        return None, prefix_conflict_err
+
+    group_department_ids, parse_err = parse_hospital_group_department_ids(request_data)
+    if parse_err:
+        return None, parse_err
+
+    members, group_err = validate_hospital_group_departments(
+        vendor,
+        department_type,
+        group_department_ids,
+        utility=utility,
+    )
+    if group_err:
+        return None, group_err
+
+    return {
+        "department_type": department_type,
+        "display_order": display_order,
+        "approximate_service_time": approximate_service_time,
+        "pre_announcement_count": pre_announcement_count,
+        "priority_prefix": priority_prefix,
+        "group_members": members,
+    }, None
+
+
+def hospital_utility_payload(utility):
+    """API payload fields for Hospital Flash department utilities."""
+    from .models import Utility
+
+    payload = {
+        "department_type": utility.department_type,
+        "display_order": utility.display_order,
+        "approximate_service_time": utility.approximate_service_time,
+        "pre_announcement_count": utility.pre_announcement_count,
+        "priority_prefix": utility.priority_prefix,
+        "is_group_department": utility.department_type == Utility.DEPARTMENT_TYPE_GROUP,
+    }
+    if utility.department_type == Utility.DEPARTMENT_TYPE_GROUP:
+        members = sorted(
+            utility.group_departments.all(),
+            key=lambda member: (member.display_order, member.id),
+        )
+        payload["group_departments"] = [
+            {
+                "id": member.id,
+                "utility_name": member.utility_name,
+                "display_name": member.display_name,
+                "display_code": member.display_code,
+                "display_order": member.display_order,
+            }
+            for member in members
+        ]
+        payload["group_department_ids"] = [member.id for member in members]
+        payload["group_department_names"] = [
+            member.display_name or member.utility_name for member in members
+        ]
+    else:
+        payload["group_departments"] = []
+        payload["group_department_ids"] = []
+        payload["group_department_names"] = []
+    return payload
+
+
+def apply_hospital_group_departments(utility, members):
+    if utility.department_type != utility.DEPARTMENT_TYPE_GROUP:
+        utility.group_departments.clear()
+        return
+    utility.group_departments.set(members)
+
+
 def _parse_remove_buffet_image_ids(request_data):
     raw = request_data.get("remove_buffet_image_ids")
     if raw is None or raw == "":
