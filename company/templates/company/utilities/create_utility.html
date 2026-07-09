@@ -40,7 +40,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Name{% else %}Utility Name{% endif %}</label>
-                            <input type="text" name="utility_name" id="utility-name-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. Laboratory{% else %}e.g. South Indian Counter{% endif %}" required maxlength="30">
+                            <input type="text" name="utility_name" id="utility-name-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. Laboratory{% else %}e.g. South Indian Counter{% endif %}" required maxlength="30"{% if PROJECT_NAME == "hospital_flash" %} autocomplete="off"{% endif %}>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Display Name</label>

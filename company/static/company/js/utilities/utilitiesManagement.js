@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">${isHospital ? 'Department Name' : 'Utility Name'}</label>
-            <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30" />
+            <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30"${isHospital ? ' autocomplete="off"' : ''} />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 30 characters</small>
           </div>
           <div class="form-group col-md-6 mb-2">
