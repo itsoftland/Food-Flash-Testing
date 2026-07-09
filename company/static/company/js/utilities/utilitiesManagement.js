@@ -472,12 +472,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Build edit form HTML with error display and compact 2-column layout
     const body = `
       <div id="edit-error-message" style="display: none; margin-bottom: 12px;"></div>
-      <form id="edit-utility-form" class="px-0 py-0" style="max-width: 100%;">
+      <form id="edit-utility-form" class="px-0 py-0" style="max-width: 100%;"${isHospital ? ' autocomplete="off"' : ''}>
         <!-- Row 1: Utility Name & Display Name -->
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">${isHospital ? 'Department Name' : 'Utility Name'}</label>
-            <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30"${isHospital ? ' autocomplete="off"' : ''} />
+            <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30" />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 30 characters</small>
           </div>
           <div class="form-group col-md-6 mb-2">

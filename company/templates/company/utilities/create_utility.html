@@ -28,7 +28,7 @@
     <div class="container-fluid">
         <div class="card card-outline card-golden">
             <div class="card-body">
-                <form id="create-utilities-form">
+                <form id="create-utilities-form"{% if PROJECT_NAME == "hospital_flash" %} autocomplete="off"{% endif %}>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="vendor-select" class="form-label">Select Outlet</label>
@@ -40,7 +40,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Name{% else %}Utility Name{% endif %}</label>
-                            <input type="text" name="utility_name" id="utility-name-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. Laboratory{% else %}e.g. South Indian Counter{% endif %}" required maxlength="30"{% if PROJECT_NAME == "hospital_flash" %} autocomplete="off"{% endif %}>
+                            <input type="text" name="utility_name" id="utility-name-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. Laboratory{% else %}e.g. South Indian Counter{% endif %}" required maxlength="30">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Display Name</label>
