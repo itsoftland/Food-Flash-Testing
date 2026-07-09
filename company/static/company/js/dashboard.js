@@ -75,7 +75,10 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
       // Define target URLs per metric
       const pageLinks = {
         outlets: WEB_ENDPOINTS.OUTLETS,
-        keypad_devices: WEB_ENDPOINTS.DEVICE_LIST,
+        keypad_devices:
+          projectName === "hospital_flash"
+            ? `${window.BASE}company/keypad_devices/`
+            : WEB_ENDPOINTS.DEVICE_LIST,
         android_tvs: WEB_ENDPOINTS.ANDROID_TV_LIST,
         airport: WEB_ENDPOINTS.OUTLETS,
       };
