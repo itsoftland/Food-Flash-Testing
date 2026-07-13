@@ -15,6 +15,10 @@ const statusClassMap = {
   booking_cancelled: 'cancelled-color',
   operation_closed: 'boarding-shortly-color',
   utility_transfer: 'ready-color',
+  registered: 'unknown-color',
+  waiting: 'preparing-color',
+  called: 'ready-color',
+  completed: 'delivered-color',
 };
 
 
@@ -33,6 +37,14 @@ const dineInPayloadStatusMap = {
   occupied: 'Table Occupied',
   operation_closed: 'Operation Closed',
   utility_transfer: 'Table Transferred',
+};
+
+const hospitalPayloadStatusMap = {
+  registered: 'Registered',
+  waiting: 'Waiting',
+  called: 'Called',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 function getActiveVendorLogo() {
@@ -613,7 +625,10 @@ function buildBookingStatusMessage(payload) {
     path.includes("/dine_flash/") &&
     !path.includes("/manager/");
   const statusKey = payload?.status?.toLowerCase() || "unknown";
-  const statusClass = statusClassMap[statusKey] || "unknown-color";
+  const statusClass =
+    statusKey === "waiting"
+      ? "unknown-color"
+      : (statusClassMap[statusKey] || "unknown-color");
   const payloadStatus = dineInPayloadStatusMap[statusKey];
   const allocatedPlaceValue = payload?.utility_name || "-";
   const tableNumberRaw =
@@ -673,6 +688,85 @@ function buildBookingStatusMessage(payload) {
         <span class="dine-value dine-badge">${sanitizedAllocatedPlace || "-"}</span>
       </div>
       ${tableNumberRow}
+    </div>
+  `;
+}
+
+function buildHospitalStatusMessage(payload) {
+  if (Array.isArray(payload?.departments) && payload.departments.length > 0) {
+    const deptRows = payload.departments
+      .map((dept) => {
+        const statusKey = dept?.status?.toLowerCase() || "unknown";
+        const statusClass = statusClassMap[statusKey] || "unknown-color";
+        const payloadStatus = hospitalPayloadStatusMap[statusKey] || dept?.status || "Unknown";
+        return `
+      <div class="hospital-dept-row mb-3 pb-2 border-bottom border-light">
+        <div class="dine-row">
+          <span class="dine-label"><span class="dine-icon">🏥</span>Department</span>
+          <span class="dine-value dine-badge">${dept.utility_name || "-"}</span>
+        </div>
+        <div class="dine-row">
+          <span class="dine-label"><span class="dine-icon">🧾</span>Token</span>
+          <span class="dine-value">${dept.booking_no || "-"}</span>
+        </div>
+        <div class="dine-status-row">
+          <span class="dine-status-label">Status:</span>
+          <span class="dine-status-value ${statusClass}">${payloadStatus}</span>
+        </div>
+      </div>`;
+      })
+      .join("");
+
+    return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
+    </div>
+
+    <div class="dine-body">
+      <div class="dine-card-header">
+        <span class="customer-icon" aria-hidden="true">👤</span>
+        <div class="customer-name">${payload.customer_name || "-"}</div>
+      </div>
+
+      <div class="text-muted small mb-2">Registration</div>
+      ${deptRows}
+    </div>
+  `;
+  }
+
+  const statusKey = payload?.status?.toLowerCase() || "unknown";
+  const statusClass = statusClassMap[statusKey] || "unknown-color";
+  const payloadStatus = hospitalPayloadStatusMap[statusKey] || payload?.status || "Unknown";
+
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
+    </div>
+
+    <div class="dine-status-row">
+      <span class="dine-status-label">Status:</span>
+      <span class="dine-status-value ${statusClass}">
+        ${payloadStatus}
+      </span>
+    </div>
+
+    <div class="dine-body">
+      <div class="dine-card-header">
+        <span class="customer-icon" aria-hidden="true">👤</span>
+        <div class="customer-name">${payload.customer_name || "-"}</div>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🧾</span>Department Token</span>
+        <span class="dine-value">${payload.booking_no || "-"}</span>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🏥</span>Department</span>
+        <span class="dine-value dine-badge">${payload.utility_name || "-"}</span>
+      </div>
     </div>
   `;
 }
@@ -741,6 +835,8 @@ export const ChatTemplateService = {
         return buildFlightStatusMessage(payload);
       case "dinestatus":
         return buildBookingStatusMessage(payload);
+      case "hospitalstatus":
+        return buildHospitalStatusMessage(payload);
       case "buffetstatus":
         // Fallback for buffet order status itself (though usually items are handled individually)
         return buildStatusMessage(payload);

@@ -6,6 +6,7 @@ import {
     loadResult,
     clearHospitalSession,
     patientRegistrationUrl,
+    trackingUrlFromResult,
 } from "./hospitalCommon.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -55,6 +56,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             )
             .join("");
     }
+
+    document.getElementById("track-status-btn")?.addEventListener("click", () => {
+        const trackingUrl = trackingUrlFromResult(result, vendorId);
+        if (!trackingUrl) {
+            window.location.href = patientRegistrationUrl(vendorId);
+            return;
+        }
+        window.location.href = trackingUrl;
+    });
 
     document.getElementById("new-registration-btn")?.addEventListener("click", () => {
         clearHospitalSession();

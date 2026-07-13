@@ -109,6 +109,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
             type === 'flightstatus' ||
             type === 'airline_manager' ||
             type === 'dinestatus' ||
+            type === 'hospitalstatus' ||
             type === 'dine_manager' ||
             isBuffetReplyableType(type)
         )

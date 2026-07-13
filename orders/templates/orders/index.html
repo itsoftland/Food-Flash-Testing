@@ -19,6 +19,9 @@
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}?v={{ APP_VERSION }}">
 <link rel="stylesheet" href="{% static 'orders/css/dineflash/thank_you.css' %}?v={{ APP_VERSION }}">
 {% endif %}
+{% if PROJECT_NAME == 'hospital_flash' %}
+<link rel="stylesheet" href="{% static 'orders/css/dineflash/dine_status.css' %}?v={{ APP_VERSION }}">
+{% endif %}
 
 {% endblock %}
 
@@ -56,6 +59,7 @@
         <input type="tel" id="chat-input" class="form-control rounded-pill me-2" placeholder="{% if PROJECT_NAME == 'airline_flash' %}Enter your Sequence Code
                     {% elif PROJECT_NAME == 'dine_flash' %}Enter your Booking No
                     {% elif PROJECT_NAME == 'dine_flash_buffet' %}Enter your token or bill number
+                    {% elif PROJECT_NAME == 'hospital_flash' %}Enter your department token
                     {% else %}Enter Your Token Number
                     {% endif %}">
         <button id="send-button" class="btn rounded-pill d-flex align-items-center justify-content-center">

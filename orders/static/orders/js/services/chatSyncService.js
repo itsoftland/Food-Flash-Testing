@@ -204,6 +204,24 @@ function resolveBookingId(source) {
     return String(payload?.booking_id ?? source?.booking_id ?? "").trim();
 }
 
+function resolveRegistrationBatchId(source) {
+    const payload = resolvePayload(source);
+    const batchId = payload?.registration_batch_id ?? source?.registration_batch_id;
+    return batchId != null && String(batchId).trim() !== "" ? String(batchId).trim() : "";
+}
+
+function resolveDepartments(source) {
+    const payload = resolvePayload(source);
+    return Array.isArray(payload?.departments) ? payload.departments : null;
+}
+
+function fingerprintDepartments(departments) {
+    if (!Array.isArray(departments) || !departments.length) return "";
+    return departments
+        .map((dept) => `${dept?.booking_id ?? ""}:${dept?.status ?? ""}`)
+        .join("|");
+}
+
 function resolveVendorId(source, fallbackVendorId) {
     const payload = resolvePayload(source);
     return String(
@@ -301,6 +319,15 @@ function fingerprint(source, fallbackVendorId) {
 
     if (type === "dinestatus") {
         return `${vendorId}|${bookingId}|dinestatus|${resolveStatus(source)}|${resolveSeat(source)}`;
+    }
+
+    if (type === "hospitalstatus") {
+        const batchId = resolveRegistrationBatchId(source);
+        const departments = resolveDepartments(source);
+        if (batchId && departments?.length) {
+            return `${vendorId}|${batchId}|hospitalstatus|${hashString(fingerprintDepartments(departments))}`;
+        }
+        return `${vendorId}|${bookingId}|hospitalstatus|${resolveStatus(source)}`;
     }
 
     if (type === "dine_manager") {

@@ -1,5 +1,6 @@
 export const HOSPITAL_DRAFT_KEY = "hospital_registration_draft";
 export const HOSPITAL_RESULT_KEY = "hospital_registration_result";
+export const HOSPITAL_TRACKING_BATCH_KEY = "hospital_registration_batch_id";
 
 export function hospitalOnly() {
     const project = String(window.PROJECT_NAME || "").toLowerCase();
@@ -109,6 +110,67 @@ export function loadResult() {
 export function clearHospitalSession() {
     sessionStorage.removeItem(HOSPITAL_DRAFT_KEY);
     sessionStorage.removeItem(HOSPITAL_RESULT_KEY);
+    sessionStorage.removeItem(HOSPITAL_TRACKING_BATCH_KEY);
+}
+
+export function getStoredBatchId() {
+    try {
+        const value = sessionStorage.getItem(HOSPITAL_TRACKING_BATCH_KEY);
+        return value && String(value).trim() ? String(value).trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveBatchId(batchId) {
+    if (!batchId) return;
+    try {
+        sessionStorage.setItem(HOSPITAL_TRACKING_BATCH_KEY, String(batchId));
+    } catch (err) {
+        console.warn("Hospital batch id storage failed:", err);
+    }
+}
+
+export function isHospitalBatchPayload(payload) {
+    return Boolean(
+        payload?.registration_batch_id &&
+        Array.isArray(payload?.departments) &&
+        payload.departments.length > 0
+    );
+}
+
+export function buildTrackingUrl({
+    vendorId,
+    locationId,
+    registrationBatchId,
+    bookingId,
+    bookingNo,
+}) {
+    const base = window.BASE || "/hospital_flash/";
+    const params = new URLSearchParams();
+    if (locationId) params.set("location_id", String(locationId));
+    if (vendorId != null && vendorId !== "") params.set("vendor_id", String(vendorId));
+    if (bookingNo) params.set("booking_no", String(bookingNo));
+    if (bookingId != null && bookingId !== "") params.set("booking_id", String(bookingId));
+    if (registrationBatchId) params.set("registration_batch_id", String(registrationBatchId));
+    return `${base}home/?${params.toString()}`;
+}
+
+export function trackingUrlFromResult(result, vendorId) {
+    if (!result) return null;
+    if (result.tracking_url) return result.tracking_url;
+
+    const departments = Array.isArray(result.departments) ? result.departments : [];
+    const primary = departments[0];
+    if (!primary) return null;
+
+    return buildTrackingUrl({
+        vendorId: result.vendor_id ?? vendorId,
+        locationId: result.location_id,
+        registrationBatchId: result.registration_batch_id,
+        bookingId: primary.order_id,
+        bookingNo: primary.token,
+    });
 }
 
 export function departmentSelectionUrl(vendorId) {

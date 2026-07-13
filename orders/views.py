@@ -1,5 +1,6 @@
 import json
 import threading
+import uuid
 
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -759,6 +760,210 @@ def table_booking(request):
 #     cache.clear()
 #     return render(request, 'orders/token_display.html')
 
+
+def _hospital_department_row(order):
+    utility = order.utility
+    utility_display = utility.display_name if utility else "-"
+    return {
+        "booking_id": order.id,
+        "booking_no": order.table_booking_no,
+        "utility_id": utility.id if utility else None,
+        "utility_name": utility_display,
+        "display_code": (utility.display_code if utility else "") or "",
+        "status": order.status,
+        "counter_no": order.counter_no or 1,
+        "token_no": order.token_no,
+    }
+
+
+def _hospital_orders_queryset(vendor_id, registration_batch_id):
+    return (
+        Order.objects.filter(
+            registration_batch_id=registration_batch_id,
+            vendor__vendor_id=vendor_id,
+        )
+        .select_related("utility", "vendor", "vendor__config", "device", "user_profile")
+        .order_by("id")
+    )
+
+
+def _hospital_resolve_orders(vendor_id, registration_batch_id=None, booking_id=None, booking_no=None):
+    """
+    Resolve hospital queue orders for check_status.
+    When the matched order belongs to a registration batch, returns all batch orders.
+    """
+    order_select = ("utility", "vendor", "vendor__config", "device", "user_profile")
+
+    if registration_batch_id:
+        orders = list(_hospital_orders_queryset(vendor_id, registration_batch_id))
+        if not orders:
+            raise Order.DoesNotExist
+        return orders, orders[0]
+
+    if booking_id is not None:
+        primary = Order.objects.select_related(*order_select).get(
+            id=booking_id,
+            vendor__vendor_id=vendor_id,
+        )
+    elif booking_no:
+        primary = Order.objects.select_related(*order_select).get(
+            table_booking_no=booking_no,
+            vendor__vendor_id=vendor_id,
+        )
+    else:
+        raise Order.DoesNotExist
+
+    if primary.registration_batch_id:
+        orders = list(_hospital_orders_queryset(vendor_id, primary.registration_batch_id))
+        if orders:
+            return orders, orders[0]
+    return [primary], primary
+
+
+def _build_hospital_status_payload(request, orders, primary_order, message):
+    vendor = primary_order.vendor
+    vendor_serializer = VendorLogoSerializer(vendor, context={"request": request})
+    logo_url = vendor_serializer.data.get("logo_url", "")
+    batch_id = primary_order.registration_batch_id
+
+    data = {
+        "name": vendor.name,
+        "alias_name": vendor.alias_name,
+        "vendor": vendor.id,
+        "vendor_id": vendor.vendor_id,
+        "location_id": vendor.location_id,
+        "logo_url": logo_url,
+        "type": "hospitalstatus",
+        "customer_name": primary_order.customer_name,
+        "registration_batch_id": str(batch_id) if batch_id else None,
+        "remarks": primary_order.remarks,
+        "message": message,
+        "reply_status": "",
+        "updated_by": primary_order.updated_by,
+        "vibration_pattern": vendor.config.vibration_pattern,
+        "vibration_duration": vendor.config.vibration_duration,
+    }
+
+    if batch_id:
+        data["departments"] = [_hospital_department_row(order) for order in orders]
+        return data
+
+    utility_display = primary_order.utility.display_name if primary_order.utility else "-"
+    data.update(
+        {
+            "token_no": primary_order.token_no,
+            "status": primary_order.status,
+            "counter_no": primary_order.counter_no or 1,
+            "device_id": primary_order.device.id if primary_order.device else None,
+            "device_serial_no": primary_order.device.serial_no if primary_order.device else None,
+            "manager_id": primary_order.user_profile.id if primary_order.user_profile else None,
+            "manager_name": primary_order.user_profile.name if primary_order.user_profile else None,
+            "booking_no": primary_order.table_booking_no,
+            "booking_id": primary_order.id,
+            "utility_name": utility_display,
+        }
+    )
+    return data
+
+
+def _hospital_check_status(request, vendor_id, reply_text):
+    """Hospital Flash queue status — single department or full registration batch."""
+    registration_batch_id = (request.data.get("registration_batch_id") or "").strip() or None
+    booking_id = request.data.get("booking_id")
+    booking_no = request.data.get("booking_no") or request.data.get("token_no")
+    message = "Patient registration details retrieved successfully."
+
+    if not registration_batch_id and booking_id is None and not booking_no:
+        return Response(
+            {"error": "registration_batch_id, booking_id, or booking_no is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        vendor_id = int(vendor_id)
+    except (TypeError, ValueError):
+        return Response(
+            {"error": "Invalid data type for identifier or vendor ID."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if registration_batch_id:
+        try:
+            uuid.UUID(str(registration_batch_id))
+        except (TypeError, ValueError, AttributeError):
+            return Response(
+                {"error": "Invalid registration_batch_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    parsed_booking_id = None
+    if booking_id is not None:
+        try:
+            parsed_booking_id = int(booking_id)
+            if parsed_booking_id <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid booking_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    try:
+        orders, primary_order = _hospital_resolve_orders(
+            vendor_id,
+            registration_batch_id=registration_batch_id,
+            booking_id=parsed_booking_id,
+            booking_no=booking_no,
+        )
+    except Order.DoesNotExist:
+        return Response(
+            {"error": "Invalid registration details. Please verify and try again."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    data = _build_hospital_status_payload(request, orders, primary_order, message)
+    title = "Patient Status Check"
+    body = f"Patient {primary_order.table_booking_no or primary_order.id} is checking their queue status."
+
+    if reply_text:
+        data["message"] = "Reply message sent to managers."
+        data["type"] = "user_reply"
+        data["reply_status"] = reply_text
+        max_message_length = 200
+        if len(reply_text) > max_message_length:
+            return Response(
+                {"error": f"Message too long. Limit is {max_message_length} characters."},
+                status=400,
+            )
+
+        chat_message = None
+        try:
+            chat_message = ChatMessage.objects.create(
+                vendor=primary_order.vendor,
+                token_no=primary_order.token_no,
+                booking_id=primary_order.id,
+                booking_no=primary_order.table_booking_no,
+                created_date=timezone.now().date(),
+                sender="user",
+                is_send=True,
+                message_text=reply_text,
+            )
+        except Exception:
+            logger.exception("Failed to store hospital user chat message")
+            if chat_message:
+                chat_message.is_send = False
+                chat_message.save(update_fields=["is_send"])
+        title = "Patient Message Received"
+        body = f"Patient {primary_order.table_booking_no} has sent a new message."
+
+    threading.Thread(
+        target=_send_to_managers_async,
+        args=(primary_order.vendor, data, title, body),
+        daemon=True,
+    ).start()
+    return Response(data, status=status.HTTP_200_OK)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def check_status(request):
@@ -770,6 +975,9 @@ def check_status(request):
     # ───── Validations ─────
     if not vendor_id:
         return Response({'error': 'Vendor ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if project_name == "hospital_flash":
+        return _hospital_check_status(request, vendor_id, reply_text)
     
     if project_name == "airline_flash":
         identifier_field = "sequence_code"
@@ -864,6 +1072,9 @@ def check_status(request):
             elif project_name == "dine_flash":
                 title = "Customer Connected"
                 body = f"Customer {order.table_booking_no} has opened the booking status page."
+            elif project_name == "hospital_flash":
+                title = "Patient Connected"
+                body = f"Patient {order.table_booking_no} has opened the queue status page."
             else:
                 title = "Customer Connected"
                 body = f"Customer {identifier_value} has opened the order status page."
@@ -916,6 +1127,16 @@ def check_status(request):
             data['seat_no'] = order.seat_no
             data['table_number'] = order.seat_no
             data['utility_name'] = utility_display
+            data['remarks'] = order.remarks
+        elif project_name == "hospital_flash":
+            utility_display = order.utility.display_name if order.utility else "-"
+            data['booking_no'] = order.table_booking_no
+            data['booking_id'] = order.id
+            data['customer_name'] = order.customer_name
+            data['utility_name'] = utility_display
+            data['registration_batch_id'] = (
+                str(order.registration_batch_id) if order.registration_batch_id else None
+            )
             data['remarks'] = order.remarks
         elif project_name == "dine_flash_buffet":
             data['booking_no'] = order.table_booking_no
@@ -977,8 +1198,8 @@ def check_status(request):
                 chat_message = ChatMessage.objects.create(
                     vendor=order.vendor,
                     token_no=order.token_no,
-                    booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet") else None,
-                    booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet") else None,
+                    booking_id=order.id if project_name in ("dine_flash", "dine_flash_buffet", "hospital_flash") else None,
+                    booking_no=order.table_booking_no if project_name in ("dine_flash", "dine_flash_buffet", "hospital_flash") else None,
                     sequence_code = order.sequence_code if project_name == "airline_flash" else None,
                     created_date=chat_created_date,
                     sender='user',
@@ -998,6 +1219,9 @@ def check_status(request):
             elif project_name == "dine_flash":
                 title = "Customer Message Received"
                 body = f"Customer {order.table_booking_no} has sent a new message."
+            elif project_name == "hospital_flash":
+                title = "Patient Message Received"
+                body = f"Patient {order.table_booking_no} has sent a new message."
             else:
                 title = "Customer Message Received"
                 body = f"Customer {order.token_no} has sent a new message."
@@ -1041,6 +1265,11 @@ def check_status(request):
                         'Invalid token. Please check your token or bill number and try again.'
                     ),
                 },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if project_name == 'hospital_flash':
+            return Response(
+                {'error': 'Invalid registration details. Please verify and try again.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

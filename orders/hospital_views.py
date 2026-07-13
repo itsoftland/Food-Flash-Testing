@@ -1,5 +1,6 @@
 import logging
 import uuid
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
@@ -102,6 +103,24 @@ def _allocate_booking_number(vendor, vendor_config, utility):
 def _next_token_no(vendor):
     max_token = Order.objects.filter(vendor=vendor).aggregate(m=Max("token_no")).get("m")
     return (max_token + 1) if max_token is not None else 1
+
+
+def _build_hospital_tracking_url(request, vendor, primary_order, batch_id):
+    """
+    Build a customer tracking URL for the shared home/ page.
+    Mirrors Dine Flash booking_no + booking_id params and adds registration_batch_id
+    for future multi-department queue tracking.
+    """
+    params = urlencode(
+        {
+            "location_id": vendor.location_id or "",
+            "vendor_id": vendor.vendor_id,
+            "booking_no": primary_order["token"],
+            "booking_id": primary_order["order_id"],
+            "registration_batch_id": str(batch_id),
+        }
+    )
+    return request.build_absolute_uri(f"/{project_name}/home/?{params}")
 
 
 def hospital_patient_registration(request):
@@ -312,11 +331,17 @@ def hospital_patient_submit(request):
         customer_name,
     )
 
+    primary_order = created_orders[0]
+    tracking_url = _build_hospital_tracking_url(request, vendor, primary_order, batch_id)
+
     return Response(
         {
             "message": "Patient registered successfully.",
             "registration_batch_id": str(batch_id),
             "patient_name": customer_name,
+            "location_id": vendor.location_id,
+            "vendor_id": vendor.vendor_id,
+            "tracking_url": tracking_url,
             "departments": created_orders,
         },
         status=status.HTTP_201_CREATED,

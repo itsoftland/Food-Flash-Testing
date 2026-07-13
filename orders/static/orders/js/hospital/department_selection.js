@@ -206,6 +206,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 vendor_id: vendorId,
                 patient_name: data.patient_name || draft.patient_name,
                 registration_batch_id: data.registration_batch_id,
+                location_id: data.location_id,
+                tracking_url: data.tracking_url,
                 departments: data.departments || [],
             });
 
