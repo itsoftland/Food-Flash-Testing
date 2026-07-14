@@ -62,6 +62,7 @@ from static.utils.functions.queries import (update_existing_order_by_manager,
                                             update_existing_status_by_airlinemanager_bulk,
                                             update_booking_status_by_dinemanager,
                                             )
+from .hospital_views import resolve_hospital_effective_departments
 
 from static.utils.functions.utils import (
     get_vendor_business_day_range,
@@ -144,7 +145,7 @@ def _build_unread_notifications_map_by_sequence(vendor, sequence_codes):
 def _booking_list_serializer_context(request, unread_map):
     """Shared context for Dine Flash manager list APIs (skips per-row tracking URLs)."""
     ctx = {"request": request, "unread_notifications_map": unread_map}
-    if project_name == "dine_flash":
+    if project_name in ("dine_flash", "hospital_flash"):
         ctx["manager_list"] = True
     return ctx
 
@@ -1074,6 +1075,68 @@ def get_booking_list(request):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    if project_name == "hospital_flash":
+        try:
+            vendor = _resolve_vendor_for_manager(request)
+            user_profile = request.user.profile_roles.first()
+            if not user_profile:
+                return Response({"error": "User profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+            start_dt, end_dt = get_vendor_business_day_range(vendor)
+            if not start_dt or not end_dt:
+                return Response({"error": "Invalid date range"}, status=400)
+
+            bookings_qs = (
+                Order.objects.filter(vendor=vendor, created_at__range=(start_dt, end_dt))
+                .select_related("utility", "vendor")
+                .order_by("utility__display_name", "created_at")
+            )
+            # Hospital utility_user: fail closed when unassigned (empty list → no orders).
+            # Package/group assignments expand to their individual departments.
+            if user_profile.role == "utility_user":
+                assigned_utilities = user_profile.assigned_utilities.all()
+                if not assigned_utilities.exists():
+                    bookings_qs = bookings_qs.none()
+                else:
+                    effective_departments = resolve_hospital_effective_departments(
+                        assigned_utilities
+                    )
+                    if not effective_departments:
+                        bookings_qs = bookings_qs.none()
+                    else:
+                        bookings_qs = bookings_qs.filter(utility__in=effective_departments)
+
+            booking_list = list(bookings_qs)
+            unread_map = _build_unread_notifications_map(vendor, [booking.id for booking in booking_list])
+            serialized = BookingSerializer(
+                booking_list,
+                many=True,
+                context=_booking_list_serializer_context(request, unread_map),
+            ).data
+            grouped = _group_serialized_bookings(booking_list, serialized)
+            status_counts = get_booking_status_counts(bookings_qs, serialized)
+
+            return Response(
+                {
+                    "message": "Patients retrieved successfully.",
+                    "count": len(booking_list),
+                    "detail": grouped,
+                    "status_counts": status_counts,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except NotFound:
+            return Response(
+                {"error": "Vendor not associated with this manager."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception:
+            logger.exception("get_booking_list: Unexpected error (hospital_flash)")
+            return Response(
+                {"error": "Internal server error."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     logger.info("🔵 get_booking_list: API called.")
 
     try:
@@ -1964,6 +2027,8 @@ def manager_passenger_update(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def manager_booking_update(request):
+    if project_name == "hospital_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
     try:
         logger.debug("Request data: %s", request.data)
 
@@ -2364,7 +2429,7 @@ def chat_history(request):
             return Response({"error": "sequence_code is required."}, status=status.HTTP_400_BAD_REQUEST)
         lookup_key = {"sequence_code": sequence_code}
         logger.info(f"[chat_history] Using sequence_code={sequence_code}")
-    elif project_name == "dine_flash":
+    elif project_name in ("dine_flash", "hospital_flash"):
         booking_id  = request.GET.get('booking_id')
         if not booking_id:
             logger.warning("[chat_history] Missing booking_id parameter")

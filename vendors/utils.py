@@ -784,7 +784,7 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
                 is_read=False,
                 is_send=True
             )
-        elif project_name in ["dine_flash", "dine_flash_buffet"] and booking_id:
+        elif project_name in ["dine_flash", "dine_flash_buffet", "hospital_flash"] and booking_id:
             message = WebChatMessage.objects.create(
                 message_id=uuid.uuid4(),
                 subscription=subscription,

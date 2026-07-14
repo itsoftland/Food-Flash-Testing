@@ -756,31 +756,24 @@ onDOMReady(async function () {
 
                     case 'hospitalstatus':
                         if (isHospitalFlashSurface) {
-                            const batchId = pushData?.registration_batch_id
-                                ? String(pushData.registration_batch_id)
-                                : "";
-                            if (batchId && hospitalBatchCardExists(batchId)) {
-                                const merged = mergeHospitalDepartmentUpdate(pushData);
-                                if (merged) {
-                                    AppUtils.notifyOrderReady(pushData);
-                                    await showNotificationModal(pushData, 'push');
-                                    const mergedHtml = ChatTemplateService.build({
-                                        type: 'hospitalstatus',
-                                        text: merged,
-                                    });
-                                    replaceHospitalBatchCard(batchId, mergedHtml, merged);
-                                    await saveChat(merged, 'server', 'hospitalstatus', batchId);
-                                    break;
-                                }
-                            }
-                            if (batchId && !hospitalBatchCardExists(batchId)) {
-                                AppUtils.notifyOrderReady(pushData);
-                                await showNotificationModal(pushData, 'push');
-                                await fetchOrderStatusOnce(null, null, null, {
-                                    registrationBatchId: batchId,
-                                });
+                            const hasBatchDepartments =
+                                Array.isArray(pushData?.departments) && pushData.departments.length > 0;
+                            if (hasBatchDepartments) {
+                                await renderHospitalStatusCard(pushData);
                                 break;
                             }
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            appendMessage(
+                                messageHTML,
+                                'server',
+                                null,
+                                messageType,
+                                pushData.booking_id,
+                                pushData.message_id
+                            );
+                            await saveChat(pushData, 'server', 'hospitalstatus', pushData.booking_id);
+                            break;
                         }
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');

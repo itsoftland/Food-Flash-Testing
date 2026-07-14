@@ -139,6 +139,14 @@ export function isHospitalBatchPayload(payload) {
     );
 }
 
+export function isHospitalStatusUpdatePayload(payload) {
+    return Boolean(
+        payload?.booking_id != null &&
+        payload?.status &&
+        !isHospitalBatchPayload(payload)
+    );
+}
+
 export function buildTrackingUrl({
     vendorId,
     locationId,

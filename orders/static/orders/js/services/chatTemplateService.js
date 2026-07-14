@@ -738,6 +738,36 @@ function buildHospitalStatusMessage(payload) {
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = hospitalPayloadStatusMap[statusKey] || payload?.status || "Unknown";
+  const isStatusUpdate =
+    payload?.booking_id != null &&
+    payload?.status &&
+    !(Array.isArray(payload?.departments) && payload.departments.length > 0);
+
+  if (isStatusUpdate) {
+    return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
+    </div>
+
+    <div class="dine-body">
+      <div class="dine-card-header">
+        <span class="customer-icon" aria-hidden="true">🏥</span>
+        <div class="customer-name">${payload.utility_name || "-"}</div>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🧾</span>Token</span>
+        <span class="dine-value">${payload.booking_no || "-"}</span>
+      </div>
+
+      <div class="dine-status-row">
+        <span class="dine-status-label">Status:</span>
+        <span class="dine-status-value ${statusClass}">${payloadStatus}</span>
+      </div>
+    </div>
+  `;
+  }
 
   return `
     <div class="response-title">

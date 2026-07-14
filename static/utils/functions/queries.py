@@ -79,6 +79,14 @@ def update_booking_status_by_dinemanager(booking,status,manager):
     booking.save()
     return booking
 
+
+def update_patient_status_by_hospital_manager(booking, status, manager):
+    booking.status = status
+    booking.updated_by = "manager"
+    booking.user_profile = manager
+    booking.save()
+    return booking
+
 def update_existing_status_by_airlinemanager_bulk(sequence_code=None, vendor=None, device=None, status=None, manager=None, orders_queryset=None):
     """
     Updates one or multiple passenger orders (Airline Manager).
