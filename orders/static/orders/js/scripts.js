@@ -1058,6 +1058,17 @@ onDOMReady(async function () {
                         });
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
                         // await PushSubscriptionService.subscribe(bookingId, vendorId);
+                    } else if (isHospitalFlashSurface && bookingIdfromQR) {
+                        // hospital_flash: post-permission subscribe with booking_id (order PK).
+                        // Server expands to all orders sharing registration_batch_id.
+                        console.info("[hospital_flash] handleToken calling subscribe", {
+                            booking_id: bookingIdfromQR,
+                            booking_no: tokenFromQR,
+                            vendor_id: vendorId,
+                            notification_permission: Notification.permission,
+                            url: window.location?.href,
+                        });
+                        await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
                     } else if (!isHospitalFlashSurface) {
                         await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     }

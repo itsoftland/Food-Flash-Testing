@@ -187,6 +187,18 @@ def save_subscription(request):
             ):
                 is_match = True
 
+            # TEMP hospital_flash local testing only:
+            # Sole available test outlet is customer_id=469; license portal returns
+            # ProjectCode DINEFLASHIIS. Accept that exact code on Hospital servers so
+            # push subscribe MVP can be verified. Remove when Hospital receives a
+            # hospital-family ProjectCode (e.g. hospital_flash / hospitalflashiis).
+            if (
+                not is_match
+                and normalize(project_name) == "hospitalflash"
+                and v_compact == "dineflashiis"
+            ):
+                is_match = True
+
             if not is_match:
                 logger.warning("🚫 Cross-flavour subscription rejected | Vendor: %s, Server: %s",
                                vendor.admin_outlet.project_code, project_name)
@@ -239,19 +251,20 @@ def save_subscription(request):
         if token_number:
             is_buffet = _is_dine_flash_buffet_server()
             is_dine_flash = project_name == "dine_flash"
+            is_hospital = project_name == "hospital_flash"
 
             # Single-active-order model (Food / Airline Flash):
             # Prevent a single PushSubscription from accumulating links to multiple
             # orders/tokens over time (can cause cross-flavour leakage when projects
             # share the same browser in the past).
             #
-            # Multi-booking model (Dine Flash + Dine Flash Buffet): a customer can
-            # legitimately watch several active bookings/orders at once from the same
-            # browser, so we DO NOT clear here. Existing links are preserved and the
-            # resolved order is added below (M2M add is idempotent). Stale links are
-            # removed by the auto_clear scheduler when the underlying order is deleted,
-            # so links cannot grow unbounded.
-            if not is_buffet and not is_dine_flash:
+            # Multi-booking model (Dine Flash + Dine Flash Buffet + Hospital Flash):
+            # a customer can legitimately watch several active bookings/orders at once
+            # from the same browser, so we DO NOT clear here. Existing links are
+            # preserved and the resolved order(s) are added below (M2M add is
+            # idempotent). Stale links are removed by the auto_clear scheduler when
+            # the underlying order is deleted, so links cannot grow unbounded.
+            if not is_buffet and not is_dine_flash and not is_hospital:
                 subscription.tokens.clear()
 
             if project_name == "airline_flash":
@@ -292,6 +305,36 @@ def save_subscription(request):
                     raw,
                     getattr(order, "id", None),
                 )
+            elif is_hospital:
+                # Phase 1: resolve one order (booking_id primary, table_booking_no fallback).
+                # Phase 2: expand to all orders sharing registration_batch_id below.
+                order = None
+                try:
+                    booking_id = int(token_number)
+                    order = (
+                        Order.objects.filter(id=booking_id, vendor=vendor)
+                        .order_by("-created_at")
+                        .first()
+                    )
+                except (TypeError, ValueError):
+                    pass
+                if not order:
+                    order = (
+                        Order.objects.filter(table_booking_no=token_number, vendor=vendor)
+                        .order_by("-created_at")
+                        .first()
+                    )
+                logger.info(
+                    "[hospital_flash] save_subscription order lookup | token_number=%s order_found=%s "
+                    "order_id=%s booking_no=%s vendor_id=%s browser_id=%s subscription_id=%s",
+                    token_number,
+                    order is not None,
+                    getattr(order, "id", None),
+                    getattr(order, "table_booking_no", None) if order else None,
+                    vendor_id,
+                    browser_id,
+                    getattr(subscription, "id", None),
+                )
             else:
                 order = Order.objects.filter(token_no=token_number, vendor=vendor).order_by('-created_at').first()
                 logger.info(f"🔍 Lookup via token_no for food flash: {token_number}")
@@ -310,42 +353,98 @@ def save_subscription(request):
                         browser_id,
                         vendor_id,
                     )
-                subscription.tokens.add(order)
-                if is_dine_flash:
+                if is_hospital:
+                    # Multi-order batch linking: seed from resolved order, expand via
+                    # registration_batch_id when present. No client batch payload required.
+                    batch_id = getattr(order, "registration_batch_id", None)
+                    if batch_id:
+                        batch_qs = (
+                            Order.objects.filter(
+                                registration_batch_id=batch_id,
+                                vendor=vendor,
+                            )
+                            .order_by("id")
+                            .distinct()
+                        )
+                        orders_to_link = list(batch_qs)
+                    else:
+                        orders_to_link = [order]
+
+                    # Deduplicate by PK; always include the seed order if somehow missing.
+                    seen_ids = set()
+                    unique_orders = []
+                    for batch_order in orders_to_link:
+                        if batch_order is None or batch_order.id in seen_ids:
+                            continue
+                        seen_ids.add(batch_order.id)
+                        unique_orders.append(batch_order)
+                    if order.id not in seen_ids:
+                        unique_orders.append(order)
+
+                    if unique_orders:
+                        subscription.tokens.add(*unique_orders)
+
+                    linked_ids = [o.id for o in unique_orders]
+                    linked_booking_nos = [o.table_booking_no for o in unique_orders]
                     logger.info(
-                        "[dine_flash] after subscription.tokens.add | subscription_id=%s order_id=%s "
-                        "booking_id=%s booking_no=%s browser_id=%s vendor_id=%s",
+                        "[hospital_flash] Linked subscription %s with %s order(s) | "
+                        "registration_batch_id=%s order_ids=%s booking_nos=%s "
+                        "seed_booking_id=%s browser_id=%s vendor_id=%s; "
+                        "subscription now linked to %s order(s)",
                         subscription.id,
+                        len(unique_orders),
+                        str(batch_id) if batch_id else None,
+                        linked_ids,
+                        linked_booking_nos,
                         order.id,
-                        token_number,
-                        getattr(order, "table_booking_no", None),
                         browser_id,
                         vendor_id,
-                    )
-                if is_buffet:
-                    logger.info(
-                        "🔗 [dine_flash_buffet] Linked subscription %s with Order %s "
-                        "(Token=%s); subscription now linked to %s order(s)",
-                        subscription.id, order.id, token_number, subscription.tokens.count(),
-                    )
-                elif is_dine_flash:
-                    logger.info(
-                        "[dine_flash] Linked subscription %s with booking_id=%s order_id=%s "
-                        "(booking_no=%s); subscription now linked to %s order(s)",
-                        subscription.id,
-                        token_number,
-                        order.id,
-                        getattr(order, "table_booking_no", None),
                         subscription.tokens.count(),
                     )
                 else:
-                    logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
+                    subscription.tokens.add(order)
+                    if is_dine_flash:
+                        logger.info(
+                            "[dine_flash] after subscription.tokens.add | subscription_id=%s order_id=%s "
+                            "booking_id=%s booking_no=%s browser_id=%s vendor_id=%s",
+                            subscription.id,
+                            order.id,
+                            token_number,
+                            getattr(order, "table_booking_no", None),
+                            browser_id,
+                            vendor_id,
+                        )
+                    if is_buffet:
+                        logger.info(
+                            "🔗 [dine_flash_buffet] Linked subscription %s with Order %s "
+                            "(Token=%s); subscription now linked to %s order(s)",
+                            subscription.id, order.id, token_number, subscription.tokens.count(),
+                        )
+                    elif is_dine_flash:
+                        logger.info(
+                            "[dine_flash] Linked subscription %s with booking_id=%s order_id=%s "
+                            "(booking_no=%s); subscription now linked to %s order(s)",
+                            subscription.id,
+                            token_number,
+                            order.id,
+                            getattr(order, "table_booking_no", None),
+                            subscription.tokens.count(),
+                        )
+                    else:
+                        logger.info(f"🔗 Linked subscription {subscription.id} with Order {order.id} (Token={token_number})")
             else:
-                # Invalid / unresolved token. For buffet this leaves existing linked
+                # Invalid / unresolved token. For buffet/hospital this leaves existing linked
                 # orders untouched (no clear ran above) and adds no new link.
                 if is_dine_flash:
                     logger.warning(
                         "[dine_flash] No order found for booking_id=%s vendor_id=%s browser_id=%s",
+                        token_number,
+                        vendor_id,
+                        browser_id,
+                    )
+                elif is_hospital:
+                    logger.warning(
+                        "[hospital_flash] No order found for booking_id/booking_no=%s vendor_id=%s browser_id=%s",
                         token_number,
                         vendor_id,
                         browser_id,
@@ -362,6 +461,17 @@ def save_subscription(request):
                 subscription.id,
                 vendor_id,
                 linked_order_ids,
+            )
+        elif project_name == "hospital_flash":
+            linked_order_ids = list(subscription.tokens.values_list("id", flat=True))
+            logger.info(
+                "[hospital_flash] save_subscription complete | browser_id=%s subscription_id=%s "
+                "vendor_id=%s linked_order_ids=%s linked_count=%s",
+                browser_id,
+                subscription.id,
+                vendor_id,
+                linked_order_ids,
+                len(linked_order_ids),
             )
 
         return Response({"message": "Subscription saved successfully."}, status=200)
