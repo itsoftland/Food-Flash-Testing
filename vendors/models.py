@@ -453,6 +453,13 @@ class Order(models.Model):
         db_index=True,
         editable=False,
     )
+    # ---- Hospital Flash – pre-announcement dedupe ----
+    pre_announcement_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Hospital Flash: set when pre-announcement push was sent",
+    )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     call_count = models.PositiveIntegerField(default=0)

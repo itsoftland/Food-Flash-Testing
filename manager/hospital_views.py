@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.config.status_choices import STATUS_CHOICES_MAP
+from manager.hospital_pre_announcement import process_hospital_pre_announcements
 from orders.serializers import VendorLogoSerializer
 from static.utils.functions.queries import update_patient_status_by_hospital_manager
 from static.utils.functions.utils import get_vendor_business_day_range
@@ -232,6 +233,17 @@ def manager_patient_update(request):
             updated_booking = update_patient_status_by_hospital_manager(booking, action, manager)
             payload = build_hospital_department_status_payload(request, updated_booking, action)
             notify_web_push(updated_booking, vendor, payload)
+
+            # Queue changed (waiting/called/completed/cancelled). Recalculate
+            # Hospital-only pre-announcements for this department.
+            if updated_booking.utility_id:
+                process_hospital_pre_announcements(
+                    request,
+                    vendor,
+                    updated_booking.utility,
+                    start_dt,
+                    end_dt,
+                )
 
             logger.info(
                 "[manager_patient_update] booking_id=%s utility=%s %s -> %s manager=%s",

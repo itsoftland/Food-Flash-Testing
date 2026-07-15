@@ -692,6 +692,47 @@ function buildBookingStatusMessage(payload) {
   `;
 }
 
+function buildHospitalPreAnnouncementMessage(payload) {
+  const dept = payload.department_name || payload.utility_name || "-";
+  const eta = payload.eta_minutes != null ? payload.eta_minutes : "-";
+  const position = payload.queue_position != null ? payload.queue_position : "-";
+  const booking = payload.booking_no || payload.token_no || "-";
+
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
+    </div>
+
+    <div class="dine-body">
+      <div class="dine-card-header">
+        <span class="customer-icon" aria-hidden="true">🏥</span>
+        <div class="customer-name">${dept}</div>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">🧾</span>Token</span>
+        <span class="dine-value">${booking}</span>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">📍</span>Queue Position</span>
+        <span class="dine-value">${position}</span>
+      </div>
+
+      <div class="dine-row">
+        <span class="dine-label"><span class="dine-icon">⏱</span>Est. Wait</span>
+        <span class="dine-value">${eta} minute(s)</span>
+      </div>
+
+      <div class="dine-status-row">
+        <span class="dine-status-label">Notice:</span>
+        <span class="dine-status-value boarding-shortly-color">Almost your turn</span>
+      </div>
+    </div>
+  `;
+}
+
 function buildHospitalStatusMessage(payload) {
   if (Array.isArray(payload?.departments) && payload.departments.length > 0) {
     const deptRows = payload.departments
@@ -867,6 +908,8 @@ export const ChatTemplateService = {
         return buildBookingStatusMessage(payload);
       case "hospitalstatus":
         return buildHospitalStatusMessage(payload);
+      case "hospital_pre_announcement":
+        return buildHospitalPreAnnouncementMessage(payload);
       case "buffetstatus":
         // Fallback for buffet order status itself (though usually items are handled individually)
         return buildStatusMessage(payload);

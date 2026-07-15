@@ -116,4 +116,15 @@ export const STATUS_MESSAGE_MAP = {
   operation_closed: (data) => `
     Thank you for choosing us today.`,
 
+  hospital_pre_announcement: (data) => {
+    const dept = data.department_name || data.utility_name || "your department";
+    const eta = data.eta_minutes != null ? data.eta_minutes : "-";
+    const position = data.queue_position != null ? data.queue_position : "-";
+    const booking = data.booking_no || data.token_no || "-";
+    return `
+    <strong>${dept}</strong>: your turn is approaching.<br>
+    Token <strong>${booking}</strong> · queue position <strong>${position}</strong><br>
+    Estimated wait: <strong>${eta} minute(s)</strong>.`;
+  },
+
 };

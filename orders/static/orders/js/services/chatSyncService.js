@@ -330,6 +330,10 @@ function fingerprint(source, fallbackVendorId) {
         return `${vendorId}|${bookingId}|hospitalstatus|${resolveStatus(source)}`;
     }
 
+    if (type === "hospital_pre_announcement") {
+        return `${vendorId}|${bookingId}|hospital_pre_announcement`;
+    }
+
     if (type === "dine_manager") {
         const messageId = resolveMessageId(source);
         if (messageId) {

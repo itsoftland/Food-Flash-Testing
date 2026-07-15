@@ -780,6 +780,29 @@ onDOMReady(async function () {
                         appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                         break;
 
+                    case 'hospital_pre_announcement':
+                        if (isHospitalFlashSurface) {
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            appendMessage(
+                                messageHTML,
+                                'server',
+                                null,
+                                messageType,
+                                pushData.booking_id,
+                                pushData.message_id
+                            );
+                            await saveChat(
+                                pushData,
+                                'server',
+                                'hospital_pre_announcement',
+                                pushData.booking_id
+                            );
+                            break;
+                        }
+                        console.warn("Ignoring hospital_pre_announcement on non-hospital surface");
+                        break;
+
                     default:
                         console.warn("Unhandled push message type:", messageType);
                 }
