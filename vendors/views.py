@@ -1106,14 +1106,20 @@ def register_android_apk(request):
     - Validates customer and optional manager_id.
     - Updates or creates the AndroidAPK record.
     - Returns mapping status with manager if available.
+
+    utility_user APK registration (Buffet kitchen / Hospital department users)
+    is allowed only when PROJECT_NAME is dine_flash_buffet or hospital_flash.
     """
     token = request.data.get('token')
     customer_id = request.data.get('customer_id')
     mac_address = request.data.get('mac_address')
     apk_version = request.data.get('apk_version')
-    is_dine_flash_buffet = (project_name or "").strip().lower() == "dine_flash_buffet"
+    # Read settings dynamically so flavour overrides work in tests and reloads.
+    current_project = (getattr(settings, "PROJECT_NAME", None) or project_name or "").strip().lower()
+    # Hospital Department Users reuse the Buffet utility_user registration path.
+    allows_utility_user_apk = current_project in ("dine_flash_buffet", "hospital_flash")
     manager_id = request.data.get('manager_id')
-    if is_dine_flash_buffet and not manager_id:
+    if allows_utility_user_apk and not manager_id:
         manager_id = request.data.get('utility_manager_id')
 
     logger.debug(
@@ -1145,7 +1151,7 @@ def register_android_apk(request):
         if manager_id:
             try:
                 allowed_roles = ['outlet_manager', 'admin_manager', 'order_manager']
-                if is_dine_flash_buffet:
+                if allows_utility_user_apk:
                     allowed_roles.append('utility_user')
                 user_profile = UserProfile.objects.get(
                     id=manager_id,
@@ -1193,7 +1199,7 @@ def register_android_apk(request):
             device.apk_version = apk_version
             device.mac_address = mac_address
             device.admin_outlet = admin_outlet
-            if is_dine_flash_buffet:
+            if allows_utility_user_apk:
                 device.user_profile = user_profile
             try:
                 device.save()
@@ -1214,7 +1220,7 @@ def register_android_apk(request):
                     mac_address=mac_address,
                     apk_version=apk_version,
                     admin_outlet=admin_outlet,
-                    user_profile=user_profile if is_dine_flash_buffet else None
+                    user_profile=user_profile if allows_utility_user_apk else None
                 )
             except IntegrityError:
                 logger.exception(
