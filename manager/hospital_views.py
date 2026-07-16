@@ -12,6 +12,7 @@ from manager.hospital_pre_announcement import process_hospital_pre_announcements
 from orders.serializers import VendorLogoSerializer
 from static.utils.functions.queries import update_patient_status_by_hospital_manager
 from static.utils.functions.utils import get_vendor_business_day_range
+from vendors.hospital_tv import refresh_hospital_tv
 from vendors.models import Order, Utility
 from vendors.utils import notify_web_push
 
@@ -244,6 +245,12 @@ def manager_patient_update(request):
                     start_dt,
                     end_dt,
                 )
+
+            transaction.on_commit(
+                lambda v=vendor, s=start_dt, e=end_dt: refresh_hospital_tv(
+                    v, start_dt=s, end_dt=e
+                )
+            )
 
             logger.info(
                 "[manager_patient_update] booking_id=%s utility=%s %s -> %s manager=%s",
