@@ -276,6 +276,13 @@
                 <p>Department Mapping</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="{% url 'company:branch_qr_generator' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'branch_qr_generator' %}active{% endif %}">
+                <i class="nav-icon fas fa-qrcode"></i>
+                <p>Branch QR Generator</p>
+              </a>
+            </li>
             {% endif %}
 
             {% if PROJECT_NAME == "dine_flash_buffet" %}

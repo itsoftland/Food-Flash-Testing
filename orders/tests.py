@@ -430,6 +430,40 @@ class BuffetTableQrTokenTests(SimpleTestCase):
         self.assertFalse(is_valid_buffet_table_no(""))
 
 
+class HospitalBranchQrTokenTests(SimpleTestCase):
+    def test_sign_and_unsign_round_trip(self):
+        from orders.hospital_qr import sign_hospital_branch_qr, unsign_hospital_branch_qr
+
+        token = sign_hospital_branch_qr(900101)
+        payload = unsign_hospital_branch_qr(token)
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["vendor_id"], "900101")
+
+    def test_tampered_token_rejected(self):
+        from orders.hospital_qr import sign_hospital_branch_qr, unsign_hospital_branch_qr
+
+        token = sign_hospital_branch_qr(900101)
+        tampered = token[:-4] + "xxxx"
+        self.assertIsNone(unsign_hospital_branch_qr(tampered))
+
+    def test_empty_vendor_id_invalid(self):
+        from orders.hospital_qr import sign_hospital_branch_qr
+
+        with self.assertRaises(ValueError):
+            sign_hospital_branch_qr("")
+        with self.assertRaises(ValueError):
+            sign_hospital_branch_qr(None)
+
+    def test_buffet_token_not_accepted_as_hospital(self):
+        """Hospital salt must not accept Buffet-signed tokens."""
+        from orders.buffet_table_qr import sign_buffet_table_qr
+        from orders.hospital_qr import unsign_hospital_branch_qr
+
+        buffet_token = sign_buffet_table_qr(800706, 12)
+        self.assertIsNone(unsign_hospital_branch_qr(buffet_token))
+
+
 class DineFlashTrackingTokenTests(SimpleTestCase):
     def test_sign_unsign_roundtrip(self):
         from orders.dine_flash_tracking_token import (

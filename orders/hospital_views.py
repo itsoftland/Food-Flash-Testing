@@ -13,6 +13,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from manager.utils.utils import reset_counters_if_new_business_day
+from orders.hospital_qr import unsign_hospital_branch_qr
 from vendors.models import Order, Utility, Vendor
 from vendors.serializers import OrdersSerializer
 
@@ -132,6 +133,14 @@ def hospital_patient_registration(request):
         return blocked
 
     vendor_id = request.GET.get("vendor_id") or request.COOKIES.get("vendor_id")
+
+    # Prefer signed branch QR token when present (same pattern as Buffet table QR).
+    qr_token = request.GET.get("qr_token")
+    if qr_token:
+        payload = unsign_hospital_branch_qr(qr_token)
+        if payload and Vendor.objects.filter(vendor_id=payload["vendor_id"]).exists():
+            vendor_id = payload["vendor_id"]
+
     context = _vendor_page_context(vendor_id)
     return render(request, "orders/hospital/patient_registration.html", context)
 

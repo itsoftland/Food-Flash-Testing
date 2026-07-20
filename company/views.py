@@ -42,6 +42,7 @@ from static.utils.functions.utils import (
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
 from orders.buffet_table_qr import is_valid_buffet_table_no, sign_buffet_table_qr
+from orders.hospital_qr import sign_hospital_branch_qr
 from vendors.utils import (
     buffet_utility_image_payload,
     validate_buffet_food_type,
@@ -1060,6 +1061,78 @@ def generate_buffet_table_qr(request):
             "qr_url": qr_url,
             "qr_token": qr_token,
             "table_no": str(int(str(table_no).strip())),
+            "vendor_name": vendor.name,
+            "vendor_location": vendor.location or "",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@login_required
+def branch_qr_generator(request):
+    """Hospital Flash — branch QR generator page (Company Admin)."""
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "hospital_flash":
+        raise Http404()
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    vendors = []
+    vendor_error = None
+
+    if not admin_outlet:
+        vendor_error = "Your account is not linked to a company outlet."
+    else:
+        vendors = list(admin_outlet.vendors.order_by("id"))
+        if not vendors:
+            vendor_error = "No branch found for your account. Please create a branch first."
+
+    return render(
+        request,
+        "company/branch_qr_generator.html",
+        {
+            "vendors": vendors,
+            "vendor_error": vendor_error,
+        },
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_hospital_branch_qr(request):
+    """Hospital Flash — generate a signed branch QR URL for patient registration."""
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "hospital_flash":
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return Response({"error": "Outlet not found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+    # Reuse Buffet's vendor-resolution helper (generic admin_outlet scoping).
+    vendor, vendor_error = _resolve_buffet_table_qr_vendor(admin_outlet, request.data.get("vendor_id"))
+    if vendor_error:
+        status_code = status.HTTP_400_BAD_REQUEST
+        if vendor is None and "unauthorized" in vendor_error.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        # Hospital-facing copy: "outlet" → "branch"
+        hospital_error = (
+            vendor_error.replace("outlet", "branch").replace("Outlet", "Branch")
+        )
+        return Response({"error": hospital_error}, status=status_code)
+
+    try:
+        qr_token = sign_hospital_branch_qr(vendor.vendor_id)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    registration_path = reverse("hospital_patient_registration")
+    qr_url = request.build_absolute_uri(
+        f"{registration_path}?qr_token={quote(qr_token, safe='')}"
+    )
+
+    return Response(
+        {
+            "qr_url": qr_url,
+            "qr_token": qr_token,
+            "vendor_id": str(vendor.vendor_id),
             "vendor_name": vendor.name,
             "vendor_location": vendor.location or "",
         },

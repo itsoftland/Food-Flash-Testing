@@ -121,6 +121,7 @@ const RELATIVE_API_ENDPOINTS = {
   DINE_FLASH_QR_EXCHANGE: "api/dine_flash_qr_exchange/",
   DINE_FLASH_RESOLVE_BOOKING: "api/dine_flash/resolve_booking/",
   GENERATE_BUFFET_TABLE_QR: "company/api/generate_buffet_table_qr/",
+  GENERATE_HOSPITAL_BRANCH_QR: "company/api/generate_hospital_branch_qr/",
   // ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Remove with the `[diag]` logs.
   DINE_FLASH_CLIENT_DIAG: "api/dine_flash_client_diag/",
 };
