@@ -355,6 +355,106 @@ window.AppUtils = {
         }
         this.setCookie(tokenKey, token);
     },
+
+    // ─────────────────────────────────────
+    // Safari → installed PWA pending handoff
+    // (dine_flash_buffet call sites; surface gated here)
+    // ─────────────────────────────────────
+    clearPendingHandoffCookie: function () {
+        this.setCookie(this.getPrefixedKey('pending_handoff'), '', -1);
+    },
+
+    /**
+     * Safari-only: persist a short-lived handoff cookie so the installed PWA
+     * can adopt this order session on next open. Callers gate by project.
+     */
+    writePendingHandoff: function (token, vendorId, locationId) {
+        // Surface gate: browser context only (not installed PWA).
+        if (window.navigator.standalone) return;
+
+        const tokenStr = token != null ? String(token).trim() : '';
+        const vendorStr = vendorId != null ? String(vendorId).trim() : '';
+        if (!tokenStr || !vendorStr) return;
+
+        const payload = {
+            token_no: tokenStr,
+            vendor_id: vendorStr,
+        };
+        // Skip Promises / non-scalars (e.g. unresolved AppUtils.get()).
+        if (
+            locationId != null &&
+            typeof locationId !== 'object' &&
+            String(locationId).trim() !== ''
+        ) {
+            payload.location_id = String(locationId).trim();
+        }
+
+        try {
+            this.setCookie(this.getPrefixedKey('pending_handoff'), JSON.stringify(payload), 1);
+        } catch (e) {
+            console.warn('[PendingHandoff] write failed:', e);
+        }
+    },
+
+    /**
+     * Installed-PWA only: if a pending handoff cookie exists, hydrate existing
+     * storage and consume the cookie. Idempotent — subsequent calls no-op.
+     * Never throws into the relaunch flow.
+     */
+    adoptPendingHandoffIfPresent: async function () {
+        try {
+            // Surface gate: installed PWA only.
+            if (!window.navigator.standalone) return false;
+
+            const cookieKey = this.getPrefixedKey('pending_handoff');
+            const raw = this.getCookie(cookieKey);
+            if (!raw) return false;
+
+            let payload;
+            try {
+                payload = JSON.parse(raw);
+            } catch (e) {
+                console.warn('[PendingHandoff] malformed JSON:', e);
+                this.clearPendingHandoffCookie();
+                return false;
+            }
+
+            if (!payload || typeof payload !== 'object') {
+                this.clearPendingHandoffCookie();
+                return false;
+            }
+
+            const token = payload.token_no != null ? String(payload.token_no).trim() : '';
+            const vendorId = payload.vendor_id != null ? String(payload.vendor_id).trim() : '';
+            const locationId =
+                payload.location_id != null ? String(payload.location_id).trim() : '';
+
+            if (!token || !vendorId) {
+                this.clearPendingHandoffCookie();
+                return false;
+            }
+
+            try {
+                if (locationId) {
+                    await this.set(locationId);
+                }
+                // Must pass a string — numeric input yields an empty vendor list.
+                await this.setCurrentVendors(String(vendorId));
+                await this.setToken(token);
+            } catch (e) {
+                // Retain cookie so adoption can retry after a transient storage failure.
+                console.warn('[PendingHandoff] storage update failed:', e);
+                return false;
+            }
+
+            this.clearPendingHandoffCookie();
+            return true;
+        } catch (e) {
+            console.warn('[PendingHandoff] unexpected error:', e);
+            return false;
+        }
+    },
+
     setCustomerId: function (id) {
         const key = this.getPrefixedKey('customer_id');
         localStorage.setItem(key, id);

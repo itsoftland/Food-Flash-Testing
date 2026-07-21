@@ -263,6 +263,11 @@ onDOMReady(async function () {
     if (tokenFromQR) {
         await AppUtils.setToken(tokenFromQR);
     }
+    // Dine Flash Buffet: Safari post-order handoff for the installed PWA.
+    // Surface gate (!standalone) lives inside writePendingHandoff.
+    if (isDineFlashBuffetSurface && tokenFromQR && !isOpenedFromPush) {
+        AppUtils.writePendingHandoff(tokenFromQR, vendorFromQR, locationId);
+    }
     if (registrationBatchIdFromQR && isHospitalFlashSurface) {
         saveBatchId(registrationBatchIdFromQR);
     }

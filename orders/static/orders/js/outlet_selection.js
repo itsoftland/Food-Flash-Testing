@@ -112,6 +112,12 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
     const currentUrl = new URL(window.location.href);
     const urlParams = currentUrl.searchParams;
 
+    // Dine Flash Buffet: adopt Safari pending handoff before reading storage.
+    // Surface gate (standalone) lives inside adoptPendingHandoffIfPresent.
+    if (isDineFlashBuffet()) {
+        await AppUtils.adoptPendingHandoffIfPresent();
+    }
+
     const hasLocationParam = urlParams.has("location_id");
     const hasVendorId = await AppUtils.getActiveVendor();
     const hasTokenNo = await AppUtils.getToken();
