@@ -1114,14 +1114,12 @@ def get_booking_list(request):
                 context=_booking_list_serializer_context(request, unread_map),
             ).data
             grouped = _group_serialized_bookings(booking_list, serialized)
-            status_counts = get_booking_status_counts(bookings_qs, serialized)
 
             return Response(
                 {
                     "message": "Patients retrieved successfully.",
                     "count": len(booking_list),
                     "detail": grouped,
-                    "status_counts": status_counts,
                 },
                 status=status.HTTP_200_OK,
             )
