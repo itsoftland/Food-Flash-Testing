@@ -396,6 +396,19 @@ self.addEventListener("notificationclick", (event) => {
           project: EXPECTED_PROJECT,
           client_count: allClients.length,
         });
+        // Handoff interaction: ?from_push=true causes /home to skip writePendingHandoff.
+        dineFlashClientDiag("HANDOFF_SW_OPEN_FROM_PUSH", {
+          branch: "open_new_window",
+          reason: "no_clients_open_with_from_push",
+          page: "service_worker",
+          from_push: "true",
+          message_id: pushData?.message_id,
+          booking_id: pushData?.booking_id,
+          token_no: pushData?.token_no,
+          browser_id: pushData?.browser_id,
+          project: EXPECTED_PROJECT,
+          client_count: allClients.length,
+        });
 
         const openedClient = await self.clients.openWindow(targetUrl);
         if (openedClient) {

@@ -233,8 +233,59 @@ onDOMReady(async function () {
     let bookingNo = null;
     let check_status = null;
 
+    // HANDOFF: /home page init snapshot (sync reads only — no new awaits).
+    {
+        const standalone = Boolean(window.navigator.standalone);
+        const storedToken = AppUtils.storageGet("token");
+        const storedVendor = AppUtils.storageGet("activeVendor");
+        const storedLocation = AppUtils.storageGet("activeLocation");
+        const launchMode = isOpenedFromPush
+            ? "resume_from_push"
+            : standalone
+                ? "cold_or_homescreen_pwa"
+                : "browser";
+        AppUtils.handoffDiag("HANDOFF_HOME_INIT", {
+            page: "home",
+            standalone,
+            from_push: isOpenedFromPush || "",
+            launch_mode: launchMode,
+            token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+            vendor_id: vendorFromQR != null ? String(vendorFromQR) : "",
+            location_id: locationId != null ? String(locationId) : "",
+            has_token: Boolean(tokenFromQR || storedToken),
+            has_vendor: Boolean(vendorFromQR || storedVendor),
+            has_location: Boolean(locationId || storedLocation),
+            branch: tokenFromQR
+                ? "url_token_present"
+                : storedToken
+                    ? "stored_token_only"
+                    : "no_token",
+        });
+        AppUtils.handoffDiag("HANDOFF_HOME_STORED", {
+            page: "home",
+            token_no: storedToken != null ? String(storedToken) : "",
+            vendor_id: storedVendor != null ? String(storedVendor) : "",
+            location_id: storedLocation != null ? String(storedLocation) : "",
+            launch_mode: launchMode,
+        });
+        AppUtils.handoffDiag("HANDOFF_HOME_URL_PARAMS", {
+            page: "home",
+            token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+            vendor_id: vendorFromQR != null ? String(vendorFromQR) : "",
+            location_id: locationId != null ? String(locationId) : "",
+            from_push: isOpenedFromPush || "",
+            standalone,
+            launch_mode: launchMode,
+        });
+    }
+
     // 1️⃣ Check URL param first
     if (locationId) {
+        AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+            page: "home",
+            branch: "set_location_from_url_or_bootstrap",
+            location_id: String(locationId),
+        });
         AppUtils.set(locationId); // Store it
     } else {
         // 2️⃣ Fallback to localStorage
@@ -245,28 +296,75 @@ onDOMReady(async function () {
             // Requirement: stay on .../home/ when navigating back (same-origin kiosk browsers).
             if (!isDineFlashHomePage && !isDineFlashBuffetHomePage && !isHospitalFlashHomePage) {
                 // 3️⃣ Ask for it / show error / redirect
+                AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+                    page: "home",
+                    branch: "missing_location_redirect_to_base",
+                });
                 AppUtils.showToast("No location ID found");
                 // Optionally redirect to a location selection page
                 window.location.href = base;
                 throw new Error("Missing location ID");
             }
+            AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+                page: "home",
+                branch: "missing_location_stay_on_home",
+                reason: "dine_or_hospital_home_bypass",
+            });
+        } else {
+            AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+                page: "home",
+                branch: "location_fallback_get_invoked",
+            });
         }
     }
     if (vendorFromQR) {
+        AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+            page: "home",
+            branch: "set_vendor_from_qr",
+            vendor_id: String(vendorFromQR),
+        });
         await AppUtils.setCurrentVendors(vendorFromQR);
         // Optional: Clean the URL
         const newUrl = window.location.origin + window.location.pathname;
         history.replaceState(null, "", newUrl);
     } else {
+        AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+            page: "home",
+            branch: "add_outlet_service_init",
+        });
         AddOutletService.init();
     }
     if (tokenFromQR) {
+        AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+            page: "home",
+            branch: "set_token_from_qr",
+            token_no: String(tokenFromQR),
+        });
         await AppUtils.setToken(tokenFromQR);
     }
     // Dine Flash Buffet: Safari post-order handoff for the installed PWA.
     // Surface gate (!standalone) lives inside writePendingHandoff.
-    if (isDineFlashBuffetSurface && tokenFromQR && !isOpenedFromPush) {
-        AppUtils.writePendingHandoff(tokenFromQR, vendorFromQR, locationId);
+    {
+        const willWrite =
+            isDineFlashBuffetSurface && tokenFromQR && !isOpenedFromPush;
+        AppUtils.handoffDiag("HANDOFF_WRITE_CALLER", {
+            page: "home",
+            reason: !isDineFlashBuffetSurface
+                ? "not_buffet_surface"
+                : !tokenFromQR
+                    ? "no_token_from_qr"
+                    : isOpenedFromPush
+                        ? "from_push"
+                        : "will_write",
+            token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+            vendor_id: vendorFromQR != null ? String(vendorFromQR) : "",
+            location_id: locationId != null ? String(locationId) : "",
+            from_push: isOpenedFromPush || "",
+            standalone: Boolean(window.navigator.standalone),
+        });
+        if (willWrite) {
+            AppUtils.writePendingHandoff(tokenFromQR, vendorFromQR, locationId);
+        }
     }
     if (registrationBatchIdFromQR && isHospitalFlashSurface) {
         saveBatchId(registrationBatchIdFromQR);
@@ -334,6 +432,12 @@ onDOMReady(async function () {
         }
         // Buffet post-order redirect links push in fetchOrderStatusOnce — avoid old saved token.
         if (tokenFromQR && isDineFlashBuffetSurface && !isOpenedFromPush) {
+            AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
+                page: "home",
+                branch: "resume_push_skip_buffet_qr",
+                reason: "buffet_post_order_qr_defers_push_to_status_fetch",
+                token_no: String(tokenFromQR),
+            });
             return;
         }
         const token = tokenFromQR
@@ -958,6 +1062,20 @@ onDOMReady(async function () {
 
         const vendorId = await AppUtils.getActiveVendor();
 
+        AppUtils.handoffDiag("HANDOFF_HOME_RESTORE_ENTER", {
+            page: "home",
+            token_no: String(tokenFromQR),
+            vendor_id: vendorId != null ? String(vendorId) : "",
+            from_push: "",
+            branch: isDineFlashBuffetSurface
+                ? "buffet_qr_restore"
+                : isDineFlashTableBookingSurface
+                    ? "table_booking_qr_restore"
+                    : isHospitalFlashSurface
+                        ? "hospital_qr_restore"
+                        : "generic_qr_restore",
+        });
+
         // Dine Flash / Buffet: load booking + status immediately after redirect
         // (do not wait for permission modal, SW controller, or push subscription).
         let buffetUserTokenShown = false;
@@ -1010,6 +1128,12 @@ onDOMReady(async function () {
         }
         if (isDineFlashBuffetSurface) {
             window.buffetQrTokenFromRedirect = String(tokenFromQR);
+            AppUtils.handoffDiag("HANDOFF_HOME_RESTORE_BUFFET", {
+                page: "home",
+                token_no: String(tokenFromQR),
+                vendor_id: vendorId != null ? String(vendorId) : "",
+                branch: "early_buffet_status_fetch",
+            });
             // Claim before async work so permission-modal handleToken cannot append again.
             buffetUserTokenShown = true;
             buffetStatusFetchPromise = (async () => {
@@ -1192,6 +1316,15 @@ onDOMReady(async function () {
                         }
                         check_status = await statusPromise;
 
+                        AppUtils.handoffDiag("HANDOFF_HOME_RESTORE_STATUS", {
+                            page: "home",
+                            token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+                            vendor_id: vendorId != null ? String(vendorId) : "",
+                            branch: check_status ? "status_ok" : "status_missing",
+                            has_token: Boolean(tokenFromQR),
+                            has_vendor: Boolean(vendorId),
+                        });
+
                         if (!check_status) {
                             console.warn("⚠️ Could not retrieve order status for token:", tokenFromQR);
                             appendMessage(
@@ -1231,6 +1364,13 @@ onDOMReady(async function () {
 
     } else {
         // console.log("💬 No QR detected or opened from push notification. Loading chat window...");
+        AppUtils.handoffDiag("HANDOFF_HOME_RESTORE_SKIP", {
+            page: "home",
+            reason: !tokenFromQR ? "no_token_from_qr" : "opened_from_push",
+            token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+            from_push: isOpenedFromPush || "",
+            standalone: Boolean(window.navigator.standalone),
+        });
         await showChatWindow({});
         AppUtils.playWelcomeMessage();
     }
@@ -1657,6 +1797,15 @@ onDOMReady(async function () {
             type = 'foodstatus';
         }
         if (replyText) payload.reply_text = replyText;
+
+        AppUtils.handoffDiag("HANDOFF_CHECK_STATUS", {
+            page: "home",
+            api_type: type,
+            token_no: token != null ? String(token) : "",
+            vendor_id: activeVendor != null ? String(activeVendor) : "",
+            booking_id: bookingId != null ? String(bookingId) : "",
+            branch: "fetchOrderStatusOnce",
+        });
 
         const buffetEarlyPushLink =
             type === "buffetstatus" &&

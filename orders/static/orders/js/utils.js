@@ -360,6 +360,43 @@ window.AppUtils = {
     // Safari → installed PWA pending handoff
     // (dine_flash_buffet call sites; surface gated here)
     // ─────────────────────────────────────
+
+    /**
+     * Fire-and-forget HANDOFF diagnostic breadcrumb via dine_flash_client_diag.
+     * Server logs only — no console output. Never throws, never awaits, never
+     * blocks. Dine Flash / Dine Flash Buffet only. Instrumentation only.
+     */
+    handoffDiag: function (step, fields) {
+        const project = (window.PROJECT_NAME || "").toLowerCase().trim();
+        if (project !== "dine_flash" && project !== "dine_flash_buffet") return;
+        try {
+            const browserId =
+                (typeof this.getCurrentBrowserId === "function" && this.getCurrentBrowserId()) ||
+                null;
+            const url = `${this.getStartUrl()}api/dine_flash_client_diag/`;
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken":
+                        (typeof this.getCSRFToken === "function" && this.getCSRFToken()) || "",
+                },
+                credentials: "same-origin",
+                keepalive: true,
+                body: JSON.stringify({
+                    step,
+                    source: "page",
+                    browser_id: browserId,
+                    project,
+                    timestamp: Date.now(),
+                    ...(fields || {}),
+                }),
+            }).catch(() => {});
+        } catch (e) {
+            // Diagnostics must never break handoff.
+        }
+    },
+
     clearPendingHandoffCookie: function () {
         this.setCookie(this.getPrefixedKey('pending_handoff'), '', -1);
     },
@@ -369,12 +406,40 @@ window.AppUtils = {
      * can adopt this order session on next open. Callers gate by project.
      */
     writePendingHandoff: function (token, vendorId, locationId) {
+        const standalone = Boolean(window.navigator.standalone);
+        this.handoffDiag("HANDOFF_WRITE_ENTER", {
+            standalone,
+            token_no: token != null ? String(token).trim() : "",
+            vendor_id: vendorId != null ? String(vendorId).trim() : "",
+            location_id:
+                locationId != null && typeof locationId !== "object"
+                    ? String(locationId).trim()
+                    : "",
+            page: "home",
+        });
+
         // Surface gate: browser context only (not installed PWA).
-        if (window.navigator.standalone) return;
+        if (window.navigator.standalone) {
+            this.handoffDiag("HANDOFF_WRITE_SKIP", {
+                reason: "standalone",
+                standalone: true,
+                page: "home",
+            });
+            return;
+        }
 
         const tokenStr = token != null ? String(token).trim() : '';
         const vendorStr = vendorId != null ? String(vendorId).trim() : '';
-        if (!tokenStr || !vendorStr) return;
+        if (!tokenStr || !vendorStr) {
+            this.handoffDiag("HANDOFF_WRITE_SKIP", {
+                reason: "missing_token_or_vendor",
+                has_token: Boolean(tokenStr),
+                has_vendor: Boolean(vendorStr),
+                standalone: false,
+                page: "home",
+            });
+            return;
+        }
 
         const payload = {
             token_no: tokenStr,
@@ -389,10 +454,31 @@ window.AppUtils = {
             payload.location_id = String(locationId).trim();
         }
 
+        this.handoffDiag("HANDOFF_WRITE_PAYLOAD", {
+            token_no: payload.token_no,
+            vendor_id: payload.vendor_id,
+            location_id: payload.location_id || "",
+            has_location: Boolean(payload.location_id),
+            page: "home",
+        });
+
         try {
             this.setCookie(this.getPrefixedKey('pending_handoff'), JSON.stringify(payload), 1);
+            this.handoffDiag("HANDOFF_WRITE_OK", {
+                token_no: payload.token_no,
+                vendor_id: payload.vendor_id,
+                location_id: payload.location_id || "",
+                page: "home",
+            });
         } catch (e) {
             console.warn('[PendingHandoff] write failed:', e);
+            this.handoffDiag("HANDOFF_WRITE_FAIL", {
+                error: e && e.message ? String(e.message) : String(e),
+                token_no: payload.token_no,
+                vendor_id: payload.vendor_id,
+                location_id: payload.location_id || "",
+                page: "home",
+            });
         }
     },
 
@@ -403,24 +489,69 @@ window.AppUtils = {
      */
     adoptPendingHandoffIfPresent: async function () {
         try {
+            const standalone = Boolean(window.navigator.standalone);
+            this.handoffDiag("HANDOFF_ADOPT_ENTER", {
+                standalone,
+                page: "outlet_selection",
+            });
+
             // Surface gate: installed PWA only.
-            if (!window.navigator.standalone) return false;
+            if (!window.navigator.standalone) {
+                this.handoffDiag("HANDOFF_ADOPT_SKIP", {
+                    reason: "not_standalone",
+                    standalone: false,
+                    page: "outlet_selection",
+                });
+                return false;
+            }
 
             const cookieKey = this.getPrefixedKey('pending_handoff');
             const raw = this.getCookie(cookieKey);
-            if (!raw) return false;
+            this.handoffDiag("HANDOFF_ADOPT_COOKIE_LOOKUP", {
+                has_cookie: Boolean(raw),
+                standalone: true,
+                page: "outlet_selection",
+            });
+            if (!raw) {
+                this.handoffDiag("HANDOFF_ADOPT_SKIP", {
+                    reason: "no_cookie",
+                    has_cookie: false,
+                    page: "outlet_selection",
+                });
+                return false;
+            }
 
             let payload;
             try {
                 payload = JSON.parse(raw);
+                this.handoffDiag("HANDOFF_ADOPT_PARSE_OK", {
+                    page: "outlet_selection",
+                });
             } catch (e) {
                 console.warn('[PendingHandoff] malformed JSON:', e);
+                this.handoffDiag("HANDOFF_ADOPT_PARSE_FAIL", {
+                    reason: "malformed_json",
+                    error: e && e.message ? String(e.message) : String(e),
+                    page: "outlet_selection",
+                });
                 this.clearPendingHandoffCookie();
+                this.handoffDiag("HANDOFF_ADOPT_COOKIE_CLEARED", {
+                    reason: "malformed_json",
+                    page: "outlet_selection",
+                });
                 return false;
             }
 
             if (!payload || typeof payload !== 'object') {
+                this.handoffDiag("HANDOFF_ADOPT_SKIP", {
+                    reason: "invalid_payload_shape",
+                    page: "outlet_selection",
+                });
                 this.clearPendingHandoffCookie();
+                this.handoffDiag("HANDOFF_ADOPT_COOKIE_CLEARED", {
+                    reason: "invalid_payload_shape",
+                    page: "outlet_selection",
+                });
                 return false;
             }
 
@@ -429,28 +560,100 @@ window.AppUtils = {
             const locationId =
                 payload.location_id != null ? String(payload.location_id).trim() : '';
 
+            this.handoffDiag("HANDOFF_ADOPT_VALIDATE", {
+                token_no: token,
+                vendor_id: vendorId,
+                location_id: locationId,
+                has_token: Boolean(token),
+                has_vendor: Boolean(vendorId),
+                has_location: Boolean(locationId),
+                page: "outlet_selection",
+            });
+
             if (!token || !vendorId) {
+                this.handoffDiag("HANDOFF_ADOPT_SKIP", {
+                    reason: "missing_token_or_vendor",
+                    has_token: Boolean(token),
+                    has_vendor: Boolean(vendorId),
+                    page: "outlet_selection",
+                });
                 this.clearPendingHandoffCookie();
+                this.handoffDiag("HANDOFF_ADOPT_COOKIE_CLEARED", {
+                    reason: "missing_token_or_vendor",
+                    page: "outlet_selection",
+                });
                 return false;
             }
 
             try {
                 if (locationId) {
+                    this.handoffDiag("HANDOFF_ADOPT_STORAGE_BEFORE", {
+                        branch: "set_location",
+                        location_id: locationId,
+                        page: "outlet_selection",
+                    });
                     await this.set(locationId);
+                    this.handoffDiag("HANDOFF_ADOPT_STORAGE_AFTER", {
+                        branch: "set_location",
+                        location_id: locationId,
+                        page: "outlet_selection",
+                    });
                 }
                 // Must pass a string — numeric input yields an empty vendor list.
+                this.handoffDiag("HANDOFF_ADOPT_STORAGE_BEFORE", {
+                    branch: "set_current_vendors",
+                    vendor_id: vendorId,
+                    page: "outlet_selection",
+                });
                 await this.setCurrentVendors(String(vendorId));
+                this.handoffDiag("HANDOFF_ADOPT_STORAGE_AFTER", {
+                    branch: "set_current_vendors",
+                    vendor_id: vendorId,
+                    page: "outlet_selection",
+                });
+                this.handoffDiag("HANDOFF_ADOPT_STORAGE_BEFORE", {
+                    branch: "set_token",
+                    token_no: token,
+                    page: "outlet_selection",
+                });
                 await this.setToken(token);
+                this.handoffDiag("HANDOFF_ADOPT_STORAGE_AFTER", {
+                    branch: "set_token",
+                    token_no: token,
+                    page: "outlet_selection",
+                });
             } catch (e) {
                 // Retain cookie so adoption can retry after a transient storage failure.
                 console.warn('[PendingHandoff] storage update failed:', e);
+                this.handoffDiag("HANDOFF_ADOPT_SKIP", {
+                    reason: "storage_update_failed_cookie_retained",
+                    error: e && e.message ? String(e.message) : String(e),
+                    token_no: token,
+                    vendor_id: vendorId,
+                    page: "outlet_selection",
+                });
                 return false;
             }
 
             this.clearPendingHandoffCookie();
+            this.handoffDiag("HANDOFF_ADOPT_COOKIE_CLEARED", {
+                reason: "adopt_success",
+                page: "outlet_selection",
+            });
+            this.handoffDiag("HANDOFF_ADOPT_OK", {
+                token_no: token,
+                vendor_id: vendorId,
+                location_id: locationId,
+                page: "outlet_selection",
+            });
             return true;
         } catch (e) {
             console.warn('[PendingHandoff] unexpected error:', e);
+            this.handoffDiag("HANDOFF_ADOPT_FAIL", {
+                reason: "unexpected_exception",
+                error: e && e.message ? String(e.message) : String(e),
+                page: "outlet_selection",
+            });
             return false;
         }
     },

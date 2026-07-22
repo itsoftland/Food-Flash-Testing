@@ -75,6 +75,7 @@ _DINE_FLASH_DIAG_FIELDS = (
     "token_no",
     "browser_id",
     "vendor_id",
+    "location_id",
     "message_count",
     "project",
     "type",
@@ -87,6 +88,16 @@ _DINE_FLASH_DIAG_FIELDS = (
     "reason",
     "source",
     "error",
+    # Safari → PWA handoff instrumentation (HANDOFF_* steps)
+    "page",
+    "standalone",
+    "has_cookie",
+    "has_token",
+    "has_vendor",
+    "has_location",
+    "launch_mode",
+    "from_push",
+    "api_type",
 )
 
 # Defensive cap so a malformed/oversized client value can never bloat the logs.

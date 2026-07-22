@@ -111,11 +111,49 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
 
     const currentUrl = new URL(window.location.href);
     const urlParams = currentUrl.searchParams;
+    const fromPushParam = urlParams.get("from_push");
+    const standalone = Boolean(window.navigator.standalone);
+    // launch_mode is inferred only from signals already present in this flow.
+    const launchMode = fromPushParam
+        ? "resume_from_push"
+        : standalone
+            ? "cold_or_homescreen_pwa"
+            : "browser";
+
+    if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+        AppUtils.handoffDiag("HANDOFF_PAGE_LOAD", {
+            page: "landing_page",
+            standalone,
+            from_push: fromPushParam || "",
+            launch_mode: launchMode,
+            has_location: urlParams.has("location_id"),
+            branch: "outlet_selection",
+        });
+    }
 
     // Dine Flash Buffet: adopt Safari pending handoff before reading storage.
     // Surface gate (standalone) lives inside adoptPendingHandoffIfPresent.
     if (isDineFlashBuffet()) {
-        await AppUtils.adoptPendingHandoffIfPresent();
+        AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER", {
+            page: "outlet_selection",
+            branch: "buffet_adopt_before_storage_read",
+            standalone,
+            launch_mode: launchMode,
+        });
+        const adopted = await AppUtils.adoptPendingHandoffIfPresent();
+        AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_RESULT", {
+            page: "outlet_selection",
+            branch: adopted ? "adopted" : "not_adopted",
+            standalone,
+            launch_mode: launchMode,
+        });
+    } else {
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_SKIP", {
+                page: "outlet_selection",
+                reason: "not_buffet",
+            });
+        }
     }
 
     const hasLocationParam = urlParams.has("location_id");
@@ -123,6 +161,18 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
     const hasTokenNo = await AppUtils.getToken();
     console.log("[dine_flash] IIFE vendor", hasVendorId);
     console.log("[dine_flash] IIFE token", hasTokenNo);
+
+    if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+        AppUtils.handoffDiag("HANDOFF_OUTLET_STORAGE_READ", {
+            page: "outlet_selection",
+            has_vendor: Boolean(hasVendorId),
+            has_token: Boolean(hasTokenNo),
+            has_location: hasLocationParam,
+            vendor_id: hasVendorId != null ? String(hasVendorId) : "",
+            token_no: hasTokenNo != null ? String(hasTokenNo) : "",
+            launch_mode: launchMode,
+        });
+    }
 
     // ✅ Condition 1: If vendor_id and/or token are present → redirect to /home/
     if (hasVendorId || hasTokenNo) {
@@ -135,6 +185,14 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
         const buffetRelaunchBypass = isDineFlashBuffet() && !!hasVendorId;
         if (!locationId && !buffetRelaunchBypass) {
             console.warn("Missing location_id for home redirect.");
+            if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                AppUtils.handoffDiag("HANDOFF_OUTLET_REDIRECT_SKIP", {
+                    page: "outlet_selection",
+                    reason: "missing_location_id",
+                    has_vendor: Boolean(hasVendorId),
+                    has_token: Boolean(hasTokenNo),
+                });
+            }
             return;
         }
 
@@ -238,6 +296,17 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
         if (isDineFlashBuffet()) {
             dineFlashRedirecting = true;
         }
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag("HANDOFF_OUTLET_REDIRECT_HOME", {
+                page: "outlet_selection",
+                branch: "vendor_or_token_present",
+                vendor_id: hasVendorId != null ? String(hasVendorId) : "",
+                token_no: hasTokenNo != null ? String(hasTokenNo) : "",
+                location_id: locationId != null ? String(locationId) : "",
+                from_push: urlParams.get("from_push") || "",
+                launch_mode: launchMode,
+            });
+        }
         window.location.replace(newUrl.toString());
         return;
     }
@@ -249,10 +318,31 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set("location_id", locationIdFromStorage);
             dineFlashRedirecting = true;
+            if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                AppUtils.handoffDiag("HANDOFF_OUTLET_REDIRECT_SELF", {
+                    page: "outlet_selection",
+                    branch: "inject_location_id",
+                    location_id: String(locationIdFromStorage),
+                    launch_mode: launchMode,
+                });
+            }
             window.location.replace(newUrl.toString());
         } else {
             console.warn("No location_id found in URL or storage.");
+            if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                AppUtils.handoffDiag("HANDOFF_OUTLET_STAY", {
+                    page: "outlet_selection",
+                    reason: "no_vendor_token_or_location",
+                    launch_mode: launchMode,
+                });
+            }
         }
+    } else if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+        AppUtils.handoffDiag("HANDOFF_OUTLET_STAY", {
+            page: "outlet_selection",
+            reason: "has_location_param_no_vendor_or_token",
+            launch_mode: launchMode,
+        });
     }
 })();
 
