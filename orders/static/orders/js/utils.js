@@ -470,6 +470,60 @@ window.AppUtils = {
                 location_id: payload.location_id || "",
                 page: "home",
             });
+
+            // Same-page readback: confirm cookie is readable in Safari immediately
+            // after write (diagnostics only — does not affect handoff behavior).
+            const readbackRaw = this.getCookie(this.getPrefixedKey('pending_handoff'));
+            if (!readbackRaw) {
+                this.handoffDiag("HANDOFF_WRITE_READBACK_MISSING", {
+                    token_no: payload.token_no,
+                    vendor_id: payload.vendor_id,
+                    cookie_present: false,
+                    page: "home",
+                });
+            } else {
+                try {
+                    const readbackParsed = JSON.parse(readbackRaw);
+                    const parsedToken =
+                        readbackParsed && readbackParsed.token_no != null
+                            ? String(readbackParsed.token_no).trim()
+                            : "";
+                    const parsedVendor =
+                        readbackParsed && readbackParsed.vendor_id != null
+                            ? String(readbackParsed.vendor_id).trim()
+                            : "";
+                    const parsedLocation =
+                        readbackParsed && readbackParsed.location_id != null
+                            ? String(readbackParsed.location_id).trim()
+                            : "";
+                    const expectedLocation = payload.location_id || "";
+                    const payloadMatches =
+                        parsedToken === payload.token_no &&
+                        parsedVendor === payload.vendor_id &&
+                        parsedLocation === expectedLocation;
+                    this.handoffDiag("HANDOFF_WRITE_READBACK_OK", {
+                        token_no: payload.token_no,
+                        vendor_id: payload.vendor_id,
+                        cookie_present: true,
+                        cookie_length: readbackRaw.length,
+                        parse_ok: true,
+                        parsed_token_no: parsedToken,
+                        parsed_vendor_id: parsedVendor,
+                        parsed_location_id: parsedLocation,
+                        payload_matches: payloadMatches,
+                        page: "home",
+                    });
+                } catch (parseErr) {
+                    this.handoffDiag("HANDOFF_WRITE_READBACK_PARSE_FAIL", {
+                        cookie_length: readbackRaw.length,
+                        parse_error:
+                            parseErr && parseErr.message
+                                ? String(parseErr.message)
+                                : String(parseErr),
+                        page: "home",
+                    });
+                }
+            }
         } catch (e) {
             console.warn('[PendingHandoff] write failed:', e);
             this.handoffDiag("HANDOFF_WRITE_FAIL", {
