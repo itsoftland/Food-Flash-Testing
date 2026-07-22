@@ -500,6 +500,21 @@ onDOMReady(async function () {
         ChatSyncService.init();
     }
 
+    // Buffet iOS standalone only: warm-resume order_lookup refresh when returning
+    // from Recents. Requires a real hidden→visible transition (not initial /home/ load).
+    // Dynamic import keeps other flavours from loading buffet resume code.
+    if (isDineFlashBuffetSurface) {
+        import("./buffet/services/orderLookupResumeService.js")
+            .then((mod) => {
+                if (mod && typeof mod.init === "function") {
+                    mod.init();
+                }
+            })
+            .catch((e) => {
+                console.warn("[buffet] order_lookup resume init failed:", e);
+            });
+    }
+
     const isAndroid = /Android/i.test(navigator.userAgent);
     // Adjust viewport for mobile devices
     function setDynamicVH() {
