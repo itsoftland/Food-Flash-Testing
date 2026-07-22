@@ -1073,4 +1073,24 @@ class BuffetOrderItem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"Item for Order {self.order.token_no} - {self.utility.display_name if self.utility else 'Unknown'}"    
+        return f"Item for Order {self.order.token_no} - {self.utility.display_name if self.utility else 'Unknown'}"
+
+
+class BuffetOrderLookup(models.Model):
+    """
+    Buffet-only opaque recovery pointer: order_lookup_id → current Order.
+
+    Not a browser identity. Not PushSubscription. Latest Order Wins (pointer, not history).
+    Deleted automatically when the mapped Order is deleted (CASCADE).
+    """
+    order_lookup_id = models.CharField(max_length=255, unique=True, db_index=True)
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="buffet_order_lookup",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BuffetOrderLookup {self.order_lookup_id} → Order {self.order_id}"

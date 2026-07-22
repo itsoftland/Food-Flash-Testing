@@ -22,7 +22,8 @@ from .models import (
     WebChatMessage,
     IoTDeviceCredential,
     Utility,OrderStatusHistory,
-    UtilityOption
+    UtilityOption,
+    BuffetOrderLookup,
 )
 
 #
@@ -121,6 +122,17 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
         ep = obj.endpoint
         return ep if len(ep) < 60 else f"{ep[:57]}..."
     endpoint_short.short_description = 'Endpoint'
+
+
+@admin.register(BuffetOrderLookup)
+class BuffetOrderLookupAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order_lookup_id', 'order', 'token_no', 'created_at', 'updated_at')
+    search_fields = ('order_lookup_id', 'order__token_no')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def token_no(self, obj):
+        return obj.order.token_no if obj.order_id else None
+    token_no.short_description = 'Token No'
 
 
 @admin.register(Feedback)

@@ -113,6 +113,28 @@ window.AppUtils = {
     },
 
     /**
+     * Buffet-only opaque recovery key (not browser_id).
+     * Used for Safari → installed PWA order recovery.
+     */
+    getOrderLookupId: function () {
+        const value = this.storageGet("order_lookup_id");
+        if (value == null) return null;
+        const text = String(value).trim();
+        return text || null;
+    },
+
+    /**
+     * Persist buffet order_lookup_id permanently under its own prefixed key.
+     * Never writes browser_id / PushSubscription identity.
+     */
+    setOrderLookupId: function (id) {
+        if (id == null) return;
+        const text = String(id).trim();
+        if (!text) return;
+        this.storageSet("order_lookup_id", text);
+    },
+
+    /**
      * 🚀 Migration: One-time copy of old unprefixed keys to new project-prefixed keys.
      * This ensures users don't lose their session identity (tokens, etc.)
      */
@@ -454,11 +476,23 @@ window.AppUtils = {
             payload.location_id = String(locationId).trim();
         }
 
+        // Buffet recovery key: prefer permanently stored order_lookup_id, else
+        // current surface browser_id value (Safari S). Never overwrites browser_id.
+        const orderLookupId =
+            (typeof this.getOrderLookupId === "function" && this.getOrderLookupId()) ||
+            (typeof this.getBrowserId === "function" && this.getBrowserId()) ||
+            null;
+        if (orderLookupId) {
+            payload.order_lookup_id = String(orderLookupId).trim();
+        }
+
         this.handoffDiag("HANDOFF_WRITE_PAYLOAD", {
             token_no: payload.token_no,
             vendor_id: payload.vendor_id,
             location_id: payload.location_id || "",
+            order_lookup_id: payload.order_lookup_id || "",
             has_location: Boolean(payload.location_id),
+            has_order_lookup_id: Boolean(payload.order_lookup_id),
             page: "home",
         });
 
@@ -613,14 +647,20 @@ window.AppUtils = {
             const vendorId = payload.vendor_id != null ? String(payload.vendor_id).trim() : '';
             const locationId =
                 payload.location_id != null ? String(payload.location_id).trim() : '';
+            const orderLookupId =
+                payload.order_lookup_id != null
+                    ? String(payload.order_lookup_id).trim()
+                    : '';
 
             this.handoffDiag("HANDOFF_ADOPT_VALIDATE", {
                 token_no: token,
                 vendor_id: vendorId,
                 location_id: locationId,
+                order_lookup_id: orderLookupId,
                 has_token: Boolean(token),
                 has_vendor: Boolean(vendorId),
                 has_location: Boolean(locationId),
+                has_order_lookup_id: Boolean(orderLookupId),
                 page: "outlet_selection",
             });
 
@@ -676,6 +716,20 @@ window.AppUtils = {
                     token_no: token,
                     page: "outlet_selection",
                 });
+                // Permanently store recovery key under its own key — do not touch browser_id.
+                if (orderLookupId && typeof this.setOrderLookupId === "function") {
+                    this.handoffDiag("HANDOFF_ADOPT_STORAGE_BEFORE", {
+                        branch: "set_order_lookup_id",
+                        order_lookup_id: orderLookupId,
+                        page: "outlet_selection",
+                    });
+                    this.setOrderLookupId(orderLookupId);
+                    this.handoffDiag("HANDOFF_ADOPT_STORAGE_AFTER", {
+                        branch: "set_order_lookup_id",
+                        order_lookup_id: orderLookupId,
+                        page: "outlet_selection",
+                    });
+                }
             } catch (e) {
                 // Retain cookie so adoption can retry after a transient storage failure.
                 console.warn('[PendingHandoff] storage update failed:', e);
@@ -698,6 +752,7 @@ window.AppUtils = {
                 token_no: token,
                 vendor_id: vendorId,
                 location_id: locationId,
+                order_lookup_id: orderLookupId,
                 page: "outlet_selection",
             });
             return true;

@@ -261,6 +261,24 @@
                 items: finalItems
             };
 
+            // Send policy: stored order_lookup_id if present, else getBrowserId().
+            // Never overwrites browser_id; recovery key is a separate field/key.
+            const storedLookupId =
+                typeof AppUtils !== "undefined" && typeof AppUtils.getOrderLookupId === "function"
+                    ? AppUtils.getOrderLookupId()
+                    : null;
+            const orderLookupId =
+                storedLookupId ||
+                (typeof AppUtils !== "undefined" && typeof AppUtils.getBrowserId === "function"
+                    ? AppUtils.getBrowserId()
+                    : null);
+            if (orderLookupId) {
+                payload.order_lookup_id = orderLookupId;
+                if (typeof AppUtils.setOrderLookupId === "function") {
+                    AppUtils.setOrderLookupId(orderLookupId);
+                }
+            }
+
             fetch("{% url 'buffet_submit_order' %}", {
                 method: "POST",
                 headers: {

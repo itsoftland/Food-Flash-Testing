@@ -25,6 +25,12 @@ from vendors.models import (
 from manager.utils.utils import reset_counters_if_new_business_day
 from core.config.status_choices import STATUS_CHOICES_MAP
 from orders.buffet_table_qr import is_valid_buffet_table_no, unsign_buffet_table_qr
+from orders.buffet.order_lookup import (
+    BuffetOrderLookupResolveStatus,
+    normalize_order_lookup_id,
+    resolve_buffet_order_lookup,
+    upsert_buffet_order_lookup,
+)
 
 logger = logging.getLogger(__name__)
 project_name = getattr(settings, "PROJECT_NAME", "").strip().lower()
@@ -108,6 +114,18 @@ def buffet_submit_order(request):
     customer_name = data.get("customer_name")
     phone_number = data.get("phone_number")
     items_data = data.get("items", [])
+    # Optional opaque recovery key (not browser_id). Absent/empty = no mapping write.
+    raw_order_lookup_id = data.get("order_lookup_id")
+    order_lookup_id = normalize_order_lookup_id(raw_order_lookup_id)
+    if raw_order_lookup_id is not None and str(raw_order_lookup_id).strip() and order_lookup_id is None:
+        logger.warning(
+            "[buffet_submit_order] Invalid order_lookup_id | length=%s",
+            len(str(raw_order_lookup_id).strip()),
+        )
+        return Response(
+            {"error": "Invalid order_lookup_id"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     if not vendor_id or not items_data:
         logger.warning(
@@ -202,6 +220,10 @@ def buffet_submit_order(request):
             )
             return Response({"error": "No valid items found in order."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Latest Order Wins pointer — only when optional order_lookup_id was provided.
+        if order_lookup_id:
+            upsert_buffet_order_lookup(order_lookup_id=order_lookup_id, order=order)
+
     # Note: For DineFlash Buffet, we may need to trigger a web socket / mqtt message to the Kitchen View here.
     # The kitchen view will poll or rely on mqtt. We can add MQTT publishing later if required.
 
@@ -222,6 +244,65 @@ def buffet_submit_order(request):
         "table_number": table_number,
         "items_count": len(created_items)
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def resolve_order_lookup(request):
+    """
+    Dine Flash Buffet only: read-only order_lookup_id → token_no / vendor_id / location_id.
+    Does not mutate Order status, PushSubscription, or Chat.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    order_lookup_id = (request.data or {}).get("order_lookup_id")
+    logger.info(
+        "[buffet] resolve_order_lookup request | order_lookup_id_present=%s",
+        bool(order_lookup_id),
+    )
+
+    try:
+        result = resolve_buffet_order_lookup(order_lookup_id=order_lookup_id)
+
+        if result.status == BuffetOrderLookupResolveStatus.FOUND:
+            logger.info(
+                "[buffet] resolve_order_lookup found | token_no=%s vendor_id=%s",
+                result.data.get("token_no"),
+                result.data.get("vendor_id"),
+            )
+            return Response(
+                {"status": "found", **result.data},
+                status=status.HTTP_200_OK,
+            )
+
+        if result.status == BuffetOrderLookupResolveStatus.INVALID_INPUT:
+            return Response(
+                {"status": BuffetOrderLookupResolveStatus.INVALID_INPUT.value},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if result.status == BuffetOrderLookupResolveStatus.NOT_FOUND:
+            return Response(
+                {"status": BuffetOrderLookupResolveStatus.NOT_FOUND.value},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        logger.exception(
+            "[buffet] resolve_order_lookup unhandled status | status=%s",
+            result.status,
+        )
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except Exception:
+        logger.exception("[buffet] resolve_order_lookup unexpected failure")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

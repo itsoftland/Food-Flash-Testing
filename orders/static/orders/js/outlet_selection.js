@@ -1,5 +1,6 @@
 import BookingMappingService from './dineflash/services/bookingMappingService.js';
 import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchService.js';
+import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 
 // ─────────────────────────────────────
@@ -147,6 +148,48 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
             standalone,
             launch_mode: launchMode,
         });
+
+        // Approved insertion point: resolve order_lookup_id → refresh storage,
+        // then continue the existing getToken() / redirect / check_status path.
+        // Does not create a second restore flow or call check_status().
+        const orderLookupId =
+            typeof AppUtils.getOrderLookupId === "function"
+                ? AppUtils.getOrderLookupId()
+                : null;
+        if (orderLookupId) {
+            try {
+                const lookupResult = await resolveOrderLookupForRelaunch({
+                    order_lookup_id: orderLookupId,
+                });
+                if (lookupResult.outcome === "found" && lookupResult.order) {
+                    const resolved = lookupResult.order;
+                    if (resolved.location_id) {
+                        await AppUtils.set(String(resolved.location_id));
+                    }
+                    if (resolved.vendor_id != null && String(resolved.vendor_id).trim() !== "") {
+                        await AppUtils.setCurrentVendors(String(resolved.vendor_id));
+                    }
+                    if (resolved.token_no != null && String(resolved.token_no).trim() !== "") {
+                        await AppUtils.setToken(String(resolved.token_no));
+                    }
+                    AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_APPLIED", {
+                        page: "outlet_selection",
+                        token_no: String(resolved.token_no ?? ""),
+                        vendor_id: String(resolved.vendor_id ?? ""),
+                        location_id: String(resolved.location_id ?? ""),
+                    });
+                } else {
+                    // not_found / preserve: keep existing storage; continue startup.
+                    AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_SKIP", {
+                        page: "outlet_selection",
+                        outcome: lookupResult.outcome,
+                        reason: lookupResult.reason || "",
+                    });
+                }
+            } catch (e) {
+                console.warn("[buffet] order_lookup resolve failed:", e);
+            }
+        }
     } else {
         if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
             AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_SKIP", {
