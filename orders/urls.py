@@ -43,6 +43,11 @@ urlpatterns = [
         views.resolve_booking,
         name='dine_flash_resolve_booking'
     ),
+    path(
+        'api/dine_flash/resolve_order_lookup/',
+        views.resolve_order_lookup,
+        name='dine_flash_resolve_order_lookup',
+    ),
     path('api/book_table/',views.book_table,name='book_table'),
     path('api/utility_list/',views.utility_list,name='utility_list'),
     # ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Remove with the `[diag]` logs.

@@ -342,15 +342,18 @@ onDOMReady(async function () {
         });
         await AppUtils.setToken(tokenFromQR);
     }
-    // Dine Flash Buffet: Safari post-order handoff for the installed PWA.
+    // Safari post-order/booking handoff for the installed PWA.
     // Surface gate (!standalone) lives inside writePendingHandoff.
+    // Buffet and Dine Flash table-booking only — other flavours unchanged.
     {
         const willWrite =
-            isDineFlashBuffetSurface && tokenFromQR && !isOpenedFromPush;
+            (isDineFlashBuffetSurface || isDineFlashTableBookingSurface) &&
+            tokenFromQR &&
+            !isOpenedFromPush;
         AppUtils.handoffDiag("HANDOFF_WRITE_CALLER", {
             page: "home",
-            reason: !isDineFlashBuffetSurface
-                ? "not_buffet_surface"
+            reason: !(isDineFlashBuffetSurface || isDineFlashTableBookingSurface)
+                ? "not_buffet_or_dine_flash_surface"
                 : !tokenFromQR
                     ? "no_token_from_qr"
                     : isOpenedFromPush
@@ -512,6 +515,20 @@ onDOMReady(async function () {
             })
             .catch((e) => {
                 console.warn("[buffet] order_lookup resume init failed:", e);
+            });
+    }
+
+    // Dine Flash iOS standalone only: warm-resume booking_lookup refresh.
+    // Independent from Buffet resume; same hidden→visible rules.
+    if (isDineFlashTableBookingSurface) {
+        import("./dineflash/services/bookingLookupResumeService.js")
+            .then((mod) => {
+                if (mod && typeof mod.init === "function") {
+                    mod.init();
+                }
+            })
+            .catch((e) => {
+                console.warn("[dine_flash] booking_lookup resume init failed:", e);
             });
     }
 

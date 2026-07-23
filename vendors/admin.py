@@ -24,6 +24,7 @@ from .models import (
     Utility,OrderStatusHistory,
     UtilityOption,
     BuffetOrderLookup,
+    DineFlashBookingLookup,
 )
 
 #
@@ -133,6 +134,24 @@ class BuffetOrderLookupAdmin(admin.ModelAdmin):
     def token_no(self, obj):
         return obj.order.token_no if obj.order_id else None
     token_no.short_description = 'Token No'
+
+
+@admin.register(DineFlashBookingLookup)
+class DineFlashBookingLookupAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'order_lookup_id',
+        'order',
+        'booking_no',
+        'created_at',
+        'updated_at',
+    )
+    search_fields = ('order_lookup_id', 'order__table_booking_no')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def booking_no(self, obj):
+        return obj.order.table_booking_no if obj.order_id else None
+    booking_no.short_description = 'Booking No'
 
 
 @admin.register(Feedback)

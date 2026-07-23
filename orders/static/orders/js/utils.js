@@ -113,8 +113,9 @@ window.AppUtils = {
     },
 
     /**
-     * Buffet-only opaque recovery key (not browser_id).
-     * Used for Safari → installed PWA order recovery.
+     * Opaque recovery key (not browser_id).
+     * Used for Safari → installed PWA order/booking recovery.
+     * Call sites: Dine Flash Buffet and Dine Flash table-booking only.
      */
     getOrderLookupId: function () {
         const value = this.storageGet("order_lookup_id");
@@ -124,8 +125,9 @@ window.AppUtils = {
     },
 
     /**
-     * Persist buffet order_lookup_id permanently under its own prefixed key.
+     * Persist order_lookup_id permanently under its own prefixed key.
      * Never writes browser_id / PushSubscription identity.
+     * Call sites: Dine Flash Buffet and Dine Flash table-booking only.
      */
     setOrderLookupId: function (id) {
         if (id == null) return;
@@ -380,7 +382,7 @@ window.AppUtils = {
 
     // ─────────────────────────────────────
     // Safari → installed PWA pending handoff
-    // (dine_flash_buffet call sites; surface gated here)
+    // (dine_flash_buffet + dine_flash call sites; surface gated here)
     // ─────────────────────────────────────
 
     /**

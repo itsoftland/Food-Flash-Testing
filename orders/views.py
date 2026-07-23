@@ -39,6 +39,12 @@ from .dine_flash.booking_resolve import (
     DineFlashBookingResolveStatus,
     resolve_dine_flash_booking,
 )
+from .dine_flash.booking_lookup import (
+    DineFlashBookingLookupResolveStatus,
+    normalize_order_lookup_id,
+    resolve_dine_flash_booking_lookup,
+    upsert_dine_flash_booking_lookup,
+)
 from .dine_flash.qr_crypto import (
     _DINE_FLASH_QR_SCAN_GRACE_SECONDS,
     decrypt_qr_from_request,
@@ -516,6 +522,66 @@ def resolve_booking(request):
         )
     except Exception:
         logger.exception("[dine_flash] resolve_booking unexpected failure")
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def resolve_order_lookup(request):
+    """
+    Dine Flash only: read-only order_lookup_id → booking_id / booking_no / vendor_id / location_id.
+    Does not mutate Order status, PushSubscription, or Chat.
+    Independent from Buffet resolve_order_lookup.
+    """
+    if project_name != "dine_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    order_lookup_id = (request.data or {}).get("order_lookup_id")
+    logger.info(
+        "[dine_flash] resolve_order_lookup request | order_lookup_id_present=%s",
+        bool(order_lookup_id),
+    )
+
+    try:
+        result = resolve_dine_flash_booking_lookup(order_lookup_id=order_lookup_id)
+
+        if result.status == DineFlashBookingLookupResolveStatus.FOUND:
+            logger.info(
+                "[dine_flash] resolve_order_lookup found | booking_id=%s booking_no=%s vendor_id=%s",
+                result.data.get("booking_id"),
+                result.data.get("booking_no"),
+                result.data.get("vendor_id"),
+            )
+            return Response(
+                {"status": "found", **result.data},
+                status=status.HTTP_200_OK,
+            )
+
+        if result.status == DineFlashBookingLookupResolveStatus.INVALID_INPUT:
+            return Response(
+                {"status": DineFlashBookingLookupResolveStatus.INVALID_INPUT.value},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if result.status == DineFlashBookingLookupResolveStatus.NOT_FOUND:
+            return Response(
+                {"status": DineFlashBookingLookupResolveStatus.NOT_FOUND.value},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        logger.exception(
+            "[dine_flash] resolve_order_lookup unhandled status | status=%s",
+            result.status,
+        )
+        return Response(
+            {"error": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except Exception:
+        logger.exception("[dine_flash] resolve_order_lookup unexpected failure")
         return Response(
             {"error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2031,6 +2097,26 @@ def book_table(request):
     qr_time = data.get("qr_time")
     qr_session = data.get("qr_session")
 
+    # Optional opaque recovery key (not browser_id). Dine Flash customer path only.
+    # Absent/empty = no mapping write. Other flavours ignore the field entirely.
+    order_lookup_id = None
+    if project_name == "dine_flash":
+        raw_order_lookup_id = data.get("order_lookup_id")
+        order_lookup_id = normalize_order_lookup_id(raw_order_lookup_id)
+        if (
+            raw_order_lookup_id is not None
+            and str(raw_order_lookup_id).strip()
+            and order_lookup_id is None
+        ):
+            logger.warning(
+                "[book_table] Invalid order_lookup_id | length=%s",
+                len(str(raw_order_lookup_id).strip()),
+            )
+            return Response(
+                {"error": "Invalid order_lookup_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     # --------------------------------------------------------
     # 1. Validate required base fields (vendor-independent)
     # --------------------------------------------------------
@@ -2207,6 +2293,17 @@ def book_table(request):
                 "[book_table] Booking created | vendor=%s, token_no=%s, booking_no=%s",
                 vendor.vendor_id, token_no, booking_no
             )
+
+            # Latest Booking Wins pointer — Dine Flash customer bookings only.
+            if (
+                project_name == "dine_flash"
+                and not is_manager_created_booking
+                and order_lookup_id
+            ):
+                upsert_dine_flash_booking_lookup(
+                    order_lookup_id=order_lookup_id,
+                    order=booking_obj,
+                )
 
             if project_name == "dine_flash" and not is_manager_created_booking:
                 fcm_payload = _build_dine_flash_booking_created_manager_payload(

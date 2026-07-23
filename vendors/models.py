@@ -1094,3 +1094,23 @@ class BuffetOrderLookup(models.Model):
 
     def __str__(self):
         return f"BuffetOrderLookup {self.order_lookup_id} → Order {self.order_id}"
+
+
+class DineFlashBookingLookup(models.Model):
+    """
+    Dine Flash only opaque recovery pointer: order_lookup_id → current booking Order.
+
+    Not a browser identity. Not PushSubscription. Latest Booking Wins (pointer, not history).
+    Independent from BuffetOrderLookup. Deleted when the mapped Order is deleted (CASCADE).
+    """
+    order_lookup_id = models.CharField(max_length=255, unique=True, db_index=True)
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="dine_flash_booking_lookup",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"DineFlashBookingLookup {self.order_lookup_id} → Order {self.order_id}"

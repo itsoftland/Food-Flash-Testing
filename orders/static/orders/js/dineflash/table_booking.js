@@ -475,6 +475,25 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Dine Flash QR gate: carry opaque qr_session so user can't tamper.
             qr_session: qrSession,
         };
+
+        // Send policy: stored order_lookup_id if present, else getBrowserId().
+        // Never overwrites browser_id; recovery key is a separate field/key.
+        const storedLookupId =
+            typeof AppUtils !== "undefined" && typeof AppUtils.getOrderLookupId === "function"
+                ? AppUtils.getOrderLookupId()
+                : null;
+        const orderLookupId =
+            storedLookupId ||
+            (typeof AppUtils !== "undefined" && typeof AppUtils.getBrowserId === "function"
+                ? AppUtils.getBrowserId()
+                : null);
+        if (orderLookupId) {
+            payload.order_lookup_id = orderLookupId;
+            if (typeof AppUtils.setOrderLookupId === "function") {
+                AppUtils.setOrderLookupId(orderLookupId);
+            }
+        }
+
         // console.log(payload)
         return payload;
     }

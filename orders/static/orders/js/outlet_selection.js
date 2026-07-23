@@ -1,5 +1,6 @@
 import BookingMappingService from './dineflash/services/bookingMappingService.js';
 import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchService.js';
+import { resolveBookingLookupForRelaunch } from './dineflash/services/bookingLookupService.js';
 import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 
@@ -190,11 +191,82 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                 console.warn("[buffet] order_lookup resolve failed:", e);
             }
         }
+    } else if (isDineFlashTableBooking()) {
+        // Dine Flash table-booking: adopt Safari pending handoff, then resolve
+        // latest booking via order_lookup_id before the existing relaunch path.
+        AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER", {
+            page: "outlet_selection",
+            branch: "dine_flash_adopt_before_storage_read",
+            standalone,
+            launch_mode: launchMode,
+        });
+        const adopted = await AppUtils.adoptPendingHandoffIfPresent();
+        AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_RESULT", {
+            page: "outlet_selection",
+            branch: adopted ? "adopted" : "not_adopted",
+            standalone,
+            launch_mode: launchMode,
+        });
+
+        const orderLookupId =
+            typeof AppUtils.getOrderLookupId === "function"
+                ? AppUtils.getOrderLookupId()
+                : null;
+        if (orderLookupId) {
+            try {
+                const lookupResult = await resolveBookingLookupForRelaunch({
+                    order_lookup_id: orderLookupId,
+                });
+                if (lookupResult.outcome === "found" && lookupResult.booking) {
+                    const resolved = lookupResult.booking;
+                    if (resolved.location_id) {
+                        await AppUtils.set(String(resolved.location_id));
+                    }
+                    if (resolved.vendor_id != null && String(resolved.vendor_id).trim() !== "") {
+                        await AppUtils.setCurrentVendors(String(resolved.vendor_id));
+                    }
+                    if (resolved.booking_no != null && String(resolved.booking_no).trim() !== "") {
+                        await AppUtils.setToken(String(resolved.booking_no));
+                    }
+                    if (resolved.booking_id != null && String(resolved.booking_id).trim() !== "") {
+                        AppUtils.storageSet(
+                            "activeDineBookingId",
+                            String(resolved.booking_id).trim()
+                        );
+                        if (
+                            BookingMappingService &&
+                            typeof BookingMappingService.processBookingFromQR === "function" &&
+                            resolved.booking_no
+                        ) {
+                            BookingMappingService.processBookingFromQR(
+                                String(resolved.booking_no),
+                                resolved.booking_id
+                            );
+                        }
+                    }
+                    AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_APPLIED", {
+                        page: "outlet_selection",
+                        booking_id: String(resolved.booking_id ?? ""),
+                        booking_no: String(resolved.booking_no ?? ""),
+                        vendor_id: String(resolved.vendor_id ?? ""),
+                        location_id: String(resolved.location_id ?? ""),
+                    });
+                } else {
+                    AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_SKIP", {
+                        page: "outlet_selection",
+                        outcome: lookupResult.outcome,
+                        reason: lookupResult.reason || "",
+                    });
+                }
+            } catch (e) {
+                console.warn("[dine_flash] booking_lookup resolve failed:", e);
+            }
+        }
     } else {
         if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
             AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_SKIP", {
                 page: "outlet_selection",
-                reason: "not_buffet",
+                reason: "not_buffet_or_dine_flash",
             });
         }
     }
