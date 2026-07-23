@@ -8,6 +8,9 @@
 
 let dependenciesPromise = null;
 
+/** ⚠️ TEMP DIAG — last HTTP status for resume timing logs. Remove after analysis. */
+let __tempLastHttpStatus = null;
+
 function bookingLookupDiag(step, fields) {
     if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
         AppUtils.handoffDiag(step, fields || {});
@@ -138,11 +141,32 @@ async function resolveBookingLookupForRelaunch({ order_lookup_id } = {}) {
 
     let response;
     try {
+        __tempLastHttpStatus = null;
+    } catch (_) {
+        /* ignore */
+    }
+    try {
         response = await fetchWithAutoRefresh(url, {
             method: "POST",
             body: JSON.stringify(body),
         });
+        // ⚠️ TEMP DIAG — capture status for resume timing REQUEST_END (no behavior change).
+        try {
+            __tempLastHttpStatus =
+                response && response.status != null ? response.status : null;
+        } catch (_) {
+            try {
+                __tempLastHttpStatus = null;
+            } catch (_) {
+                /* ignore */
+            }
+        }
     } catch (e) {
+        try {
+            __tempLastHttpStatus = null;
+        } catch (_) {
+            /* ignore */
+        }
         bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_EXCEPTION", {
             page: "booking_lookup_service",
             outcome: "preserve",
@@ -179,4 +203,13 @@ async function resolveBookingLookupForRelaunch({ order_lookup_id } = {}) {
     return mapResolvePayload(data);
 }
 
-export { resolveBookingLookupForRelaunch };
+/** ⚠️ TEMP DIAG — read last HTTP status after resolveBookingLookupForRelaunch. */
+function getTempLastHttpStatus() {
+    try {
+        return __tempLastHttpStatus;
+    } catch (_) {
+        return null;
+    }
+}
+
+export { resolveBookingLookupForRelaunch, getTempLastHttpStatus };

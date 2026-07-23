@@ -123,6 +123,26 @@ _DINE_FLASH_DIAG_FIELDS = (
     "stored_lookup_id",
     "resolved_order_lookup_id",
     "will_attach_order_lookup_id",
+    # TEMP: iOS PWA booking-lookup resume timing (BOOKING_LOOKUP_* steps)
+    "iso",
+    "perf_now",
+    "page_url",
+    "visibility_state",
+    "document_hidden",
+    "previous_visibility_state",
+    "current_visibility_state",
+    "saw_hidden",
+    "listeners_bound",
+    "elapsed_request_ms",
+    "destination_url",
+    "identities_match",
+    "resolved_booking_id",
+    "resolved_booking_no",
+    "resolved_vendor_id",
+    "resolved_location_id",
+    "current_booking_id",
+    "current_booking_no",
+    "current_vendor_id",
 )
 
 # Defensive cap so a malformed/oversized client value can never bloat the logs.
