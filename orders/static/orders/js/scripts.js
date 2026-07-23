@@ -366,6 +366,23 @@ onDOMReady(async function () {
             standalone: Boolean(window.navigator.standalone),
         });
         if (willWrite) {
+            if (isDineFlashTableBookingSurface) {
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_HANDOFF_WRITE", {
+                    page: "home",
+                    token_no: tokenFromQR != null ? String(tokenFromQR) : "",
+                    vendor_id: vendorFromQR != null ? String(vendorFromQR) : "",
+                    location_id: locationId != null ? String(locationId) : "",
+                    order_lookup_id:
+                        typeof AppUtils.getOrderLookupId === "function"
+                            ? String(AppUtils.getOrderLookupId() || "")
+                            : "",
+                    has_order_lookup_id: Boolean(
+                        typeof AppUtils.getOrderLookupId === "function" &&
+                            AppUtils.getOrderLookupId()
+                    ),
+                    standalone: Boolean(window.navigator.standalone),
+                });
+            }
             AppUtils.writePendingHandoff(tokenFromQR, vendorFromQR, locationId);
         }
     }
@@ -521,14 +538,34 @@ onDOMReady(async function () {
     // Dine Flash iOS standalone only: warm-resume booking_lookup refresh.
     // Independent from Buffet resume; same hidden→visible rules.
     if (isDineFlashTableBookingSurface) {
+        AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_SURFACE", {
+            page: "home",
+            branch: "dine_flash_table_booking_detected",
+            standalone: Boolean(window.navigator.standalone),
+            project: currentProject(),
+        });
+        AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_IMPORT", {
+            page: "home",
+            reason: "dynamic_import_resume_service",
+            standalone: Boolean(window.navigator.standalone),
+        });
         import("./dineflash/services/bookingLookupResumeService.js")
             .then((mod) => {
                 if (mod && typeof mod.init === "function") {
                     mod.init();
+                    AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_INIT_DONE", {
+                        page: "home",
+                        reason: "resume_service_init_completed",
+                        standalone: Boolean(window.navigator.standalone),
+                    });
                 }
             })
             .catch((e) => {
-                console.warn("[dine_flash] booking_lookup resume init failed:", e);
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_IMPORT_FAIL", {
+                    page: "home",
+                    reason: "dynamic_import_failed",
+                    error: e && e.message ? String(e.message) : String(e),
+                });
             });
     }
 

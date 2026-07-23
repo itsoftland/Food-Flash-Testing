@@ -58,12 +58,29 @@ def normalize_order_lookup_id(value: Any) -> Optional[str]:
     Present but longer than max → None (invalid; caller must not upsert).
     """
     if value is None:
+        logger.info(
+            "[dine_flash] booking_lookup normalize | result=absent reason=none"
+        )
         return None
     text = str(value).strip()
     if not text:
+        logger.info(
+            "[dine_flash] booking_lookup normalize | result=absent reason=empty"
+        )
         return None
     if len(text) > ORDER_LOOKUP_ID_MAX_LENGTH:
+        logger.info(
+            "[dine_flash] booking_lookup normalize | result=invalid reason=too_long "
+            "length=%s max=%s",
+            len(text),
+            ORDER_LOOKUP_ID_MAX_LENGTH,
+        )
         return None
+    logger.info(
+        "[dine_flash] booking_lookup normalize | result=ok order_lookup_id=%s length=%s",
+        text,
+        len(text),
+    )
     return text
 
 
@@ -80,7 +97,15 @@ def upsert_dine_flash_booking_lookup(
     """
     normalized = normalize_order_lookup_id(order_lookup_id)
     if normalized is None:
+        logger.info(
+            "[dine_flash] booking_lookup lookup_skipped | reason=normalize_absent_or_invalid"
+        )
         return None
+
+    logger.info(
+        "[dine_flash] booking_lookup lookup_id | order_lookup_id=%s",
+        normalized,
+    )
 
     if order is None or getattr(order, "pk", None) is None:
         logger.warning(
@@ -98,12 +123,35 @@ def upsert_dine_flash_booking_lookup(
         order_lookup_id=normalized,
         defaults={"order": order},
     )
+    # created=False ⇒ a row already existed for this order_lookup_id (no extra SELECT).
+    logger.info(
+        "[dine_flash] booking_lookup existing_mapping | order_lookup_id=%s existed=%s",
+        normalized,
+        not created,
+    )
     logger.info(
         "[dine_flash] booking_lookup %s order_lookup_id=%s order_id=%s booking_no=%s",
         "created" if created else "updated",
         normalized,
         order.pk,
         order.table_booking_no,
+    )
+    logger.info(
+        "[dine_flash] booking_lookup update_mapping | order_lookup_id=%s "
+        "created=%s booking_id=%s booking_no=%s",
+        normalized,
+        created,
+        order.pk,
+        order.table_booking_no,
+    )
+    logger.info(
+        "[dine_flash] booking_lookup latest_booking_selected | order_lookup_id=%s "
+        "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",
+        normalized,
+        order.pk,
+        order.table_booking_no,
+        getattr(getattr(order, "vendor", None), "vendor_id", ""),
+        getattr(order, "location_id", "") or getattr(getattr(order, "vendor", None), "location_id", ""),
     )
     return mapping
 
@@ -127,8 +175,15 @@ def resolve_dine_flash_booking_lookup(
 
     Read-only. Does not mutate Order, PushSubscription, or Chat.
     """
+    logger.info(
+        "[dine_flash] booking_lookup resolve_request | order_lookup_id_raw_present=%s",
+        order_lookup_id is not None and str(order_lookup_id).strip() != "",
+    )
     normalized = normalize_order_lookup_id(order_lookup_id)
     if normalized is None:
+        logger.info(
+            "[dine_flash] booking_lookup resolve_invalid | reason=normalize_absent_or_invalid"
+        )
         return DineFlashBookingLookupResolveResult(
             status=DineFlashBookingLookupResolveStatus.INVALID_INPUT,
         )
@@ -143,13 +198,35 @@ def resolve_dine_flash_booking_lookup(
             "[dine_flash] resolve_order_lookup not_found order_lookup_id=%s",
             normalized,
         )
+        logger.info(
+            "[dine_flash] booking_lookup resolve_not_found | order_lookup_id=%s",
+            normalized,
+        )
         return DineFlashBookingLookupResolveResult(
             status=DineFlashBookingLookupResolveStatus.NOT_FOUND,
         )
 
+    payload = _build_resolve_success_payload(mapping.order)
+    logger.info(
+        "[dine_flash] booking_lookup resolve_found | order_lookup_id=%s "
+        "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",
+        normalized,
+        payload.get("booking_id"),
+        payload.get("booking_no"),
+        payload.get("vendor_id"),
+        payload.get("location_id"),
+    )
+    logger.info(
+        "[dine_flash] booking_lookup returned_payload | status=found "
+        "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",
+        payload.get("booking_id"),
+        payload.get("booking_no"),
+        payload.get("vendor_id"),
+        payload.get("location_id"),
+    )
     return DineFlashBookingLookupResolveResult(
         status=DineFlashBookingLookupResolveStatus.FOUND,
-        data=_build_resolve_success_payload(mapping.order),
+        data=payload,
     )
 
 

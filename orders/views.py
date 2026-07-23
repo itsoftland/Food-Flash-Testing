@@ -104,6 +104,16 @@ _DINE_FLASH_DIAG_FIELDS = (
     "launch_mode",
     "from_push",
     "api_type",
+    # Dine Flash latest-booking recovery (order_lookup_id) instrumentation
+    "order_lookup_id",
+    "booking_no",
+    "outcome",
+    "has_order_lookup_id",
+    "has_browser_id",
+    "in_flight",
+    "same_booking",
+    "http_status",
+    "lookup_status",
 )
 
 # Defensive cap so a malformed/oversized client value can never bloat the logs.
@@ -537,23 +547,46 @@ def resolve_order_lookup(request):
     Independent from Buffet resolve_order_lookup.
     """
     if project_name != "dine_flash":
+        logger.info(
+            "[dine_flash] resolve_order_lookup project_gate | project=%s allowed=false",
+            project_name,
+        )
         return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    order_lookup_id = (request.data or {}).get("order_lookup_id")
     logger.info(
-        "[dine_flash] resolve_order_lookup request | order_lookup_id_present=%s",
-        bool(order_lookup_id),
+        "[dine_flash] resolve_order_lookup project_gate | project=%s allowed=true",
+        project_name,
     )
+
+    order_lookup_id = (request.data or {}).get("order_lookup_id")
+    order_lookup_present = bool(
+        order_lookup_id is not None and str(order_lookup_id).strip()
+    )
+    logger.info(
+        "[dine_flash] resolve_order_lookup request | project=%s order_lookup_id_present=%s "
+        "order_lookup_id=%s",
+        project_name,
+        order_lookup_present,
+        normalize_order_lookup_id(order_lookup_id) or "",
+    )
+
+    if not order_lookup_present:
+        logger.info(
+            "[dine_flash] resolve_order_lookup validation | result=invalid_input "
+            "reason=missing_order_lookup_id"
+        )
 
     try:
         result = resolve_dine_flash_booking_lookup(order_lookup_id=order_lookup_id)
 
         if result.status == DineFlashBookingLookupResolveStatus.FOUND:
             logger.info(
-                "[dine_flash] resolve_order_lookup found | booking_id=%s booking_no=%s vendor_id=%s",
+                "[dine_flash] resolve_order_lookup response | status=found http_status=200 "
+                "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",
                 result.data.get("booking_id"),
                 result.data.get("booking_no"),
                 result.data.get("vendor_id"),
+                result.data.get("location_id"),
             )
             return Response(
                 {"status": "found", **result.data},
@@ -561,12 +594,22 @@ def resolve_order_lookup(request):
             )
 
         if result.status == DineFlashBookingLookupResolveStatus.INVALID_INPUT:
+            logger.info(
+                "[dine_flash] resolve_order_lookup response | status=invalid_input "
+                "http_status=400 order_lookup_id_present=%s",
+                order_lookup_present,
+            )
             return Response(
                 {"status": DineFlashBookingLookupResolveStatus.INVALID_INPUT.value},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if result.status == DineFlashBookingLookupResolveStatus.NOT_FOUND:
+            logger.info(
+                "[dine_flash] resolve_order_lookup response | status=not_found "
+                "http_status=404 order_lookup_id=%s",
+                normalize_order_lookup_id(order_lookup_id) or "",
+            )
             return Response(
                 {"status": DineFlashBookingLookupResolveStatus.NOT_FOUND.value},
                 status=status.HTTP_404_NOT_FOUND,
@@ -2073,6 +2116,18 @@ def book_table(request):
     logger.info("[book_table] Started | remote_addr=%s", request.META.get("REMOTE_ADDR"))
 
     data = request.data or {}
+    raw_browser_id = data.get("browser_id")
+    logger.info(
+        "[book_table] request_received | project=%s vendor_id=%s browser_id_present=%s "
+        "order_lookup_id_present=%s",
+        project_name,
+        data.get("vendor_id"),
+        bool(raw_browser_id is not None and str(raw_browser_id).strip()),
+        bool(
+            data.get("order_lookup_id") is not None
+            and str(data.get("order_lookup_id")).strip()
+        ),
+    )
 
     manager_profile = None
     manager_vendor = None
@@ -2085,6 +2140,12 @@ def book_table(request):
         manager_vendor = None
 
     is_manager_created_booking = project_name == "dine_flash" and manager_vendor is not None
+    logger.info(
+        "[book_table] actor | project=%s created_by=%s manager=%s",
+        project_name,
+        "manager" if is_manager_created_booking else "customer",
+        bool(manager_vendor),
+    )
 
     vendor_id = data.get("vendor_id")
     utility_id = data.get("utility_id")
@@ -2103,6 +2164,19 @@ def book_table(request):
     if project_name == "dine_flash":
         raw_order_lookup_id = data.get("order_lookup_id")
         order_lookup_id = normalize_order_lookup_id(raw_order_lookup_id)
+        logger.info(
+            "[book_table] order_lookup_id | project=%s raw_present=%s normalized_present=%s "
+            "order_lookup_id=%s browser_id=%s",
+            project_name,
+            bool(raw_order_lookup_id is not None and str(raw_order_lookup_id).strip()),
+            bool(order_lookup_id),
+            order_lookup_id or "",
+            (
+                str(raw_browser_id).strip()
+                if raw_browser_id is not None and str(raw_browser_id).strip()
+                else ""
+            ),
+        )
         if (
             raw_order_lookup_id is not None
             and str(raw_order_lookup_id).strip()
@@ -2116,6 +2190,11 @@ def book_table(request):
                 {"error": "Invalid order_lookup_id"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+    else:
+        logger.info(
+            "[book_table] lookup_skipped | reason=not_dine_flash project=%s",
+            project_name,
+        )
 
     # --------------------------------------------------------
     # 1. Validate required base fields (vendor-independent)
@@ -2300,9 +2379,51 @@ def book_table(request):
                 and not is_manager_created_booking
                 and order_lookup_id
             ):
-                upsert_dine_flash_booking_lookup(
-                    order_lookup_id=order_lookup_id,
-                    order=booking_obj,
+                logger.info(
+                    "[book_table] lookup_upsert | project=%s order_lookup_id=%s "
+                    "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",
+                    project_name,
+                    order_lookup_id,
+                    booking_obj.id,
+                    booking_no,
+                    vendor.vendor_id,
+                    vendor.location_id,
+                )
+                try:
+                    mapping = upsert_dine_flash_booking_lookup(
+                        order_lookup_id=order_lookup_id,
+                        order=booking_obj,
+                    )
+                    logger.info(
+                        "[book_table] mapping_written | order_lookup_id=%s booking_id=%s "
+                        "booking_no=%s mapping_present=%s",
+                        order_lookup_id,
+                        booking_obj.id,
+                        booking_no,
+                        bool(mapping),
+                    )
+                except Exception:
+                    logger.exception(
+                        "[book_table] lookup_upsert_exception | order_lookup_id=%s "
+                        "booking_id=%s booking_no=%s",
+                        order_lookup_id,
+                        booking_obj.id,
+                        booking_no,
+                    )
+                    raise
+            elif project_name == "dine_flash" and is_manager_created_booking:
+                logger.info(
+                    "[book_table] lookup_skipped | reason=manager_created "
+                    "booking_id=%s booking_no=%s",
+                    booking_obj.id,
+                    booking_no,
+                )
+            elif project_name == "dine_flash" and not order_lookup_id:
+                logger.info(
+                    "[book_table] lookup_skipped | reason=no_order_lookup_id "
+                    "booking_id=%s booking_no=%s",
+                    booking_obj.id,
+                    booking_no,
                 )
 
             if project_name == "dine_flash" and not is_manager_created_booking:

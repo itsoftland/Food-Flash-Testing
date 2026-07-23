@@ -194,12 +194,20 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
     } else if (isDineFlashTableBooking()) {
         // Dine Flash table-booking: adopt Safari pending handoff, then resolve
         // latest booking via order_lookup_id before the existing relaunch path.
+        AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_OUTLET_BRANCH", {
+            page: "outlet_selection",
+            branch: "dine_flash_entered",
+            standalone,
+            launch_mode: launchMode,
+        });
         AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER", {
             page: "outlet_selection",
             branch: "dine_flash_adopt_before_storage_read",
             standalone,
             launch_mode: launchMode,
         });
+        // Pending-handoff detection logs live inside adoptPendingHandoffIfPresent
+        // (HANDOFF_ADOPT_COOKIE_LOOKUP / HANDOFF_ADOPT_SKIP).
         const adopted = await AppUtils.adoptPendingHandoffIfPresent();
         AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_RESULT", {
             page: "outlet_selection",
@@ -207,15 +215,60 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
             standalone,
             launch_mode: launchMode,
         });
+        AppUtils.handoffDiag(
+            adopted
+                ? "DINE_FLASH_BOOKING_LOOKUP_ADOPT_EXECUTED"
+                : "DINE_FLASH_BOOKING_LOOKUP_PENDING_HANDOFF",
+            {
+                page: "outlet_selection",
+                branch: adopted ? "adopted" : "not_adopted",
+                has_cookie: adopted,
+                standalone,
+                reason: adopted ? "adopted" : "not_adopted_see_HANDOFF_ADOPT",
+            }
+        );
 
         const orderLookupId =
             typeof AppUtils.getOrderLookupId === "function"
                 ? AppUtils.getOrderLookupId()
                 : null;
+        AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_STORED_ID", {
+            page: "outlet_selection",
+            has_order_lookup_id: Boolean(orderLookupId),
+            order_lookup_id: orderLookupId != null ? String(orderLookupId) : "",
+            standalone,
+        });
         if (orderLookupId) {
             try {
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_RESOLVE_START", {
+                    page: "outlet_selection",
+                    order_lookup_id: String(orderLookupId),
+                    has_order_lookup_id: true,
+                    standalone,
+                });
                 const lookupResult = await resolveBookingLookupForRelaunch({
                     order_lookup_id: orderLookupId,
+                });
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_RESOLVE_RESULT", {
+                    page: "outlet_selection",
+                    outcome: lookupResult.outcome || "",
+                    reason: lookupResult.reason || "",
+                    booking_id:
+                        lookupResult.booking && lookupResult.booking.booking_id != null
+                            ? String(lookupResult.booking.booking_id)
+                            : "",
+                    booking_no:
+                        lookupResult.booking && lookupResult.booking.booking_no != null
+                            ? String(lookupResult.booking.booking_no)
+                            : "",
+                    vendor_id:
+                        lookupResult.booking && lookupResult.booking.vendor_id != null
+                            ? String(lookupResult.booking.vendor_id)
+                            : "",
+                    location_id:
+                        lookupResult.booking && lookupResult.booking.location_id != null
+                            ? String(lookupResult.booking.location_id)
+                            : "",
                 });
                 if (lookupResult.outcome === "found" && lookupResult.booking) {
                     const resolved = lookupResult.booking;
@@ -238,12 +291,25 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                             typeof BookingMappingService.processBookingFromQR === "function" &&
                             resolved.booking_no
                         ) {
+                            AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_MAPPING_SERVICE", {
+                                page: "outlet_selection",
+                                booking_id: String(resolved.booking_id),
+                                booking_no: String(resolved.booking_no),
+                                reason: "processBookingFromQR",
+                            });
                             BookingMappingService.processBookingFromQR(
                                 String(resolved.booking_no),
                                 resolved.booking_id
                             );
                         }
                     }
+                    AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_STORAGE_REFRESHED", {
+                        page: "outlet_selection",
+                        booking_id: String(resolved.booking_id ?? ""),
+                        booking_no: String(resolved.booking_no ?? ""),
+                        vendor_id: String(resolved.vendor_id ?? ""),
+                        location_id: String(resolved.location_id ?? ""),
+                    });
                     AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_APPLIED", {
                         page: "outlet_selection",
                         booking_id: String(resolved.booking_id ?? ""),
@@ -259,7 +325,11 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                     });
                 }
             } catch (e) {
-                console.warn("[dine_flash] booking_lookup resolve failed:", e);
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_EXCEPTION", {
+                    page: "outlet_selection",
+                    reason: "exception",
+                    error: e && e.message ? String(e.message) : String(e),
+                });
             }
         }
     } else {
@@ -337,22 +407,46 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                     newUrl.searchParams.set("v", urlParams.get("v"));
                 }
 
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_REDIRECT", {
+                    page: "outlet_selection",
+                    branch: "local_booking_mapping",
+                    booking_id: booking.booking_id != null ? String(booking.booking_id) : "",
+                    booking_no: booking.booking_no != null ? String(booking.booking_no) : "",
+                    vendor_id: hasVendorId != null ? String(hasVendorId) : "",
+                    location_id: locationId != null ? String(locationId) : "",
+                    reason: "redirect_home_from_mapping",
+                });
                 dineFlashRedirecting = true;
                 window.location.replace(newUrl.toString());
                 return;
             }
 
-            console.log("[dine_flash] relaunch: entering backend fallback", {
-                vendor_id: hasVendorId,
-                booking_no: hasTokenNo,
-                location_id: locationId,
+            AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_RESOLVE_BOOKING", {
+                page: "outlet_selection",
+                branch: "backend_resolve_booking",
+                vendor_id: hasVendorId != null ? String(hasVendorId) : "",
+                booking_no: hasTokenNo != null ? String(hasTokenNo) : "",
+                location_id: locationId != null ? String(locationId) : "",
+                reason: "local_mapping_miss",
             });
             const relaunchResult = await resolveBookingForRelaunch({
                 vendor_id: hasVendorId,
                 booking_no: hasTokenNo,
                 location_id: locationId,
             });
-            console.log("[dine_flash] relaunch result", relaunchResult);
+            AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_RESOLVE_BOOKING_RESULT", {
+                page: "outlet_selection",
+                outcome: relaunchResult.outcome || "",
+                reason: relaunchResult.reason || "",
+                booking_id:
+                    relaunchResult.booking && relaunchResult.booking.booking_id != null
+                        ? String(relaunchResult.booking.booking_id)
+                        : "",
+                booking_no:
+                    relaunchResult.booking && relaunchResult.booking.booking_no != null
+                        ? String(relaunchResult.booking.booking_no)
+                        : "",
+            });
 
             if (relaunchResult.outcome === "found") {
                 const resolvedBooking = relaunchResult.booking;
@@ -375,17 +469,29 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                     newUrl.searchParams.set("v", urlParams.get("v"));
                 }
 
+                AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_REDIRECT", {
+                    page: "outlet_selection",
+                    branch: "backend_resolve_booking",
+                    booking_id: String(resolvedBooking.booking_id ?? ""),
+                    booking_no: String(resolvedBooking.booking_no ?? ""),
+                    vendor_id: String(resolvedBooking.vendor_id ?? ""),
+                    location_id: String(resolvedBooking.location_id ?? ""),
+                    reason: "redirect_home_from_resolve_booking",
+                });
                 dineFlashRedirecting = true;
                 window.location.replace(newUrl.toString());
                 return;
             }
 
-            console.warn(
-                "[dine_flash] PWA relaunch:",
-                relaunchResult.outcome === "preserve"
-                    ? relaunchResult.reason
-                    : "no resolvable booking; staying on outlet selection."
-            );
+            AppUtils.handoffDiag("DINE_FLASH_BOOKING_LOOKUP_REDIRECT", {
+                page: "outlet_selection",
+                branch: "stay_on_outlet",
+                outcome: relaunchResult.outcome || "",
+                reason:
+                    relaunchResult.outcome === "preserve"
+                        ? relaunchResult.reason || "preserve"
+                        : "no_resolvable_booking",
+            });
             return;
         }
 

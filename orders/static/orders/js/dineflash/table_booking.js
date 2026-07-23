@@ -482,6 +482,25 @@ document.addEventListener("DOMContentLoaded", async () => {
             typeof AppUtils !== "undefined" && typeof AppUtils.getOrderLookupId === "function"
                 ? AppUtils.getOrderLookupId()
                 : null;
+        // Read-only for diag only — must not call getBrowserId() (may generate/persist).
+        const browserIdForDiag =
+            typeof AppUtils !== "undefined" && typeof AppUtils.getCurrentBrowserId === "function"
+                ? AppUtils.getCurrentBrowserId()
+                : null;
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_BROWSER_ID", {
+                page: "table_booking",
+                has_browser_id: Boolean(browserIdForDiag),
+                browser_id: browserIdForDiag != null ? String(browserIdForDiag) : "",
+                standalone: Boolean(window.navigator.standalone),
+            });
+            AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_STORED_LOOKUP", {
+                page: "table_booking",
+                has_order_lookup_id: Boolean(storedLookupId),
+                order_lookup_id: storedLookupId != null ? String(storedLookupId) : "",
+            });
+        }
+        // Restore original short-circuit: getBrowserId() only when stored lookup is absent.
         const orderLookupId =
             storedLookupId ||
             (typeof AppUtils !== "undefined" && typeof AppUtils.getBrowserId === "function"
@@ -491,10 +510,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             payload.order_lookup_id = orderLookupId;
             if (typeof AppUtils.setOrderLookupId === "function") {
                 AppUtils.setOrderLookupId(orderLookupId);
+                if (typeof AppUtils.handoffDiag === "function") {
+                    AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_STORAGE_UPDATE", {
+                        page: "table_booking",
+                        order_lookup_id: String(orderLookupId),
+                        has_order_lookup_id: true,
+                        reason: storedLookupId ? "kept_stored" : "set_from_browser_id",
+                    });
+                }
             }
         }
 
-        // console.log(payload)
         return payload;
     }
 
@@ -673,7 +699,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             const payload = buildPayload();
-            // console.log("Payload:",payload)
+            if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_PAYLOAD", {
+                    page: "table_booking",
+                    vendor_id: payload.vendor_id != null ? String(payload.vendor_id) : "",
+                    order_lookup_id: payload.order_lookup_id
+                        ? String(payload.order_lookup_id)
+                        : "",
+                    has_order_lookup_id: Boolean(payload.order_lookup_id),
+                    standalone: Boolean(window.navigator.standalone),
+                });
+            }
 
             if (!validatePayload(payload)) {
                 return;
@@ -693,6 +729,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (resp.status === 201) {
                 stopQrExpiryCountdown();
+                if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                    AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_API_SUCCESS", {
+                        page: "table_booking",
+                        http_status: "201",
+                        booking_id: data.id != null ? String(data.id) : "",
+                        booking_no:
+                            data.table_booking_no != null
+                                ? String(data.table_booking_no)
+                                : "",
+                        vendor_id: payload.vendor_id != null ? String(payload.vendor_id) : "",
+                        order_lookup_id: payload.order_lookup_id
+                            ? String(payload.order_lookup_id)
+                            : "",
+                    });
+                }
                 // New booking
                 const finalCustomerName = data.customer_name || payload.customer_name;
                 AppUtils.setCustomerName(finalCustomerName);

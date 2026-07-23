@@ -8,6 +8,12 @@
 
 let dependenciesPromise = null;
 
+function bookingLookupDiag(step, fields) {
+    if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+        AppUtils.handoffDiag(step, fields || {});
+    }
+}
+
 async function loadDependencies() {
     const base = window.BASE || "/caller_on/";
     const [authModule, apiModule] = await Promise.all([
@@ -28,6 +34,11 @@ function getDependencies() {
 }
 
 function preserve(reason) {
+    bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_PRESERVE", {
+        page: "booking_lookup_service",
+        outcome: "preserve",
+        reason: reason || "",
+    });
     return { outcome: "preserve", reason };
 }
 
@@ -55,6 +66,15 @@ function mapResolvePayload(data) {
     const status = data.status;
 
     if (status === "found") {
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_FOUND", {
+            page: "booking_lookup_service",
+            outcome: "found",
+            lookup_status: "found",
+            booking_id: data.booking_id != null ? String(data.booking_id) : "",
+            booking_no: data.booking_no != null ? String(data.booking_no) : "",
+            vendor_id: data.vendor_id != null ? String(data.vendor_id) : "",
+            location_id: data.location_id != null ? String(data.location_id) : "",
+        });
         return {
             outcome: "found",
             booking: {
@@ -67,11 +87,22 @@ function mapResolvePayload(data) {
     }
 
     if (status === "not_found") {
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_NOT_FOUND", {
+            page: "booking_lookup_service",
+            outcome: "not_found",
+            lookup_status: "not_found",
+        });
         return { outcome: "not_found" };
     }
 
     if (status === "invalid_input") {
-        return preserve("invalid_input");
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_INVALID", {
+            page: "booking_lookup_service",
+            outcome: "preserve",
+            lookup_status: "invalid_input",
+            reason: "invalid_input",
+        });
+        return { outcome: "preserve", reason: "invalid_input" };
     }
 
     return preserve("unknown_status");
@@ -93,25 +124,55 @@ async function resolveBookingLookupForRelaunch({ order_lookup_id } = {}) {
     const url = API_ENDPOINTS.DINE_FLASH_RESOLVE_ORDER_LOOKUP;
     const body = buildRequestBody({ order_lookup_id });
 
+    bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_REQUEST", {
+        page: "booking_lookup_service",
+        order_lookup_id: body.order_lookup_id || "",
+        has_order_lookup_id: Boolean(body.order_lookup_id),
+        standalone: Boolean(window.navigator.standalone),
+    });
+    bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_PAYLOAD", {
+        page: "booking_lookup_service",
+        order_lookup_id: body.order_lookup_id || "",
+        has_order_lookup_id: Boolean(body.order_lookup_id),
+    });
+
     let response;
     try {
-        console.log("[dine_flash] resolve_order_lookup url", url);
-        console.log("[dine_flash] resolve_order_lookup request", {
-            order_lookup_id_present: Boolean(body.order_lookup_id),
-        });
         response = await fetchWithAutoRefresh(url, {
             method: "POST",
             body: JSON.stringify(body),
         });
     } catch (e) {
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_EXCEPTION", {
+            page: "booking_lookup_service",
+            outcome: "preserve",
+            reason: "network_error",
+            error: e && e.message ? String(e.message) : String(e),
+        });
         return preserve("network_error");
     }
 
     let data;
     try {
         data = await response.json();
-        console.log("[dine_flash] resolve_order_lookup response", data);
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_RESPONSE", {
+            page: "booking_lookup_service",
+            http_status: String(response.status || ""),
+            lookup_status: data && data.status != null ? String(data.status) : "",
+            booking_id: data && data.booking_id != null ? String(data.booking_id) : "",
+            booking_no: data && data.booking_no != null ? String(data.booking_no) : "",
+            vendor_id: data && data.vendor_id != null ? String(data.vendor_id) : "",
+            location_id: data && data.location_id != null ? String(data.location_id) : "",
+            reason: data && data.error != null ? String(data.error) : "",
+        });
     } catch (e) {
+        bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_EXCEPTION", {
+            page: "booking_lookup_service",
+            outcome: "preserve",
+            reason: "json_parse_failure",
+            http_status: String(response && response.status ? response.status : ""),
+            error: e && e.message ? String(e.message) : String(e),
+        });
         return preserve("json_parse_failure");
     }
 
