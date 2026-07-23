@@ -5,6 +5,73 @@
 // ✅ Import IndexedDB helper (for caching small key-value pairs)
 import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js";
 
+// ⚠️ TEMP DIAGNOSTIC — prove AppUtils availability at Book click (remove after investigation).
+// Posts directly to dine_flash_client_diag so breadcrumbs reach orders.log even before
+// window.AppUtils exists. No console output. Never throws, never awaits, never blocks.
+function tempUtilsClientDiag(step, fields) {
+    try {
+        const project = String(window.PROJECT_NAME || "").toLowerCase().trim();
+        if (project !== "dine_flash" && project !== "dine_flash_buffet") return;
+        const base = window.BASE || `/${project}/`;
+        const url = `${base}api/dine_flash_client_diag/`;
+        let csrf = "";
+        try {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            csrf = meta ? meta.getAttribute("content") || "" : "";
+            if (!csrf) {
+                const cookie = document.cookie
+                    .split(";")
+                    .map((c) => c.trim())
+                    .find((c) => c.startsWith("csrftoken="));
+                csrf = cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+            }
+        } catch (_) { /* ignore */ }
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrf,
+            },
+            credentials: "same-origin",
+            keepalive: true,
+            body: JSON.stringify({
+                step,
+                source: "page",
+                project,
+                page: "utils",
+                timestamp: Date.now(),
+                ...(fields || {}),
+            }),
+        }).catch(() => {});
+    } catch (_) {
+        // Diagnostics must never break AppUtils init.
+    }
+}
+
+function tempUtilsAppUtilsSnapshot() {
+    return {
+        typeof_app_utils: typeof window.AppUtils,
+        typeof_get_browser_id: typeof window.AppUtils?.getBrowserId,
+        typeof_handoff_diag: typeof window.AppUtils?.handoffDiag,
+    };
+}
+
+// 1) Module body evaluation starts. (Static import already resolved if we reach here;
+//    if idb-keyval import fails, this breadcrumb never appears — that absence is the signal.)
+tempUtilsClientDiag("UTILS_MODULE_EVAL_START", {
+    ...tempUtilsAppUtilsSnapshot(),
+    reason: "module_body_start",
+});
+
+// 2) idb-keyval import completed successfully (proven by module body running).
+tempUtilsClientDiag("UTILS_IDB_IMPORT_OK", {
+    ...tempUtilsAppUtilsSnapshot(),
+    reason: "idb_keyval_import_resolved",
+});
+
+// 3) Catch any exception during the rest of module evaluation.
+try {
+
 // ✅ Detect if running as a standalone (PWA) app
 if (window.navigator.standalone) {
     console.log("Running in standalone mode");
@@ -83,6 +150,12 @@ document.head.appendChild(link);
 
 // This variable will later hold the unlocked notification sound reference
 let unlockedNotificationAudio = null;
+
+// 4) Immediately before assigning window.AppUtils
+tempUtilsClientDiag("UTILS_APPUTILS_BEFORE_ASSIGN", {
+    ...tempUtilsAppUtilsSnapshot(),
+    reason: "before_window_AppUtils_assign",
+});
 
 window.AppUtils = {
     // ─────────────────────────────────────
@@ -1345,9 +1418,28 @@ window.AppUtils = {
 
 };
 
+// 5) Immediately after assigning window.AppUtils
+tempUtilsClientDiag("UTILS_APPUTILS_AFTER_ASSIGN", {
+    ...tempUtilsAppUtilsSnapshot(),
+    reason: "after_window_AppUtils_assign",
+});
+
 // 🚀 Immediately run migration on script load to avoid race conditions
 if (typeof window !== 'undefined') {
     window.AppUtils.migrateOldStorage();
+}
+
+} catch (__tempUtilsModuleErr) {
+    tempUtilsClientDiag("UTILS_MODULE_EVAL_EXCEPTION", {
+        ...tempUtilsAppUtilsSnapshot(),
+        error: String(
+            __tempUtilsModuleErr && __tempUtilsModuleErr.message
+                ? __tempUtilsModuleErr.message
+                : __tempUtilsModuleErr
+        ).slice(0, 200),
+        reason: "module_eval_exception",
+    });
+    throw __tempUtilsModuleErr;
 }
 
 export const AppUtils = window.AppUtils;

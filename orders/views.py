@@ -114,6 +114,15 @@ _DINE_FLASH_DIAG_FIELDS = (
     "same_booking",
     "http_status",
     "lookup_status",
+    # TEMP: prove window.AppUtils availability at Book click (remove after investigation)
+    "typeof_app_utils",
+    "typeof_get_browser_id",
+    "typeof_handoff_diag",
+    "document_ready_state",
+    "timestamp",
+    "stored_lookup_id",
+    "resolved_order_lookup_id",
+    "will_attach_order_lookup_id",
 )
 
 # Defensive cap so a malformed/oversized client value can never bloat the logs.

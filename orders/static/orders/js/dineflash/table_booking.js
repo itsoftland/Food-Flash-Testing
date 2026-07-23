@@ -70,6 +70,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     // console.log("UTILITY ENABLED:",window.UTILITIES_ENABLED);
     const base = window.BASE || "/caller_on/";
 
+    // ⚠️ TEMP DIAGNOSTIC — prove AppUtils state at Book click (remove after investigation).
+    // Prefer AppUtils.handoffDiag; if AppUtils is missing, POST the endpoint directly
+    // so breadcrumbs still reach orders.log. No console output.
+    function tableBookingTempDiag(step, fields) {
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag(step, fields || {});
+            return;
+        }
+        try {
+            const diagProject = String(window.PROJECT_NAME || "").toLowerCase().trim();
+            if (diagProject !== "dine_flash" && diagProject !== "dine_flash_buffet") return;
+            const url = `${base}api/dine_flash_client_diag/`;
+            let csrf = "";
+            try {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                csrf = meta ? meta.getAttribute("content") || "" : "";
+                if (!csrf) {
+                    const cookie = document.cookie
+                        .split(";")
+                        .map((c) => c.trim())
+                        .find((c) => c.startsWith("csrftoken="));
+                    csrf = cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+                }
+            } catch (_) { /* ignore */ }
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrf,
+                },
+                credentials: "same-origin",
+                keepalive: true,
+                body: JSON.stringify({
+                    step,
+                    source: "page",
+                    project: diagProject,
+                    page: "table_booking",
+                    timestamp: Date.now(),
+                    ...(fields || {}),
+                }),
+            }).catch(() => {});
+        } catch (_) {
+            // Diagnostics must never break booking.
+        }
+    }
+
+    function tableBookingAppUtilsSnapshot() {
+        return {
+            typeof_app_utils: typeof window.AppUtils,
+            typeof_get_browser_id: typeof window.AppUtils?.getBrowserId,
+            typeof_handoff_diag: typeof window.AppUtils?.handoffDiag,
+        };
+    }
+
     let apiEndpoints, ModalService, vendorId;
     let PermissionService = null;
     let qrDate = null;
@@ -501,11 +555,29 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         }
         // Restore original short-circuit: getBrowserId() only when stored lookup is absent.
+        // ⚠️ TEMP DIAG: prove AppUtils/getBrowserId state at the exact orderLookupId evaluation.
+        tableBookingTempDiag("DINE_FLASH_TABLE_BOOKING_LOOKUP_EVAL_BEFORE", {
+            page: "table_booking",
+            ...tableBookingAppUtilsSnapshot(),
+            stored_lookup_id: storedLookupId != null ? String(storedLookupId) : "",
+            has_order_lookup_id: Boolean(storedLookupId),
+            reason: "before_storedLookupId_or_getBrowserId",
+        });
         const orderLookupId =
             storedLookupId ||
             (typeof AppUtils !== "undefined" && typeof AppUtils.getBrowserId === "function"
                 ? AppUtils.getBrowserId()
                 : null);
+        tableBookingTempDiag("DINE_FLASH_TABLE_BOOKING_LOOKUP_EVAL_AFTER", {
+            page: "table_booking",
+            ...tableBookingAppUtilsSnapshot(),
+            stored_lookup_id: storedLookupId != null ? String(storedLookupId) : "",
+            resolved_order_lookup_id: orderLookupId != null ? String(orderLookupId) : "",
+            will_attach_order_lookup_id: Boolean(orderLookupId),
+            has_order_lookup_id: Boolean(orderLookupId),
+            order_lookup_id: orderLookupId != null ? String(orderLookupId) : "",
+            reason: "after_storedLookupId_or_getBrowserId",
+        });
         if (orderLookupId) {
             payload.order_lookup_id = orderLookupId;
             if (typeof AppUtils.setOrderLookupId === "function") {
@@ -698,7 +770,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
+            const payloadPreTs = Date.now();
+            tableBookingTempDiag("DINE_FLASH_TABLE_BOOKING_BEFORE_BUILD_PAYLOAD", {
+                page: "table_booking",
+                ...tableBookingAppUtilsSnapshot(),
+                document_ready_state: String(document.readyState || ""),
+                timestamp: payloadPreTs,
+                reason: "immediately_before_buildPayload",
+            });
             const payload = buildPayload();
+            tableBookingTempDiag("DINE_FLASH_TABLE_BOOKING_AFTER_BUILD_PAYLOAD", {
+                page: "table_booking",
+                ...tableBookingAppUtilsSnapshot(),
+                has_order_lookup_id: Boolean(payload && payload.order_lookup_id),
+                order_lookup_id:
+                    payload && payload.order_lookup_id != null
+                        ? String(payload.order_lookup_id)
+                        : "",
+                has_browser_id: Boolean(payload && payload.browser_id),
+                browser_id:
+                    payload && payload.browser_id != null ? String(payload.browser_id) : "",
+                document_ready_state: String(document.readyState || ""),
+                timestamp: Date.now(),
+                reason: "immediately_after_buildPayload",
+            });
             if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
                 AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_PAYLOAD", {
                     page: "table_booking",
