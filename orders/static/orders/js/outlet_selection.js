@@ -153,42 +153,111 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
         // Approved insertion point: resolve order_lookup_id → refresh storage,
         // then continue the existing getToken() / redirect / check_status path.
         // Does not create a second restore flow or call check_status().
+        //
+        // Phase 6: Multi-Order Mode only — try Selected Order restore first.
+        // Flag is a prefixed localStorage latch set only after successful "+".
+        // Single-order users (flag absent) take the identical Latest path below
+        // with no restore API calls.
         const orderLookupId =
             typeof AppUtils.getOrderLookupId === "function"
                 ? AppUtils.getOrderLookupId()
                 : null;
         if (orderLookupId) {
-            try {
-                const lookupResult = await resolveOrderLookupForRelaunch({
-                    order_lookup_id: orderLookupId,
-                });
-                if (lookupResult.outcome === "found" && lookupResult.order) {
-                    const resolved = lookupResult.order;
-                    if (resolved.location_id) {
-                        await AppUtils.set(String(resolved.location_id));
+            let restoredSelected = false;
+            const multiOrderFlag =
+                typeof AppUtils.storageGet === "function"
+                    ? AppUtils.storageGet("multi_order_mode")
+                    : null;
+            const inMultiOrderMode =
+                multiOrderFlag === "1" || multiOrderFlag === "true";
+
+            if (inMultiOrderMode) {
+                try {
+                    const restoreMod = await import(
+                        "./buffet/services/selectedOrderRestoreService.js"
+                    );
+                    if (restoreMod && typeof restoreMod.tryRestoreSelectedOrder === "function") {
+                        const restoreResult = await restoreMod.tryRestoreSelectedOrder();
+                        if (restoreResult && restoreResult.outcome === "restored") {
+                            restoredSelected = true;
+                            AppUtils.handoffDiag("BUFFET_SELECTED_ORDER_RESTORED", {
+                                page: "outlet_selection",
+                                token_no: String(restoreResult.order?.token_number ?? ""),
+                                vendor_id: String(restoreResult.order?.vendor_id ?? ""),
+                                branch: "multi_order_mode",
+                            });
+                        } else if (
+                            restoreResult &&
+                            restoreResult.outcome === "fallback"
+                        ) {
+                            AppUtils.handoffDiag("BUFFET_SELECTED_ORDER_FALLBACK", {
+                                page: "outlet_selection",
+                                reason: restoreResult.reason || "",
+                                branch: "multi_order_mode",
+                            });
+                        }
                     }
-                    if (resolved.vendor_id != null && String(resolved.vendor_id).trim() !== "") {
-                        await AppUtils.setCurrentVendors(String(resolved.vendor_id));
-                    }
-                    if (resolved.token_no != null && String(resolved.token_no).trim() !== "") {
-                        await AppUtils.setToken(String(resolved.token_no));
-                    }
-                    AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_APPLIED", {
-                        page: "outlet_selection",
-                        token_no: String(resolved.token_no ?? ""),
-                        vendor_id: String(resolved.vendor_id ?? ""),
-                        location_id: String(resolved.location_id ?? ""),
-                    });
-                } else {
-                    // not_found / preserve: keep existing storage; continue startup.
-                    AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_SKIP", {
-                        page: "outlet_selection",
-                        outcome: lookupResult.outcome,
-                        reason: lookupResult.reason || "",
-                    });
+                } catch (e) {
+                    console.warn("[buffet] selected_order restore failed:", e);
                 }
-            } catch (e) {
-                console.warn("[buffet] order_lookup resolve failed:", e);
+            }
+
+            if (!restoredSelected) {
+                try {
+                    const lookupResult = await resolveOrderLookupForRelaunch({
+                        order_lookup_id: orderLookupId,
+                    });
+                    if (lookupResult.outcome === "found" && lookupResult.order) {
+                        const resolved = lookupResult.order;
+                        if (resolved.location_id) {
+                            await AppUtils.set(String(resolved.location_id));
+                        }
+                        if (resolved.vendor_id != null && String(resolved.vendor_id).trim() !== "") {
+                            await AppUtils.setCurrentVendors(String(resolved.vendor_id));
+                        }
+                        if (resolved.token_no != null && String(resolved.token_no).trim() !== "") {
+                            await AppUtils.setToken(String(resolved.token_no));
+                        }
+                        // Multi-Order fallback only: align Selected Order with Latest
+                        // so Current badge matches Home after recovery fallback.
+                        if (inMultiOrderMode) {
+                            try {
+                                const selectedMod = await import(
+                                    "./buffet/services/selectedOrderService.js"
+                                );
+                                if (
+                                    selectedMod &&
+                                    typeof selectedMod.setSelectedOrder === "function" &&
+                                    resolved.token_no != null &&
+                                    resolved.vendor_id != null
+                                ) {
+                                    selectedMod.setSelectedOrder({
+                                        order_lookup_id: orderLookupId,
+                                        vendor_id: resolved.vendor_id,
+                                        token_number: resolved.token_no,
+                                    });
+                                }
+                            } catch (e) {
+                                // Non-fatal — Latest storage already applied.
+                            }
+                        }
+                        AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_APPLIED", {
+                            page: "outlet_selection",
+                            token_no: String(resolved.token_no ?? ""),
+                            vendor_id: String(resolved.vendor_id ?? ""),
+                            location_id: String(resolved.location_id ?? ""),
+                        });
+                    } else {
+                        // not_found / preserve: keep existing storage; continue startup.
+                        AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_SKIP", {
+                            page: "outlet_selection",
+                            outcome: lookupResult.outcome,
+                            reason: lookupResult.reason || "",
+                        });
+                    }
+                } catch (e) {
+                    console.warn("[buffet] order_lookup resolve failed:", e);
+                }
             }
         }
     } else if (isDineFlashTableBooking()) {

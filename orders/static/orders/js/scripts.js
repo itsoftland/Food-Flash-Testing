@@ -71,6 +71,59 @@ onDOMReady(async function () {
     const isDineFlashTableBookingSurface =
         (window.BASE && window.BASE.includes("/dine_flash/")) && !isDineFlashBuffetSurface;
 
+    /**
+     * Phase 8: Multi-Order push compatibility for terminal buffet statuses.
+     * Preserves Selected Order; reuses Phase 7 restore + selector refresh.
+     * Fire-and-forget — never blocks chat/modal handling.
+     */
+    function handleBuffetActiveOrderLifecyclePush(pushData, messageType) {
+        if (!isDineFlashBuffetSurface) return;
+        import("./buffet/services/multiOrderPushCompatibilityService.js")
+            .then((mod) => {
+                if (typeof mod.handleMultiOrderTerminalPush !== "function") return;
+                return mod.handleMultiOrderTerminalPush(pushData, messageType);
+            })
+            .catch((e) => {
+                console.warn("[buffet] multi-order push lifecycle handler failed:", e);
+            });
+    }
+
+    /**
+     * Phase 8: skip Home vendor/outlet context switch when a push belongs to
+     * a different active order under Multi-Order Mode. Single-order unchanged.
+     */
+    async function shouldApplyBuffetPushHomeContext(pushData) {
+        if (!isDineFlashBuffetSurface) return true;
+        try {
+            const mod = await import("./buffet/services/multiOrderPushCompatibilityService.js");
+            if (typeof mod.shouldApplyPushHomeContext === "function") {
+                return Boolean(mod.shouldApplyPushHomeContext(pushData));
+            }
+        } catch (e) {
+            console.warn("[buffet] multi-order push home-context gate failed:", e);
+        }
+        return true;
+    }
+
+    /**
+     * Phase 9: whether a buffet push may paint into the visible conversation.
+     * Non-Selected orders still notify/sync; only append is gated.
+     * Single-order / other flavours always paint.
+     */
+    async function shouldPaintBuffetPushMessage(pushData) {
+        if (!isDineFlashBuffetSurface) return true;
+        try {
+            const mod = await import(
+                "./buffet/services/selectedOrderConversationService.js"
+            );
+            if (typeof mod.shouldPaintPushMessage === "function") {
+                return Boolean(mod.shouldPaintPushMessage(pushData));
+            }
+        } catch (e) {
+            console.warn("[buffet] multi-order conversation paint gate failed:", e);
+        }
+        return true;
+    }
     const inferProjectFromPath = () => {
         const path = (window.location?.pathname || '').toLowerCase();
         if (path.includes('/airline_flash') || path.includes('/airlineflash')) return 'airline_flash';
@@ -533,6 +586,132 @@ onDOMReady(async function () {
             .catch((e) => {
                 console.warn("[buffet] order_lookup resume init failed:", e);
             });
+
+        // Phase 5/6: Active Order Selector + Multi-Order Selected Order restore.
+        // Fetches once on Home load; click stores Selected Order and reloads
+        // Home status + visible conversation for that token (Phase 9).
+        // Failures hide the panel; never blocks Home or touches
+        // BuffetOrderLookup / Registry writes.
+        //
+        // fetchOrderStatusOnce is hoisted in this scope — bind the Home reload
+        // hook before selector init so clicks never race a late assignment.
+        // Phase 9: rebuild visible conversation for Selected token, then
+        // refresh buffet status (manualEntry). Single-order path unchanged
+        // because rebuildVisibleConversation no-ops outside Multi-Order Mode.
+        window.__buffetApplySelectedOrderHomeView = async function (tokenNumber) {
+            const token =
+                tokenNumber !== null && tokenNumber !== undefined
+                    ? String(tokenNumber).trim()
+                    : "";
+            if (!token) return null;
+            try {
+                const convMod = await import(
+                    "./buffet/services/selectedOrderConversationService.js"
+                );
+                if (typeof convMod.rebuildVisibleConversation === "function") {
+                    await convMod.rebuildVisibleConversation(token);
+                }
+            } catch (e) {
+                console.warn("[buffet] selected_order conversation rebuild failed:", e);
+            }
+            return fetchOrderStatusOnce(token, null, null, { manualEntry: true });
+        };
+
+        // Phase 6: refresh / soft-load Selected Order restore (Multi-Order Mode only).
+        // Skipped when URL carries token_no (QR / post-order / resume redirect) so
+        // those loads keep their explicit token. Single-order users never enter.
+        if (!tokenFromQR) {
+            const multiOrderFlag =
+                typeof AppUtils.storageGet === "function"
+                    ? AppUtils.storageGet("multi_order_mode")
+                    : null;
+            const inMultiOrderMode =
+                multiOrderFlag === "1" || multiOrderFlag === "true";
+
+            if (inMultiOrderMode) {
+                import("./buffet/services/selectedOrderRestoreService.js")
+                    .then(async (restoreMod) => {
+                        const lookupMod = await import(
+                            "./buffet/services/orderLookupService.js"
+                        );
+                        if (
+                            !restoreMod ||
+                            typeof restoreMod.tryRestoreSelectedOrder !== "function"
+                        ) {
+                            return;
+                        }
+
+                        const restoreResult = await restoreMod.tryRestoreSelectedOrder();
+                        if (restoreResult && restoreResult.outcome === "restored") {
+                            const token = String(
+                                restoreResult.order.token_number || ""
+                            ).trim();
+                            if (
+                                token &&
+                                typeof window.__buffetApplySelectedOrderHomeView === "function"
+                            ) {
+                                try {
+                                    await window.__buffetApplySelectedOrderHomeView(token);
+                                } catch (e) {
+                                    console.warn(
+                                        "[buffet] selected_order home refresh failed:",
+                                        e
+                                    );
+                                }
+                            }
+                            return;
+                        }
+
+                        if (!restoreResult || restoreResult.outcome !== "fallback") return;
+
+                        const orderLookupId =
+                            typeof AppUtils.getOrderLookupId === "function"
+                                ? AppUtils.getOrderLookupId()
+                                : null;
+                        if (
+                            !orderLookupId ||
+                            typeof lookupMod.resolveOrderLookupForRelaunch !== "function"
+                        ) {
+                            return;
+                        }
+                        const lookupResult = await lookupMod.resolveOrderLookupForRelaunch({
+                            order_lookup_id: orderLookupId,
+                        });
+                        if (lookupResult.outcome !== "found" || !lookupResult.order) return;
+
+                        if (typeof restoreMod.applyLatestOrderIdentity === "function") {
+                            await restoreMod.applyLatestOrderIdentity(lookupResult.order);
+                        }
+                        const latestToken = String(lookupResult.order.token_no || "").trim();
+                        if (
+                            latestToken &&
+                            typeof window.__buffetApplySelectedOrderHomeView === "function"
+                        ) {
+                            try {
+                                await window.__buffetApplySelectedOrderHomeView(latestToken);
+                            } catch (e) {
+                                console.warn(
+                                    "[buffet] latest fallback home refresh failed:",
+                                    e
+                                );
+                            }
+                        }
+                    })
+                    .catch((e) => {
+                        console.warn("[buffet] selected_order refresh restore failed:", e);
+                    });
+            }
+        }
+
+        import("./buffet/services/activeOrderSelectorService.js")
+            .then((mod) => {
+                if (mod && typeof mod.initActiveOrderSelector === "function") {
+                    return mod.initActiveOrderSelector();
+                }
+            })
+            .catch((e) => {
+                console.warn("[buffet] active order selector init failed:", e);
+            });
     }
 
     // Dine Flash iOS standalone only: warm-resume booking_lookup refresh.
@@ -810,7 +989,11 @@ onDOMReady(async function () {
                     });
                     return;
                 }
-                updateChatOnPush(pushData.vendor_id,pushData.logo_url,pushData.name);
+                // Phase 8: do not steal Home vendor context for a non-Selected order.
+                const applyPushHomeContext = await shouldApplyBuffetPushHomeContext(pushData);
+                if (applyPushHomeContext) {
+                    updateChatOnPush(pushData.vendor_id, pushData.logo_url, pushData.name);
+                }
                 let type = window.BASE?.includes('/airline_flash/') ? 'flightstatus' : 'foodstatus';
                 const messageType = pushData.type || type;
                 console.log("Received push message:", messageType, pushData);
@@ -819,6 +1002,10 @@ onDOMReady(async function () {
                     type: messageType,
                     text: pushData
                 });
+
+                // Phase 9: buffet Multi-Order may skip painting non-Selected
+                // pushes while still notifying / syncing / lifecycle below.
+                const paintBuffetPush = await shouldPaintBuffetPushMessage(pushData);
 
                 // Handle different message types
                 try {
@@ -851,11 +1038,15 @@ onDOMReady(async function () {
                             message_id: pushData.message_id,
                             chat_children_before: document.getElementById('chat-container')?.childElementCount,
                             is_restoring_history: Boolean(window.isRestoringHistory),
+                            paint_selected: paintBuffetPush,
                         });
-                        appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
+                        if (paintBuffetPush) {
+                            appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
+                        }
                         dineFlashDiag("PUSH buffet_manager APPENDED card", {
                             token_no: pushData.token_no,
                             chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                            painted: paintBuffetPush,
                         });
                         break;
                     case 'item_preparing':
@@ -877,18 +1068,26 @@ onDOMReady(async function () {
                             message_id: pushData.message_id,
                             chat_children_before: document.getElementById('chat-container')?.childElementCount,
                             is_restoring_history: Boolean(window.isRestoringHistory),
+                            paint_selected: paintBuffetPush,
                         });
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        if (paintBuffetPush) {
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        }
                         dineFlashDiag("PUSH buffet item/status APPENDED card", {
                             type: messageType,
                             token_no: pushData.token_no,
                             chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                            painted: paintBuffetPush,
                         });
+                        handleBuffetActiveOrderLifecyclePush(pushData, messageType);
                         break;
                     case 'order_delivered':
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        if (paintBuffetPush) {
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                        }
+                        handleBuffetActiveOrderLifecyclePush(pushData, messageType);
                         break;
                     case 'foodstatus':
                         AppUtils.notifyOrderReady(pushData);

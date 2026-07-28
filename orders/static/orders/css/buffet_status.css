@@ -192,3 +192,125 @@
     padding: 8px 0;
     font-size: 0.9rem;
 }
+
+/* ===========================================
+   Phase 4 — Active Order Selector (display only)
+   Shown only when GET active_orders returns 2+.
+   =========================================== */
+.buffet-active-order-selector {
+    flex-shrink: 0;
+    padding: 0 12px 8px;
+}
+
+.buffet-active-order-selector[hidden] {
+    display: none !important;
+}
+
+.buffet-aos-panel {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #1565c0;
+}
+
+.buffet-aos-heading {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1565c0;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.buffet-aos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.buffet-aos-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    background: #f7f9fb;
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    color: #222;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.buffet-aos-item.is-current {
+    background: #eef5fc;
+    border-color: #90caf9;
+}
+
+.buffet-aos-item.is-highlighted {
+    border-color: #1565c0;
+    background: #e3eefb;
+}
+
+.buffet-aos-marker {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #1565c0;
+    margin-top: 1px;
+}
+
+.buffet-aos-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.buffet-aos-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.buffet-aos-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0d3f69;
+}
+
+.buffet-aos-meta {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.buffet-aos-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.buffet-aos-badge-latest {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+}
+
+.buffet-aos-badge-current {
+    background: #e3f2fd;
+    color: #0d47a1;
+    border: 1px solid #90caf9;
+}
+
+.buffet-aos-badge-active {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+}

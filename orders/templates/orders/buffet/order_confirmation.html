@@ -28,7 +28,18 @@
         const newOrderBtn = document.getElementById("new-order-btn");
         newOrderBtn.addEventListener("click", function(e) {
             e.preventDefault();
-            window.location.href = `{% url 'buffet_utility_selection' %}?vendor_id=${vendorId}`;
+            // Phase 6: mark "+" intent so successful submit enables Multi-Order Mode
+            // and sends is_additional_order (does not move Latest Order Wins).
+            import("{% static 'orders/js/buffet/services/multiOrderModeService.js' %}?v={{ APP_VERSION }}")
+                .then((mod) => {
+                    if (mod && typeof mod.markAdditionalOrderIntent === "function") {
+                        mod.markAdditionalOrderIntent();
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    window.location.href = `{% url 'buffet_utility_selection' %}?vendor_id=${vendorId}`;
+                });
         });
     });
 </script>

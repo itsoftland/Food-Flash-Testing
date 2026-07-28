@@ -99,7 +99,23 @@ export const ChatRestoreService = (() => {
           return false;
         }
 
-        const cachedMessages = await ChatHistoryService.load(vendorId, browserId) || [];
+        // Phase 9: Buffet Multi-Order may coalesce this load with Selected rebuild.
+        let cachedMessages;
+        if (isDineFlashBuffetRestoreSurface()) {
+          try {
+            const convMod = await import(
+              "../buffet/services/selectedOrderConversationService.js"
+            );
+            if (typeof convMod.loadChatHistoryFresh === "function") {
+              cachedMessages = (await convMod.loadChatHistoryFresh(vendorId, browserId)) || [];
+            }
+          } catch (e) {
+            // fall through to direct load
+          }
+        }
+        if (!cachedMessages) {
+          cachedMessages = (await ChatHistoryService.load(vendorId, browserId)) || [];
+        }
         ChatSyncService.seedFromMessages(cachedMessages, vendorId);
         const chatContainer = document.getElementById("chat-container");
 
@@ -129,17 +145,53 @@ export const ChatRestoreService = (() => {
           // manual lookup. A QR reload that restores a snapshot will skip re-rendering it.
           window.buffetOrderSnapshotTokens = new Set();
 
+          // Phase 9: when Multi-Order Mode is on, paint only Selected Order's
+          // conversation (tokenless vendor-level messages still shown).
+          let selectedTokenFilter = null;
+          try {
+            const convMod = await import(
+              "../buffet/services/selectedOrderConversationService.js"
+            );
+            if (
+              typeof convMod.shouldIsolateConversation === "function" &&
+              convMod.shouldIsolateConversation()
+            ) {
+              const { getSelectedOrder } = await import(
+                "../buffet/services/selectedOrderService.js"
+              );
+              const selected = getSelectedOrder();
+              if (selected && selected.token_number) {
+                selectedTokenFilter = String(selected.token_number).trim();
+              }
+            }
+          } catch (e) {
+            selectedTokenFilter = null;
+          }
+
+          const messageMatchesSelected = (msg) => {
+            if (!selectedTokenFilter) return true;
+            const msgToken =
+              msg.token_no === null || msg.token_no === undefined
+                ? ""
+                : String(msg.token_no).trim();
+            if (!msgToken) return true;
+            return msgToken === selectedTokenFilter;
+          };
+
           // A token may have several saved snapshots (repeated manual lookups). Render only
           // the latest snapshot per token and drop the stale duplicates so the chat shows
           // a single, current order-details card after restore.
           const latestSnapshotIndexByToken = new Map();
           cachedMessages.forEach((msg, idx) => {
             if (msg.type === "buffet_order_details" && msg.token_no != null) {
+              if (!messageMatchesSelected(msg)) return;
               latestSnapshotIndexByToken.set(String(msg.token_no), idx);
             }
           });
 
           cachedMessages.forEach((msg, idx) => {
+            if (!messageMatchesSelected(msg)) return;
+
             if (msg.type === "buffet_order_details" && msg.token_no != null) {
               const tokenKey = String(msg.token_no);
               // Skip every snapshot for this token except the most recent one.

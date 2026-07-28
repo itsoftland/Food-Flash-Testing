@@ -519,6 +519,23 @@ export const ChatSyncService = (() => {
                 if (!recoveryGuard) continue;
                 if (alreadyHandled) continue;
 
+                // Phase 9: Buffet Multi-Order — do not paint non-Selected
+                // tokens into the visible conversation. Still mark handled
+                // so sync state stays correct; rebuild loads them later.
+                let paintMessage = true;
+                if (isDineFlashBuffetSurface()) {
+                    try {
+                        const convMod = await import(
+                            "../buffet/services/selectedOrderConversationService.js"
+                        );
+                        if (typeof convMod.shouldPaintHistoryMessage === "function") {
+                            paintMessage = Boolean(convMod.shouldPaintHistoryMessage(msg));
+                        }
+                    } catch (e) {
+                        paintMessage = true;
+                    }
+                }
+
                 const messageType = resolveMessageType(msg);
                 const appendKey = resolveAppendKey(msg);
 
@@ -527,22 +544,25 @@ export const ChatSyncService = (() => {
                     token_no: msg.token_no,
                     type: messageType,
                     project: currentProject(),
+                    paint: paintMessage,
                 });
 
-                appendMessage(
-                    msg.rendered,
-                    msg.sender,
-                    msg.timestamp,
-                    messageType,
-                    appendKey
-                );
+                if (paintMessage) {
+                    appendMessage(
+                        msg.rendered,
+                        msg.sender,
+                        msg.timestamp,
+                        messageType,
+                        appendKey
+                    );
 
-                dineFlashClientDiag("SYNC_APPENDED", {
-                    booking_id: resolveBookingId(msg),
-                    token_no: msg.token_no,
-                    type: messageType,
-                    project: currentProject(),
-                });
+                    dineFlashClientDiag("SYNC_APPENDED", {
+                        booking_id: resolveBookingId(msg),
+                        token_no: msg.token_no,
+                        type: messageType,
+                        project: currentProject(),
+                    });
+                }
 
                 registerPushDelivered(msg, vendorId);
             }

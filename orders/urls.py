@@ -59,6 +59,11 @@ urlpatterns = [
         buffet_views.resolve_order_lookup,
         name='buffet_resolve_order_lookup',
     ),
+    path(
+        'api/buffet/active_orders/',
+        buffet_views.list_active_orders,
+        name='buffet_active_orders',
+    ),
     path('api/buffet/utility-login/', buffet_views.buffet_utility_login, name='buffet_utility_login'),
     path('buffet/table_booking/', buffet_views.buffet_table_booking, name='buffet_table_booking'),
     path('buffet/utility_selection/', buffet_views.buffet_utility_selection, name='buffet_utility_selection'),

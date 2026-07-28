@@ -1096,6 +1096,49 @@ class BuffetOrderLookup(models.Model):
         return f"BuffetOrderLookup {self.order_lookup_id} → Order {self.order_id}"
 
 
+class BuffetActiveOrder(models.Model):
+    """
+    Dine Flash Buffet only — Active Order Registry entry.
+
+    Tracks concurrently active buffet orders for an opaque order_lookup_id.
+    Additive to BuffetOrderLookup (Latest Order Wins). Does not replace recovery,
+    browser_id, PushSubscription, cookies, or WebChatMessage.
+
+    One registry row per Order (OneToOne). Many rows may share the same
+    order_lookup_id (multi-order). Deleted when the Order is deleted (CASCADE).
+    """
+
+    order_lookup_id = models.CharField(max_length=255, db_index=True)
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="buffet_active_order",
+    )
+    # Denormalized from Order at registration (token/vendor do not change).
+    token_no = models.IntegerField()
+    vendor_id = models.IntegerField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["order_lookup_id", "vendor_id"],
+                name="buffet_active_lookup_vendor_idx",
+            ),
+        ]
+
+    @property
+    def booking_id(self):
+        return self.order_id
+
+    def __str__(self):
+        return (
+            f"BuffetActiveOrder lookup={self.order_lookup_id} "
+            f"token={self.token_no} order_id={self.order_id}"
+        )
+
+
 class DineFlashBookingLookup(models.Model):
     """
     Dine Flash only opaque recovery pointer: order_lookup_id → current booking Order.

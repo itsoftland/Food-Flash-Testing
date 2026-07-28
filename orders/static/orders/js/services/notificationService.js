@@ -290,7 +290,34 @@ async function showNotificationModal(pushData, source) {
     // 🔔 Sound + Chat Update
     AppUtils.playNotificationSound(pushData.vibration_pattern,pushData.vibration_duration);
     const { vendor_id, logo_url, name } = pushData;
-    updateChatOnPush(vendor_id, logo_url, name);
+    // Phase 8 (Dine Flash Buffet): skip Home vendor switch when push is for a
+    // different active order under Multi-Order Mode. Other flavours unchanged.
+    let applyPushHomeContext = true;
+    if (isBuffetFlavour) {
+        try {
+            const base =
+                typeof window !== "undefined" && typeof window.BASE === "string" && window.BASE
+                    ? window.BASE
+                    : "/";
+            const v =
+                typeof window !== "undefined" &&
+                typeof window.APP_VERSION === "string" &&
+                window.APP_VERSION.trim() !== ""
+                    ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+                    : "";
+            const pushCompat = await import(
+                `${base}static/orders/js/buffet/services/multiOrderPushCompatibilityService.js${v}`
+            );
+            if (typeof pushCompat.shouldApplyPushHomeContext === "function") {
+                applyPushHomeContext = Boolean(pushCompat.shouldApplyPushHomeContext(pushData));
+            }
+        } catch (e) {
+            console.warn("[buffet] notification home-context gate failed:", e);
+        }
+    }
+    if (applyPushHomeContext) {
+        updateChatOnPush(vendor_id, logo_url, name);
+    }
 
     // 🧹 Auto-clear order state after 1 hour
     if (clearTimers[token]) clearTimeout(clearTimers[token]);

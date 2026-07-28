@@ -5,10 +5,15 @@
 // Does not call check_status(); on a newer mapped order it refreshes storage and
 // redirects to /home/ so the existing home init runs once.
 //
+// Phase 6: Multi-Order Mode may restore Selected Order (validated via Registry)
+// instead of forcing Latest. Single-order users (flag off) keep Latest behaviour.
+//
 // Critical: only reacts to a genuine hidden → visible transition. Initial /home/
 // load (already visible) must not trigger a lookup.
 
 import { resolveOrderLookupForRelaunch } from "./orderLookupService.js";
+import { tryRestoreSelectedOrder, applyLatestOrderIdentity } from "./selectedOrderRestoreService.js";
+import { isMultiOrderMode } from "./multiOrderModeService.js";
 
 let listenersBound = false;
 /** True only after we have observed visibilityState === "hidden" on this page. */
@@ -91,6 +96,69 @@ async function applyAndRedirect(resolved) {
     window.location.replace(newUrl.toString());
 }
 
+async function readLocationId() {
+    if (typeof AppUtils !== "undefined" && typeof AppUtils.get === "function") {
+        try {
+            const locationId = await AppUtils.get();
+            return normalizeId(locationId);
+        } catch (e) {
+            return "";
+        }
+    }
+    return normalizeId(AppUtils?.storageGet?.("activeLocation"));
+}
+
+/**
+ * Phase 6 Multi-Order warm resume: restore Selected Order when still active.
+ * @returns {Promise<boolean>} true if handled (caller must not run Latest path)
+ */
+async function tryMultiOrderSelectedResume() {
+    if (!isMultiOrderMode()) return false;
+
+    const current = await readCurrentTokenVendor();
+    const restoreResult = await tryRestoreSelectedOrder();
+
+    if (restoreResult.outcome === "restored" && restoreResult.order) {
+        const selectedAsResolved = {
+            token_no: restoreResult.order.token_number,
+            vendor_id: restoreResult.order.vendor_id,
+            location_id: await readLocationId(),
+        };
+        if (identitiesMatch(current, selectedAsResolved)) {
+            if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+                AppUtils.handoffDiag("BUFFET_SELECTED_ORDER_RESUME_UNCHANGED", {
+                    page: "home",
+                    token_no: current.token,
+                    vendor_id: current.vendor,
+                    branch: "multi_order_mode",
+                });
+            }
+            return true;
+        }
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag("BUFFET_SELECTED_ORDER_RESUME_REDIRECT", {
+                page: "home",
+                token_no: selectedAsResolved.token_no,
+                vendor_id: selectedAsResolved.vendor_id,
+                branch: "multi_order_mode",
+            });
+        }
+        await applyAndRedirect(selectedAsResolved);
+        return true;
+    }
+
+    if (restoreResult.outcome === "fallback") {
+        if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
+            AppUtils.handoffDiag("BUFFET_SELECTED_ORDER_RESUME_FALLBACK", {
+                page: "home",
+                reason: restoreResult.reason || "",
+                branch: "multi_order_mode",
+            });
+        }
+    }
+    return false;
+}
+
 async function handleGenuineResume() {
     if (inFlight) return;
     if (!isEnabled()) return;
@@ -103,6 +171,11 @@ async function handleGenuineResume() {
 
     inFlight = true;
     try {
+        // Phase 6: Multi-Order Mode may restore Selected Order and stop here.
+        // Single-order / fallback continues to Latest resolve below.
+        const handledBySelected = await tryMultiOrderSelectedResume();
+        if (handledBySelected) return;
+
         const result = await resolveOrderLookupForRelaunch({
             order_lookup_id: orderLookupId,
         });
@@ -126,9 +199,15 @@ async function handleGenuineResume() {
                     vendor_id: current.vendor,
                 });
             }
+            if (isMultiOrderMode()) {
+                await applyLatestOrderIdentity(result.order);
+            }
             return;
         }
 
+        if (isMultiOrderMode()) {
+            await applyLatestOrderIdentity(result.order);
+        }
         await applyAndRedirect(result.order);
     } catch (e) {
         console.warn("[buffet] order_lookup warm resume failed:", e);

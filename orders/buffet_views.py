@@ -25,6 +25,12 @@ from vendors.models import (
 from manager.utils.utils import reset_counters_if_new_business_day
 from core.config.status_choices import STATUS_CHOICES_MAP
 from orders.buffet_table_qr import is_valid_buffet_table_no, unsign_buffet_table_qr
+from orders.buffet.active_order_registry import (
+    latest_buffet_order_id_for_lookup,
+    list_selectable_buffet_active_orders,
+    register_buffet_active_order,
+    serialize_buffet_active_order_for_selector,
+)
 from orders.buffet.order_lookup import (
     BuffetOrderLookupResolveStatus,
     normalize_order_lookup_id,
@@ -127,6 +133,10 @@ def buffet_submit_order(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # "+" / additional-order path: register Active Order only; do not move Latest Order Wins.
+    # Default False preserves today's QR / single-order submit (lookup upsert unchanged).
+    is_additional_order = data.get("is_additional_order") is True
+
     if not vendor_id or not items_data:
         logger.warning(
             "[buffet_submit_order] Missing required fields | vendor_id=%s | items_count=%s",
@@ -220,9 +230,32 @@ def buffet_submit_order(request):
             )
             return Response({"error": "No valid items found in order."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Latest Order Wins pointer — only when optional order_lookup_id was provided.
-        if order_lookup_id:
+        # Latest Order Wins pointer — QR / primary path only (not "+" additional orders).
+        if order_lookup_id and not is_additional_order:
             upsert_buffet_order_lookup(order_lookup_id=order_lookup_id, order=order)
+
+        # Active Order Registry: additive, post-commit only. Never affects Order / lookup txn.
+        if order_lookup_id:
+            order_pk = order.pk
+            registry_lookup_id = order_lookup_id
+
+            def _register_buffet_active_order_after_commit():
+                try:
+                    order_obj = Order.objects.select_related("vendor").get(pk=order_pk)
+                    register_buffet_active_order(
+                        order_lookup_id=registry_lookup_id,
+                        order=order_obj,
+                    )
+                except Exception:
+                    logger.exception(
+                        "[buffet_submit_order] active_order_registry failed | "
+                        "order_lookup_id=%s order_id=%s is_additional_order=%s",
+                        registry_lookup_id,
+                        order_pk,
+                        is_additional_order,
+                    )
+
+            transaction.on_commit(_register_buffet_active_order_after_commit)
 
     # Note: For DineFlash Buffet, we may need to trigger a web socket / mqtt message to the Kitchen View here.
     # The kitchen view will poll or rely on mqtt. We can add MQTT publishing later if required.
@@ -302,6 +335,50 @@ def resolve_order_lookup(request):
             {"error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_active_orders(request):
+    """
+    Dine Flash Buffet only: Order Selector data API.
+
+    Reads BuffetActiveOrder for order_lookup_id. Marks is_latest from
+    BuffetOrderLookup (Latest Order Wins), never from the Registry.
+
+    Does not mutate Order, PushSubscription, Chat, or recovery paths.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    order_lookup_id = request.query_params.get("order_lookup_id")
+    normalized = normalize_order_lookup_id(order_lookup_id)
+    if normalized is None:
+        logger.info(
+            "[buffet] list_active_orders invalid_input | order_lookup_id_present=%s",
+            order_lookup_id is not None and str(order_lookup_id).strip() != "",
+        )
+        return Response(
+            {"status": "invalid_input"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    latest_order_id = latest_buffet_order_id_for_lookup(order_lookup_id=normalized)
+    entries = list_selectable_buffet_active_orders(order_lookup_id=normalized)
+    payload = [
+        serialize_buffet_active_order_for_selector(
+            entry,
+            is_latest=(latest_order_id is not None and entry.order_id == latest_order_id),
+        )
+        for entry in entries
+    ]
+    logger.info(
+        "[buffet] list_active_orders ok | order_lookup_id=%s count=%s latest_order_id=%s",
+        normalized,
+        len(payload),
+        latest_order_id,
+    )
+    return Response(payload, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

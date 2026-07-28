@@ -39,6 +39,11 @@
     <div id="ad-slider" class="ad-track"></div>
 </div>
 
+{% if PROJECT_NAME == 'dine_flash_buffet' %}
+{# Phase 4: read-only Active Order Selector. Hidden until multiple active orders. #}
+<div id="buffet-active-order-selector" class="buffet-active-order-selector" hidden aria-hidden="true"></div>
+{% endif %}
+
 <div class="page-wrapper">
     <!-- Header with Toggle Button -->
     <div class="chat-header">

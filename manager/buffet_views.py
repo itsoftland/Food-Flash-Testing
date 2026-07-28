@@ -22,6 +22,48 @@ logger = logging.getLogger(__name__)
 project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
 
 
+def _sync_buffet_registry_after_lifecycle(order):
+    """
+    Dine Flash Buffet only: drop inactive orders from Active Order Registry.
+    Uses transaction.on_commit so removal runs after the status write commits.
+    Never touches BuffetOrderLookup / recovery.
+    """
+    if project_name != "dine_flash_buffet":
+        return
+    if order is None or getattr(order, "pk", None) is None:
+        return
+    order_id = order.pk
+
+    def _run():
+        try:
+            from orders.buffet.active_order_registry import (
+                sync_buffet_active_order_lifecycle,
+            )
+            from vendors.models import Order as OrderModel
+
+            fresh = (
+                OrderModel.objects.filter(pk=order_id)
+                .prefetch_related("buffet_items")
+                .first()
+            )
+            if fresh is None:
+                return
+            removed = sync_buffet_active_order_lifecycle(order=fresh)
+            if removed:
+                logger.info(
+                    "[buffet] registry lifecycle removed order_id=%s token_no=%s status=%s",
+                    fresh.pk,
+                    fresh.token_no,
+                    fresh.status,
+                )
+        except Exception:
+            logger.exception(
+                "[buffet] registry lifecycle sync failed order_id=%s",
+                order_id,
+            )
+
+    transaction.on_commit(_run)
+
 def _buffet_vendor_chat_alias(vendor):
     """
     Header label for Dine Flash Buffet customer chat / push payloads.
@@ -788,6 +830,7 @@ def _update_buffet_item_status(request, new_status):
                     )
 
             updated_any = False
+            touched_order = None
             for item in items:
                 if item.status == new_status:
                     continue
@@ -796,6 +839,7 @@ def _update_buffet_item_status(request, new_status):
                 item.save(update_fields=["status"])
                 _notify_item_update(vendor, item, new_status)
                 updated_any = True
+                touched_order = item.order
                 logger.info(
                     "[buffet_update_item_status] Status updated | vendor_id=%s | token_no=%s | "
                     "item_id=%s | utility_id=%s | %s -> %s",
@@ -806,6 +850,9 @@ def _update_buffet_item_status(request, new_status):
                     previous_status,
                     new_status,
                 )
+
+            if updated_any and touched_order is not None:
+                _sync_buffet_registry_after_lifecycle(touched_order)
 
             if not updated_any:
                 ref = items[0]
@@ -887,6 +934,9 @@ def mark_booking_delivered(request):
             order.status = 'delivered'
             order.updated_by = 'manager'
             order.save(update_fields=['status', 'updated_by'])
+
+            # Phase 7: booking completed → leave Active Order Registry.
+            _sync_buffet_registry_after_lifecycle(order)
             
             # Note: No item-level chat message as per requirement
             push_payload = {
