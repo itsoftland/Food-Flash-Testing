@@ -67,8 +67,19 @@ export const AddOutletService = (() => {
         String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet";
 
     /**
-     * Dine Flash Buffet ONLY: Home "+" → existing Multi-Order entry
-     * (same vendor source as order_confirmation "Place Another Order").
+     * Dine Flash Buffet ONLY: Home "+" → Multi-Order additional-order funnel.
+     *
+     * Lifecycle (must not skip table_booking):
+     *   markAdditionalOrderIntent (session)
+     *   → buffet/table_booking?vendor_id=...  (manual table entry)
+     *   → utility_selection → combined_options
+     *   → submit is_additional_order=true → registry / Multi-Order Mode
+     *   → Home → Active Order Selector
+     *
+     * Intent is marked here and survives table_booking → utility → combined
+     * via sessionStorage. table_booking must not clear it and does not need
+     * to re-mark (QR entry is Order-1; "+" is the additional-order entry).
+     * Same vendor source as order_confirmation "Place Another Order".
      */
     const startBuffetAdditionalOrder = async (event) => {
         if (event) {
@@ -101,7 +112,16 @@ export const AddOutletService = (() => {
             AppUtils.showToast("Unable to start another order. Please try again.");
             return;
         }
-        window.location.href = `${base}buffet/utility_selection/?vendor_id=${vendorId}`;
+        // Fresh draft for the additional order: force manual table re-entry and
+        // a clean utility selection. Do not clear buffet_additional_order_intent.
+        try {
+            sessionStorage.removeItem("buffet_table_number");
+            sessionStorage.removeItem("buffet_selected_utilities");
+        } catch (e) {
+            // ignore
+        }
+        // No QR / table_no query params — table_booking stays editable for manual entry.
+        window.location.href = `${base}buffet/table_booking/?vendor_id=${vendorId}`;
     };
 
     const openModal = async () => {

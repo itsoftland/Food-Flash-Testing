@@ -41,8 +41,10 @@ function enableMultiOrderMode() {
 }
 
 /**
- * Session-only intent: user entered the "+" ordering flow.
- * Survives utility → combined navigation; cleared after submit attempt.
+ * Session-only intent: user entered the "+" / Place Another Order flow.
+ * Marked on Home (or confirmation) before navigating to table_booking.
+ * Survives table_booking → utility → combined; cleared after submit attempt.
+ * table_booking must not clear this key and does not need to re-mark it.
  */
 function markAdditionalOrderIntent() {
     try {
@@ -70,7 +72,8 @@ function hasAdditionalOrderIntent() {
 
 /**
  * True when this submit should be treated as "+" (additional order).
- * Either explicit intent from Place Another Order, or already in Multi-Order Mode.
+ * Explicit intent from Home "+" / Place Another Order (survives table_booking),
+ * or already latched Multi-Order Mode after a prior additional submit.
  */
 function shouldSubmitAsAdditionalOrder() {
     return hasAdditionalOrderIntent() || isMultiOrderMode();

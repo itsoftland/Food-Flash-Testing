@@ -187,7 +187,10 @@
             const phoneEl = document.getElementById("phone_number");
             const phoneNumber = phoneEl ? phoneEl.value.trim() : "";
 
-            // Save details to session/local storage for the next steps
+            // Save details to session/local storage for the next steps.
+            // Does not touch buffet_additional_order_intent — Multi-Order "+"
+            // intent (if marked on Home / confirmation) must survive into
+            // utility_selection → combined_options → is_additional_order submit.
             sessionStorage.setItem("buffet_table_number", tableNumber);
             sessionStorage.setItem("buffet_customer_name", customerName);
             sessionStorage.setItem("buffet_phone_number", phoneNumber);
