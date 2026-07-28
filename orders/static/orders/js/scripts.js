@@ -387,6 +387,12 @@ onDOMReady(async function () {
         });
         AddOutletService.init();
     }
+    // Buffet only: bind Home "+" immediately (including vendorFromQR / post-Order 1)
+    // so Bootstrap Add Outlet cannot open before VendorUIService recreates the button.
+    // Safe to call again after logo render — AddOutletService guards duplicate binds.
+    if (isDineFlashBuffetSurface) {
+        AddOutletService.init();
+    }
     if (tokenFromQR) {
         AppUtils.handoffDiag("HANDOFF_HOME_BRANCH", {
             page: "home",

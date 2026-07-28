@@ -63,6 +63,47 @@ export const AddOutletService = (() => {
         });
     };
 
+    const isDineFlashBuffet = () =>
+        String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet";
+
+    /**
+     * Dine Flash Buffet ONLY: Home "+" → existing Multi-Order entry
+     * (same vendor source as order_confirmation "Place Another Order").
+     */
+    const startBuffetAdditionalOrder = async (event) => {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        // Primary: same key as order_confirmation / table_booking.
+        // Fallback: Home identity (set by Order-1 redirect, restore, selector, PWA
+        // handoff). buffet_vendor_id is only written on table_booking and is not
+        // rehydrated by restore/handoff — so it can be missing while "+" is usable.
+        const vendorId =
+            localStorage.getItem("buffet_vendor_id") ||
+            (typeof AppUtils.storageGet === "function"
+                ? AppUtils.storageGet("activeVendor")
+                : null);
+        if (!vendorId) {
+            AppUtils.showToast("Vendor is missing. Please scan the table QR again.");
+            return;
+        }
+        try {
+            const mod = await import("../buffet/services/multiOrderModeService.js");
+            if (!mod || typeof mod.markAdditionalOrderIntent !== "function") {
+                console.error("[buffet] markAdditionalOrderIntent unavailable; staying on Home");
+                AppUtils.showToast("Unable to start another order. Please try again.");
+                return;
+            }
+            mod.markAdditionalOrderIntent();
+        } catch (err) {
+            console.error("[buffet] markAdditionalOrderIntent failed; staying on Home:", err);
+            AppUtils.showToast("Unable to start another order. Please try again.");
+            return;
+        }
+        window.location.href = `${base}buffet/utility_selection/?vendor_id=${vendorId}`;
+    };
+
     const openModal = async () => {
         locationId = await AppUtils.get(); // from utils.js
     
@@ -90,9 +131,28 @@ export const AddOutletService = (() => {
             bsModal.show();
         }
     };
+
+    const onAddOutletClick = async (event) => {
+        if (isDineFlashBuffet()) {
+            await startBuffetAdditionalOrder(event);
+            return;
+        }
+        await openModal();
+    };
     
     const bindEvents = () => {
-        document.getElementById("add-outlet-btn")?.addEventListener("click", openModal);
+        const addBtn = document.getElementById("add-outlet-btn");
+        // Avoid stacking handlers when init runs more than once on the same node
+        // (e.g. scripts.js + VendorUIService). Recreated buttons bind normally.
+        if (addBtn && addBtn.dataset.addOutletBound !== "1") {
+            addBtn.dataset.addOutletBound = "1";
+            // Buffet: strip Bootstrap modal attrs so data-api cannot open Add Outlet.
+            if (isDineFlashBuffet()) {
+                addBtn.removeAttribute("data-bs-toggle");
+                addBtn.removeAttribute("data-bs-target");
+            }
+            addBtn.addEventListener("click", onAddOutletClick);
+        }
 
         document.getElementById("continue-btn")?.addEventListener("click", () => {
             if (selectedVendorIds.size === 0) {
