@@ -5,6 +5,7 @@
 // exist, selecting a row stores Selected Order and reloads Home status +
 // visible conversation for that order (Phase 9 via Home hook). Does not
 // touch BuffetOrderLookup, Registry writes, push routing, or recovery.
+// Presentation: compact horizontal token cards (Token + 12h time).
 
 import {
     getSelectedOrder,
@@ -103,11 +104,11 @@ function formatCreatedAt(iso) {
     try {
         const date = new Date(iso);
         if (Number.isNaN(date.getTime())) return "";
-        return date.toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
+        // Presentation only: 12-hour creation time with AM/PM (e.g. 09:05 AM).
+        return date.toLocaleTimeString(undefined, {
+            hour: "2-digit",
             minute: "2-digit",
+            hour12: true,
         });
     } catch (e) {
         return "";
@@ -283,7 +284,6 @@ async function handleOrderSelect(order) {
 
 function buildItemElement(order, { currentToken }) {
     const tokenNumber = order.token_number;
-    const isLatest = Boolean(order.is_latest);
     const isCurrent = tokensMatch(tokenNumber, currentToken);
     const createdLabel = formatCreatedAt(order.created_at);
 
@@ -292,11 +292,9 @@ function buildItemElement(order, { currentToken }) {
     item.className = "buffet-aos-item";
     if (isCurrent) {
         item.classList.add("is-current");
-    }
-    item.setAttribute("aria-pressed", isCurrent ? "true" : "false");
-    if (isCurrent) {
         item.classList.add("is-highlighted");
     }
+    item.setAttribute("aria-pressed", isCurrent ? "true" : "false");
 
     // Identity for selection — no internal booking/order ids beyond selector payload.
     item.dataset.tokenNumber =
@@ -310,16 +308,9 @@ function buildItemElement(order, { currentToken }) {
             ? String(order.order_lookup_id)
             : "";
 
-    const marker = document.createElement("span");
-    marker.className = "buffet-aos-marker";
-    marker.setAttribute("aria-hidden", "true");
-    marker.textContent = isCurrent ? "●" : "○";
-
+    // Compact card: Token + creation time only (no badges / markers).
     const body = document.createElement("span");
     body.className = "buffet-aos-body";
-
-    const titleRow = document.createElement("span");
-    titleRow.className = "buffet-aos-title-row";
 
     const title = document.createElement("span");
     title.className = "buffet-aos-title";
@@ -327,29 +318,7 @@ function buildItemElement(order, { currentToken }) {
         tokenNumber !== null && tokenNumber !== undefined
             ? `Token ${tokenNumber}`
             : "Token";
-
-    titleRow.appendChild(title);
-
-    if (isLatest) {
-        const latest = document.createElement("span");
-        latest.className = "buffet-aos-badge buffet-aos-badge-latest";
-        latest.textContent = "Latest";
-        titleRow.appendChild(latest);
-    }
-
-    if (isCurrent) {
-        const current = document.createElement("span");
-        current.className = "buffet-aos-badge buffet-aos-badge-current";
-        current.textContent = "Current";
-        titleRow.appendChild(current);
-    }
-
-    const active = document.createElement("span");
-    active.className = "buffet-aos-badge buffet-aos-badge-active";
-    active.textContent = "Active";
-    titleRow.appendChild(active);
-
-    body.appendChild(titleRow);
+    body.appendChild(title);
 
     if (createdLabel) {
         const meta = document.createElement("span");
@@ -358,7 +327,6 @@ function buildItemElement(order, { currentToken }) {
         body.appendChild(meta);
     }
 
-    item.appendChild(marker);
     item.appendChild(body);
 
     item.addEventListener("click", (event) => {

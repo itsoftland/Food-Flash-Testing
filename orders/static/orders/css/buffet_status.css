@@ -196,10 +196,12 @@
 /* ===========================================
    Phase 4 — Active Order Selector (display only)
    Shown only when GET active_orders returns 2+.
+   dine_flash_buffet only (stylesheet gated in index.html).
+   Compact horizontal row — maximises chat visibility.
    =========================================== */
 .buffet-active-order-selector {
     flex-shrink: 0;
-    padding: 0 12px 8px;
+    padding: 0 12px 2px;
 }
 
 .buffet-active-order-selector[hidden] {
@@ -209,33 +211,64 @@
 .buffet-aos-panel {
     background: #ffffff;
     border-radius: 12px;
-    padding: 10px 12px;
+    padding: 4px 10px 4px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     border-left: 4px solid #1565c0;
 }
 
 .buffet-aos-heading {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: #1565c0;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
+    line-height: 1.2;
 }
 
+/* Single horizontal scroll row — never wrap */
 .buffet-aos-list {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+    /* Keep scroll affordance without adding empty space under the row */
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+.buffet-aos-list::-webkit-scrollbar {
+    height: 2px;
+}
+
+.buffet-aos-list::-webkit-scrollbar-thumb {
+    background: #90a4ae;
+    border-radius: 999px;
+}
+
+.buffet-aos-list::-webkit-scrollbar-track {
+    background: #e8eef3;
+    border-radius: 999px;
 }
 
 .buffet-aos-item {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
-    width: 100%;
+    justify-content: center;
+    flex: 0 0 auto;
+    /* ~3.5 cards visible — next card peeks to hint horizontal scroll */
+    width: calc((100% - 24px) / 3.5);
+    min-width: 5.5rem;
+    max-width: 7.5rem;
     text-align: left;
-    padding: 10px 12px;
+    padding: 4px 10px;
     background: #f7f9fb;
     border: 1.5px solid transparent;
     border-radius: 10px;
@@ -244,6 +277,7 @@
     transition: border-color 0.2s ease, background 0.2s ease;
 }
 
+/* Selected styling — keep identical to prior vertical selector */
 .buffet-aos-item.is-current {
     background: #eef5fc;
     border-color: #90caf9;
@@ -254,63 +288,29 @@
     background: #e3eefb;
 }
 
-.buffet-aos-marker {
-    flex-shrink: 0;
-    font-size: 0.85rem;
-    line-height: 1.4;
-    color: #1565c0;
-    margin-top: 1px;
-}
-
 .buffet-aos-body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
     min-width: 0;
-}
-
-.buffet-aos-title-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+    width: 100%;
 }
 
 .buffet-aos-title {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: #0d3f69;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .buffet-aos-meta {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #6b7280;
-}
-
-.buffet-aos-badge {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 999px;
-    letter-spacing: 0.03em;
+    white-space: nowrap;
+    line-height: 1.2;
+    /* Ensure AM/PM renders uppercase without JS changes */
     text-transform: uppercase;
-}
-
-.buffet-aos-badge-latest {
-    background: #fff3e0;
-    color: #e65100;
-    border: 1px solid #ffcc80;
-}
-
-.buffet-aos-badge-current {
-    background: #e3f2fd;
-    color: #0d47a1;
-    border: 1px solid #90caf9;
-}
-
-.buffet-aos-badge-active {
-    background: #e8f5e9;
-    color: #1b5e20;
-    border: 1px solid #a5d6a7;
 }
