@@ -1124,7 +1124,7 @@ class BuffetActiveOrder(models.Model):
         indexes = [
             models.Index(
                 fields=["order_lookup_id", "vendor_id"],
-                name="buffet_active_lookup_vendor_idx",
+                name="buffet_act_vendor_idx",
             ),
         ]
 
