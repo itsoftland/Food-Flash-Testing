@@ -1,5 +1,6 @@
 // static/js/chatService.js
 import {ChatHistoryService}  from "./chatHistoryService.js";
+import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
 export function updateChatOnPush(vendorId, logo_url, name) {
     document.querySelectorAll(".vendor-logo-wrapper").forEach(wrapper => {
@@ -111,6 +112,7 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
             type === 'dinestatus' ||
             type === 'hospitalstatus' ||
             type === 'dine_manager' ||
+            type === HOSPITAL_MANAGER_PUSH_TYPE ||
             isBuffetReplyableType(type)
         )
     ) {

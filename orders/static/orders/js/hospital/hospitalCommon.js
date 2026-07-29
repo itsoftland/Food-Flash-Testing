@@ -2,6 +2,9 @@ export const HOSPITAL_DRAFT_KEY = "hospital_registration_draft";
 export const HOSPITAL_RESULT_KEY = "hospital_registration_result";
 export const HOSPITAL_TRACKING_BATCH_KEY = "hospital_registration_batch_id";
 
+/** Hospital Flash push `type` for manager → patient chat (not status updates). */
+export const HOSPITAL_MANAGER_PUSH_TYPE = "hospital_manager";
+
 export function hospitalOnly() {
     const project = String(window.PROJECT_NAME || "").toLowerCase();
     const path = String(window.location?.pathname || "").toLowerCase();

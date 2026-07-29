@@ -4,6 +4,7 @@
 
 // ✅ Import IndexedDB helper (for caching small key-value pairs)
 import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js";
+import { HOSPITAL_MANAGER_PUSH_TYPE } from "./hospital/hospitalCommon.js";
 
 // ⚠️ TEMP DIAGNOSTIC — prove AppUtils availability at Book click (remove after investigation).
 // Posts directly to dine_flash_client_diag so breadcrumbs reach orders.log even before
@@ -1207,6 +1208,8 @@ window.AppUtils = {
 
             } else if (pushData.type === 'dine_manager') {
                 // 📩 Manager broadcast messages
+                message = `You have a new message. Please check the app for details.`;
+            } else if (pushData.type === HOSPITAL_MANAGER_PUSH_TYPE) {
                 message = `You have a new message. Please check the app for details.`;
             } else if (pushData.type === 'buffet_manager') {
                 message = `You have a new message. Please check the app for details.`;

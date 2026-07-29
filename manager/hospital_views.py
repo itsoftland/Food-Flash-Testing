@@ -1,7 +1,8 @@
 import logging
+import threading
 
 from django.conf import settings
-from django.db import transaction
+from django.db import close_old_connections, transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,15 +12,20 @@ from core.config.status_choices import STATUS_CHOICES_MAP
 from manager.hospital_pre_announcement import process_hospital_pre_announcements
 from orders.serializers import VendorLogoSerializer
 from static.utils.functions.queries import update_patient_status_by_hospital_manager
-from static.utils.functions.utils import get_vendor_business_day_range
+from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
 from vendors.hospital_tv import refresh_hospital_tv
-from vendors.models import Order, Utility
+from vendors.models import ChatMessage, Order, Utility
 from vendors.utils import notify_web_push
 
 logger = logging.getLogger(__name__)
 project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
 
 HOSPITAL_STATUS_ACTIONS = frozenset({"called", "completed", "cancelled"})
+HOSPITAL_MAX_MESSAGE_LENGTH = 200
+
+# Hospital Flash push `type` discriminators (status vs manager chat).
+HOSPITAL_STATUS_PUSH_TYPE = "hospitalstatus"
+HOSPITAL_MANAGER_PUSH_TYPE = "hospital_manager"
 
 HOSPITAL_STATUS_TRANSITIONS = {
     "registered": {"waiting"},
@@ -101,7 +107,7 @@ def build_hospital_department_status_payload(request, order, new_status):
     return {
         "title": "Department Status Update",
         "body": f"{utility_display} ({order.table_booking_no}): {new_status}",
-        "type": "hospitalstatus",
+        "type": HOSPITAL_STATUS_PUSH_TYPE,
         "registration_batch_id": str(batch_id) if batch_id else None,
         "booking_id": order.id,
         "booking_no": order.table_booking_no,
@@ -131,6 +137,77 @@ def _authorize_hospital_department_user(user_profile, order):
     if not effective_departments:
         return False
     return order.utility_id in {dept.id for dept in effective_departments}
+
+
+def _resolve_hospital_manager_profile(request):
+    """Return (manager_profile, error_response). error_response is None on success."""
+    manager_qs = getattr(request.user, "profile_roles", None)
+    if not manager_qs or not manager_qs.exists():
+        return None, Response({"message": "User is not a manager."}, status=status.HTTP_403_FORBIDDEN)
+    manager = manager_qs.first()
+    if not manager.vendor:
+        return None, Response(
+            {"message": "Manager does not have an associated vendor."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return manager, None
+
+
+def build_hospital_manager_chat_payload(request, order, message_text, message_id=None):
+    """Push payload for Hospital manager → patient chat (distinct from hospitalstatus)."""
+    vendor = order.vendor
+    vendor_serializer = VendorLogoSerializer(vendor, context={"request": request})
+    logo_url = vendor_serializer.data.get("logo_url", "")
+    utility_display = order.utility.display_name if order.utility else "-"
+    batch_id = order.registration_batch_id
+    booking_no = order.table_booking_no
+
+    return {
+        "title": "Message from Hospital",
+        "body": f"You have a new message regarding booking {booking_no}.",
+        "type": HOSPITAL_MANAGER_PUSH_TYPE,
+        "status": message_text,
+        "registration_batch_id": str(batch_id) if batch_id else None,
+        "booking_id": order.id,
+        "booking_no": booking_no,
+        "utility_name": utility_display,
+        "customer_name": order.customer_name,
+        "token_no": order.token_no,
+        "counter_no": order.counter_no or 1,
+        "message_id": message_id,
+        "name": vendor.name,
+        "alias_name": vendor.alias_name,
+        "vendor_id": vendor.vendor_id,
+        "location_id": vendor.location_id,
+        "logo_url": logo_url,
+        "vibration_pattern": vendor.config.vibration_pattern,
+        "vibration_duration": vendor.config.vibration_duration,
+    }
+
+
+def _send_hospital_manager_message_push_async(order, vendor, payload, chat_message_id):
+    """
+    Send Hospital manager chat push in background so API responses do not block
+    on slow push endpoints. Mirrors shared manager chat push failure handling.
+    """
+    try:
+        close_old_connections()
+        push_errors = notify_web_push(order, vendor, payload)
+        if push_errors:
+            logger.warning(
+                "[manager_patient_message] Async web push failed booking_id=%s errors=%s",
+                getattr(order, "id", None),
+                push_errors,
+            )
+            ChatMessage.objects.filter(id=chat_message_id).update(is_send=False)
+    except Exception:
+        logger.exception(
+            "[manager_patient_message] Async web push exception booking_id=%s",
+            getattr(order, "id", None),
+        )
+        ChatMessage.objects.filter(id=chat_message_id).update(is_send=False)
+    finally:
+        close_old_connections()
 
 
 @api_view(["PATCH"])
@@ -277,6 +354,112 @@ def manager_patient_update(request):
             )
     except Exception:
         logger.exception("[manager_patient_update] Unexpected error booking_id=%s", booking_id)
+        return Response(
+            {"success": False, "message": "Internal server error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def manager_patient_message(request):
+    """
+    Hospital Flash: send a manager → patient chat message.
+
+    Dedicated chat endpoint — does not alter patient status or queue workflow.
+    Body: { "booking_id": <int>, "message": "<text>" }
+    Also accepts "message_text" as an alias for the message body.
+    """
+    blocked = _hospital_flash_only_response()
+    if blocked:
+        return blocked
+
+    data = request.data
+    booking_id_raw = data.get("booking_id")
+    message_text = (data.get("message") or data.get("message_text") or "").strip()
+
+    if booking_id_raw in (None, ""):
+        return Response({"message": "booking_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+    if not message_text:
+        return Response({"message": "message is required."}, status=status.HTTP_400_BAD_REQUEST)
+    if len(message_text) > HOSPITAL_MAX_MESSAGE_LENGTH:
+        return Response(
+            {"error": f"Message too long. Limit is {HOSPITAL_MAX_MESSAGE_LENGTH} characters."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        booking_id = int(booking_id_raw)
+    except (TypeError, ValueError):
+        return Response({"message": "booking_id must be a valid integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+    manager, auth_error = _resolve_hospital_manager_profile(request)
+    if auth_error:
+        return auth_error
+
+    vendor = manager.vendor
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    if not start_dt or not end_dt:
+        return Response({"error": "Invalid date range"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        booking = (
+            Order.objects.select_related("utility", "vendor", "vendor__config")
+            .filter(id=booking_id, vendor=vendor, created_at__range=(start_dt, end_dt))
+            .first()
+        )
+        if not booking:
+            return Response(
+                {"message": f"Booking with booking_id {booking_id} not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _authorize_hospital_department_user(manager, booking):
+            return Response(
+                {"message": "You are not authorized to message this department order."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        chat_message = ChatMessage.objects.create(
+            vendor=vendor,
+            token_no=booking.token_no,
+            booking_id=booking.id,
+            booking_no=booking.table_booking_no,
+            created_date=get_vendor_current_time(vendor).date(),
+            sender="manager",
+            is_send=True,
+            message_text=message_text,
+        )
+        payload = build_hospital_manager_chat_payload(
+            request, booking, message_text, message_id=chat_message.id
+        )
+
+        threading.Thread(
+            target=_send_hospital_manager_message_push_async,
+            args=(booking, vendor, payload, chat_message.id),
+            daemon=True,
+        ).start()
+
+        logger.info(
+            "[manager_patient_message] booking_id=%s message_id=%s manager=%s",
+            booking_id,
+            chat_message.id,
+            manager.name,
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Message sent successfully.",
+                "booking_id": booking.id,
+                "booking_no": booking.table_booking_no,
+                "message_id": chat_message.id,
+                "payload": payload,
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception:
+        logger.exception("[manager_patient_message] Unexpected error booking_id=%s", booking_id)
         return Response(
             {"success": False, "message": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

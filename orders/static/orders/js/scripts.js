@@ -18,6 +18,7 @@ import {
     getStoredBatchId,
     saveBatchId,
     isHospitalBatchPayload,
+    HOSPITAL_MANAGER_PUSH_TYPE,
 } from "./hospital/hospitalCommon.js";
 
 
@@ -1035,6 +1036,28 @@ onDOMReady(async function () {
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'notification');
                         appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
+                        break;
+                    case HOSPITAL_MANAGER_PUSH_TYPE:
+                        if (isHospitalFlashSurface) {
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'notification');
+                            appendMessage(
+                                messageHTML,
+                                'server',
+                                null,
+                                HOSPITAL_MANAGER_PUSH_TYPE,
+                                pushData.booking_id,
+                                pushData.message_id
+                            );
+                            await saveChat(
+                                pushData,
+                                'server',
+                                HOSPITAL_MANAGER_PUSH_TYPE,
+                                pushData.booking_id
+                            );
+                            break;
+                        }
+                        console.warn(`Ignoring ${HOSPITAL_MANAGER_PUSH_TYPE} on non-hospital surface`);
                         break;
                     case 'buffet_manager':
                         AppUtils.notifyOrderReady(pushData);

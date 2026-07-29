@@ -7,6 +7,7 @@
 
 import { ChatHistoryService } from "./chatHistoryService.js";
 import { appendMessage } from "./chatService.js";
+import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
 const RECOVERABLE_TYPES = new Set([
     "item_preparing",
@@ -178,6 +179,7 @@ function resolveMessageType(source) {
         innerType === "order_delivered" ||
         innerType === "dinestatus" ||
         innerType === "dine_manager" ||
+        innerType === HOSPITAL_MANAGER_PUSH_TYPE ||
         innerType === "thankyou"
     ) {
         return innerType;
@@ -332,6 +334,14 @@ function fingerprint(source, fallbackVendorId) {
 
     if (type === "hospital_pre_announcement") {
         return `${vendorId}|${bookingId}|hospital_pre_announcement`;
+    }
+
+    if (type === HOSPITAL_MANAGER_PUSH_TYPE) {
+        const messageId = resolveMessageId(source);
+        if (messageId) {
+            return `${vendorId}|${bookingId}|${HOSPITAL_MANAGER_PUSH_TYPE}|${messageId}`;
+        }
+        return `${vendorId}|${bookingId}|${HOSPITAL_MANAGER_PUSH_TYPE}|${hashString(resolveBody(source))}`;
     }
 
     if (type === "dine_manager") {

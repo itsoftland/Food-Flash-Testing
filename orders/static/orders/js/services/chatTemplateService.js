@@ -1,4 +1,6 @@
 
+import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
+
 const statusClassMap = {
   created: 'unknown-color',
   preparing: 'preparing-color',
@@ -901,6 +903,7 @@ export const ChatTemplateService = {
         return buildAirlineManagerMessage(payload);
       case "dine_manager":
       case "buffet_manager":
+      case HOSPITAL_MANAGER_PUSH_TYPE:
         return buildManagerMessage(payload);
       case "flightstatus":
         return buildFlightStatusMessage(payload);
