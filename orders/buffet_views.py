@@ -1,8 +1,7 @@
 import logging
-from collections import OrderedDict
 
 from django.conf import settings
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError
 from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
@@ -15,27 +14,26 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from vendors.models import (
     Vendor,
-    Order,
-    Utility,
-    BuffetOrderItem,
     AdminOutlet,
     UserProfile,
     AndroidAPK,
 )
-from manager.utils.utils import reset_counters_if_new_business_day
 from core.config.status_choices import STATUS_CHOICES_MAP
 from orders.buffet_table_qr import is_valid_buffet_table_no, unsign_buffet_table_qr
 from orders.buffet.active_order_registry import (
     latest_buffet_order_id_for_lookup,
     list_selectable_buffet_active_orders,
-    register_buffet_active_order,
     serialize_buffet_active_order_for_selector,
+)
+from orders.buffet.order_create import (
+    BUFFET_ITEM_REMARKS_MAX_LENGTH,
+    BuffetOrderCreateStatus,
+    create_buffet_order,
 )
 from orders.buffet.order_lookup import (
     BuffetOrderLookupResolveStatus,
     normalize_order_lookup_id,
     resolve_buffet_order_lookup,
-    upsert_buffet_order_lookup,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,61 +48,6 @@ def _buffet_workflow_context(step):
         "show_buffet_workflow_footer": True,
         "buffet_workflow_step": step,
     }
-
-# Aligns with dine_flash table_booking.js special_notes limit (200).
-BUFFET_ITEM_REMARKS_MAX_LENGTH = 200
-
-
-def _buffet_item_remarks_text(raw):
-    if raw is None:
-        return ""
-    if isinstance(raw, str):
-        return raw
-    return str(raw)
-
-
-def _normalize_buffet_customizations(raw):
-    if not raw:
-        return []
-    if not isinstance(raw, list):
-        return []
-    return sorted({str(x).strip() for x in raw if str(x).strip()})
-
-
-def _merge_identical_buffet_cart_lines(items_data):
-    """
-    Dine Flash Buffet: one BuffetOrderItem per distinct (utility, customizations, remarks).
-    Identical individual lines (e.g. plain dosas with no options) become one row with summed quantity.
-    """
-    buckets = OrderedDict()
-    for item in items_data or []:
-        utility_id = item.get("utility_id")
-        remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
-        customizations = _normalize_buffet_customizations(item.get("customizations"))
-        try:
-            qty = max(1, int(item.get("quantity", 1)))
-        except (TypeError, ValueError):
-            qty = 1
-        key = (utility_id, tuple(customizations), remarks)
-        if key not in buckets:
-            buckets[key] = {
-                "utility_id": utility_id,
-                "remarks": remarks,
-                "customizations": customizations,
-                "quantity": 0,
-                "is_grouped": bool(item.get("is_grouped", False)),
-            }
-        entry = buckets[key]
-        entry["quantity"] += qty
-        entry["is_grouped"] = entry["is_grouped"] or bool(item.get("is_grouped", False))
-
-    merged = []
-    for entry in buckets.values():
-        if entry["quantity"] > 1:
-            entry["is_grouped"] = True
-        merged.append(entry)
-    return merged
-
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -159,103 +102,32 @@ def buffet_submit_order(request):
         )
         return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    for item in items_data:
-        remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
-        if len(remarks) > BUFFET_ITEM_REMARKS_MAX_LENGTH:
-            return Response(
-                {
-                    "error": (
-                        f"Special instructions cannot exceed {BUFFET_ITEM_REMARKS_MAX_LENGTH} "
-                        "characters per item."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    result = create_buffet_order(
+        vendor=vendor,
+        items_data=items_data,
+        updated_by="customer",
+        table_number=table_number,
+        customer_name=customer_name,
+        phone_number=phone_number,
+        order_lookup_id=order_lookup_id,
+        is_additional_order=is_additional_order,
+        log_prefix="[buffet_submit_order]",
+    )
 
-    if project_name == "dine_flash_buffet":
-        items_data = _merge_identical_buffet_cart_lines(items_data)
-
-    with transaction.atomic():
-        reset_counters_if_new_business_day(vendor, None)
-        
-        last_booking = Order.objects.filter(vendor=vendor).order_by("-token_no").first()
-        token_no = (last_booking.token_no + 1) if last_booking else 1
-
-        order = Order.objects.create(
-            vendor=vendor,
-            token_no=token_no,
-            table_booking_no=table_number, # Store table number here
-            counter_no=1,
-            updated_by='customer',
-            status='created',
-            customer_name=customer_name,
-            phone_number=phone_number,
+    if result.status == BuffetOrderCreateStatus.REMARKS_TOO_LONG:
+        return Response(
+            {"error": result.error_message},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-        created_items = []
-        for item in items_data:
-            utility_id = item.get("utility_id")
-            utility = Utility.objects.filter(id=utility_id, vendor=vendor).first()
-            if not utility:
-                logger.warning(
-                    "[buffet_submit_order] Utility not found | utility_id=%s | vendor_id=%s",
-                    utility_id,
-                    vendor_id_int,
-                )
-                continue
-            
-            customizations = item.get("customizations", [])
-            item_remarks = _buffet_item_remarks_text(item.get("remarks")).strip()
-            is_grouped = item.get("is_grouped", False)
-            quantity = int(item.get("quantity", 1))
+    if result.status == BuffetOrderCreateStatus.NO_VALID_ITEMS:
+        return Response(
+            {"error": result.error_message},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-            buffet_item = BuffetOrderItem.objects.create(
-                order=order,
-                utility=utility,
-                status='created',
-                customizations=customizations,
-                remarks=item_remarks,
-                is_grouped=is_grouped,
-                quantity=quantity
-            )
-            created_items.append(buffet_item.id)
-            
-        if not created_items:
-            # If no items were created (e.g. due to invalid utilities), rollback.
-            transaction.set_rollback(True)
-            logger.warning(
-                "[buffet_submit_order] No valid items | vendor_id=%s | cart_lines=%s",
-                vendor_id_int,
-                len(items_data),
-            )
-            return Response({"error": "No valid items found in order."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Latest Order Wins pointer — QR / primary path only (not "+" additional orders).
-        if order_lookup_id and not is_additional_order:
-            upsert_buffet_order_lookup(order_lookup_id=order_lookup_id, order=order)
-
-        # Active Order Registry: additive, post-commit only. Never affects Order / lookup txn.
-        if order_lookup_id:
-            order_pk = order.pk
-            registry_lookup_id = order_lookup_id
-
-            def _register_buffet_active_order_after_commit():
-                try:
-                    order_obj = Order.objects.select_related("vendor").get(pk=order_pk)
-                    register_buffet_active_order(
-                        order_lookup_id=registry_lookup_id,
-                        order=order_obj,
-                    )
-                except Exception:
-                    logger.exception(
-                        "[buffet_submit_order] active_order_registry failed | "
-                        "order_lookup_id=%s order_id=%s is_additional_order=%s",
-                        registry_lookup_id,
-                        order_pk,
-                        is_additional_order,
-                    )
-
-            transaction.on_commit(_register_buffet_active_order_after_commit)
+    order = result.order
+    created_items = result.created_item_ids or []
 
     # Note: For DineFlash Buffet, we may need to trigger a web socket / mqtt message to the Kitchen View here.
     # The kitchen view will poll or rely on mqtt. We can add MQTT publishing later if required.

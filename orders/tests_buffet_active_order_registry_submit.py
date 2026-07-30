@@ -70,7 +70,7 @@ class BuffetSubmitActiveOrderRegistryTests(TestCase):
             format="json",
         )
         with patch(
-            "orders.buffet_views.reset_counters_if_new_business_day",
+            "orders.buffet.order_create.reset_counters_if_new_business_day",
             return_value=None,
         ):
             with self.captureOnCommitCallbacks(execute=True):

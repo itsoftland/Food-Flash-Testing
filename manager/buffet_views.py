@@ -17,6 +17,10 @@ from manager.utils.utils import get_manager_vendor
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push, buffet_utility_image_payload
 from static.utils.functions.utils import get_vendor_business_day_range
+from orders.buffet.order_create import (
+    BuffetOrderCreateStatus,
+    create_buffet_order,
+)
 
 logger = logging.getLogger(__name__)
 project_name = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
@@ -135,6 +139,112 @@ def _serialize_buffet_utility(request, utility):
     }
     payload.update(buffet_utility_image_payload(request, utility))
     return payload
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def buffet_create_order(request):
+    """
+    Dine Flash Buffet: Outlet Manager creates a customer Buffet order.
+
+    Uses the shared Buffet create core (same as customer buffet_submit_order).
+    Vendor is resolved from the authenticated manager profile — request vendor_id
+    is never trusted alone.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    logger.info(
+        "[buffet_create_order] Started | remote_addr=%s | user=%s",
+        request.META.get("REMOTE_ADDR"),
+        getattr(request.user, "username", None),
+    )
+
+    vendor = get_manager_vendor(request.user)
+    data = request.data or {}
+
+    # Optional: if client sends vendor_id, it must match the manager's outlet.
+    request_vendor_id = data.get("vendor_id")
+    if request_vendor_id is not None and str(request_vendor_id).strip() != "":
+        if str(request_vendor_id) != str(vendor.vendor_id):
+            logger.warning(
+                "[buffet_create_order] vendor_id mismatch | request=%s | manager=%s",
+                request_vendor_id,
+                vendor.vendor_id,
+            )
+            return Response(
+                {"error": "vendor_id does not match manager vendor."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    items_data = data.get("items", [])
+    if not items_data:
+        logger.warning(
+            "[buffet_create_order] Missing items | user=%s",
+            getattr(request.user, "username", None),
+        )
+        return Response(
+            {"error": "items are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    table_number = data.get("table_number")
+    customer_name = data.get("customer_name")
+    phone_number = data.get("phone_number") or None
+
+    manager_profile = (
+        request.user.profile_roles.order_by("id").first()
+        if hasattr(request.user, "profile_roles")
+        else None
+    )
+
+    result = create_buffet_order(
+        vendor=vendor,
+        items_data=items_data,
+        updated_by="manager",
+        user_profile=manager_profile,
+        table_number=table_number,
+        customer_name=customer_name,
+        phone_number=phone_number,
+        log_prefix="[buffet_create_order]",
+    )
+
+    if result.status == BuffetOrderCreateStatus.REMARKS_TOO_LONG:
+        return Response(
+            {"error": result.error_message},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if result.status == BuffetOrderCreateStatus.NO_VALID_ITEMS:
+        return Response(
+            {"error": result.error_message},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    order = result.order
+    created_items = result.created_item_ids or []
+
+    logger.info(
+        "[buffet_create_order] Order created | vendor_id=%s | order_id=%s | token_no=%s | "
+        "table_number=%s | items_count=%s | manager_id=%s",
+        vendor.vendor_id,
+        order.id,
+        order.token_no,
+        table_number,
+        len(created_items),
+        manager_profile.id if manager_profile else None,
+    )
+
+    return Response(
+        {
+            "message": "Order created successfully by manager.",
+            "order_id": order.id,
+            "token_no": order.token_no,
+            "table_number": table_number,
+            "items_count": len(created_items),
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(['GET'])
