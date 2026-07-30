@@ -10,11 +10,20 @@ from rest_framework.response import Response
 
 from core.config.status_choices import STATUS_CHOICES_MAP
 from manager.hospital_pre_announcement import process_hospital_pre_announcements
+from orders.hospital.api_helpers import (
+    HOSPITAL_ORDER_CREATE_ROLES,
+    build_hospital_tracking_url,
+    hospital_create_error_response,
+)
+from orders.hospital.order_create import (
+    HospitalOrderCreateStatus,
+    create_hospital_orders,
+)
 from orders.serializers import VendorLogoSerializer
 from static.utils.functions.queries import update_patient_status_by_hospital_manager
 from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
 from vendors.hospital_tv import refresh_hospital_tv
-from vendors.models import ChatMessage, Order, Utility
+from vendors.models import ChatMessage, Order, Utility, Vendor
 from vendors.utils import notify_web_push
 
 logger = logging.getLogger(__name__)
@@ -464,3 +473,121 @@ def manager_patient_message(request):
             {"success": False, "message": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def hospital_create_order(request):
+    """
+    Hospital Flash: Outlet Manager creates a patient registration (orders).
+
+    Uses the shared Hospital create core (same as customer hospital_patient_submit).
+    Vendor is resolved from the authenticated manager profile — request vendor_id
+    is never trusted alone. Allowed roles: admin_manager, outlet_manager.
+    Department User (utility_user) create is not supported.
+    """
+    blocked = _hospital_flash_only_response()
+    if blocked:
+        return blocked
+
+    logger.info(
+        "[hospital_create_order] Started | remote_addr=%s | user=%s",
+        request.META.get("REMOTE_ADDR"),
+        getattr(request.user, "username", None),
+    )
+
+    manager, auth_error = _resolve_hospital_manager_profile(request)
+    if auth_error:
+        return auth_error
+
+    # Explicit allow-list: Hospital create is limited to admin/outlet managers.
+    # Department User (utility_user) create remains deferred.
+    if manager.role not in HOSPITAL_ORDER_CREATE_ROLES:
+        if manager.role == "utility_user":
+            return Response(
+                {"message": "Department users are not authorized to create orders."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(
+            {"message": "You are not authorized to create orders."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    vendor = (
+        Vendor.objects.select_related("config")
+        .filter(pk=manager.vendor_id)
+        .first()
+    )
+    if not vendor:
+        return Response(
+            {"message": "Manager does not have an associated vendor."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    data = request.data or {}
+
+    # Optional: if client sends vendor_id, it must match the manager's outlet.
+    request_vendor_id = data.get("vendor_id")
+    if request_vendor_id is not None and str(request_vendor_id).strip() != "":
+        if str(request_vendor_id) != str(vendor.vendor_id):
+            logger.warning(
+                "[hospital_create_order] vendor_id mismatch | request=%s | manager=%s",
+                request_vendor_id,
+                vendor.vendor_id,
+            )
+            return Response(
+                {"error": "vendor_id does not match manager vendor."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    customer_name = (data.get("customer_name") or data.get("patient_name") or "").strip()
+    phone_number = (data.get("phone_number") or "").strip() or None
+    mr_number = (data.get("mr_number") or "").strip() or None
+    bill_number = (data.get("bill_number") or "").strip() or None
+    freeform_remarks = (data.get("remarks") or "").strip() or None
+    utility_ids = data.get("utility_ids") or []
+
+    result = create_hospital_orders(
+        vendor=vendor,
+        customer_name=customer_name,
+        utility_ids=utility_ids,
+        phone_number=phone_number,
+        mr_number=mr_number,
+        bill_number=bill_number,
+        remarks=freeform_remarks,
+        updated_by="manager",
+        user_profile=manager,
+        log_prefix="[hospital_create_order]",
+    )
+
+    if result.status != HospitalOrderCreateStatus.CREATED:
+        return hospital_create_error_response(result)
+
+    primary_order = result.departments[0]
+    tracking_url = build_hospital_tracking_url(
+        request, result.vendor, primary_order, result.registration_batch_id
+    )
+
+    logger.info(
+        "[hospital_create_order] Created %s orders | vendor_id=%s batch=%s "
+        "patient=%s manager_id=%s",
+        len(result.departments),
+        vendor.vendor_id,
+        result.registration_batch_id,
+        result.customer_name,
+        manager.id,
+    )
+
+    return Response(
+        {
+            "message": "Patient registered successfully by manager.",
+            "registration_batch_id": str(result.registration_batch_id),
+            "patient_name": result.customer_name,
+            "location_id": result.vendor.location_id,
+            "vendor_id": result.vendor.vendor_id,
+            "tracking_url": tracking_url,
+            "departments": result.departments,
+            "manager_id": manager.id,
+        },
+        status=status.HTTP_201_CREATED,
+    )

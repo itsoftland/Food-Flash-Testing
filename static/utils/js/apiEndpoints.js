@@ -117,6 +117,7 @@ const RELATIVE_API_ENDPOINTS = {
   CREATE_PASSENGER: "api/public_create_passenger/",
   UTILITY_LIST: "api/utility_list/",
   HOSPITAL_PATIENT_SUBMIT: "api/hospital_patient_submit/",
+  HOSPITAL_CREATE_ORDER: "manager/api/hospital_create_order/",
   TABLE_BOOKING: "api/book_table/",
   DINE_FLASH_QR_EXCHANGE: "api/dine_flash_qr_exchange/",
   DINE_FLASH_RESOLVE_BOOKING: "api/dine_flash/resolve_booking/",

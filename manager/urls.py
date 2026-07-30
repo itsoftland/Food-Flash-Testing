@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/manager_booking_update/', views.manager_booking_update, name='manager_booking_update'),
     path('api/manager_patient_update/', hospital_views.manager_patient_update, name='manager_patient_update'),
     path('api/manager_patient_message/', hospital_views.manager_patient_message, name='manager_patient_message'),
+    path('api/hospital_create_order/', hospital_views.hospital_create_order, name='hospital_create_order'),
     path('api/get_active_customers_list/',views.get_active_customers_list,name='get_active_customers_list'),
     path('api/get_contact_list/',views.get_contact_list,name='get_contact_list'),
     
