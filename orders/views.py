@@ -1015,6 +1015,25 @@ def _build_hospital_status_payload(request, orders, primary_order, message):
     return data
 
 
+def _hospital_chat_target_orders(orders, primary_order, registration_batch_id, parsed_booking_id):
+    """
+    Hospital Flash patient reply targets only.
+
+    Scenario 1: booking_id supplied → that Order (never replaced by orders[0]).
+    Scenario 2: registration_batch_id only → every Order in the batch.
+    Scenario 3 / fallback: primary Order.
+    Presentation labels must never influence this selection.
+    """
+    if parsed_booking_id is not None:
+        matched = [order for order in orders if order.id == parsed_booking_id]
+        return matched if matched else [primary_order]
+
+    if registration_batch_id:
+        return list(orders)
+
+    return [primary_order]
+
+
 def _hospital_check_status(request, vendor_id, reply_text):
     """Hospital Flash queue status — single department or full registration batch."""
     registration_batch_id = (request.data.get("registration_batch_id") or "").strip() or None
@@ -1085,23 +1104,34 @@ def _hospital_check_status(request, vendor_id, reply_text):
                 status=400,
             )
 
-        chat_message = None
-        try:
-            chat_message = ChatMessage.objects.create(
-                vendor=primary_order.vendor,
-                token_no=primary_order.token_no,
-                booking_id=primary_order.id,
-                booking_no=primary_order.table_booking_no,
-                created_date=timezone.now().date(),
-                sender="user",
-                is_send=True,
-                message_text=reply_text,
-            )
-        except Exception:
-            logger.exception("Failed to store hospital user chat message")
-            if chat_message:
-                chat_message.is_send = False
-                chat_message.save(update_fields=["is_send"])
+        chat_targets = _hospital_chat_target_orders(
+            orders,
+            primary_order,
+            registration_batch_id=registration_batch_id,
+            parsed_booking_id=parsed_booking_id,
+        )
+        created_date = timezone.now().date()
+        for target_order in chat_targets:
+            chat_message = None
+            try:
+                chat_message = ChatMessage.objects.create(
+                    vendor=target_order.vendor,
+                    token_no=target_order.token_no,
+                    booking_id=target_order.id,
+                    booking_no=target_order.table_booking_no,
+                    created_date=created_date,
+                    sender="user",
+                    is_send=True,
+                    message_text=reply_text,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to store hospital user chat message | booking_id=%s",
+                    getattr(target_order, "id", None),
+                )
+                if chat_message:
+                    chat_message.is_send = False
+                    chat_message.save(update_fields=["is_send"])
         title = "Patient Message Received"
         body = f"Patient {primary_order.table_booking_no} has sent a new message."
 

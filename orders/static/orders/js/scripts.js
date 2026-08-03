@@ -1049,6 +1049,9 @@ onDOMReady(async function () {
                                 pushData.booking_id,
                                 pushData.message_id
                             );
+                            tagLatestHospitalServerBubble({
+                                utilityName: pushData.utility_name,
+                            });
                             await saveChat(
                                 pushData,
                                 'server',
@@ -1178,6 +1181,9 @@ onDOMReady(async function () {
                                 pushData.booking_id,
                                 pushData.message_id
                             );
+                            tagLatestHospitalServerBubble({
+                                utilityName: pushData.utility_name,
+                            });
                             await saveChat(pushData, 'server', 'hospitalstatus', pushData.booking_id);
                             break;
                         }
@@ -1732,11 +1738,26 @@ onDOMReady(async function () {
                 appendMessage(message, 'user', "","chat",tokenNo,storedName);
             } else if (isDineFlashBuffetSurface) {
                 appendMessage(message, 'user', "", "chat", tokenNo);
+            } else if (isHospitalFlashSurface) {
+                // Presentation label is customer UI metadata only — never used for routing.
+                const presentationLabel =
+                    resolveHospitalReplyPresentationLabel(selectedMessage);
+                const chatPayload = presentationLabel
+                    ? { content: message, utility_name: presentationLabel }
+                    : { content: message };
+                const userHtml = ChatTemplateService.build({
+                    type: "chat",
+                    text: chatPayload,
+                });
+                appendMessage(userHtml, "user", null, "chat", tokenNo);
+                await saveChat(chatPayload, "user", "chat", tokenNo);
             } else {
                 appendMessage(message, 'user', null);
             }
             
-            await saveChat(message, 'user', 'chat',tokenNo);
+            if (!isHospitalFlashSurface) {
+                await saveChat(message, 'user', 'chat',tokenNo);
+            }
         } else {
             // No message selected → assume user typed token number directly
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
@@ -1988,15 +2009,49 @@ onDOMReady(async function () {
         hospitalBatchPayloadById.delete(String(batchId));
     }
 
-    function tagLatestHospitalBatchBubble(batchId, bookingIds) {
+    function tagLatestHospitalBatchBubble(batchId, bookingIds, departments = null) {
         const chatContainer = document.getElementById("chat-container");
         const bubbles = chatContainer?.querySelectorAll(".message-row.server .message-bubble.server");
         const bubble = bubbles?.[bubbles.length - 1];
         if (!bubble || !batchId) return;
         bubble.dataset.registrationBatchId = String(batchId);
+        // Customer presentation only — never used for reply routing.
+        const depts = Array.isArray(departments) ? departments : [];
+        if (depts.length === 1) {
+            const name = String(depts[0]?.utility_name || "").trim();
+            if (name) {
+                bubble.dataset.utilityName = name;
+            }
+        } else {
+            bubble.dataset.utilityName = "All departments";
+        }
         if (bookingIds?.length) {
             bubble.dataset.bookingIds = bookingIds.map(String).join(",");
         }
+    }
+
+    function tagLatestHospitalServerBubble(attrs = {}) {
+        const chatContainer = document.getElementById("chat-container");
+        const bubbles = chatContainer?.querySelectorAll(
+            ".message-row.server .message-bubble.server"
+        );
+        const bubble = bubbles?.[bubbles.length - 1];
+        if (!bubble) return;
+        if (attrs.utilityName) {
+            bubble.dataset.utilityName = String(attrs.utilityName);
+        }
+    }
+
+    function resolveHospitalReplyPresentationLabel(selectedMessage) {
+        if (!selectedMessage) return null;
+        // Prefer explicit presentation label (single-dept cards store the real
+        // department here; multi-dept cards store "All departments").
+        const label = (selectedMessage.dataset.utilityName || "").trim();
+        if (label) return label;
+        if (selectedMessage.dataset.registrationBatchId) {
+            return "All departments";
+        }
+        return null;
     }
 
     function replaceHospitalBatchCard(batchId, html, data) {
@@ -2004,7 +2059,8 @@ onDOMReady(async function () {
         appendMessage(html, "server", null, "hospitalstatus", batchId);
         tagLatestHospitalBatchBubble(
             batchId,
-            (data?.departments || []).map((dept) => dept.booking_id)
+            (data?.departments || []).map((dept) => dept.booking_id),
+            data?.departments
         );
         rememberHospitalBatchPayload(data);
     }
@@ -2046,7 +2102,8 @@ onDOMReady(async function () {
                 appendMessage(messageHTML, "server", null, renderType, batchId);
                 tagLatestHospitalBatchBubble(
                     batchId,
-                    data.departments.map((dept) => dept.booking_id)
+                    data.departments.map((dept) => dept.booking_id),
+                    data.departments
                 );
                 rememberHospitalBatchPayload(data);
                 await saveChat(data, "server", renderType, batchId);
@@ -2055,6 +2112,9 @@ onDOMReady(async function () {
         }
 
         appendMessage(messageHTML, "server", null, renderType, appendKey);
+        if (!isBatch && data?.utility_name) {
+            tagLatestHospitalServerBubble({ utilityName: data.utility_name });
+        }
         await saveChat(data, "server", renderType, appendKey);
     }
 
@@ -2079,13 +2139,41 @@ onDOMReady(async function () {
             setActiveDineBookingId(bookingId || token);
         }
         else if (path.includes('/hospital_flash/')) {
-            const batchId = getHospitalBatchIdFromContext(options);
-            if (batchId) {
-                payload = { registration_batch_id: batchId, vendor_id: activeVendor };
-            } else if (bookingId) {
+            // Reply routing: booking_id and registration_batch_id only.
+            // Presentation labels must never influence this payload.
+            const isNumericBookingId =
+                bookingId != null && /^\d+$/.test(String(bookingId).trim());
+            if (replyText && isNumericBookingId) {
                 payload = { booking_id: bookingId, vendor_id: activeVendor };
+            } else if (replyText) {
+                const batchFromBubble =
+                    bookingId != null && !isNumericBookingId
+                        ? String(bookingId).trim()
+                        : null;
+                const batchId =
+                    batchFromBubble || getHospitalBatchIdFromContext(options);
+                if (batchId) {
+                    payload = {
+                        registration_batch_id: batchId,
+                        vendor_id: activeVendor,
+                    };
+                } else if (bookingId) {
+                    payload = { booking_id: bookingId, vendor_id: activeVendor };
+                } else {
+                    payload = { booking_no: token, vendor_id: activeVendor };
+                }
             } else {
-                payload = { booking_no: token, vendor_id: activeVendor };
+                const batchId = getHospitalBatchIdFromContext(options);
+                if (batchId) {
+                    payload = {
+                        registration_batch_id: batchId,
+                        vendor_id: activeVendor,
+                    };
+                } else if (bookingId) {
+                    payload = { booking_id: bookingId, vendor_id: activeVendor };
+                } else {
+                    payload = { booking_no: token, vendor_id: activeVendor };
+                }
             }
             type = 'hospitalstatus';
         }

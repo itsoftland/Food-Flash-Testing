@@ -218,8 +218,14 @@ export async function saveChat(text, sender, type, token_no) {
     let normalizedText;
 
     if (type === "chat") {
-        // User typed message → wrap inside JSON
-        normalizedText = { content: text };
+        // User typed message → wrap inside JSON.
+        // Hospital may pass { content, utility_name } for customer presentation
+        // restore only — never used for routing.
+        if (typeof text === "object" && text !== null && "content" in text) {
+            normalizedText = { ...text };
+        } else {
+            normalizedText = { content: text };
+        }
     } else if (typeof text === "string") {
         // Server/system accidentally sends string → wrap it
         normalizedText = { message: text };

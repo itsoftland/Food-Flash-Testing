@@ -162,6 +162,50 @@ function buildManagerMessage(payload) {
   `;
 }
 
+/** Hospital Flash customer UI only — shows department from existing payload.utility_name. */
+function buildHospitalManagerMessage(payload) {
+  const department = (payload?.utility_name || "").trim();
+  const departmentRow = department
+    ? `<div class="hospital-chat-department">${department}</div>`
+    : "";
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || "Outlet"}</span>
+    </div>
+
+    <div class="manager-message-body">
+        ${departmentRow}
+        <div class="manager-badge">Manager Notification</div>
+        <div class="custom-manager-message">
+            ${payload.status || "Hello! Here's an update regarding your order."}
+        </div>
+    </div>
+  `;
+}
+
+function buildHospitalPatientChatMessage(payload) {
+  const content =
+    typeof payload === "object" && payload !== null && payload.content != null
+      ? payload.content
+      : typeof payload === "string"
+        ? payload
+        : "";
+  const department = (
+    (typeof payload === "object" && payload !== null && payload.utility_name) ||
+    ""
+  )
+    .toString()
+    .trim();
+  if (!department) {
+    return content;
+  }
+  return `
+    <div class="hospital-chat-department">${department}</div>
+    <div class="hospital-patient-message">${content}</div>
+  `;
+}
+
 function buildAirlineManagerMessage(payload) {
   return `
     <div class="response-title">
@@ -903,8 +947,9 @@ export const ChatTemplateService = {
         return buildAirlineManagerMessage(payload);
       case "dine_manager":
       case "buffet_manager":
-      case HOSPITAL_MANAGER_PUSH_TYPE:
         return buildManagerMessage(payload);
+      case HOSPITAL_MANAGER_PUSH_TYPE:
+        return buildHospitalManagerMessage(payload);
       case "flightstatus":
         return buildFlightStatusMessage(payload);
       case "dinestatus":
@@ -920,7 +965,20 @@ export const ChatTemplateService = {
         return buildThankYouMessage(payload);
 
       case "chat":
-        // user-typed messages → extract content
+        // user-typed messages → extract content; Hospital may include
+        // presentation-only utility_name for customer restore (not routing).
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          payload.utility_name &&
+          (typeof window !== "undefined" &&
+            (String(window.BASE || "").includes("/hospital_flash/") ||
+              String(window.PROJECT_NAME || "")
+                .toLowerCase()
+                .includes("hospital_flash")))
+        ) {
+          return buildHospitalPatientChatMessage(payload);
+        }
         return typeof payload === "object" && payload.content
           ? payload.content
           : typeof payload === "string"

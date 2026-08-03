@@ -3,6 +3,7 @@ import { ChatHistoryService } from "./chatHistoryService.js";
 import { ChatSyncService } from "./chatSyncService.js";
 import { appendMessage } from "./chatService.js";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
+import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
 // ⚠️ TEMP DIAGNOSTIC (iOS chat-card loss). Dine Flash AND Dine Flash Buffet only;
 // logs when chat history restore runs/clears the container so a clear-after-append
@@ -24,6 +25,60 @@ function isDineFlashBuffetRestoreSurface() {
   if (base.includes("/dine_flash_buffet/")) return true;
   const path = (window.location?.pathname || "").toLowerCase();
   return path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet");
+}
+
+function isHospitalFlashRestoreSurface() {
+  const base = String(window.BASE || "");
+  const project = String(window.PROJECT_NAME || "").toLowerCase();
+  const path = String(window.location?.pathname || "").toLowerCase();
+  return (
+    project === "hospital_flash" ||
+    base.includes("/hospital_flash/") ||
+    path.includes("/hospital_flash")
+  );
+}
+
+/**
+ * Customer presentation only — recreate dataset.utilityName on restored
+ * Hospital replyable bubbles so subsequent replies keep Scenario 4 labels.
+ * Does not affect routing / booking_id identity.
+ */
+function resolveHospitalRestoredPresentationLabel(msg) {
+  const type = String(msg?.type || "").toLowerCase();
+  const text =
+    typeof msg?.text === "object" && msg.text !== null ? msg.text : {};
+
+  if (type === HOSPITAL_MANAGER_PUSH_TYPE || type === "hospital_manager") {
+    const name = String(text.utility_name || "").trim();
+    return name || null;
+  }
+
+  if (type === "hospitalstatus") {
+    const departments = Array.isArray(text.departments) ? text.departments : [];
+    if (departments.length > 1) {
+      return "All departments";
+    }
+    if (departments.length === 1) {
+      const name = String(departments[0]?.utility_name || "").trim();
+      return name || null;
+    }
+    const name = String(text.utility_name || "").trim();
+    return name || null;
+  }
+
+  return null;
+}
+
+function tagLatestHospitalRestoredPresentation(msg) {
+  const label = resolveHospitalRestoredPresentationLabel(msg);
+  if (!label) return;
+  const chatContainer = document.getElementById("chat-container");
+  const bubbles = chatContainer?.querySelectorAll(
+    ".message-row.server .message-bubble.server"
+  );
+  const bubble = bubbles?.[bubbles.length - 1];
+  if (!bubble) return;
+  bubble.dataset.utilityName = label;
 }
 
 /** Dine Flash Buffet only — keep order token visible after history restore clears the chat. */
@@ -209,6 +264,19 @@ export const ChatRestoreService = (() => {
           // console.log(msg)
           // console.log("Chat History booking_id",msg.booking_id)
           appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.booking_id);
+          });
+        } else if (isHospitalFlashRestoreSurface()) {
+          cachedMessages.forEach((msg) => {
+            appendMessage(
+              msg.rendered,
+              msg.sender,
+              msg.timestamp,
+              msg.type,
+              msg.token_no
+            );
+            if (msg.sender === "server") {
+              tagLatestHospitalRestoredPresentation(msg);
+            }
           });
         } else {
           cachedMessages.forEach(msg => {
