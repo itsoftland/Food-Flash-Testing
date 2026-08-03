@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from orders.dine_flash_tracking_token import build_dine_flash_encrypted_tracking_url
+from orders.hospital.api_helpers import build_hospital_tracking_url
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
@@ -1113,6 +1114,45 @@ def get_booking_list(request):
                 many=True,
                 context=_booking_list_serializer_context(request, unread_map),
             ).data
+
+            # Canonical Hospital tracking URL (same as registration): one URL per
+            # registration_batch_id, seeded by the batch-primary order (lowest id).
+            # Leave tracking_url null for legacy rows without a batch id.
+            batch_ids = {
+                order.registration_batch_id
+                for order in booking_list
+                if order.registration_batch_id
+            }
+            batch_primary_by_id = {}
+            if batch_ids:
+                for primary in (
+                    Order.objects.filter(
+                        vendor=vendor,
+                        registration_batch_id__in=batch_ids,
+                    )
+                    .only("id", "table_booking_no", "registration_batch_id")
+                    .order_by("registration_batch_id", "id")
+                ):
+                    if primary.registration_batch_id not in batch_primary_by_id:
+                        batch_primary_by_id[primary.registration_batch_id] = primary
+
+            for order, row in zip(booking_list, serialized):
+                batch_id = order.registration_batch_id
+                if not batch_id:
+                    continue
+                primary = batch_primary_by_id.get(batch_id)
+                if not primary:
+                    continue
+                row["tracking_url"] = build_hospital_tracking_url(
+                    request,
+                    vendor,
+                    {
+                        "token": primary.table_booking_no or "",
+                        "order_id": primary.id,
+                    },
+                    batch_id,
+                )
+
             grouped = _group_serialized_bookings(booking_list, serialized)
 
             return Response(
