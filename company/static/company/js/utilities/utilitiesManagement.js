@@ -549,11 +549,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Display Order</label>
             <input type="number" id="edit-display-order" class="form-control form-control-sm" value="${utility.display_order ?? 0}" min="0" step="1" />
           </div>
-          <div class="form-group col-md-3 mb-2">
+          <div class="form-group col-md-3 mb-2" id="edit-service-time-field">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Service Time (min)</label>
             <input type="number" id="edit-service-time" class="form-control form-control-sm" value="${utility.approximate_service_time ?? 0}" min="0" step="1" />
           </div>
-          <div class="form-group col-md-3 mb-2">
+          <div class="form-group col-md-3 mb-2" id="edit-pre-announcement-field">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Pre Announcement</label>
             <input type="number" id="edit-pre-announcement" class="form-control form-control-sm" value="${utility.pre_announcement_count ?? 0}" min="0" step="1" />
           </div>
@@ -606,6 +606,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const displayCodeLabelEl = document.getElementById('edit-display-code-label');
       const tokenModeFieldEl = document.getElementById('edit-token-mode-field');
       const prefixRowEl = document.getElementById('edit-prefix-row');
+      const serviceTimeFieldEl = document.getElementById('edit-service-time-field');
+      const preAnnouncementFieldEl = document.getElementById('edit-pre-announcement-field');
 
       const updateEditHospitalLayout = () => {
         if (!isHospital || !departmentTypeEl) return;
@@ -621,6 +623,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (prefixRowEl) {
           prefixRowEl.style.display = isGroup ? 'none' : '';
+        }
+        if (serviceTimeFieldEl) {
+          serviceTimeFieldEl.style.display = isGroup ? 'none' : '';
+        }
+        if (preAnnouncementFieldEl) {
+          preAnnouncementFieldEl.style.display = isGroup ? 'none' : '';
         }
       };
 

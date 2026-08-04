@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const displayCodeLabel = document.getElementById('display-code-label');
   const tokenModeField = document.getElementById('token-mode-field');
   const prefixField = document.getElementById('prefix-field');
+  const serviceTimeField = document.getElementById('service-time-field');
+  const preAnnouncementField = document.getElementById('pre-announcement-field');
   const displayOrderInput = document.getElementById('display-order-input');
   const serviceTimeInput = document.getElementById('service-time-input');
   const preAnnouncementInput = document.getElementById('pre-announcement-input');
@@ -52,6 +54,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (prefixField) {
       prefixField.style.display = isGroup ? 'none' : '';
+    }
+    if (serviceTimeField) {
+      serviceTimeField.style.display = isGroup ? 'none' : '';
+    }
+    if (preAnnouncementField) {
+      preAnnouncementField.style.display = isGroup ? 'none' : '';
     }
   }
 
