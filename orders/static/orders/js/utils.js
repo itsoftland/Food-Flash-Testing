@@ -152,6 +152,167 @@ document.head.appendChild(link);
 // This variable will later hold the unlocked notification sound reference
 let unlockedNotificationAudio = null;
 
+/** True only on Hospital Flash deployments — isolates TTS from other flavours. */
+function isHospitalFlashProject() {
+    return String(projectName || "").toLowerCase().trim() === "hospital_flash";
+}
+
+/**
+ * Normalize a value for spoken Hospital Flash announcements.
+ * Returns "" when the value would produce broken speech (undefined/null/empty/placeholders).
+ */
+function hospitalSpeechValue(value) {
+    if (value == null) return "";
+    const text = String(value).trim();
+    if (!text) return "";
+    const lower = text.toLowerCase();
+    if (
+        lower === "undefined" ||
+        lower === "null" ||
+        text === "-" ||
+        text === "--" ||
+        lower === "n/a"
+    ) {
+        return "";
+    }
+    return text;
+}
+
+function hospitalSpeechToken(pushData) {
+    if (!pushData || typeof pushData !== "object") return "";
+    // Prefer patient-facing token (e.g. LAB-12) over internal token_no.
+    return (
+        hospitalSpeechValue(pushData.booking_no) ||
+        hospitalSpeechValue(pushData.token_no)
+    );
+}
+
+function hospitalSpeechDepartment(pushData) {
+    if (!pushData || typeof pushData !== "object") return "";
+    return (
+        hospitalSpeechValue(pushData.department_name) ||
+        hospitalSpeechValue(pushData.utility_name)
+    );
+}
+
+const HOSPITAL_TTS_STATUS_SUMMARY =
+    "Your registration status has been updated. Please review the details in the application.";
+
+/**
+ * Hospital Flash–only spoken messages for notifyOrderReady.
+ * Other flavours never call this.
+ */
+function buildHospitalFlashSpokenMessage(pushData) {
+    if (!pushData || typeof pushData !== "object") {
+        return HOSPITAL_TTS_STATUS_SUMMARY;
+    }
+
+    const type = hospitalSpeechValue(pushData.type);
+    const status = hospitalSpeechValue(pushData.status).toLowerCase();
+    const token = hospitalSpeechToken(pushData);
+    const department = hospitalSpeechDepartment(pushData);
+    const isBatch =
+        Array.isArray(pushData.departments) && pushData.departments.length > 0;
+
+    // Manager chat: type first — payload.status holds free-text chat body.
+    if (type === HOSPITAL_MANAGER_PUSH_TYPE || type === "hospital_manager") {
+        return "You have a new message from the hospital staff. Please check the application.";
+    }
+
+    // Pre-announcement (must win over status === "waiting").
+    if (type === "hospital_pre_announcement") {
+        if (token && department) {
+            return (
+                `Token ${token}. Your turn is approaching. ` +
+                `Please be ready to proceed to the ${department} department.`
+            );
+        }
+        if (token) {
+            return `Token ${token}. Your turn is approaching. Please be ready.`;
+        }
+        if (department) {
+            return (
+                `Your turn is approaching. Please be ready to proceed to the ${department} department.`
+            );
+        }
+        return "Your turn is approaching. Please review the details in the application.";
+    }
+
+    // Multi-department registration snapshot — never interpolate missing token fields.
+    if (isBatch) {
+        return HOSPITAL_TTS_STATUS_SUMMARY;
+    }
+
+    switch (status) {
+        case "waiting":
+        case "registered":
+            if (token && department) {
+                return (
+                    `Token ${token}. You are waiting for the ${department} department. ` +
+                    `We will notify you when your turn is near.`
+                );
+            }
+            if (token) {
+                return (
+                    `Token ${token}. You are waiting in the queue. ` +
+                    `We will notify you when your turn is near.`
+                );
+            }
+            if (department) {
+                return (
+                    `You are waiting for the ${department} department. ` +
+                    `We will notify you when your turn is near.`
+                );
+            }
+            return HOSPITAL_TTS_STATUS_SUMMARY;
+
+        case "called":
+            if (token && department) {
+                return (
+                    `Token ${token}. Please proceed to the ${department} department. ` +
+                    `Your token is now being called.`
+                );
+            }
+            if (token) {
+                return `Token ${token}. Your token is now being called. Please proceed.`;
+            }
+            if (department) {
+                return (
+                    `Please proceed to the ${department} department. ` +
+                    `Your token is now being called.`
+                );
+            }
+            return HOSPITAL_TTS_STATUS_SUMMARY;
+
+        case "completed":
+            if (token) {
+                return `Token ${token}. Your consultation is complete. Thank you.`;
+            }
+            return "Your consultation is complete. Thank you.";
+
+        case "cancelled":
+            if (token) {
+                return (
+                    `Token ${token}. This visit has been cancelled. ` +
+                    `Please contact the hospital staff for assistance.`
+                );
+            }
+            return (
+                "This visit has been cancelled. " +
+                "Please contact the hospital staff for assistance."
+            );
+
+        default:
+            if (token) {
+                return (
+                    `Token ${token}. Your status has been updated. ` +
+                    `Please review the details in the application.`
+                );
+            }
+            return HOSPITAL_TTS_STATUS_SUMMARY;
+    }
+}
+
 // 4) Immediately before assigning window.AppUtils
 tempUtilsClientDiag("UTILS_APPUTILS_BEFORE_ASSIGN", {
     ...tempUtilsAppUtilsSnapshot(),
@@ -998,6 +1159,11 @@ window.AppUtils = {
             dine_flash: [
                 "Hi, Good Day! Welcome to our restaurant.",
                 "Kindly enter your booking number to check your table allocation status."
+            ],
+
+            hospital_flash: [
+                "Good day. Welcome to the hospital.",
+                "Enter your token details to track your queue status."
             ]
         };
 
@@ -1143,10 +1309,17 @@ window.AppUtils = {
              * notification modal messages defined in `statusMessages.js`.
              *
              * Supports both Food Flash (order-based) and Airline Flash (flight-based) projects.
+             * Hospital Flash uses a dedicated builder so Food/Dine wording never leaks.
              */
             let message;
 
-            if (pushData.status === 'ready') {
+            // Hospital Flash only — early return path keeps all other flavours identical.
+            if (isHospitalFlashProject()) {
+                message = buildHospitalFlashSpokenMessage(pushData);
+                if (!message) {
+                    return;
+                }
+            } else if (pushData.status === 'ready') {
                 // 🍴 Food Flash (Buffet flavour uses a simpler “token ready” line)
                 if (projectName === "dine_flash_buffet") {
                     message = `Your order ${pushData.token_no} is now ready. Please collect it.`;
