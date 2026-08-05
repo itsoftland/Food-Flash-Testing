@@ -36,7 +36,9 @@ def _resolve_vendor(vendor_id):
         vendor_id_int = int(vendor_id)
     except (TypeError, ValueError):
         return None, "Invalid vendor_id."
-    vendor = Vendor.objects.select_related("config").filter(vendor_id=vendor_id_int).first()
+    vendor = Vendor.objects.select_related("config", "admin_outlet").filter(
+        vendor_id=vendor_id_int
+    ).first()
     if not vendor:
         return None, "Vendor not found."
     return vendor, None
@@ -48,6 +50,7 @@ def _vendor_page_context(vendor_id):
     mr_number_enabled = False
     bill_number_enabled = False
     vendor_name = ""
+    hospital_name = ""
     logo_url = ""
 
     if vendor_id:
@@ -58,6 +61,8 @@ def _vendor_page_context(vendor_id):
             mr_number_enabled = vendor.config.mr_number_enabled
             bill_number_enabled = vendor.config.bill_number_enabled
             vendor_name = vendor.alias_name or vendor.name or ""
+            if getattr(vendor, "admin_outlet", None):
+                hospital_name = vendor.admin_outlet.customer_name or ""
             if getattr(vendor, "logo", None) and hasattr(vendor.logo, "url"):
                 logo_url = vendor.logo.url
 
@@ -68,6 +73,7 @@ def _vendor_page_context(vendor_id):
         "MR_NUMBER_ENABLED": mr_number_enabled,
         "BILL_NUMBER_ENABLED": bill_number_enabled,
         "VENDOR_NAME": vendor_name,
+        "HOSPITAL_NAME": hospital_name,
         "VENDOR_LOGO_URL": logo_url,
     }
 

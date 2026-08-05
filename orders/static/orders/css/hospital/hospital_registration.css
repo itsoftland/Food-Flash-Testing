@@ -1,3 +1,11 @@
+.vendor-branding .hospital-name {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.3;
+    margin-bottom: 0.15rem;
+}
+
 .group-department-card {
     border-color: rgba(13, 202, 240, 0.35);
 }

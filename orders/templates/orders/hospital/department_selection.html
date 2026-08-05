@@ -14,6 +14,9 @@
         {% if VENDOR_LOGO_URL %}
         <img id="vendor-logo" class="vendor-logo rounded-circle mb-2" src="{{ VENDOR_LOGO_URL }}" alt="Branch Logo">
         {% endif %}
+        {% if HOSPITAL_NAME %}
+        <div class="hospital-name">{{ HOSPITAL_NAME }}</div>
+        {% endif %}
         <h2 id="vendor-name" class="vendor-name">{{ VENDOR_NAME|default:"" }}</h2>
     </div>
 
