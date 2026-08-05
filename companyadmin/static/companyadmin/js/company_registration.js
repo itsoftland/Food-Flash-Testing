@@ -59,7 +59,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             const result = await response.json();
 
             if (result.status === "success") {
-                ModalService.showSuccess("Restaurant registered successfully", () => {
+                const successMessage = window.PROJECT_NAME === "hospital_flash"
+                    ? "Hospital registered successfully"
+                    : "Restaurant registered successfully";
+                ModalService.showSuccess(successMessage, () => {
                     window.location.href = WEB_ENDPOINTS.COMPANY_LIST;
                 });
             } else {
