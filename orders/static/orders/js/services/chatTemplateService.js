@@ -831,6 +831,20 @@ function buildHospitalStatusMessage(payload) {
     !(Array.isArray(payload?.departments) && payload.departments.length > 0);
 
   if (isStatusUpdate) {
+    // Hospital Flash only: individual completed push cards replace Status: Completed
+    // with Thank You. Batch / check-status / registration snapshot paths are untouched.
+    const statusSection =
+      statusKey === "completed"
+        ? `
+      <div class="dine-status-row">
+        <span class="dine-status-value delivered-color" style="color:#ffffff">Thank You</span>
+      </div>`
+        : `
+      <div class="dine-status-row">
+        <span class="dine-status-label">Status:</span>
+        <span class="dine-status-value ${statusClass}">${payloadStatus}</span>
+      </div>`;
+
     return `
     <div class="response-title">
       ${buildLogoImg(payload)}
@@ -848,10 +862,7 @@ function buildHospitalStatusMessage(payload) {
         <span class="dine-value">${payload.booking_no || "-"}</span>
       </div>
 
-      <div class="dine-status-row">
-        <span class="dine-status-label">Status:</span>
-        <span class="dine-status-value ${statusClass}">${payloadStatus}</span>
-      </div>
+      ${statusSection}
     </div>
   `;
   }
