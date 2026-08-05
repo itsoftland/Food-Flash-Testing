@@ -367,6 +367,16 @@ document.addEventListener('DOMContentLoaded', async () => {
               option.textContent = `${vendor.name} (${vendor.location})`;
               vendorSelect.appendChild(option);
             });
+            // form.reset() does not fire change; re-sync Hospital Flash layout to Individual defaults
+            if (isHospital) {
+              updateHospitalFormLayout();
+              if (groupDepartmentsCheckboxes && setGroupDepartmentCheckboxMessage) {
+                setGroupDepartmentCheckboxMessage(
+                  groupDepartmentsCheckboxes,
+                  'Select an outlet first to load departments'
+                );
+              }
+            }
           }
         );
         return;
