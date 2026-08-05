@@ -334,6 +334,10 @@ HOSPITAL_FLASH = {
     "outlet_list": {
         "title": "You can manage outlets from here.",
     },
+    "create_outlet_page": {
+        "title": "New Branch",
+        "button": "Create Branch",
+    },
     "outlet_update": {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
