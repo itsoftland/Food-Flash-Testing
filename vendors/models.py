@@ -458,7 +458,16 @@ class Order(models.Model):
         null=True,
         blank=True,
         default=None,
-        help_text="Hospital Flash: set when pre-announcement push was sent",
+        help_text="Hospital Flash: set when a pre-announcement push was last sent",
+    )
+    pre_announcement_notified_distance = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "Hospital Flash: queue distance at last pre-announcement; "
+            "allows re-notify when distance changes, blocks same-distance duplicates"
+        ),
     )
     # ---- Airline Flash && Dine Flash –specific fields ----
     phone_number = models.CharField(max_length=20, blank=True, null=True)

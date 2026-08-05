@@ -333,7 +333,13 @@ function fingerprint(source, fallbackVendorId) {
     }
 
     if (type === "hospital_pre_announcement") {
-        return `${vendorId}|${bookingId}|hospital_pre_announcement`;
+        // Include distance so an updated ETA after the queue advances is a
+        // distinct message; same-distance retries still dedupe.
+        const distance =
+            source?.distance_from_called ??
+            resolvePayload(source)?.distance_from_called ??
+            "";
+        return `${vendorId}|${bookingId}|hospital_pre_announcement|${distance}`;
     }
 
     if (type === HOSPITAL_MANAGER_PUSH_TYPE) {

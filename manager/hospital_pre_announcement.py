@@ -1,15 +1,20 @@
 """
 Hospital Flash only: department queue pre-announcement notifications.
 
-Notify a waiting patient exactly once when their distance from the current
-called token equals the department's pre_announcement_count.
+Notify every waiting patient whose distance from the current called token
+satisfies 0 < distance <= pre_announcement_count.
 
 ETA = approximate_service_time * distance (minutes).
+
+Patients may receive another pre-announcement when the queue advances and
+their distance changes (updated ETA). Deduped per (order, distance) so a
+single recalculation / concurrent retry cannot double-push the same ETA.
 """
 
 import logging
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from orders.serializers import VendorLogoSerializer
@@ -113,7 +118,7 @@ def build_hospital_pre_announcement_payload(
 
 def process_hospital_pre_announcements(request, vendor, utility, start_dt, end_dt):
     """
-    Recalculate department queue and notify patients who just reached eligibility.
+    Recalculate department queue and notify patients in the pre-announcement window.
 
     Hospital Flash only. Safe no-op for other flavours / missing config.
     """
@@ -143,21 +148,29 @@ def process_hospital_pre_announcements(request, vendor, utility, start_dt, end_d
             continue
 
         distance = compute_queue_distance(patient_index, current_called_index)
-        if distance != pre_count:
+        if distance is None or distance <= 0 or distance > pre_count:
             continue
-        if order.pre_announcement_notified_at:
+        if order.pre_announcement_notified_distance == distance:
             continue
 
-        # Atomic dedupe: only the first update wins.
-        claimed = Order.objects.filter(
-            pk=order.pk,
-            pre_announcement_notified_at__isnull=True,
-            status="waiting",
-        ).update(pre_announcement_notified_at=timezone.now())
+        # Atomic per-(order, distance) claim: first update wins; retries /
+        # concurrent recalculations for the same distance are skipped.
+        claimed = (
+            Order.objects.filter(pk=order.pk, status="waiting")
+            .filter(
+                Q(pre_announcement_notified_distance__isnull=True)
+                | ~Q(pre_announcement_notified_distance=distance)
+            )
+            .update(
+                pre_announcement_notified_at=timezone.now(),
+                pre_announcement_notified_distance=distance,
+            )
+        )
         if claimed != 1:
             continue
 
         order.pre_announcement_notified_at = timezone.now()
+        order.pre_announcement_notified_distance = distance
         eta_minutes = service_time * distance
         payload = build_hospital_pre_announcement_payload(
             request,
