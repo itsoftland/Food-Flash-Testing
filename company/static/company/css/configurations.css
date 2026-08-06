@@ -26,3 +26,49 @@
   cursor: pointer;
   user-select: none;
 }
+
+/* Hospital Flash announcement templates */
+.announcement-templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.announcement-type-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  background: #fafafa;
+}
+
+.announcement-type-card h6 {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+.announcement-preview {
+  background: #fff;
+  border: 1px dashed #d0d0d0;
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: #333;
+  min-height: 2.5rem;
+}
+
+.announcement-preview-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #888;
+  margin-bottom: 0.35rem;
+}
+
+.announcement-custom-wrap {
+  display: none;
+}
+
+.announcement-custom-wrap.is-visible {
+  display: block;
+}
+

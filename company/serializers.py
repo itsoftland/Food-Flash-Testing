@@ -33,6 +33,8 @@ class VendorConfigSerializer(serializers.ModelSerializer):
         current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
         if current_project != "dine_flash":
             fields.pop("qr_expiry_minutes", None)
+        if current_project != "hospital_flash":
+            fields.pop("announcement_templates", None)
         return fields
 
     class Meta:
@@ -50,6 +52,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'mr_number_enabled',
             'bill_number_enabled',
             'qr_expiry_minutes',
+            'announcement_templates',
         ]
 
 class VendorSerializer(serializers.ModelSerializer):

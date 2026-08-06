@@ -18,6 +18,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from orders.serializers import VendorLogoSerializer
+from vendors.hospital_announcement_templates import get_vendor_announcement_templates
 from vendors.models import Order
 from vendors.utils import notify_web_push
 
@@ -113,6 +114,7 @@ def build_hospital_pre_announcement_payload(
         "logo_url": logo_url,
         "vibration_pattern": vendor.config.vibration_pattern,
         "vibration_duration": vendor.config.vibration_duration,
+        "announcement_templates": get_vendor_announcement_templates(vendor),
     }
 
 

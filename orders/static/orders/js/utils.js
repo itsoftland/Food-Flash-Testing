@@ -199,6 +199,96 @@ const HOSPITAL_TTS_STATUS_SUMMARY =
     "Your registration status has been updated. Please review the details in the application.";
 
 /**
+ * Built-in Hospital Flash spoken templates (non-default).
+ * Must stay aligned with vendors/hospital_announcement_templates.py.
+ * "default" is intentionally absent — runtime uses the original hardcoded branches.
+ */
+const HOSPITAL_ANNOUNCEMENT_BUILTINS = {
+    called: {
+        template_a: "Patient {token}, kindly proceed to the {department}.",
+        template_b: "Now serving token {token}. Please visit the {department}.",
+    },
+    waiting: {
+        template_a:
+            "Patient {token}, you are in the queue for {department}. Please wait for your turn.",
+        template_b:
+            "Token {token} is waiting for {department}. We will announce when it is your turn.",
+    },
+    completed: {
+        template_a:
+            "Patient {token}, your consultation at {department} is complete. Thank you.",
+        template_b: "Token {token} completed. Thank you for visiting {department}.",
+    },
+    cancelled: {
+        template_a:
+            "Patient {token}, your visit for {department} has been cancelled. Please contact hospital staff.",
+        template_b:
+            "Token {token} cancelled for {department}. Please speak with hospital staff for assistance.",
+    },
+    pre_announcement: {
+        template_a:
+            "Patient {token}, your turn for {department} is approaching. Please be ready.",
+        template_b:
+            "Token {token} will be called soon at {department}. Please stay nearby.",
+    },
+};
+
+/**
+ * Replace {token}/{department} in a template. Unknown placeholders are left as-is
+ * only when they are not our known keys; known keys with empty values become "".
+ */
+function applyHospitalAnnouncementPlaceholders(template, token, department) {
+    if (template == null) return "";
+    let text = String(template);
+    text = text.replace(/\{token\}/gi, token || "");
+    text = text.replace(/\{department\}/gi, department || "");
+    // Collapse awkward double spaces from empty placeholders; keep sentence readable.
+    return text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
+}
+
+/**
+ * Resolve configured spoken template for a hospital announcement type.
+ * Returns null when Default / missing config — caller must use hardcoded path.
+ */
+function resolveHospitalConfiguredTemplate(pushData, announcementType, token, department) {
+    if (!pushData || typeof pushData !== "object" || !announcementType) {
+        return null;
+    }
+    const configs = pushData.announcement_templates;
+    if (!configs || typeof configs !== "object") {
+        return null;
+    }
+    const entry = configs[announcementType];
+    if (!entry || typeof entry !== "object") {
+        return null;
+    }
+
+    const selected = String(entry.selected || "default").trim().toLowerCase();
+    if (!selected || selected === "default") {
+        return null;
+    }
+
+    let template = null;
+    if (selected === "custom") {
+        template = entry.custom_text != null ? String(entry.custom_text).trim() : "";
+        if (!template) {
+            return null; // empty custom → fall back to hardcoded defaults
+        }
+    } else if (selected === "template_a" || selected === "template_b") {
+        const builtins = HOSPITAL_ANNOUNCEMENT_BUILTINS[announcementType] || {};
+        template = builtins[selected] || null;
+        if (!template) {
+            return null;
+        }
+    } else {
+        return null;
+    }
+
+    const spoken = applyHospitalAnnouncementPlaceholders(template, token, department);
+    return spoken || null;
+}
+
+/**
  * Hospital Flash–only spoken messages for notifyOrderReady.
  * Other flavours never call this.
  */
@@ -221,6 +311,15 @@ function buildHospitalFlashSpokenMessage(pushData) {
 
     // Pre-announcement (must win over status === "waiting").
     if (type === "hospital_pre_announcement") {
+        const configured = resolveHospitalConfiguredTemplate(
+            pushData,
+            "pre_announcement",
+            token,
+            department
+        );
+        if (configured) {
+            return configured;
+        }
         if (token && department) {
             return (
                 `Token ${token}. Your turn is approaching. ` +
@@ -241,6 +340,26 @@ function buildHospitalFlashSpokenMessage(pushData) {
     // Multi-department registration snapshot — never interpolate missing token fields.
     if (isBatch) {
         return HOSPITAL_TTS_STATUS_SUMMARY;
+    }
+
+    const statusToAnnouncementType = {
+        waiting: "waiting",
+        registered: "waiting",
+        called: "called",
+        completed: "completed",
+        cancelled: "cancelled",
+    };
+    const announcementType = statusToAnnouncementType[status];
+    if (announcementType) {
+        const configured = resolveHospitalConfiguredTemplate(
+            pushData,
+            announcementType,
+            token,
+            department
+        );
+        if (configured) {
+            return configured;
+        }
     }
 
     switch (status) {

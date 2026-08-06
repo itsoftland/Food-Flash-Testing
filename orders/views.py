@@ -25,6 +25,7 @@ from vendors.models import (Order, Vendor, AdminOutlet, AndroidDevice,
                             AdvertisementProfileAssignment,
                             UserProfile,ChatMessage,
                             Utility, UtilityOption, BuffetOrderItem)
+from vendors.hospital_announcement_templates import get_vendor_announcement_templates
 from vendors.utils import buffet_utility_image_absolute_url, hospital_utility_payload
 from vendors.serializers import OrdersSerializer
 
@@ -991,6 +992,7 @@ def _build_hospital_status_payload(request, orders, primary_order, message):
         "updated_by": primary_order.updated_by,
         "vibration_pattern": vendor.config.vibration_pattern,
         "vibration_duration": vendor.config.vibration_duration,
+        "announcement_templates": get_vendor_announcement_templates(vendor),
     }
 
     if batch_id:

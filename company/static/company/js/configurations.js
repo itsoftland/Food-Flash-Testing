@@ -32,8 +32,159 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mrNumberEnabledEl = document.getElementById('mr_number_enabled');
   const billNumberEnabledEl = document.getElementById('bill_number_enabled');
   const qrExpiryMinutesEl = document.getElementById('qr_expiry_minutes');
+  const announcementRoot = document.getElementById('hospital-announcement-templates');
 
   if (!configForm || !outletsSelect) return;
+
+  const announcementCatalog = window.HOSPITAL_ANNOUNCEMENT_CATALOG || null;
+  const isHospitalAnnouncementUi = Boolean(
+    announcementRoot &&
+    announcementCatalog &&
+    Array.isArray(announcementCatalog.types)
+  );
+
+  const previewToken = announcementCatalog?.preview_token || '101';
+  const previewDepartment = announcementCatalog?.preview_department || 'Lab';
+
+  const applyPlaceholders = (template) => {
+    if (!template) return '';
+    return String(template)
+      .replace(/\{token\}/g, previewToken)
+      .replace(/\{department\}/g, previewDepartment);
+  };
+
+  const getOptionText = (typeDef, selection, customText) => {
+    if (selection === 'custom') {
+      return customText || '';
+    }
+    const option = (typeDef.options || []).find((o) => o.id === selection);
+    return option?.text || '';
+  };
+
+  const updateAnnouncementPreview = (typeId) => {
+    if (!isHospitalAnnouncementUi) return;
+    const typeDef = announcementCatalog.types.find((t) => t.id === typeId);
+    if (!typeDef) return;
+
+    const selectEl = document.getElementById(`ann-select-${typeId}`);
+    const customEl = document.getElementById(`ann-custom-${typeId}`);
+    const previewEl = document.getElementById(`ann-preview-${typeId}`);
+    const customWrap = document.getElementById(`ann-custom-wrap-${typeId}`);
+    if (!selectEl || !previewEl) return;
+
+    const selected = selectEl.value || 'default';
+    if (customWrap) {
+      customWrap.classList.toggle('is-visible', selected === 'custom');
+    }
+    const raw = getOptionText(typeDef, selected, customEl?.value || '');
+    previewEl.textContent = applyPlaceholders(raw) || '—';
+  };
+
+  const renderAnnouncementTemplatesUi = () => {
+    if (!isHospitalAnnouncementUi) return;
+
+    announcementRoot.innerHTML = announcementCatalog.types
+      .map((typeDef) => {
+        const optionsHtml = (typeDef.options || [])
+          .map(
+            (opt) =>
+              `<option value="${opt.id}">${opt.label}</option>`
+          )
+          .join('');
+
+        return `
+          <div class="announcement-type-card" data-announcement-type="${typeDef.id}">
+            <h6>${typeDef.label}</h6>
+            <div class="mb-2">
+              <div class="announcement-preview-label">Current announcement text</div>
+              <div class="announcement-preview" id="ann-preview-${typeDef.id}"></div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="ann-select-${typeDef.id}">
+                <strong>Template</strong>
+              </label>
+              <select class="form-select form-select-sm" id="ann-select-${typeDef.id}" data-ann-type="${typeDef.id}">
+                ${optionsHtml}
+              </select>
+            </div>
+            <div class="announcement-custom-wrap" id="ann-custom-wrap-${typeDef.id}">
+              <label class="form-label" for="ann-custom-${typeDef.id}">
+                <strong>Custom text</strong>
+              </label>
+              <textarea
+                class="form-control form-control-sm"
+                id="ann-custom-${typeDef.id}"
+                data-ann-type="${typeDef.id}"
+                rows="3"
+                placeholder="Token {token}. Please proceed to the {department} department."
+              ></textarea>
+              <small class="text-muted">Use {token} and {department} placeholders.</small>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    announcementCatalog.types.forEach((typeDef) => {
+      const selectEl = document.getElementById(`ann-select-${typeDef.id}`);
+      const customEl = document.getElementById(`ann-custom-${typeDef.id}`);
+      if (selectEl) {
+        selectEl.addEventListener('change', () => updateAnnouncementPreview(typeDef.id));
+      }
+      if (customEl) {
+        customEl.addEventListener('input', () => updateAnnouncementPreview(typeDef.id));
+      }
+      updateAnnouncementPreview(typeDef.id);
+    });
+  };
+
+  const loadAnnouncementTemplates = (vendorConfig) => {
+    if (!isHospitalAnnouncementUi) return;
+
+    const saved = vendorConfig?.announcement_templates;
+    const savedMap = saved && typeof saved === 'object' ? saved : {};
+
+    announcementCatalog.types.forEach((typeDef) => {
+      const entry = savedMap[typeDef.id] || {};
+      const selectEl = document.getElementById(`ann-select-${typeDef.id}`);
+      const customEl = document.getElementById(`ann-custom-${typeDef.id}`);
+      if (!selectEl) return;
+
+      const selected = String(entry.selected || 'default').toLowerCase();
+      const validIds = (typeDef.options || []).map((o) => o.id);
+      selectEl.value = validIds.includes(selected) ? selected : 'default';
+      if (customEl) {
+        customEl.value = entry.custom_text ? String(entry.custom_text) : '';
+      }
+      updateAnnouncementPreview(typeDef.id);
+    });
+  };
+
+  const collectAnnouncementTemplates = () => {
+    if (!isHospitalAnnouncementUi) return null;
+
+    const payload = {};
+    announcementCatalog.types.forEach((typeDef) => {
+      const selectEl = document.getElementById(`ann-select-${typeDef.id}`);
+      const customEl = document.getElementById(`ann-custom-${typeDef.id}`);
+      if (!selectEl) return;
+
+      const selected = selectEl.value || 'default';
+      const customText = (customEl?.value || '').trim();
+      if (selected === 'default' && !customText) {
+        return;
+      }
+      payload[typeDef.id] = {
+        selected,
+        custom_text: customText,
+      };
+    });
+    return payload;
+  };
+
+  if (isHospitalAnnouncementUi) {
+    renderAnnouncementTemplatesUi();
+  }
 
   /* ------------------------------------
      Initialize Choices (ONCE)
@@ -97,6 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (mrNumberEnabledEl) mrNumberEnabledEl.checked = false;
       if (billNumberEnabledEl) billNumberEnabledEl.checked = false;
       if (qrExpiryMinutesEl) qrExpiryMinutesEl.value = 5;
+      loadAnnouncementTemplates(null);
       return;
     }
 
@@ -135,6 +287,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const value = Number.parseInt(vendorConfig?.qr_expiry_minutes, 10);
       qrExpiryMinutesEl.value = Number.isFinite(value) && value > 0 ? value : 5;
     }
+
+    loadAnnouncementTemplates(vendorConfig);
   };
 
   // Listen for selection changes on the underlying select element
@@ -187,6 +341,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         1440,
         Math.max(1, Number.parseInt(qrExpiryMinutesEl.value || '5', 10) || 5)
       );
+    }
+
+    if (isHospitalAnnouncementUi) {
+      const templates = collectAnnouncementTemplates();
+      if (templates) {
+        payload.announcement_templates = templates;
+      }
     }
 
     try {

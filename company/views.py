@@ -166,13 +166,20 @@ def mapped_list(request):
 @login_required
 def configurations(request):
     current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    is_hospital = current_project == "hospital_flash"
+    context = {
+        "is_dine_flash": current_project == "dine_flash",
+        "is_hospital_flash": is_hospital,
+    }
+    if is_hospital:
+        from vendors.hospital_announcement_templates import catalog_for_admin
+        import json
+
+        context["hospital_announcement_catalog_json"] = json.dumps(catalog_for_admin())
     return render(
         request,
         "company/configurations.html",
-        {
-            "is_dine_flash": current_project == "dine_flash",
-            "is_hospital_flash": current_project == "hospital_flash",
-        },
+        context,
     )
 
 @login_required
@@ -2954,6 +2961,11 @@ def vendor_configurations(request):
 
     vendor_id = serializer.validated_data.pop("vendor_id")
     update_fields = serializer.validated_data
+
+    # Never persist hospital-only announcement templates on other flavours.
+    current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    if current_project != "hospital_flash":
+        update_fields.pop("announcement_templates", None)
 
     if not update_fields:
         return Response(

@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
 <link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
-<link rel="stylesheet" href="{% static 'company/css/configurations.css' %}">
+<link rel="stylesheet" href="{% static 'company/css/configurations.css' %}?v={{ APP_VERSION }}">
 {% endblock %}
 
 {% block title %}{{ LABELS.sidebar.configurations }}{% endblock %}
@@ -124,6 +124,21 @@
             {% endif %}
           </div>
 
+          {% if is_hospital_flash %}
+          <hr class="my-3">
+
+          <!-- Step 3: Spoken announcement templates (Hospital Flash only) -->
+          <div class="mb-3" id="hospital-announcement-templates-section">
+            <h6 class="text-uppercase fw-bold text-muted mb-2">Step 3: Spoken Announcement Templates</h6>
+            <p class="text-muted small mb-3">
+              Configure the text spoken to patients for each announcement type.
+              Placeholders: <code>{token}</code>, <code>{department}</code>.
+              Leave on Default to keep today’s built-in announcements.
+            </p>
+            <div id="hospital-announcement-templates" class="announcement-templates-list"></div>
+          </div>
+          {% endif %}
+
           <hr class="my-3">
 
           <!-- Action -->
@@ -145,6 +160,11 @@
 {% endblock %}
 
 {% block extra_js %}
-<script type="module" src="{% static 'company/js/configurations.js' %}"></script>
+{% if is_hospital_flash %}
+<script>
+  window.HOSPITAL_ANNOUNCEMENT_CATALOG = {{ hospital_announcement_catalog_json|safe }};
+</script>
+{% endif %}
+<script type="module" src="{% static 'company/js/configurations.js' %}?v={{ APP_VERSION }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 {% endblock %}

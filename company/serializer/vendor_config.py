@@ -62,6 +62,21 @@ class VendorConfigUpdateSerializer(serializers.Serializer):
     bill_number_enabled = serializers.BooleanField(required=False)
     use_utilities = serializers.BooleanField(required=False)
     qr_expiry_minutes = serializers.IntegerField(required=False, min_value=1, max_value=1440)
+    announcement_templates = serializers.JSONField(required=False)
+
+    def validate_announcement_templates(self, value):
+        from django.conf import settings
+        from vendors.hospital_announcement_templates import normalize_announcement_templates
+
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        # Other flavours: ignore silently (view also strips before save).
+        if current_project != "hospital_flash":
+            return {}
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("announcement_templates must be an object.")
+        return normalize_announcement_templates(value)
 
     # Future fields can be added safely without breaking API
     # auto_delete_hours = serializers.IntegerField(required=False, allow_null=True)

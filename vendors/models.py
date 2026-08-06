@@ -162,6 +162,14 @@ class VendorConfig(models.Model):
         help_text="Custom closing/thank you message",
         default=get_default_closing_message
     )
+    # Hospital Flash only: per-type spoken TTS template selection + custom text.
+    # Shape: {"called": {"selected": "default"|"template_a"|"template_b"|"custom", "custom_text": "..."}}
+    # Empty {} means use hardcoded defaults in the customer PWA (backward compatible).
+    announcement_templates = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Hospital Flash: spoken announcement template selections (unused by other flavours)",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

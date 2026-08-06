@@ -22,6 +22,7 @@ from orders.hospital.order_create import (
 from orders.serializers import VendorLogoSerializer
 from static.utils.functions.queries import update_patient_status_by_hospital_manager
 from static.utils.functions.utils import get_vendor_business_day_range, get_vendor_current_time
+from vendors.hospital_announcement_templates import get_vendor_announcement_templates
 from vendors.hospital_tv import refresh_hospital_tv
 from vendors.models import ChatMessage, Order, Utility, Vendor
 from vendors.utils import notify_web_push
@@ -132,6 +133,7 @@ def build_hospital_department_status_payload(request, order, new_status):
         "logo_url": logo_url,
         "vibration_pattern": vendor.config.vibration_pattern,
         "vibration_duration": vendor.config.vibration_duration,
+        "announcement_templates": get_vendor_announcement_templates(vendor),
     }
 
 
@@ -191,6 +193,7 @@ def build_hospital_manager_chat_payload(request, order, message_text, message_id
         "logo_url": logo_url,
         "vibration_pattern": vendor.config.vibration_pattern,
         "vibration_duration": vendor.config.vibration_duration,
+        "announcement_templates": get_vendor_announcement_templates(vendor),
     }
 
 
