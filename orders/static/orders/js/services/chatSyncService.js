@@ -6,7 +6,7 @@
 // every entry point returns immediately when isEnabled() is false.
 
 import { ChatHistoryService } from "./chatHistoryService.js";
-import { appendMessage } from "./chatService.js";
+import { appendMessage } from "./chatService.js?v=20260806_1";
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
 const RECOVERABLE_TYPES = new Set([

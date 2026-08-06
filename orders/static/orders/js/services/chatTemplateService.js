@@ -781,13 +781,17 @@ function buildHospitalPreAnnouncementMessage(payload) {
 
 function buildHospitalStatusMessage(payload) {
   if (Array.isArray(payload?.departments) && payload.departments.length > 0) {
+    let hasCalledDept = false;
     const deptRows = payload.departments
       .map((dept) => {
         const statusKey = dept?.status?.toLowerCase() || "unknown";
         const statusClass = statusClassMap[statusKey] || "unknown-color";
         const payloadStatus = hospitalPayloadStatusMap[statusKey] || dept?.status || "Unknown";
+        const isCalled = statusKey === "called";
+        if (isCalled) hasCalledDept = true;
+        const deptCalledClass = isCalled ? " hospital-dept-called" : "";
         return `
-      <div class="hospital-dept-row mb-3 pb-2 border-bottom border-light">
+      <div class="hospital-dept-row mb-3 pb-2 border-bottom border-light${deptCalledClass}">
         <div class="dine-row">
           <span class="dine-label"><span class="dine-icon">🏥</span>Department</span>
           <span class="dine-value dine-badge">${dept.utility_name || "-"}</span>
@@ -804,13 +808,16 @@ function buildHospitalStatusMessage(payload) {
       })
       .join("");
 
+    // Presentation-only marker for Hospital Flash Called highlight (see chatService).
+    const calledMarker = hasCalledDept ? " hospital-status-called" : "";
+
     return `
     <div class="response-title">
       ${buildLogoImg(payload)}
       <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
     </div>
 
-    <div class="dine-body">
+    <div class="dine-body${calledMarker}">
       <div class="dine-card-header">
         <span class="customer-icon" aria-hidden="true">👤</span>
         <div class="customer-name">${payload.customer_name || "-"}</div>
@@ -825,6 +832,8 @@ function buildHospitalStatusMessage(payload) {
   const statusKey = payload?.status?.toLowerCase() || "unknown";
   const statusClass = statusClassMap[statusKey] || "unknown-color";
   const payloadStatus = hospitalPayloadStatusMap[statusKey] || payload?.status || "Unknown";
+  // Presentation-only marker for Hospital Flash Called highlight (see chatService).
+  const calledMarker = statusKey === "called" ? " hospital-status-called" : "";
   const isStatusUpdate =
     payload?.booking_id != null &&
     payload?.status &&
@@ -851,7 +860,7 @@ function buildHospitalStatusMessage(payload) {
       <span class="response-title-text">${payload.alias_name || payload.name || "Hospital"}</span>
     </div>
 
-    <div class="dine-body">
+    <div class="dine-body${calledMarker}">
       <div class="dine-card-header">
         <span class="customer-icon" aria-hidden="true">🏥</span>
         <div class="customer-name">${payload.utility_name || "-"}</div>
@@ -880,7 +889,7 @@ function buildHospitalStatusMessage(payload) {
       </span>
     </div>
 
-    <div class="dine-body">
+    <div class="dine-body${calledMarker}">
       <div class="dine-card-header">
         <span class="customer-icon" aria-hidden="true">👤</span>
         <div class="customer-name">${payload.customer_name || "-"}</div>

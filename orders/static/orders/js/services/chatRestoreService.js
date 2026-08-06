@@ -1,7 +1,7 @@
 // orders/static/orders/js/services/chatRestoreService.js
 import { ChatHistoryService } from "./chatHistoryService.js";
 import { ChatSyncService } from "./chatSyncService.js";
-import { appendMessage } from "./chatService.js";
+import { appendMessage } from "./chatService.js?v=20260806_1";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 

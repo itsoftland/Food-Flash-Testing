@@ -14,7 +14,7 @@
 
 import { ChatHistoryService } from "../../services/chatHistoryService.js";
 import { ChatSyncService } from "../../services/chatSyncService.js";
-import { appendMessage } from "../../services/chatService.js";
+import { appendMessage } from "../../services/chatService.js?v=20260806_1";
 import { WelcomeMessageService } from "../../services/welcomeMessageService.js";
 import { getSelectedOrder } from "./selectedOrderService.js";
 import { isMultiOrderMode } from "./multiOrderModeService.js";

@@ -1,6 +1,34 @@
 // static/js/chatService.js
 import {ChatHistoryService}  from "./chatHistoryService.js";
-import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
+import { HOSPITAL_MANAGER_PUSH_TYPE, hospitalOnly } from "../hospital/hospitalCommon.js";
+
+/**
+ * Hospital Flash presentation only.
+ * Highlights the customer chat bubble when status is Called; clears it when a
+ * later hospitalstatus card for the same booking/token is not Called.
+ * Runs after render — does not affect save/push/routing.
+ */
+function syncHospitalCalledHighlight(messageBubble, token_no) {
+    if (!messageBubble) return;
+
+    const tokenKey = token_no != null && String(token_no).trim() !== ""
+        ? String(token_no)
+        : "";
+
+    if (tokenKey) {
+        document
+            .querySelectorAll(".message-bubble.server.hospital-called-highlight")
+            .forEach((el) => {
+                if (String(el.dataset.tokenNo || "") === tokenKey) {
+                    el.classList.remove("hospital-called-highlight");
+                }
+            });
+    }
+
+    if (messageBubble.querySelector(".hospital-status-called")) {
+        messageBubble.classList.add("hospital-called-highlight");
+    }
+}
 
 export function updateChatOnPush(vendorId, logo_url, name) {
     document.querySelectorAll(".vendor-logo-wrapper").forEach(wrapper => {
@@ -172,6 +200,14 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
         if (replyBtn) replyBtn.remove();
     }
     chatContainer.appendChild(messageRow);
+
+    // Hospital Flash only: Called-status visual highlight (presentation after render).
+    if (
+        hospitalOnly() &&
+        String(type || "").toLowerCase() === "hospitalstatus"
+    ) {
+        syncHospitalCalledHighlight(messageBubble, token_no);
+    }
 
     // Final logo hydration fallback for server cards:
     // if the card logo is empty/broken, reuse the outlet logo already visible in header.
