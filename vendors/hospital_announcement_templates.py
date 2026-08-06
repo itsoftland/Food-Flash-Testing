@@ -152,9 +152,16 @@ def resolve_builtin_template(announcement_type: str, selection: str) -> str | No
 
 
 def catalog_for_admin() -> dict:
-    """Payload for Company Admin Configurations (hospital_flash only)."""
+    """Payload for Company Admin Configurations (hospital_flash only).
+
+    Waiting is omitted from the admin UI: current runtime never speaks a
+    non-batch Waiting TTS (registration uses the batch summary instead).
+    Waiting remains in ANNOUNCEMENT_TYPES / builtins for normalize + runtime.
+    """
     types = []
     for ann_type in ANNOUNCEMENT_TYPES:
+        if ann_type == "waiting":
+            continue
         builtins = HOSPITAL_ANNOUNCEMENT_BUILTINS[ann_type]
         types.append(
             {

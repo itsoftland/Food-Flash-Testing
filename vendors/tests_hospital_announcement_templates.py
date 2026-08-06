@@ -56,7 +56,7 @@ class HospitalAnnouncementTemplatesTests(SimpleTestCase):
         vendor = SimpleNamespace(config=SimpleNamespace())
         self.assertEqual(get_vendor_announcement_templates(vendor), {})
 
-    def test_catalog_for_admin_has_all_types(self):
+    def test_catalog_for_admin_omits_waiting(self):
         from vendors.hospital_announcement_templates import (
             ANNOUNCEMENT_TYPES,
             catalog_for_admin,
@@ -64,7 +64,13 @@ class HospitalAnnouncementTemplatesTests(SimpleTestCase):
 
         catalog = catalog_for_admin()
         ids = [t["id"] for t in catalog["types"]]
-        self.assertEqual(ids, list(ANNOUNCEMENT_TYPES))
+        # Waiting is not configurable in Company Admin (TTS path unused today).
+        self.assertEqual(
+            ids,
+            [t for t in ANNOUNCEMENT_TYPES if t != "waiting"],
+        )
+        self.assertNotIn("waiting", ids)
+        self.assertIn("waiting", ANNOUNCEMENT_TYPES)
         for type_def in catalog["types"]:
             option_ids = [o["id"] for o in type_def["options"]]
             self.assertEqual(
