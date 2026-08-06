@@ -10,7 +10,7 @@ import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js
 import { ChatRestoreService } from "./services/chatRestoreService.js";
 import { ChatSyncService } from "./services/chatSyncService.js";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
-import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260605_1";
+import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260806_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";
