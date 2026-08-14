@@ -1007,13 +1007,16 @@ def register_android_device(request):
             _write_fcm_registration_log(vendor_id)
             return Response(missing_config_response, status=status.HTTP_200_OK)
 
+        is_hospital_flash = project_code == "hospital_flash" or current_project == "hospital_flash"
+
         # Build tv_config payload (use the reusable helper)
         try:
             tv_config_data = build_tv_config_payload(
                 device_tv_config,
                 request=request,
-                omit_utilities=is_dine_flash,
+                omit_utilities=is_dine_flash or is_hospital_flash,
                 include_dine_flash_fields=is_dine_flash,
+                include_hospital_flash_fields=is_hospital_flash,
                 vendor_id=vendor_id if is_dine_flash else None,
             )
         except Exception as e:
@@ -1034,6 +1037,20 @@ def register_android_device(request):
                 "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
             }
 
+        hospital_flash_tv = None
+        if is_hospital_flash:
+            try:
+                from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+
+                hospital_flash_tv = build_hospital_tv_registration_snapshot(vendor)
+            except Exception as e:
+                logger.error(
+                    "Failed to build Hospital Flash TV registration snapshot: %s",
+                    str(e),
+                    exc_info=True,
+                )
+                hospital_flash_tv = {"tokens": [], "total_count": 0}
+
         response_body = {
             "status": "Device is mapped to vendor.",
             "mapped": mapped,
@@ -1052,6 +1069,14 @@ def register_android_device(request):
                     "counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
                     "displayed_counts": {"waiting": 0, "active_tables": 0, "ongoing_tables": 0},
                 }
+        if is_hospital_flash:
+            if isinstance(hospital_flash_tv, dict):
+                response_body["hospital_flash"] = {
+                    "tokens": list(hospital_flash_tv.get("tokens") or []),
+                    "total_count": int(hospital_flash_tv.get("total_count") or 0),
+                }
+            else:
+                response_body["hospital_flash"] = {"tokens": [], "total_count": 0}
 
         waiting_count = 0
         active_tables_count = 0

@@ -21,3 +21,13 @@ def dine_flash_exclusive_tv_device_policy_applies(admin_outlet) -> bool:
         return True
     server = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
     return server == "dine_flash"
+
+
+def hospital_flash_tv_configuration_applies(admin_outlet) -> bool:
+    """When True, Hospital Flash extended TV configuration fields are enabled."""
+    if not admin_outlet:
+        code = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        return code == "hospital_flash"
+    code = (getattr(admin_outlet, "project_code", "") or "").strip().lower()
+    server = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    return code == "hospital_flash" or server == "hospital_flash"

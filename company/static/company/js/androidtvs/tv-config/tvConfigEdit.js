@@ -23,6 +23,35 @@ function isTvConfigListDineFlash() {
   return String(window.PROJECT_NAME || '').trim().toLowerCase() === 'dine_flash';
 }
 
+function isTvConfigListHospitalFlash() {
+  const el = document.getElementById('tv-config-list-page-flags');
+  if (el) {
+    try {
+      const p = JSON.parse(el.textContent);
+      if (p && p.isHospitalFlash === true) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  return String(window.PROJECT_NAME || '').trim().toLowerCase() === 'hospital_flash';
+}
+
+function readInputValue(id, fallback = undefined) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  if (el.type === 'checkbox') return Boolean(el.checked);
+  const value = el.value;
+  if (value === undefined || value === null || value === '') return fallback;
+  return value;
+}
+
+function readIntValue(id, fallback) {
+  const raw = readInputValue(id, undefined);
+  if (raw === undefined) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function populateLinkedTvSelect(configResponse, config) {
   const sel = document.getElementById('edit-mapped-device-select');
   if (!sel || !isTvConfigListDineFlash()) return;
@@ -179,6 +208,11 @@ let currentConfigId = null;
 let editAdsEventsBound = false;
 const MAX_TV_AD_BYTES = 100 * 1024 * 1024;
 
+/** Hospital-only: track original ad assignments and whether the user changed them. */
+let hospitalOriginalAdIds = [];
+let hospitalAdsSelectionDirty = false;
+let hospitalAdsListLoaded = false;
+
 function getOppositeAdPosition(qrPlacement) {
   return String(qrPlacement || '').includes('right') ? 'left' : 'right';
 }
@@ -263,13 +297,31 @@ async function openEditModal(id, ctx) {
       ? utilitiesRaw.filter((u) => u && u.id !== undefined && u.id !== null)
       : [];
     const ads = Array.isArray(adsData.ads) ? adsData.ads : [];
+    const adsListLoaded = Boolean(adsRes.ok);
 
-    // 2. Populate Utilities Dropdown (non-Dine Flash edit modal only)
+    // 2. Populate Utilities Dropdown (non-Dine / non-Hospital edit modal only)
     const utilsSelect = document.getElementById('edit-utilities-list');
     const isDineFlashList = isTvConfigListDineFlash();
-    if (!utilsSelect && !isDineFlashList) {
+    const isHospitalFlashList = isTvConfigListHospitalFlash();
+    if (!utilsSelect && !isDineFlashList && !isHospitalFlashList) {
       throw new Error('Edit utilities field is missing from the page.');
     }
+
+    if (isHospitalFlashList) {
+      hospitalAdsSelectionDirty = false;
+      hospitalAdsListLoaded = adsListLoaded;
+      const assignedIds = Array.isArray(config.assigned_advertisement_ids)
+        ? config.assigned_advertisement_ids
+        : (config.advertisements || []).map((ad) => ad.id);
+      hospitalOriginalAdIds = assignedIds
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isFinite(id));
+    } else {
+      hospitalOriginalAdIds = [];
+      hospitalAdsSelectionDirty = false;
+      hospitalAdsListLoaded = false;
+    }
+
     if (utilsSelect) {
       utilsSelect.innerHTML = utilities.map(u => {
         const name = u.display_name || u.utility_name || u.name || `Utility #${u.id}`;
@@ -311,7 +363,16 @@ async function openEditModal(id, ctx) {
         setMultiSelect('edit-utilities-list', selectedIds);
       }
     }
-    refreshEditAdsUI(ads);
+    const selectedAdIds = (
+      isHospitalFlashList && hospitalOriginalAdIds.length
+        ? hospitalOriginalAdIds
+        : (config.advertisements || []).map((ad) => ad.id)
+    ).map((id) => String(id));
+    refreshEditAdsUI(ads, selectedAdIds);
+    // Opening the modal rebuilds the ads UI; keep Hospital dirty=false until the user edits ads.
+    if (isHospitalFlashList) {
+      hospitalAdsSelectionDirty = false;
+    }
     bindEditAdsEvents();
 
     // 5. Show Modal
@@ -389,9 +450,9 @@ async function fetchAds() {
   return data.ads || [];
 }
 
-async function refreshEditAdsUI(existingAds = null) {
+async function refreshEditAdsUI(existingAds = null, selectedIds = null) {
   const ads = existingAds || await fetchAds();
-  populateAdsSelect(ads);
+  populateAdsSelect(ads, selectedIds);
   renderEditAdList(ads);
 }
 
@@ -447,6 +508,7 @@ function bindEditAdsEvents() {
   });
 
   adsSelect?.addEventListener('change', () => {
+    markHospitalAdsSelectionDirty();
     renderEditAdList(Array.from(document.querySelectorAll('#edit-ad-list .edit-ad-select')).map((el) => {
       const adId = parseInt(el.dataset.id, 10);
       const row = el.closest('div.d-flex.align-items-center.justify-content-between');
@@ -469,6 +531,7 @@ function bindEditAdsEvents() {
       const id = String(selectToggle.dataset.id || '');
       const option = Array.from(adsSelect?.options || []).find((opt) => opt.value === id);
       if (option) option.selected = selectToggle.checked;
+      markHospitalAdsSelectionDirty();
       return;
     }
 
@@ -512,7 +575,10 @@ function bindEditAdsEvents() {
 
 function populateForm(config) {
   setValue('edit-config-name', config.config_name || '');
-  document.getElementById('edit-show-qr').checked = config.show_qr;
+  const showQrEl = document.getElementById('edit-show-qr');
+  if (showQrEl) {
+    showQrEl.checked = Boolean(config.show_qr);
+  }
   setValue('edit-qr-placement', config.qr_placement || 'bottom-right');
   setValue('edit-qr-base-url', config.qr_base_url || '');
   setValue('edit-qr-expiry-minutes', config.qr_expiry_minutes || 5);
@@ -523,10 +589,12 @@ function populateForm(config) {
   setValue('edit-display-rows', config.display_rows);
   setValue('edit-display-columns', config.display_columns);
   setValue('edit-token-font-size', config.token_font_size);
+  setValue('edit-counter-font-size', config.counter_font_size);
   setValue('edit-utility-font-size', config.utility_font_size);
   setValue('edit-header-font-size', config.header_font_size);
   setValue('edit-header-font-style', config.header_font_style);
   setValue('edit-token-text-color', config.token_text_color || '#000000');
+  setValue('edit-counter-text-color', config.counter_text_color || '#000000');
   setValue('edit-utility-text-color', config.utility_text_color || '#000000');
   setValue('edit-header-text-color', config.header_text_color || '#000000');
   setValue('edit-footer-font-size', config.footer_font_size || 16);
@@ -541,6 +609,7 @@ function populateForm(config) {
   setChecked('edit-blink-token', config.blink_token);
   setChecked('edit-blink-utility', config.blink_utility);
   setChecked('edit-enable-ads', config.enable_ads);
+  setValue('edit-ad-position', config.ad_position || 'right');
   setValue('edit-ad-interval', config.ad_interval || 8);
   setValue('edit-video-ad-mode', config.video_ad_mode || 'play_full');
   setChecked('edit-footer-enabled', config.footer_enabled);
@@ -549,92 +618,194 @@ function populateForm(config) {
 
 }
 
+function markHospitalAdsSelectionDirty() {
+  if (isTvConfigListHospitalFlash()) {
+    hospitalAdsSelectionDirty = true;
+  }
+}
+
+function getHospitalSelectableAdIds() {
+  const adsSelect = document.getElementById('edit-advertisements-list');
+  if (!adsSelect) return new Set();
+  return new Set(
+    Array.from(adsSelect.options)
+      .map((opt) => parseInt(opt.value, 10))
+      .filter((id) => Number.isFinite(id))
+  );
+}
+
+function buildHospitalAdvertisementIdsForSave() {
+  // Do not touch M2M unless the user explicitly changed ad selection.
+  if (!hospitalAdsSelectionDirty) {
+    return undefined;
+  }
+  // If the outlet ads list never loaded, never send a replacement list.
+  if (!hospitalAdsListLoaded) {
+    return undefined;
+  }
+
+  const adsSelect = document.getElementById('edit-advertisements-list');
+  const selectedIds = adsSelect
+    ? Array.from(adsSelect.selectedOptions)
+        .map((opt) => parseInt(opt.value, 10))
+        .filter((id) => Number.isFinite(id))
+    : [];
+
+  // Keep originally assigned ads that are not currently selectable (inactive / missing from list).
+  const selectableIds = getHospitalSelectableAdIds();
+  const preservedUnavailable = hospitalOriginalAdIds.filter((id) => !selectableIds.has(id));
+  return Array.from(new Set([...selectedIds, ...preservedUnavailable]));
+}
+
+function buildHospitalEditPayload() {
+  const footerTextsValue = readInputValue('edit-footer-texts', '') || '';
+  const footerTexts = footerTextsValue.split('\n').map((t) => t.trim()).filter(Boolean);
+  const advertisementIds = buildHospitalAdvertisementIdsForSave();
+
+  const payload = {
+    config_name: (readInputValue('edit-config-name', '') || '').trim(),
+    show_qr: false,
+    booking_fields: [],
+    items_to_show: readIntValue('edit-items-to-show'),
+    utility_name_mode: readInputValue('edit-utility-name-mode'),
+    screen_orientation: readInputValue('edit-screen-orientation'),
+    display_rows: readIntValue('edit-display-rows'),
+    display_columns: readIntValue('edit-display-columns'),
+    token_font_size: readInputValue('edit-token-font-size'),
+    counter_font_size: readInputValue('edit-counter-font-size'),
+    utility_font_size: readInputValue('edit-utility-font-size'),
+    header_font_size: readInputValue('edit-header-font-size'),
+    header_font_style: readInputValue('edit-header-font-style'),
+    token_text_color: readInputValue('edit-token-text-color'),
+    counter_text_color: readInputValue('edit-counter-text-color'),
+    utility_text_color: readInputValue('edit-utility-text-color'),
+    header_text_color: readInputValue('edit-header-text-color'),
+    footer_font_size: readInputValue('edit-footer-font-size'),
+    footer_text_color: readInputValue('edit-footer-text-color'),
+    audio_enabled: Boolean(document.getElementById('edit-audio-enabled')?.checked),
+    announcement_language: readInputValue('edit-announcement-language'),
+    blink_token: Boolean(document.getElementById('edit-blink-token')?.checked),
+    blink_utility: Boolean(document.getElementById('edit-blink-utility')?.checked),
+    enable_ads: Boolean(document.getElementById('edit-enable-ads')?.checked),
+    ad_position: readInputValue('edit-ad-position'),
+    ad_interval: readIntValue('edit-ad-interval'),
+    video_ad_mode: readInputValue('edit-video-ad-mode'),
+    footer_enabled: Boolean(document.getElementById('edit-footer-enabled')?.checked),
+    footer_texts: footerTexts,
+  };
+
+  if (advertisementIds !== undefined) {
+    payload.advertisement_ids = advertisementIds;
+  }
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
+  return payload;
+}
+
 async function handleEditSubmit(e, id, ctx) {
   e.preventDefault();
   const form = e.target;
   // Basic formatting for FormData if needed, or manual JSON build
   // Since we have multi-select and checkboxes, JSON build is often safer/clearer
 
-  const showQr = document.getElementById('edit-show-qr').checked;
-  const qrPlacement = document.getElementById('edit-qr-placement')?.value || 'bottom-right';
-  const itemsToShow = document.getElementById('edit-items-to-show').value;
-  const utilNameMode = document.getElementById('edit-utility-name-mode').value;
-  const orientation = document.getElementById('edit-screen-orientation').value;
-  const adSelectEl = document.getElementById('edit-advertisements-list');
-  const footerTextsValue = document.getElementById('edit-footer-texts')?.value || '';
+  let payload;
+  if (isTvConfigListHospitalFlash()) {
+    payload = buildHospitalEditPayload();
+    if (!payload.config_name) {
+      ctx.ModalService.showError('Configuration name is required.');
+      return;
+    }
+    if (payload.footer_enabled && (!payload.footer_texts || payload.footer_texts.length === 0)) {
+      ctx.ModalService.showError('Add at least one footer text when footer is enabled.');
+      return;
+    }
+  } else {
+    const showQr = document.getElementById('edit-show-qr').checked;
+    const qrPlacement = document.getElementById('edit-qr-placement')?.value || 'bottom-right';
+    const itemsToShow = document.getElementById('edit-items-to-show').value;
+    const utilNameMode = document.getElementById('edit-utility-name-mode').value;
+    const orientation = document.getElementById('edit-screen-orientation').value;
+    const adSelectEl = document.getElementById('edit-advertisements-list');
+    const footerTextsValue = document.getElementById('edit-footer-texts')?.value || '';
 
-  const utilsSelectEl = document.getElementById('edit-utilities-list');
-  const utils = choicesInstance
-    ? choicesInstance.getValue(true)
-    : Array.from(utilsSelectEl?.selectedOptions || []).map((opt) => opt.value);
+    const utilsSelectEl = document.getElementById('edit-utilities-list');
+    const utils = choicesInstance
+      ? choicesInstance.getValue(true)
+      : Array.from(utilsSelectEl?.selectedOptions || []).map((opt) => opt.value);
 
-  const advertisementIds = adSelectEl
-    ? Array.from(adSelectEl.selectedOptions).map(opt => parseInt(opt.value, 10)).filter(Boolean)
-    : [];
-  const footerTexts = footerTextsValue.split('\n').map(t => t.trim()).filter(Boolean);
+    const advertisementIds = adSelectEl
+      ? Array.from(adSelectEl.selectedOptions).map(opt => parseInt(opt.value, 10)).filter(Boolean)
+      : [];
+    const footerTexts = footerTextsValue.split('\n').map(t => t.trim()).filter(Boolean);
 
-  const payload = {
-    config_name: document.getElementById('edit-config-name')?.value?.trim() || '',
-    show_qr: showQr,
-    qr_alignment: getQrAlignmentFromPlacement(qrPlacement),
-    qr_placement: qrPlacement,
-    qr_base_url: document.getElementById('edit-qr-base-url')?.value?.trim() || null,
-    qr_expiry_minutes: parseInt(document.getElementById('edit-qr-expiry-minutes')?.value, 10) || 5,
-    items_to_show: parseInt(itemsToShow),
-    utility_name_mode: utilNameMode,
-    screen_orientation: orientation,
-    // Dine Flash display is controlled by visibility toggles in UI.
-    booking_fields: ['token'],
-    display_rows: parseInt(document.getElementById('edit-display-rows')?.value, 10) || 1,
-    display_columns: parseInt(document.getElementById('edit-display-columns')?.value, 10) || 1,
-    token_font_size: document.getElementById('edit-token-font-size')?.value || 'large',
-    counter_font_size: 'medium',
-    utility_font_size: document.getElementById('edit-utility-font-size')?.value || 'small',
-    header_font_size: document.getElementById('edit-header-font-size')?.value || 'large',
-    header_font_style: document.getElementById('edit-header-font-style')?.value || 'bold',
-    token_text_color: document.getElementById('edit-token-text-color')?.value || '#000000',
-    counter_text_color: '#000000',
-    utility_text_color: document.getElementById('edit-utility-text-color')?.value || '#000000',
-    header_text_color: document.getElementById('edit-header-text-color')?.value || '#000000',
-    footer_font_size: document.getElementById('edit-footer-font-size')?.value || '16',
-    footer_text_color: document.getElementById('edit-footer-text-color')?.value || '#000000',
-    show_customer_name: Boolean(document.getElementById('edit-show-customer-name')?.checked),
-    show_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked),
-    show_partially_masked_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked) &&
-      Boolean(document.getElementById('edit-show-masked-phone-number')?.checked),
-    show_order_details: Boolean(document.getElementById('edit-show-order-details')?.checked),
-    audio_enabled: Boolean(document.getElementById('edit-audio-enabled')?.checked),
-    announcement_language: document.getElementById('edit-announcement-language')?.value || 'English',
-    blink_token: Boolean(document.getElementById('edit-blink-token')?.checked),
-    blink_utility: Boolean(document.getElementById('edit-blink-utility')?.checked),
-    enable_ads: Boolean(document.getElementById('edit-enable-ads')?.checked),
-    ad_position: getOppositeAdPosition(document.getElementById('edit-qr-placement')?.value || 'bottom-right'),
-    ad_interval: parseInt(document.getElementById('edit-ad-interval')?.value, 10) || 8,
-    video_ad_mode: document.getElementById('edit-video-ad-mode')?.value || 'play_full',
-    footer_enabled: Boolean(document.getElementById('edit-footer-enabled')?.checked),
-    footer_texts: footerTexts,
-    advertisement_ids: advertisementIds
-  };
+    payload = {
+      config_name: document.getElementById('edit-config-name')?.value?.trim() || '',
+      show_qr: showQr,
+      qr_alignment: getQrAlignmentFromPlacement(qrPlacement),
+      qr_placement: qrPlacement,
+      qr_base_url: document.getElementById('edit-qr-base-url')?.value?.trim() || null,
+      qr_expiry_minutes: parseInt(document.getElementById('edit-qr-expiry-minutes')?.value, 10) || 5,
+      items_to_show: parseInt(itemsToShow),
+      utility_name_mode: utilNameMode,
+      screen_orientation: orientation,
+      // Dine Flash display is controlled by visibility toggles in UI.
+      booking_fields: ['token'],
+      display_rows: parseInt(document.getElementById('edit-display-rows')?.value, 10) || 1,
+      display_columns: parseInt(document.getElementById('edit-display-columns')?.value, 10) || 1,
+      token_font_size: document.getElementById('edit-token-font-size')?.value || 'large',
+      counter_font_size: 'medium',
+      utility_font_size: document.getElementById('edit-utility-font-size')?.value || 'small',
+      header_font_size: document.getElementById('edit-header-font-size')?.value || 'large',
+      header_font_style: document.getElementById('edit-header-font-style')?.value || 'bold',
+      token_text_color: document.getElementById('edit-token-text-color')?.value || '#000000',
+      counter_text_color: '#000000',
+      utility_text_color: document.getElementById('edit-utility-text-color')?.value || '#000000',
+      header_text_color: document.getElementById('edit-header-text-color')?.value || '#000000',
+      footer_font_size: document.getElementById('edit-footer-font-size')?.value || '16',
+      footer_text_color: document.getElementById('edit-footer-text-color')?.value || '#000000',
+      show_customer_name: Boolean(document.getElementById('edit-show-customer-name')?.checked),
+      show_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked),
+      show_partially_masked_phone_number: Boolean(document.getElementById('edit-show-phone-number')?.checked) &&
+        Boolean(document.getElementById('edit-show-masked-phone-number')?.checked),
+      show_order_details: Boolean(document.getElementById('edit-show-order-details')?.checked),
+      audio_enabled: Boolean(document.getElementById('edit-audio-enabled')?.checked),
+      announcement_language: document.getElementById('edit-announcement-language')?.value || 'English',
+      blink_token: Boolean(document.getElementById('edit-blink-token')?.checked),
+      blink_utility: Boolean(document.getElementById('edit-blink-utility')?.checked),
+      enable_ads: Boolean(document.getElementById('edit-enable-ads')?.checked),
+      ad_position: getOppositeAdPosition(document.getElementById('edit-qr-placement')?.value || 'bottom-right'),
+      ad_interval: parseInt(document.getElementById('edit-ad-interval')?.value, 10) || 8,
+      video_ad_mode: document.getElementById('edit-video-ad-mode')?.value || 'play_full',
+      footer_enabled: Boolean(document.getElementById('edit-footer-enabled')?.checked),
+      footer_texts: footerTexts,
+      advertisement_ids: advertisementIds
+    };
 
-  if (utilsSelectEl) {
-    payload.utilities = utils.map(v => parseInt(v, 10)).filter(Boolean);
-  }
+    if (utilsSelectEl) {
+      payload.utilities = utils.map(v => parseInt(v, 10)).filter(Boolean);
+    }
 
-  if (isTvConfigListDineFlash()) {
-    const sel = document.getElementById('edit-mapped-device-select');
-    if (sel) {
-      if (sel.disabled || !String(sel.value || '').trim()) {
-        ctx.ModalService.showError(
-          'No linkable Android TVs. Link a TV to an outlet on Android TVs first, then try again.'
-        );
-        return;
+    if (isTvConfigListDineFlash()) {
+      const sel = document.getElementById('edit-mapped-device-select');
+      if (sel) {
+        if (sel.disabled || !String(sel.value || '').trim()) {
+          ctx.ModalService.showError(
+            'No linkable Android TVs. Link a TV to an outlet on Android TVs first, then try again.'
+          );
+          return;
+        }
+        const vid = parseInt(sel.value, 10);
+        if (!Number.isFinite(vid)) {
+          ctx.ModalService.showError('Please select an Android TV to link.');
+          return;
+        }
+        payload.device_ids = [vid];
       }
-      const vid = parseInt(sel.value, 10);
-      if (!Number.isFinite(vid)) {
-        ctx.ModalService.showError('Please select an Android TV to link.');
-        return;
-      }
-      payload.device_ids = [vid];
     }
   }
 

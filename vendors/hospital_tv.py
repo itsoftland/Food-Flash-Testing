@@ -54,6 +54,41 @@ def build_hospital_tv_payload(vendor, booking_nos):
     }
 
 
+def build_hospital_tv_registration_snapshot(vendor):
+    """
+    Bootstrap snapshot for Hospital TV registration responses.
+
+    Reuses the same called-patient query semantics as refresh_hospital_tv().
+    Returns only tokens and total_count for the hospital_flash registration key.
+    """
+    if not is_hospital_flash():
+        return None
+
+    from static.utils.functions.utils import get_vendor_business_day_range
+
+    try:
+        config = vendor.config
+    except Exception:
+        logger.exception(
+            "[build_hospital_tv_registration_snapshot] vendor config missing vendor_id=%s",
+            getattr(vendor, "vendor_id", None),
+        )
+        return {"tokens": [], "total_count": 0}
+
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    booking_nos = get_hospital_called_booking_nos(
+        vendor,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        limit=config.token_display_limit,
+    )
+    payload = build_hospital_tv_payload(vendor, booking_nos)
+    return {
+        "tokens": payload["tokens"],
+        "total_count": payload["total_count"],
+    }
+
+
 def refresh_hospital_tv(vendor, *, start_dt, end_dt):
     """
     Push the current called-patient snapshot to Hospital TVs.

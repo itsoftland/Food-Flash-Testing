@@ -14,7 +14,10 @@ import json
 import datetime
 from django.conf import settings
 from django.db import transaction
-from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
+from .tv_config_scope import (
+    dine_flash_exclusive_tv_device_policy_applies,
+    hospital_flash_tv_configuration_applies,
+)
 
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
@@ -688,6 +691,33 @@ ALLOWED_BOOKING_FIELDS = {"name", "phone", "guest_count", "datetime", "token"}
 MAX_FOOTER_TEXTS = 8
 MAX_TV_ADS_PER_CONFIGURATION = 15
 
+# Fields exposed only for Dine Flash (stripped for Food/Airline/Buffet and partially for Hospital).
+DINE_FLASH_ONLY_TV_CONFIG_FIELDS = [
+    "display_rows", "display_columns",
+    "token_font_size", "counter_font_size", "utility_font_size",
+    "token_text_color", "counter_text_color", "utility_text_color",
+    "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details",
+    "audio_enabled", "announcement_language",
+    "blink_token", "blink_utility",
+    "qr_placement", "qr_base_url", "qr_expiry_minutes",
+    "enable_ads", "ad_position", "ad_interval",
+    "video_ad_mode",
+    "header_font_size", "header_font_style", "header_text_color",
+    "footer_font_size", "footer_text_color", "footer_enabled", "footer_texts",
+    "advertisements", "advertisement_ids", "device_ids",
+]
+
+# Hospital Flash allows presentation + ads but not Dine visibility/QR/link-to-TV fields.
+HOSPITAL_FLASH_FORBIDDEN_TV_CONFIG_FIELDS = [
+    "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details",
+    "qr_placement", "qr_base_url", "qr_expiry_minutes",
+    "device_ids", "linked_tv_mac",
+]
+
+HOSPITAL_FLASH_FORBIDDEN_TV_CONFIG_REP_FIELDS = HOSPITAL_FLASH_FORBIDDEN_TV_CONFIG_FIELDS + [
+    "show_no_of_packs",
+]
+
 
 class TVAdvertisementSerializer(serializers.ModelSerializer):
     media_url = serializers.SerializerMethodField()
@@ -824,26 +854,20 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             or outlet_project == "dine_flash"
             or current_project == "dine_flash"
         )
-        
-        if not is_dine_flash:
-            # Fields to remove for non-Dine Flash variants
-            dine_flash_fields = [
-                "display_rows", "display_columns",
-                "token_font_size", "counter_font_size", "utility_font_size",
-                "token_text_color", "counter_text_color", "utility_text_color",
-                "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details",
-                "audio_enabled", "announcement_language",
-                "blink_token", "blink_utility",
-                "qr_placement", "qr_base_url", "qr_expiry_minutes",
-                "enable_ads", "ad_position", "ad_interval",
-                "video_ad_mode",
-                "header_font_size", "header_font_style", "header_text_color",
-                "footer_font_size", "footer_text_color", "footer_enabled", "footer_texts",
-                "advertisements", "advertisement_ids", "device_ids",
-            ]
-            for field in dine_flash_fields:
+        is_hospital_flash = hospital_flash_tv_configuration_applies(admin_outlet)
+
+        if is_dine_flash:
+            return
+
+        if is_hospital_flash:
+            for field in HOSPITAL_FLASH_FORBIDDEN_TV_CONFIG_FIELDS:
                 if field in self.fields:
                     self.fields.pop(field)
+            return
+
+        for field in DINE_FLASH_ONLY_TV_CONFIG_FIELDS:
+            if field in self.fields:
+                self.fields.pop(field)
 
     def validate_items_to_show(self, value):
         admin_outlet = None
@@ -876,7 +900,24 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
     def validate_booking_fields(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError("booking_fields must be a list.")
+
+        admin_outlet = None
+        if self.instance is not None:
+            admin_outlet = getattr(self.instance, "admin_outlet", None)
+        if admin_outlet is None and hasattr(self, "initial_data"):
+            raw_outlet = self.initial_data.get("admin_outlet")
+            try:
+                admin_outlet = AdminOutlet.objects.filter(id=raw_outlet).first()
+            except (TypeError, ValueError):
+                admin_outlet = None
+
+        outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower() if admin_outlet else ""
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        is_hospital_flash = outlet_project == "hospital_flash" or current_project == "hospital_flash"
+
         if len(value) == 0:
+            if is_hospital_flash:
+                return value
             raise serializers.ValidationError("At least one booking field must be selected.")
         invalid = [v for v in value if v not in ALLOWED_BOOKING_FIELDS]
         if invalid:
@@ -1025,14 +1066,28 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         if utilities is not None:
             instance.utilities.set(utilities)
         if advertisements is not None:
-            instance.advertisements.set(advertisements)
+            if hospital_flash_tv_configuration_applies(instance.admin_outlet):
+                # Hospital edit UI may omit inactive / unavailable ads from the selectable list.
+                # Preserve those existing links unless they were explicitly included and removed
+                # (they cannot be selected in UI, so always keep currently-linked inactive ads).
+                submitted_ids = {ad.id for ad in advertisements}
+                preserve_inactive = list(
+                    instance.advertisements.filter(is_active=False).exclude(id__in=submitted_ids)
+                )
+                instance.advertisements.set(list(advertisements) + preserve_inactive)
+            else:
+                instance.advertisements.set(advertisements)
         if devices is not None:
             AndroidDevice.objects.filter(tv_config=instance).exclude(id__in=[device.id for device in devices]).update(tv_config=None)
             AndroidDevice.objects.filter(id__in=[device.id for device in devices]).update(tv_config=instance)
         return instance
 
     def get_advertisements(self, instance):
-        ads_qs = instance.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
+        ads_qs = instance.advertisements.order_by("sequence", "created_at", "id")
+        # Hospital edit round-trip needs inactive assigned ads visible to the client.
+        # Dine and other flavours keep the active-only contract.
+        if not hospital_flash_tv_configuration_applies(getattr(instance, "admin_outlet", None)):
+            ads_qs = ads_qs.filter(is_active=True)
         return TVAdvertisementSerializer(ads_qs, many=True, context=self.context).data
 
     def get_linked_tv_mac(self, obj):
@@ -1054,6 +1109,7 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
         is_dine_flash = bool(
             instance.admin_outlet and dine_flash_exclusive_tv_device_policy_applies(instance.admin_outlet)
         )
+        is_hospital_flash = hospital_flash_tv_configuration_applies(instance.admin_outlet)
 
         if instance.admin_outlet and dine_flash_exclusive_tv_device_policy_applies(instance.admin_outlet):
             rep["mapped_device_ids"] = list(instance.devices.values_list("id", flat=True))
@@ -1066,21 +1122,17 @@ class TVDeviceConfigSerializer(serializers.ModelSerializer):
             rep["show_no_of_packs"] = rep.get("show_order_details")
             rep.pop("show_order_details", None)
 
+        if is_hospital_flash:
+            for field in HOSPITAL_FLASH_FORBIDDEN_TV_CONFIG_REP_FIELDS:
+                rep.pop(field, None)
+            # Full M2M id list (active + inactive) for safe Hospital edit round-trips.
+            rep["assigned_advertisement_ids"] = list(
+                instance.advertisements.values_list("id", flat=True)
+            )
+            return rep
+
         if not is_dine_flash:
-            # List of fields to exclude for non-Dine Flash variants
-            new_fields = [
-                "display_rows", "display_columns",
-                "token_font_size", "counter_font_size", "utility_font_size",
-                "token_text_color", "counter_text_color", "utility_text_color",
-                "show_customer_name", "show_phone_number", "show_partially_masked_phone_number", "show_order_details", "show_no_of_packs",
-                "audio_enabled", "announcement_language",
-                "blink_token", "blink_utility",
-                "qr_placement", "qr_base_url",
-                "enable_ads", "ad_position", "ad_interval", "video_ad_mode", "advertisements"
-                , "header_font_size", "header_font_style", "header_text_color",
-                "footer_font_size", "footer_text_color", "footer_enabled", "footer_texts"
-            ]
-            for field in new_fields:
+            for field in DINE_FLASH_ONLY_TV_CONFIG_FIELDS + ["show_no_of_packs"]:
                 rep.pop(field, None)
                 
         return rep

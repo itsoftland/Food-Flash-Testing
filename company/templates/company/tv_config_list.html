@@ -168,6 +168,7 @@
             </div>
           </div>
 
+          {% if PROJECT_NAME != "hospital_flash" %}
           <!-- QR Settings -->
           <div class="form-section">
             <h6 class="form-section-title">QR Code & Display</h6>
@@ -197,6 +198,7 @@
               </div>
             </div>
           </div>
+          {% endif %}
 
           <!-- Items Display Settings -->
           <div class="form-section">
@@ -257,7 +259,7 @@
             </div>
           </div>
 
-          {% if PROJECT_NAME != "dine_flash" %}
+          {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
           <!-- Associated Utilities -->
           <div class="form-section">
             <h6 class="form-section-title">Associated Utilities</h6>
@@ -267,7 +269,7 @@
           </div>
           {% endif %}
 
-          {% if PROJECT_NAME == "dine_flash" %}
+          {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "hospital_flash" %}
           <div class="form-section">
             <h6 class="form-section-title">Display Settings</h6>
             <div class="row g-3">
@@ -281,15 +283,53 @@
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-token-font-size" class="form-label">Token Font Size</label>
+                {% if PROJECT_NAME == "dine_flash" %}
                 <input type="number" id="edit-token-font-size" name="token_font_size" class="form-control form-control-sm" min="1" max="100" value="20" />
+                {% else %}
+                <select id="edit-token-font-size" name="token_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+                {% endif %}
               </div>
+              {% if PROJECT_NAME == "hospital_flash" %}
+              <div class="form-group col-lg-4">
+                <label for="edit-counter-font-size" class="form-label">Counter Font Size</label>
+                <select id="edit-counter-font-size" name="counter_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </div>
+              {% endif %}
               <div class="form-group col-lg-4">
                 <label for="edit-utility-font-size" class="form-label">Utility Font Size</label>
+                {% if PROJECT_NAME == "dine_flash" %}
                 <input type="number" id="edit-utility-font-size" name="utility_font_size" class="form-control form-control-sm" min="1" max="100" value="12" />
+                {% else %}
+                <select id="edit-utility-font-size" name="utility_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+                {% endif %}
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-header-font-size" class="form-label">Header Font Size</label>
+                {% if PROJECT_NAME == "dine_flash" %}
                 <input type="number" id="edit-header-font-size" name="header_font_size" class="form-control form-control-sm" min="1" max="100" value="20" />
+                {% else %}
+                <select id="edit-header-font-size" name="header_font_size" class="form-select form-select-sm">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+                {% endif %}
               </div>
               <div class="form-group col-lg-4">
                 <label for="edit-header-font-style" class="form-label">Header Font Style</label>
@@ -303,6 +343,12 @@
                 <label for="edit-token-text-color" class="form-label">Token Text Color</label>
                 <input type="color" id="edit-token-text-color" name="token_text_color" class="form-control form-control-color" />
               </div>
+              {% if PROJECT_NAME == "hospital_flash" %}
+              <div class="form-group col-lg-4">
+                <label for="edit-counter-text-color" class="form-label">Counter Text Color</label>
+                <input type="color" id="edit-counter-text-color" name="counter_text_color" class="form-control form-control-color" />
+              </div>
+              {% endif %}
               <div class="form-group col-lg-4">
                 <label for="edit-utility-text-color" class="form-label">Utility Text Color</label>
                 <input type="color" id="edit-utility-text-color" name="utility_text_color" class="form-control form-control-color" />
@@ -427,6 +473,103 @@
               </div>
             </div>
           </div>
+          {% elif PROJECT_NAME == "hospital_flash" %}
+          <div class="form-section">
+            <h6 class="form-section-title">Audio, Animation, Ads and Footer</h6>
+            <div class="row g-3">
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-audio-enabled" name="audio_enabled" class="form-check-input" />
+                  <label class="form-check-label" for="edit-audio-enabled">Enable Audio</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <label for="edit-announcement-language" class="form-label">Announcement Language</label>
+                <select id="edit-announcement-language" name="announcement_language" class="form-select form-select-sm">
+                  <option value="English">English</option>
+                  <option value="Malayalam">Malayalam</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-blink-token" name="blink_token" class="form-check-input" />
+                  <label class="form-check-label" for="edit-blink-token">Blink Token</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-blink-utility" name="blink_utility" class="form-check-input" />
+                  <label class="form-check-label" for="edit-blink-utility">Blink Utility</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0 mt-4">
+                  <input type="checkbox" id="edit-enable-ads" name="enable_ads" class="form-check-input" />
+                  <label class="form-check-label" for="edit-enable-ads">Enable Ads</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-ad-position" class="form-label">Ad Position</label>
+                <select id="edit-ad-position" name="ad_position" class="form-select form-select-sm">
+                  <option value="right">Right Side</option>
+                  <option value="left">Left Side</option>
+                  <option value="bottom">Bottom Strip</option>
+                  <option value="full_width">Full Width Banner</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-ad-interval" class="form-label">Ad Interval (seconds)</label>
+                <input type="number" id="edit-ad-interval" name="ad_interval" class="form-control form-control-sm" min="3" max="120" />
+              </div>
+              <div class="form-group col-lg-4">
+                <label for="edit-video-ad-mode" class="form-label">Video Playback Mode</label>
+                <select id="edit-video-ad-mode" name="video_ad_mode" class="form-select form-select-sm">
+                  <option value="play_full">Play Full Video</option>
+                  <option value="respect_interval">Respect Ad Interval</option>
+                </select>
+              </div>
+              <div class="form-group col-lg-12">
+                <label for="edit-advertisements-list" class="form-label">Assigned Advertisements</label>
+                <select id="edit-advertisements-list" name="advertisement_ids" class="form-select form-select-sm" multiple></select>
+              </div>
+              <div class="form-group col-lg-8">
+                <label for="edit-ad-files" class="form-label">Upload Ad Media (image/video)</label>
+                <input type="file" id="edit-ad-files" class="form-control form-control-sm" accept="image/*,video/*" multiple>
+                <small class="text-muted">Upload image or video files (max 100MB each).</small>
+              </div>
+              <div class="form-group col-lg-4 d-flex align-items-end">
+                <button type="button" id="edit-upload-ads-btn" class="btn btn-outline-primary btn-sm w-100">
+                  <i class="fas fa-upload me-1"></i>Upload Ads
+                </button>
+              </div>
+              <div class="form-group col-lg-12">
+                <label class="form-label">Available Advertisements</label>
+                <div id="edit-ad-list" class="border rounded p-2 bg-light">
+                  <p class="text-muted mb-0">No advertisements uploaded.</p>
+                </div>
+              </div>
+              <div class="form-group col-lg-3">
+                <div class="form-check ps-0">
+                  <input type="checkbox" id="edit-footer-enabled" name="footer_enabled" class="form-check-input" />
+                  <label class="form-check-label" for="edit-footer-enabled">Enable Footer</label>
+                </div>
+              </div>
+              <div class="form-group col-lg-9">
+                <div class="row g-3">
+                  <div class="form-group col-lg-4">
+                    <label for="edit-footer-font-size" class="form-label">Footer Font Size</label>
+                    <input type="number" id="edit-footer-font-size" name="footer_font_size" class="form-control form-control-sm" min="1" max="100" value="16" />
+                  </div>
+                  <div class="form-group col-lg-4">
+                    <label for="edit-footer-text-color" class="form-label">Footer Text Color</label>
+                    <input type="color" id="edit-footer-text-color" name="footer_text_color" class="form-control form-control-color" />
+                  </div>
+                </div>
+                <label for="edit-footer-texts" class="form-label">Footer Texts (one per line)</label>
+                <textarea id="edit-footer-texts" name="footer_texts" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
           {% endif %}
         </div>
         <div class="modal-footer">
@@ -463,7 +606,7 @@
 
 {% block extra_js %}
 <script type="application/json" id="tv-config-list-page-flags">
-{"useMacFirstColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}}
+{"useMacFirstColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}, "isHospitalFlash": {% if PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %}}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script type="module" src="{% static 'company/js/androidtvs/tv-config/tvConfigListManager.js' %}"></script>

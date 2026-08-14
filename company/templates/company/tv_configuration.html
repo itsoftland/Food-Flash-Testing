@@ -125,7 +125,7 @@
 </style>
 {% endblock %}
 
-{% block title %}TV Configuration | Dine Flash{% endblock %}
+{% block title %}TV Configuration | {% if PROJECT_NAME == "hospital_flash" %}Hospital Flash{% else %}Dine Flash{% endif %}{% endblock %}
 
 {% block content %}
 <section class="content-header">
@@ -133,7 +133,13 @@
         <div class="row mb-2 align-items-center justify-content-between">
             <div class="col-sm-6">
                 <h1 class="page-title"><i class="fas fa-tv mr-2"></i>TV Configuration</h1>
-                <p class="text-muted small">Manage display, audio, and QR settings for Dine Flash TV.</p>
+                <p class="text-muted small">
+                    {% if PROJECT_NAME == "hospital_flash" %}
+                    Manage display, audio, and advertisement settings for Hospital Flash TV.
+                    {% else %}
+                    Manage display, audio, and QR settings for Dine Flash TV.
+                    {% endif %}
+                </p>
             </div>
         </div>
     </div>
@@ -150,6 +156,13 @@
                     <div class="form-section">
                         <h6 class="form-section-title"><i class="fas fa-cog"></i>Basic Details</h6>
                         <div class="row g-3">
+                            {% if PROJECT_NAME == "hospital_flash" %}
+                            <div class="form-group col-md-6 col-lg-4">
+                                <label for="config-name" class="form-label">Configuration Name</label>
+                                <input type="text" id="config-name" name="config_name" class="form-control"
+                                    placeholder="Enter a name for this configuration" required />
+                            </div>
+                            {% endif %}
                             <div class="form-group col-md-6 col-lg-4">
                                 <label for="screen-orientation" class="form-label">Screen Orientation</label>
                                 <select id="screen-orientation" name="screen_orientation" class="form-select" required>
@@ -276,7 +289,8 @@
                         </div>
                     </div>
 
-                    <!-- Visibility Settings -->
+                    <!-- Visibility Settings (Dine Flash only) -->
+                    {% if PROJECT_NAME == "dine_flash" %}
                     <div class="form-section">
                         <h6 class="form-section-title"><i class="fas fa-eye"></i>Visibility Settings</h6>
                         <div class="row g-3">
@@ -308,6 +322,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- Audio Settings -->
                     <div class="form-section">
@@ -379,7 +394,8 @@
                         </div>
                     </div>
 
-                    <!-- QR Code Settings -->
+                    <!-- QR Code Settings (Dine Flash only) -->
+                    {% if PROJECT_NAME == "dine_flash" %}
                     <div class="form-section">
                         <h6 class="form-section-title"><i class="fas fa-qrcode"></i>QR Code Settings</h6>
                         <div class="row g-3 mb-3">
@@ -407,6 +423,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- Advertisement Settings -->
                     <div class="form-section">
@@ -429,6 +446,17 @@
                                     <option value="respect_interval">Respect Ad Interval</option>
                                 </select>
                             </div>
+                            {% if PROJECT_NAME == "hospital_flash" %}
+                            <div class="col-md-4">
+                                <label class="form-label">Ad Position</label>
+                                <select name="ad_position" class="form-select">
+                                    <option value="right" selected>Right Side</option>
+                                    <option value="left">Left Side</option>
+                                    <option value="bottom">Bottom Strip</option>
+                                    <option value="full_width">Full Width Banner</option>
+                                </select>
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="row g-3">
                             <div class="col-md-7">
@@ -494,7 +522,7 @@
                                     <option value="display_code">Display Code</option>
                                 </select>
                             </div>
-                            {% if PROJECT_NAME == "dine_flash" %}
+                            {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "hospital_flash" %}
                             <div class="col-md-4">
                                 <label class="form-label">Display Rows</label>
                                 <input type="number" name="display_rows" class="form-control" value="1" min="1" max="10" required>
@@ -527,7 +555,9 @@
 
 {% block extra_js %}
 {% if PROJECT_NAME == "dine_flash" %}
-<script type="application/json" id="tv-config-page-flags">{"requireLinkedTv": true, "hasLinkedTvChoices": {% if mapped_android_devices %}true{% else %}false{% endif %}}</script>
+<script type="application/json" id="tv-config-page-flags">{"requireLinkedTv": true, "hasLinkedTvChoices": {% if mapped_android_devices %}true{% else %}false{% endif %}, "isHospitalFlash": false}</script>
+{% elif PROJECT_NAME == "hospital_flash" %}
+<script type="application/json" id="tv-config-page-flags">{"requireLinkedTv": false, "hasLinkedTvChoices": false, "isHospitalFlash": true}</script>
 {% endif %}
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script type="module" src="{% static 'company/js/tvConfiguration.js' %}"></script>

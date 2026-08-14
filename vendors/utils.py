@@ -876,11 +876,57 @@ def archive_order(order):
     except Exception as e:
         logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
 
+def _append_tv_ad_details(payload, tv_config, request):
+    """Append advertisement settings shared by Dine Flash and Hospital Flash TV payloads."""
+    payload["enable_ads"] = tv_config.enable_ads
+    if not tv_config.enable_ads:
+        return
+    payload.update({
+        "ad_position": tv_config.ad_position,
+        "ad_interval": tv_config.ad_interval,
+        "video_ad_mode": getattr(tv_config, "video_ad_mode", "play_full"),
+    })
+    ad_urls = []
+    ad_queryset = tv_config.advertisements.filter(is_active=True).order_by("sequence", "created_at", "id")
+    for ad in ad_queryset:
+        if not ad.media_file:
+            continue
+        media_url = request.build_absolute_uri(ad.media_file.url) if request else ad.media_file.url
+        ad_urls.append(media_url)
+    payload["ad_items"] = ad_urls
+
+
+def _build_hospital_tv_presentation_payload(tv_config):
+    """Presentation-only settings for Hospital Flash TV registration payloads."""
+    return {
+        "display_rows": tv_config.display_rows,
+        "display_columns": tv_config.display_columns,
+        "token_font_size": _map_font_size_to_int(tv_config.token_font_size),
+        "counter_font_size": _map_font_size_to_int(tv_config.counter_font_size),
+        "utility_font_size": _map_font_size_to_int(tv_config.utility_font_size),
+        "token_text_color": tv_config.token_text_color,
+        "counter_text_color": tv_config.counter_text_color,
+        "utility_text_color": tv_config.utility_text_color,
+        "audio_enabled": tv_config.audio_enabled,
+        "announcement_language": tv_config.announcement_language,
+        "blink_token": tv_config.blink_token,
+        "blink_utility": tv_config.blink_utility,
+        "header_font_size": _map_font_size_to_int(getattr(tv_config, "header_font_size", "large")),
+        "header_font_style": getattr(tv_config, "header_font_style", "bold"),
+        "header_text_color": getattr(tv_config, "header_text_color", "#000000"),
+        "footer_font_size": _map_font_size_to_int(getattr(tv_config, "footer_font_size", "16")),
+        "footer_text_color": getattr(tv_config, "footer_text_color", "#000000"),
+        "footer_enabled": getattr(tv_config, "footer_enabled", False),
+        "footer_texts": (tv_config.footer_texts or []) if getattr(tv_config, "footer_enabled", False) else [],
+    }
+
+
 def build_tv_config_payload(
     tv_config,
     request=None,
     omit_utilities=False,
     include_dine_flash_fields=False,
+    include_hospital_flash_fields=False,
     vendor_id=None,
 ):
     """
@@ -895,6 +941,7 @@ def build_tv_config_payload(
         return None
 
     is_dine_flash = bool(include_dine_flash_fields)
+    is_hospital_flash = bool(include_hospital_flash_fields)
 
     utilities_data = []
     if not omit_utilities:
@@ -998,6 +1045,13 @@ def build_tv_config_payload(
             # - single ad    -> ["url1"]
             # - no ads       -> []
             payload["ad_items"] = ad_urls
+
+    if is_hospital_flash:
+        payload["config_name"] = tv_config.config_name
+        payload.pop("show_qr", None)
+        payload.pop("qr_alignment", None)
+        payload.update(_build_hospital_tv_presentation_payload(tv_config))
+        _append_tv_ad_details(payload, tv_config, request)
 
     return payload
 

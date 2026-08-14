@@ -31,15 +31,23 @@ document.addEventListener('DOMContentLoaded', async function () {
     const maskedPhoneGroup = document.getElementById('masked-phone-group');
 
     function parseTvConfigPageFlags() {
-        const defaults = { requireLinkedTv: false, hasLinkedTvChoices: false };
+        const defaults = { requireLinkedTv: false, hasLinkedTvChoices: false, isHospitalFlash: false };
         const el = document.getElementById('tv-config-page-flags');
-        if (!el) return defaults;
+        if (!el) {
+            return {
+                ...defaults,
+                isHospitalFlash: String(window.PROJECT_NAME || '').trim().toLowerCase() === 'hospital_flash',
+            };
+        }
         try {
             return { ...defaults, ...JSON.parse(el.textContent) };
         } catch {
             return defaults;
         }
     }
+
+    const tvPageFlags = parseTvConfigPageFlags();
+    const isHospitalFlash = !!tvPageFlags.isHospitalFlash;
 
     let choicesInstance = null;
     let selectedAdIds = [];
@@ -200,7 +208,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     /* ------------------------------------
        Handle QR Toggle
     ------------------------------------ */
-    showQrCheckbox.addEventListener('change', (e) => {
+    showQrCheckbox?.addEventListener('change', (e) => {
+        if (!qrSettingsGroup) return;
         if (e.target.checked) {
             qrSettingsGroup.classList.remove('hidden');
         } else {
@@ -295,48 +304,58 @@ document.addEventListener('DOMContentLoaded', async function () {
             .split('\n')
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
+
         const payload = {
             screen_orientation: formData.get('screen_orientation'),
             token_font_size: formData.get('token_font_size'),
-            counter_font_size: formData.get('counter_font_size') || 'medium',
             utility_font_size: formData.get('utility_font_size'),
             token_text_color: formData.get('token_text_color'),
-            counter_text_color: formData.get('counter_text_color') || '#000000',
             utility_text_color: formData.get('utility_text_color'),
             header_font_size: formData.get('header_font_size'),
             header_font_style: formData.get('header_font_style'),
             header_text_color: formData.get('header_text_color'),
             footer_font_size: formData.get('footer_font_size') || '16',
             footer_text_color: formData.get('footer_text_color') || '#000000',
-            show_customer_name: formData.get('show_customer_name') === 'on',
-            show_phone_number: formData.get('show_phone_number') === 'on',
-            show_partially_masked_phone_number: (formData.get('show_phone_number') === 'on') && (formData.get('show_partially_masked_phone_number') === 'on'),
-            show_order_details: formData.get('show_order_details') === 'on',
             audio_enabled: formData.get('audio_enabled') === 'on',
             announcement_language: formData.get('announcement_language'),
             blink_token: formData.get('blink_token') === 'on',
             blink_utility: formData.get('blink_utility') === 'on',
-            show_qr: showQrCheckbox.checked,
-            qr_placement: formData.get('qr_placement'),
-            qr_base_url: formData.get('qr_base_url') || null,
-            items_to_show: parseInt(formData.get('items_to_show')),
+            items_to_show: parseInt(formData.get('items_to_show'), 10),
             utility_name_mode: formData.get('utility_name_mode'),
-            // Dine Flash display is driven by visibility switches; keep a stable token field for API validation.
-            booking_fields: ['token'],
-            utilities: choicesInstance
-                ? choicesInstance
-                    .getValue()
-                    .map((i) => parseInt(i.value, 10))
-                    .filter((id) => Number.isFinite(id))
-                : [],
             enable_ads: enableAdsCheckbox ? enableAdsCheckbox.checked : false,
-            ad_position: getOppositeAdPosition(formData.get('qr_placement')),
             ad_interval: parseInt(formData.get('ad_interval') || '8', 10),
             video_ad_mode: formData.get('video_ad_mode') || 'play_full',
             footer_enabled: footerEnabledCheckbox ? footerEnabledCheckbox.checked : false,
             footer_texts: footerTexts,
-            advertisement_ids: selectedAdIds
+            advertisement_ids: selectedAdIds,
         };
+
+        if (isHospitalFlash) {
+            payload.config_name = (document.getElementById('config-name')?.value || '').trim();
+            payload.booking_fields = [];
+            payload.show_qr = false;
+            payload.ad_position = formData.get('ad_position') || 'right';
+            payload.counter_font_size = formData.get('counter_font_size') || 'medium';
+            payload.counter_text_color = formData.get('counter_text_color') || '#000000';
+        } else {
+            payload.counter_font_size = formData.get('counter_font_size') || 'medium';
+            payload.counter_text_color = formData.get('counter_text_color') || '#000000';
+            payload.show_customer_name = formData.get('show_customer_name') === 'on';
+            payload.show_phone_number = formData.get('show_phone_number') === 'on';
+            payload.show_partially_masked_phone_number = (formData.get('show_phone_number') === 'on') && (formData.get('show_partially_masked_phone_number') === 'on');
+            payload.show_order_details = formData.get('show_order_details') === 'on';
+            payload.show_qr = showQrCheckbox ? showQrCheckbox.checked : false;
+            payload.qr_placement = formData.get('qr_placement');
+            payload.qr_base_url = formData.get('qr_base_url') || null;
+            payload.booking_fields = ['token'];
+            payload.ad_position = getOppositeAdPosition(formData.get('qr_placement'));
+            payload.utilities = choicesInstance
+                ? choicesInstance
+                    .getValue()
+                    .map((i) => parseInt(i.value, 10))
+                    .filter((id) => Number.isFinite(id))
+                : [];
+        }
         if (mappedDevicesSelect) {
             const raw = mappedDevicesSelect.value;
             const one = raw ? parseInt(raw, 10) : NaN;
@@ -358,6 +377,10 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
         if (payload.footer_enabled && payload.footer_texts.length === 0) {
             ModalService.showError('Add at least one footer text when footer is enabled.');
+            return;
+        }
+        if (isHospitalFlash && !payload.config_name) {
+            ModalService.showError('Configuration name is required.');
             return;
         }
         if (payload.advertisement_ids.length > MAX_ADS_PER_CONFIG) {
@@ -412,7 +435,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     /* ------------------------------------
        Initialize
     ------------------------------------ */
-    await loadActiveUtilities();
+    if (!isHospitalFlash) {
+        await loadActiveUtilities();
+    }
     await loadAds();
     syncMaskedPhoneVisibility();
     if (footerTextsGroup && footerEnabledCheckbox && !footerEnabledCheckbox.checked) {

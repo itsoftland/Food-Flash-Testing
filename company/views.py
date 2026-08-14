@@ -2610,7 +2610,7 @@ def tv_config_delete(request, config_id):
         )
 
 
-def _ensure_dine_flash_admin_outlet(request):
+def _ensure_tv_ads_admin_outlet(request):
     admin_outlet = getattr(request.user, "admin_outlet", None)
     if not admin_outlet:
         return None, Response(
@@ -2619,13 +2619,13 @@ def _ensure_dine_flash_admin_outlet(request):
         )
     outlet_project = (getattr(admin_outlet, "project_code", "") or "").strip().lower()
     current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-    is_dine_flash = outlet_project == "dine_flash" or current_project == "dine_flash"
-    if not is_dine_flash:
-        return None, Response(
-            {"error": "This endpoint is available only for Dine Flash."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    return admin_outlet, None
+    allowed = {"dine_flash", "hospital_flash"}
+    if outlet_project in allowed or current_project in allowed:
+        return admin_outlet, None
+    return None, Response(
+        {"error": "This endpoint is available only for Dine Flash and Hospital Flash."},
+        status=status.HTTP_403_FORBIDDEN,
+    )
 
 
 MAX_TV_AD_FILE_BYTES = 100 * 1024 * 1024
@@ -2642,7 +2642,7 @@ def _validate_tv_ad_media(media, media_type):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def tv_ads_list(request):
-    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    admin_outlet, error_response = _ensure_tv_ads_admin_outlet(request)
     if error_response:
         return error_response
     ads = TVAdvertisement.objects.filter(admin_outlet=admin_outlet).order_by("sequence", "created_at", "id")
@@ -2653,7 +2653,7 @@ def tv_ads_list(request):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def tv_ads_upload(request):
-    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    admin_outlet, error_response = _ensure_tv_ads_admin_outlet(request)
     if error_response:
         return error_response
 
@@ -2703,7 +2703,7 @@ def tv_ads_upload(request):
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def tv_ads_update(request, ad_id):
-    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    admin_outlet, error_response = _ensure_tv_ads_admin_outlet(request)
     if error_response:
         return error_response
 
@@ -2740,7 +2740,7 @@ def tv_ads_update(request, ad_id):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def tv_ads_delete(request, ad_id):
-    admin_outlet, error_response = _ensure_dine_flash_admin_outlet(request)
+    admin_outlet, error_response = _ensure_tv_ads_admin_outlet(request)
     if error_response:
         return error_response
 

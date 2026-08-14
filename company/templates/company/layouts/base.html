@@ -130,8 +130,8 @@
               </a>
             </li>
             {% endif %}
-            <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' %}menu-open{% endif %}">
-              <a href="#" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' %}active{% endif %}">
+            <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' or request.resolver_match.url_name == 'tv_configuration' %}menu-open{% endif %}">
+              <a href="#" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' or request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv"></i>
                 <p>
                   Android TV's
@@ -145,7 +145,7 @@
                     <p>Android TV's</p>
                   </a>
                 </li>
-                {% if PROJECT_NAME != "dine_flash" %}
+                {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
                 <li class="nav-item">
                   <a href="{% url 'company:android_tv_config' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tv_config' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
@@ -234,7 +234,7 @@
               </a>
             </li>
             {% endif %}
-            {% if PROJECT_NAME == "dine_flash" %}
+            {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "hospital_flash" %}
             <li class="nav-item">
               <a href="{% url 'company:tv_configuration' %}" class="nav-link {% if request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv-alt"></i>

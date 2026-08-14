@@ -166,6 +166,18 @@ class HospitalTvPayloadTests(TestCase):
         )
         self.assertEqual(booking_nos, ["LAB-12"])
 
+    def test_registration_snapshot_helper_returns_tokens_and_total_count(self):
+        from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+
+        self._create_order(status="called", booking_no="LAB-12", token_no=1)
+        self._create_order(status="called", booking_no="ORTHO-5", token_no=2)
+        self._create_order(status="waiting", booking_no="CARDIO-3", token_no=3)
+
+        snapshot = build_hospital_tv_registration_snapshot(self.vendor)
+
+        self.assertEqual(snapshot["tokens"], ["LAB-12", "ORTHO-5"])
+        self.assertEqual(snapshot["total_count"], 2)
+
 
 @override_settings(PROJECT_NAME="hospital_flash")
 class HospitalTvDispatchTests(TestCase):
@@ -309,3 +321,9 @@ class HospitalTvCrossFlavourGuardTests(SimpleTestCase):
             self.assertTrue(hospital_tv.is_hospital_flash())
         with override_settings(PROJECT_NAME="dine_flash"):
             self.assertFalse(hospital_tv.is_hospital_flash())
+
+    def test_registration_snapshot_helper_skipped_outside_hospital_flash(self):
+        from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+
+        with override_settings(PROJECT_NAME="food_flash"):
+            self.assertIsNone(build_hospital_tv_registration_snapshot(MagicMock()))
