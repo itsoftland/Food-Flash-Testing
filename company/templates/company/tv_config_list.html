@@ -259,7 +259,16 @@
             </div>
           </div>
 
-          {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
+          {% if PROJECT_NAME == "hospital_flash" %}
+          <!-- Hospital Departments -->
+          <div class="form-section">
+            <h6 class="form-section-title">Departments</h6>
+            <div class="form-group">
+              <select id="edit-utilities-list" name="utilities" class="form-select form-select-sm" multiple></select>
+              <small class="text-muted">Leave empty to show all departments. Group departments include all member departments.</small>
+            </div>
+          </div>
+          {% elif PROJECT_NAME != "dine_flash" %}
           <!-- Associated Utilities -->
           <div class="form-section">
             <h6 class="form-section-title">Associated Utilities</h6>
@@ -609,5 +618,5 @@
 {"useMacFirstColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}, "isHospitalFlash": {% if PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %}}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script type="module" src="{% static 'company/js/androidtvs/tv-config/tvConfigListManager.js' %}"></script>
+<script type="module" src="{% static 'company/js/androidtvs/tv-config/tvConfigListManager.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}

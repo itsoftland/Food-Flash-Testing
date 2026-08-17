@@ -189,6 +189,18 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            {% if PROJECT_NAME == "hospital_flash" %}
+                            <div class="form-group col-md-12 col-lg-8">
+                                <label for="utilities-select" class="form-label">Departments</label>
+                                <div class="tv-utilities-field">
+                                    <select id="utilities-select" name="utilities" class="form-select choices-input" multiple
+                                        data-placeholder="Click to select departments...">
+                                        <!-- Options populated by JS -->
+                                    </select>
+                                </div>
+                                <small class="text-muted">Leave empty to show all departments. Group departments include all member departments.</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -560,5 +572,5 @@
 <script type="application/json" id="tv-config-page-flags">{"requireLinkedTv": false, "hasLinkedTvChoices": false, "isHospitalFlash": true}</script>
 {% endif %}
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script type="module" src="{% static 'company/js/tvConfiguration.js' %}"></script>
+<script type="module" src="{% static 'company/js/tvConfiguration.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}

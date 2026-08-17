@@ -1042,7 +1042,9 @@ def register_android_device(request):
             try:
                 from vendors.hospital_tv import build_hospital_tv_registration_snapshot
 
-                hospital_flash_tv = build_hospital_tv_registration_snapshot(vendor)
+                hospital_flash_tv = build_hospital_tv_registration_snapshot(
+                    vendor, device_tv_config
+                )
             except Exception as e:
                 logger.error(
                     "Failed to build Hospital Flash TV registration snapshot: %s",

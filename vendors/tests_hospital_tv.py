@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, SimpleTestCase, override_settings
 from django.utils import timezone
 
-from vendors.models import AdminOutlet, Order, Vendor, VendorConfig
+from vendors.models import AdminOutlet, AndroidDevice, Order, TVDeviceConfig, Utility, Vendor, VendorConfig
 
 
 @override_settings(PROJECT_NAME="hospital_flash")
@@ -169,13 +169,14 @@ class HospitalTvPayloadTests(TestCase):
     def test_registration_snapshot_helper_returns_tokens_and_total_count(self):
         from vendors.hospital_tv import build_hospital_tv_registration_snapshot
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1)
-        self._create_order(status="called", booking_no="ORTHO-5", token_no=2)
+        self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
+        self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
         self._create_order(status="waiting", booking_no="CARDIO-3", token_no=3)
 
+        self.vendor.refresh_from_db()
         snapshot = build_hospital_tv_registration_snapshot(self.vendor)
 
-        self.assertEqual(snapshot["tokens"], ["LAB-12", "ORTHO-5"])
+        self.assertEqual(snapshot["tokens"], ["ORTHO-5", "LAB-12"])
         self.assertEqual(snapshot["total_count"], 2)
 
 
@@ -210,8 +211,8 @@ class HospitalTvDispatchTests(TestCase):
             counter_no=1,
         )
 
-    @patch("vendors.services.order_service.send_order_update", return_value=True)
-    def test_mqtt_dispatch_path(self, mock_send):
+    @patch("vendors.mqtt_client.publish_mqtt", return_value=True)
+    def test_mqtt_dispatch_path(self, mock_publish):
         from vendors.hospital_tv import refresh_hospital_tv
 
         VendorConfig.objects.create(
@@ -226,8 +227,8 @@ class HospitalTvDispatchTests(TestCase):
 
         self.assertTrue(result["success"])
         self.assertEqual(result["transport"], "MQTT")
-        mock_send.assert_called_once()
-        args, kwargs = mock_send.call_args
+        mock_publish.assert_called_once()
+        args, kwargs = mock_publish.call_args
         self.assertEqual(args[0], self.vendor)
         payload = args[1]
         self.assertEqual(payload["tokens"], ["LAB-12"])
@@ -255,9 +256,9 @@ class HospitalTvDispatchTests(TestCase):
         payload = args[1]
         self.assertEqual(payload["tokens"], ["ORTHO-5"])
 
-    @patch("vendors.services.order_service.send_order_update", return_value=True)
+    @patch("vendors.mqtt_client.publish_mqtt", return_value=True)
     @patch("vendors.order_utils.get_last_tokens")
-    def test_no_dependency_on_get_last_tokens(self, mock_get_last_tokens, mock_send):
+    def test_no_dependency_on_get_last_tokens(self, mock_get_last_tokens, mock_publish):
         from vendors.hospital_tv import refresh_hospital_tv
 
         VendorConfig.objects.create(
@@ -271,10 +272,10 @@ class HospitalTvDispatchTests(TestCase):
         refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
 
         mock_get_last_tokens.assert_not_called()
-        mock_send.assert_called_once()
+        mock_publish.assert_called_once()
 
-    @patch("vendors.services.order_service.send_order_update", return_value=False)
-    def test_mqtt_failure_does_not_raise(self, mock_send):
+    @patch("vendors.mqtt_client.publish_mqtt", return_value=False)
+    def test_mqtt_failure_does_not_raise(self, mock_publish):
         from vendors.hospital_tv import refresh_hospital_tv
 
         VendorConfig.objects.create(
@@ -288,7 +289,7 @@ class HospitalTvDispatchTests(TestCase):
         result = refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
 
         self.assertFalse(result["success"])
-        mock_send.assert_called_once()
+        mock_publish.assert_called_once()
 
 
 @override_settings(PROJECT_NAME="hospital_flash")
@@ -327,3 +328,221 @@ class HospitalTvCrossFlavourGuardTests(SimpleTestCase):
 
         with override_settings(PROJECT_NAME="food_flash"):
             self.assertIsNone(build_hospital_tv_registration_snapshot(MagicMock()))
+
+
+@override_settings(PROJECT_NAME="hospital_flash")
+class HospitalTvDepartmentFilterTests(TestCase):
+    def setUp(self):
+        self.admin_outlet = AdminOutlet.objects.create(
+            customer_name="Hospital Co",
+            customer_id=202,
+            authentication_status="Approve",
+        )
+        self.vendor = Vendor.objects.create(
+            admin_outlet=self.admin_outlet,
+            name="City Hospital",
+            alias_name="CH",
+            location="CityA",
+            place_id="place-h3",
+            vendor_id=705043,
+            location_id="HL3",
+            menus="[]",
+        )
+        self.config = VendorConfig.objects.create(
+            vendor=self.vendor,
+            token_display_limit=8,
+            tv_communication_mode="Firebase",
+            mqtt_mode="All",
+        )
+        self.lab = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Laboratory",
+            display_name="Laboratory",
+            display_code="LAB",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        self.ortho = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Orthopedics",
+            display_name="Orthopedics",
+            display_code="ORTHO",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        self.xray = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="X-Ray",
+            display_name="X-Ray",
+            display_code="XRAY",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        self.health_package = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Health Package",
+            display_name="Health Package",
+            display_code="PKG",
+            department_type=Utility.DEPARTMENT_TYPE_GROUP,
+        )
+        self.health_package.group_departments.set([self.lab, self.xray])
+
+        self.now = timezone.now()
+        self.start_dt = self.now - timedelta(hours=1)
+        self.end_dt = self.now + timedelta(hours=1)
+
+    def _create_order(self, *, status, booking_no, utility, token_no=1):
+        return Order.objects.create(
+            vendor=self.vendor,
+            token_no=token_no,
+            table_booking_no=booking_no,
+            status=status,
+            utility=utility,
+            counter_no=1,
+        )
+
+    def _create_tv_config(self, utilities=None):
+        tv_config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="Test TV",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        if utilities:
+            tv_config.utilities.set(utilities)
+        return tv_config
+
+    def test_filter_single_department(self):
+        from vendors.hospital_tv import get_hospital_called_booking_nos
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho)
+
+        booking_nos = get_hospital_called_booking_nos(
+            self.vendor,
+            start_dt=self.start_dt,
+            end_dt=self.end_dt,
+            utility_ids={self.lab.id},
+        )
+        self.assertEqual(booking_nos, ["LAB-12"])
+
+    def test_filter_multiple_departments(self):
+        from vendors.hospital_tv import get_hospital_called_booking_nos
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="XRAY-7", utility=self.xray)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
+
+        booking_nos = get_hospital_called_booking_nos(
+            self.vendor,
+            start_dt=self.start_dt,
+            end_dt=self.end_dt,
+            utility_ids={self.lab.id, self.xray.id},
+        )
+        self.assertEqual(set(booking_nos), {"LAB-12", "XRAY-7"})
+
+    def test_no_department_filter_shows_all(self):
+        from vendors.hospital_tv import get_hospital_called_booking_nos
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
+
+        booking_nos = get_hospital_called_booking_nos(
+            self.vendor,
+            start_dt=self.start_dt,
+            end_dt=self.end_dt,
+            utility_ids=None,
+        )
+        self.assertEqual(set(booking_nos), {"LAB-12", "ORTHO-5"})
+
+    def test_group_department_expands_members(self):
+        from vendors.hospital_tv import resolve_tv_config_utility_ids
+
+        tv_config = self._create_tv_config([self.health_package])
+        utility_ids = resolve_tv_config_utility_ids(tv_config)
+        self.assertEqual(utility_ids, {self.lab.id, self.xray.id})
+
+    def test_empty_config_utilities_means_show_all(self):
+        from vendors.hospital_tv import resolve_tv_config_utility_ids
+
+        tv_config = self._create_tv_config([])
+        self.assertIsNone(resolve_tv_config_utility_ids(tv_config))
+
+    def test_registration_snapshot_respects_tv_config_departments(self):
+        from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
+
+        tv_config = self._create_tv_config([self.lab])
+        self.vendor.refresh_from_db()
+        snapshot = build_hospital_tv_registration_snapshot(self.vendor, tv_config)
+
+        self.assertEqual(snapshot["tokens"], ["LAB-12"])
+        self.assertEqual(snapshot["total_count"], 1)
+
+    @patch("static.utils.functions.notifications.notify_android_tv", return_value=(True, {}))
+    def test_refresh_sends_per_config_firebase_payloads(self, mock_notify):
+        from vendors.hospital_tv import refresh_hospital_tv
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
+
+        lab_config = self._create_tv_config([self.lab])
+        ortho_config = self._create_tv_config([self.ortho])
+        lab_config.config_name = "Lab TV"
+        lab_config.save(update_fields=["config_name"])
+        ortho_config.config_name = "Ortho TV"
+        ortho_config.save(update_fields=["config_name"])
+
+        AndroidDevice.objects.create(
+            token="lab-tv-token",
+            mac_address="AA:BB:CC:DD:EE:01",
+            admin_outlet=self.admin_outlet,
+            vendor=self.vendor,
+            tv_config=lab_config,
+        )
+        AndroidDevice.objects.create(
+            token="ortho-tv-token",
+            mac_address="AA:BB:CC:DD:EE:02",
+            admin_outlet=self.admin_outlet,
+            vendor=self.vendor,
+            tv_config=ortho_config,
+        )
+
+        result = refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(mock_notify.call_count, 2)
+
+        payloads = [call.args[1] for call in mock_notify.call_args_list]
+        token_sets = [set(payload["tokens"]) for payload in payloads]
+        self.assertIn({"LAB-12"}, token_sets)
+        self.assertIn({"ORTHO-5"}, token_sets)
+
+        sent_token_groups = []
+        for call in mock_notify.call_args_list:
+            tokens = call.kwargs.get("fcm_tokens")
+            sent_token_groups.append(set(tokens or []))
+        self.assertIn({"lab-tv-token"}, sent_token_groups)
+        self.assertIn({"ortho-tv-token"}, sent_token_groups)
+
+    @patch("static.utils.functions.notifications.notify_android_tv", return_value=(True, {}))
+    def test_refresh_no_department_selection_shows_all(self, mock_notify):
+        from vendors.hospital_tv import refresh_hospital_tv
+
+        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
+
+        all_config = self._create_tv_config([])
+        AndroidDevice.objects.create(
+            token="all-dept-token",
+            mac_address="AA:BB:CC:DD:EE:03",
+            admin_outlet=self.admin_outlet,
+            vendor=self.vendor,
+            tv_config=all_config,
+        )
+
+        refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
+
+        mock_notify.assert_called_once()
+        payload = mock_notify.call_args.args[1]
+        self.assertEqual(set(payload["tokens"]), {"LAB-12", "ORTHO-5"})

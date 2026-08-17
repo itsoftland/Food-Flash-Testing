@@ -83,6 +83,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     /* ------------------------------------
        Load active utilities
     ------------------------------------ */
+    function formatUtilityOptionLabel(u) {
+        const name = u.display_name || u.utility_name || u.name;
+        if (isHospitalFlash && u.is_group_department && Array.isArray(u.group_departments) && u.group_departments.length) {
+            const includes = u.group_departments
+                .map((d) => d.display_name || d.utility_name || d.name)
+                .filter(Boolean)
+                .join(', ');
+            return includes ? `${name} (Group: ${includes})` : `${name} (Group)`;
+        }
+        return name;
+    }
+
     async function loadActiveUtilities() {
         if (!utilitiesSelect) return;
         try {
@@ -99,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             utilities.forEach(u => {
                 const option = document.createElement('option');
                 option.value = u.id;
-                option.textContent = u.display_name || u.utility_name || u.name;
+                option.textContent = formatUtilityOptionLabel(u);
                 utilitiesSelect.appendChild(option);
             });
             initializeChoices();
@@ -337,6 +349,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             payload.ad_position = formData.get('ad_position') || 'right';
             payload.counter_font_size = formData.get('counter_font_size') || 'medium';
             payload.counter_text_color = formData.get('counter_text_color') || '#000000';
+            payload.utilities = choicesInstance
+                ? choicesInstance
+                    .getValue()
+                    .map((i) => parseInt(i.value, 10))
+                    .filter((id) => Number.isFinite(id))
+                : [];
         } else {
             payload.counter_font_size = formData.get('counter_font_size') || 'medium';
             payload.counter_text_color = formData.get('counter_text_color') || '#000000';
@@ -435,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     /* ------------------------------------
        Initialize
     ------------------------------------ */
-    if (!isHospitalFlash) {
+    if (utilitiesSelect) {
         await loadActiveUtilities();
     }
     await loadAds();

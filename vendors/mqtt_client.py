@@ -87,8 +87,8 @@ def get_or_create_client(cfg):
     mqtt_clients[key] = client
     return client
 
-def publish_mqtt(vendor, payload):
-    cfg = get_mqtt_config_for_vendor(vendor)
+def publish_mqtt(vendor, payload, device=None):
+    cfg = get_mqtt_config_for_vendor(vendor, device)
 
     if not cfg.get("host") or not cfg.get("topic"):
         logger.error(f"No valid MQTT configuration for vendor: {vendor}")

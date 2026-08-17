@@ -299,7 +299,7 @@ async function openEditModal(id, ctx) {
     const ads = Array.isArray(adsData.ads) ? adsData.ads : [];
     const adsListLoaded = Boolean(adsRes.ok);
 
-    // 2. Populate Utilities Dropdown (non-Dine / non-Hospital edit modal only)
+    // 2. Populate Utilities / Departments dropdown (Food, Airline, Hospital)
     const utilsSelect = document.getElementById('edit-utilities-list');
     const isDineFlashList = isTvConfigListDineFlash();
     const isHospitalFlashList = isTvConfigListHospitalFlash();
@@ -326,7 +326,15 @@ async function openEditModal(id, ctx) {
       utilsSelect.innerHTML = utilities.map(u => {
         const name = u.display_name || u.utility_name || u.name || `Utility #${u.id}`;
         const code = u.display_code ? ` (${u.display_code})` : '';
-        return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(code)}</option>`;
+        let label = `${name}${code}`;
+        if (isHospitalFlashList && u.is_group_department && Array.isArray(u.group_departments) && u.group_departments.length) {
+          const includes = u.group_departments
+            .map((d) => d.display_name || d.utility_name || d.name)
+            .filter(Boolean)
+            .join(', ');
+          label = includes ? `${name} (Group: ${includes})` : `${name} (Group)`;
+        }
+        return `<option value="${u.id}">${escapeHtml(label)}</option>`;
       }).join('');
     }
     populateAdsSelect(ads);
@@ -696,6 +704,15 @@ function buildHospitalEditPayload() {
 
   if (advertisementIds !== undefined) {
     payload.advertisement_ids = advertisementIds;
+  }
+
+  const utilsSelectEl = document.getElementById('edit-utilities-list');
+  if (utilsSelectEl) {
+    payload.utilities = choicesInstance
+      ? choicesInstance.getValue(true).map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id))
+      : Array.from(utilsSelectEl.selectedOptions || [])
+          .map((opt) => parseInt(opt.value, 10))
+          .filter((id) => Number.isFinite(id));
   }
 
   Object.keys(payload).forEach((key) => {

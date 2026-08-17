@@ -47,6 +47,15 @@ def collect_vendor_tv_fcm_tokens(vendor: Vendor) -> List[str]:
     return list(dict.fromkeys(tokens))
 
 
+def collect_fcm_tokens_for_devices(devices: Sequence[AndroidDevice]) -> List[str]:
+    tokens: List[str] = []
+    for device in devices or []:
+        t = _device_fcm_registration_token(device)
+        if t:
+            tokens.append(t)
+    return list(dict.fromkeys(tokens))
+
+
 def is_permanent_fcm_failure(error: str) -> bool:
     """
     Firebase Admin client messages vary; treat common "token is gone" cases as permanent

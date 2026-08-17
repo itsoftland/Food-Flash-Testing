@@ -12,8 +12,8 @@ from vendors.fcm_log import log_fcm_send_success
 logger = logging.getLogger(__name__)
 
 
-def notify_android_tv(vendor, data):
-    tokens = collect_vendor_tv_fcm_tokens(vendor)
+def notify_android_tv(vendor, data, fcm_tokens=None):
+    tokens = fcm_tokens if fcm_tokens is not None else collect_vendor_tv_fcm_tokens(vendor)
     return send_firebase_admin_multicast(vendor, tokens, json.dumps(data))
 
 

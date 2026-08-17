@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from vendors.models import AdminOutlet, AndroidDevice, Order, TVDeviceConfig, Vendor, VendorConfig
+from vendors.models import AdminOutlet, AndroidDevice, Order, TVDeviceConfig, Utility, Vendor, VendorConfig
 
 
 class _HospitalTvRegistrationMixin:
@@ -63,7 +63,7 @@ class _HospitalTvRegistrationMixin:
             format="json",
         )
 
-    def _create_order(self, *, status, booking_no, token_no, offset_minutes=0):
+    def _create_order(self, *, status, booking_no, token_no, offset_minutes=0, utility=None):
         order = Order.objects.create(
             vendor=self.vendor,
             token_no=token_no,
@@ -71,6 +71,7 @@ class _HospitalTvRegistrationMixin:
             status=status,
             customer_name="Patient",
             counter_no=1,
+            utility=utility,
         )
         if offset_minutes:
             Order.objects.filter(pk=order.pk).update(
@@ -87,8 +88,8 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
     def test_registration_includes_called_patients_snapshot(self, mock_mqtt):
         mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1)
-        self._create_order(status="called", booking_no="ORTHO-5", token_no=2)
+        self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
+        self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
         self._create_order(status="waiting", booking_no="CARDIO-3", token_no=3)
 
         response = self._register()
@@ -98,7 +99,7 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
         self.assertTrue(data["mapped"])
         self.assertEqual(data["vendor_id"], 705041)
         self.assertIn("hospital_flash", data)
-        self.assertEqual(data["hospital_flash"]["tokens"], ["LAB-12", "ORTHO-5"])
+        self.assertEqual(data["hospital_flash"]["tokens"], ["ORTHO-5", "LAB-12"])
         self.assertEqual(data["hospital_flash"]["total_count"], 2)
         self.assertNotIn("dine_flash", data)
 
@@ -168,6 +169,46 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
         self.assertNotIn("qr_placement", tv_config_payload)
         self.assertNotIn("show_no_of_packs", tv_config_payload)
 
+    @patch("vendors.views.get_mqtt_config_for_vendor")
+    def test_registration_filters_by_tv_config_departments(self, mock_mqtt):
+        mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
+
+        lab = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Laboratory",
+            display_name="Laboratory",
+            display_code="LAB",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        ortho = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Orthopedics",
+            display_name="Orthopedics",
+            display_code="ORTHO",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+
+        self._create_order(status="called", booking_no="LAB-12", token_no=1, utility=lab)
+        self._create_order(status="called", booking_no="ORTHO-5", token_no=2, utility=ortho)
+
+        tv_config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="Laboratory TV",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        tv_config.utilities.set([lab])
+        self.device.tv_config = tv_config
+        self.device.save(update_fields=["tv_config"])
+
+        response = self._register()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["hospital_flash"]["tokens"], ["LAB-12"])
+        self.assertEqual(data["hospital_flash"]["total_count"], 1)
+
 
 @override_settings(PROJECT_NAME="dine_flash")
 class DineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCase):
@@ -183,6 +224,7 @@ class DineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCa
         self.device.tv_config = self.tv_config
         self.device.save(update_fields=["tv_config"])
 
+    @patch("vendors.views.project_name", "dine_flash")
     @patch("vendors.views.build_dine_flash_tv_booking_snapshot")
     @patch("vendors.views.get_mqtt_config_for_vendor")
     def test_dine_flash_registration_unchanged_without_hospital_snapshot(
@@ -205,6 +247,7 @@ class DineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCa
 
 @override_settings(PROJECT_NAME="food_flash")
 class FoodFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCase):
+    @patch("vendors.views.project_name", "food_flash")
     @patch("vendors.views.get_mqtt_config_for_vendor")
     def test_food_flash_registration_has_no_hospital_snapshot(self, mock_mqtt):
         mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
@@ -219,6 +262,7 @@ class FoodFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCa
 
 @override_settings(PROJECT_NAME="dine_flash_buffet")
 class DineFlashBuffetTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCase):
+    @patch("vendors.views.project_name", "dine_flash_buffet")
     @patch("vendors.views.get_mqtt_config_for_vendor")
     def test_buffet_registration_has_no_hospital_snapshot(self, mock_mqtt):
         mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
@@ -233,6 +277,7 @@ class DineFlashBuffetTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, 
 
 @override_settings(PROJECT_NAME="airline_flash")
 class AirlineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCase):
+    @patch("vendors.views.project_name", "airline_flash")
     @patch("vendors.views.get_mqtt_config_for_vendor")
     def test_airline_registration_has_no_hospital_snapshot(self, mock_mqtt):
         mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
