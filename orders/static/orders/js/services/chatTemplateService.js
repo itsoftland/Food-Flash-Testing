@@ -773,7 +773,7 @@ function buildHospitalPreAnnouncementMessage(payload) {
 
       <div class="dine-status-row">
         <span class="dine-status-label">Notice:</span>
-        <span class="dine-status-value boarding-shortly-color">Almost your turn</span>
+        <span class="dine-status-value boarding-shortly-color">You will be called in ${eta} minute(s)</span>
       </div>
     </div>
   `;
