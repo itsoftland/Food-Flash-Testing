@@ -847,9 +847,7 @@ function buildHospitalStatusMessage(payload) {
     const moveToSection =
       statusKey === "called"
         ? `
-      <div class="dine-row">
-        <span class="dine-value">Please move to ${departmentName}</span>
-      </div>`
+      <div class="hospital-move-to-notice">Please move to ${departmentName}</div>`
         : "";
     const statusSection =
       statusKey === "completed"
