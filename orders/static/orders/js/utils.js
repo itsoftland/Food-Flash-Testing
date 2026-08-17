@@ -196,7 +196,7 @@ function hospitalSpeechDepartment(pushData) {
 }
 
 const HOSPITAL_TTS_STATUS_SUMMARY =
-    "Your registration status has been updated. Please review the details in the application.";
+    "Your registration status has been updated. Please review the details on your mobile.";
 
 /**
  * Built-in Hospital Flash spoken templates (non-default).
@@ -306,7 +306,7 @@ function buildHospitalFlashSpokenMessage(pushData) {
 
     // Manager chat: type first — payload.status holds free-text chat body.
     if (type === HOSPITAL_MANAGER_PUSH_TYPE || type === "hospital_manager") {
-        return "You have a new message from the hospital staff. Please check the application.";
+        return "You have a new message from the hospital staff. Please check your mobile.";
     }
 
     // Pre-announcement (must win over status === "waiting").
@@ -334,7 +334,7 @@ function buildHospitalFlashSpokenMessage(pushData) {
                 `Your turn is approaching. Please be ready to proceed to the ${department} department.`
             );
         }
-        return "Your turn is approaching. Please review the details in the application.";
+        return "Your turn is approaching. Please review the details on your mobile.";
     }
 
     // Multi-department registration snapshot — never interpolate missing token fields.
@@ -425,7 +425,7 @@ function buildHospitalFlashSpokenMessage(pushData) {
             if (token) {
                 return (
                     `Token ${token}. Your status has been updated. ` +
-                    `Please review the details in the application.`
+                    `Please review the details on your mobile.`
                 );
             }
             return HOSPITAL_TTS_STATUS_SUMMARY;
