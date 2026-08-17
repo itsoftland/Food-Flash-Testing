@@ -842,6 +842,15 @@ function buildHospitalStatusMessage(payload) {
   if (isStatusUpdate) {
     // Hospital Flash only: individual completed push cards replace Status: Completed
     // with Thank You. Batch / check-status / registration snapshot paths are untouched.
+    const departmentName = payload.utility_name || "-";
+    // Presentation-only: show "Please move to <dept>" above Status when called.
+    const moveToSection =
+      statusKey === "called"
+        ? `
+      <div class="dine-row">
+        <span class="dine-value">Please move to ${departmentName}</span>
+      </div>`
+        : "";
     const statusSection =
       statusKey === "completed"
         ? `
@@ -863,7 +872,7 @@ function buildHospitalStatusMessage(payload) {
     <div class="dine-body${calledMarker}">
       <div class="dine-card-header">
         <span class="customer-icon" aria-hidden="true">🏥</span>
-        <div class="customer-name">${payload.utility_name || "-"}</div>
+        <div class="customer-name">${departmentName}</div>
       </div>
 
       <div class="dine-row">
@@ -871,6 +880,7 @@ function buildHospitalStatusMessage(payload) {
         <span class="dine-value">${payload.booking_no || "-"}</span>
       </div>
 
+      ${moveToSection}
       ${statusSection}
     </div>
   `;
