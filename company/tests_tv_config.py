@@ -139,6 +139,21 @@ class HospitalTvConfigCreateTests(_TvConfigTestMixin, TestCase):
         self.assertTrue(config.enable_ads)
         self.assertEqual(config.ad_position, "left")
 
+    def test_hospital_serializer_returns_utility_ids_not_objects(self):
+        config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="Dept TV",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        config.utilities.set([self.utility])
+
+        data = TVDeviceConfigSerializer(config).data
+        self.assertEqual(data["utilities"], [self.utility.id])
+        self.assertNotIn("utility_names", data)
+        self.assertNotIn("departments", data)
+
     def test_hospital_serializer_representation_excludes_visibility_and_qr_fields(self):
         config = TVDeviceConfig.objects.create(
             admin_outlet=self.admin_outlet,

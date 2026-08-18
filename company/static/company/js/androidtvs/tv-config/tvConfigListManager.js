@@ -1,5 +1,5 @@
 import { initCore, loadConfigurations } from './tvConfigCore.js';
-import { initEditHandlers } from './tvConfigEdit.js?v=20260817_1';
+import { initEditHandlers } from './tvConfigEdit.js?v=20260818_1';
 
 let ModalService;
 let apiEndpoints;

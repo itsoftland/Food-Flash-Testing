@@ -250,7 +250,6 @@ async function safeJson(res, fallback) {
 }
 
 async function getUtilityLookup(ctx) {
-  if (window.PROJECT_NAME !== 'dine_flash') return {};
   if (utilityLookupCache) return utilityLookupCache;
 
   try {
@@ -895,7 +894,8 @@ function formatList(values, formatter = (v) => v) {
 }
 
 function buildDetailEntries(config, utilityLookup = {}) {
-  const utilities = normalizeDineFlashUtilities(config.utilities, utilityLookup);
+  const utilities = normalizeTvConfigUtilities(config.utilities, utilityLookup);
+  const utilitiesLabel = isTvConfigListHospitalFlash() ? 'Departments' : 'Utilities';
   const advertisements = (config.advertisements || []).map((ad) => ad.title || `Ad #${ad.id}`);
   const footerTexts = Array.isArray(config.footer_texts) ? config.footer_texts : [];
 
@@ -908,7 +908,7 @@ function buildDetailEntries(config, utilityLookup = {}) {
     ['Screen Orientation', escapeHtml(formatField(config.screen_orientation || '-'))],
     ['Items to Show', escapeHtml(String(config.items_to_show ?? '-'))],
     ['Utility Name Mode', escapeHtml(formatField(config.utility_name_mode || '-'))],
-    ['Utilities', formatList(utilities)],
+    [utilitiesLabel, formatList(utilities)],
     ['Display Rows', escapeHtml(String(config.display_rows ?? '-'))],
     ['Display Columns', escapeHtml(String(config.display_columns ?? '-'))],
     ['Token Font Size', escapeHtml(formatField(config.token_font_size || '-'))],
@@ -938,31 +938,27 @@ function buildDetailEntries(config, utilityLookup = {}) {
   ];
 }
 
-function normalizeDineFlashUtilities(utilities, utilityLookup = {}) {
+function normalizeTvConfigUtilities(utilities, utilityLookup = {}) {
   if (!Array.isArray(utilities)) return [];
-
-  if (window.PROJECT_NAME !== 'dine_flash') {
-    return utilities.map((u) => u?.display_name || u?.utility_name || u?.display_code || `#${u?.id}`);
-  }
 
   return utilities
     .filter((utility) => utility !== null && utility !== undefined)
     .map((utility) => {
       if (typeof utility === 'object') {
-        return utility.display_name || utility.utility_name || utility.display_code || (utility.id ? `#${utility.id}` : null);
+        return (
+          utility.display_name
+          || utility.utility_name
+          || utility.display_code
+          || (utility.id != null ? (utilityLookup[String(utility.id)] || `#${utility.id}`) : null)
+        );
       }
 
-      if (typeof utility === 'string') {
-        const trimmed = utility.trim();
-        if (!trimmed || trimmed.toLowerCase() === 'undefined') return null;
-        return Number.isFinite(Number(trimmed)) ? (utilityLookup[trimmed] || `#${trimmed}`) : trimmed;
+      const raw = String(utility).trim();
+      if (!raw || raw.toLowerCase() === 'undefined') return null;
+      if (Number.isFinite(Number(raw))) {
+        return utilityLookup[raw] || `#${raw}`;
       }
-
-      if (Number.isFinite(Number(utility))) {
-        const id = String(utility);
-        return utilityLookup[id] || `#${id}`;
-      }
-      return null;
+      return raw;
     })
     .filter(Boolean);
 }
