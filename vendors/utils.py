@@ -1047,11 +1047,14 @@ def build_tv_config_payload(
             payload["ad_items"] = ad_urls
 
     if is_hospital_flash:
+        from vendors.hospital_tv import build_hospital_tv_config_departments
+
         payload["config_name"] = tv_config.config_name
         payload.pop("show_qr", None)
         payload.pop("qr_alignment", None)
         payload.update(_build_hospital_tv_presentation_payload(tv_config))
         _append_tv_ad_details(payload, tv_config, request)
+        payload["departments"] = build_hospital_tv_config_departments(tv_config)
 
     return payload
 

@@ -19,6 +19,34 @@ def is_hospital_flash():
     return (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "hospital_flash"
 
 
+def _hospital_department_display_name(utility):
+    """Match Hospital Flash TV configuration UI: display_name, else utility_name."""
+    return utility.display_name or utility.utility_name
+
+
+def build_hospital_tv_config_departments(tv_config):
+    """
+    Hospital Flash TV registration: departments selected on the TV configuration.
+
+    Returns [] when no departments are selected. Group/package assignments expand to
+    their individual member departments (same logic as order filtering).
+    """
+    if not tv_config:
+        return []
+
+    utilities = tv_config.utilities.filter(is_active=True)
+    if not utilities.exists():
+        return []
+
+    from manager.hospital_views import resolve_hospital_effective_departments
+
+    effective = resolve_hospital_effective_departments(utilities)
+    return [
+        {"id": dept.id, "name": _hospital_department_display_name(dept)}
+        for dept in effective
+    ]
+
+
 def resolve_tv_config_utility_ids(tv_config):
     """
     Resolve TV configuration departments into individual utility IDs for order filtering.

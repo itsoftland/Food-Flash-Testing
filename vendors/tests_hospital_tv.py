@@ -466,6 +466,25 @@ class HospitalTvDepartmentFilterTests(TestCase):
         tv_config = self._create_tv_config([])
         self.assertIsNone(resolve_tv_config_utility_ids(tv_config))
 
+    def test_build_hospital_tv_config_departments_empty_when_unselected(self):
+        from vendors.hospital_tv import build_hospital_tv_config_departments
+
+        tv_config = self._create_tv_config([])
+        self.assertEqual(build_hospital_tv_config_departments(tv_config), [])
+
+    def test_build_hospital_tv_config_departments_expands_groups(self):
+        from vendors.hospital_tv import build_hospital_tv_config_departments
+
+        tv_config = self._create_tv_config([self.health_package])
+        departments = build_hospital_tv_config_departments(tv_config)
+        self.assertEqual(
+            departments,
+            [
+                {"id": self.lab.id, "name": "Laboratory"},
+                {"id": self.xray.id, "name": "X-Ray"},
+            ],
+        )
+
     def test_registration_snapshot_respects_tv_config_departments(self):
         from vendors.hospital_tv import build_hospital_tv_registration_snapshot
 

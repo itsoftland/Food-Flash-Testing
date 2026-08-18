@@ -168,6 +168,133 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
         self.assertNotIn("show_customer_name", tv_config_payload)
         self.assertNotIn("qr_placement", tv_config_payload)
         self.assertNotIn("show_no_of_packs", tv_config_payload)
+        self.assertEqual(tv_config_payload["departments"], [])
+
+    @patch("vendors.views.get_mqtt_config_for_vendor")
+    def test_registration_tv_config_includes_individual_departments(self, mock_mqtt):
+        mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
+
+        ortho = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Ortho Internal",
+            display_name="Ortho",
+            display_code="ORTHO",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        xray = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Xray Internal",
+            display_name="Xray",
+            display_code="XRAY",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+
+        tv_config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="reception",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        tv_config.utilities.set([ortho, xray])
+        self.device.tv_config = tv_config
+        self.device.save(update_fields=["tv_config"])
+
+        response = self._register()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        departments = response.json()["tv_config"]["departments"]
+        self.assertEqual(
+            departments,
+            [
+                {"id": ortho.id, "name": "Ortho"},
+                {"id": xray.id, "name": "Xray"},
+            ],
+        )
+
+    @patch("vendors.views.get_mqtt_config_for_vendor")
+    def test_registration_tv_config_expands_group_departments(self, mock_mqtt):
+        mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
+
+        ortho = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Ortho Internal",
+            display_name="Ortho",
+            display_code="ORTHO",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        xray = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Xray Internal",
+            display_name="Xray",
+            display_code="XRAY",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        group = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Group A",
+            display_name="Group A",
+            display_code="GRP",
+            department_type=Utility.DEPARTMENT_TYPE_GROUP,
+        )
+        group.group_departments.set([ortho, xray])
+
+        tv_config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="Group TV",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        tv_config.utilities.set([group])
+        self.device.tv_config = tv_config
+        self.device.save(update_fields=["tv_config"])
+
+        response = self._register()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        departments = response.json()["tv_config"]["departments"]
+        department_ids = {item["id"] for item in departments}
+        self.assertEqual(department_ids, {ortho.id, xray.id})
+        self.assertNotIn(group.id, department_ids)
+        self.assertEqual(
+            departments,
+            [
+                {"id": ortho.id, "name": "Ortho"},
+                {"id": xray.id, "name": "Xray"},
+            ],
+        )
+
+    @patch("vendors.views.get_mqtt_config_for_vendor")
+    def test_registration_tv_config_department_name_falls_back_to_utility_name(self, mock_mqtt):
+        mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
+
+        lab = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Laboratory",
+            display_name="",
+            display_code="LAB",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+
+        tv_config = TVDeviceConfig.objects.create(
+            admin_outlet=self.admin_outlet,
+            config_name="Lab TV",
+            utility_name_mode="display_name",
+            screen_orientation="landscape",
+            booking_fields=[],
+        )
+        tv_config.utilities.set([lab])
+        self.device.tv_config = tv_config
+        self.device.save(update_fields=["tv_config"])
+
+        response = self._register()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.json()["tv_config"]["departments"],
+            [{"id": lab.id, "name": "Laboratory"}],
+        )
 
     @patch("vendors.views.get_mqtt_config_for_vendor")
     def test_registration_filters_by_tv_config_departments(self, mock_mqtt):
@@ -242,6 +369,7 @@ class DineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCa
         data = response.json()
         self.assertIn("dine_flash", data)
         self.assertNotIn("hospital_flash", data)
+        self.assertNotIn("departments", data.get("tv_config") or {})
         mock_dine_snapshot.assert_called_once()
 
 
@@ -258,6 +386,7 @@ class FoodFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, TestCa
         data = response.json()
         self.assertNotIn("hospital_flash", data)
         self.assertNotIn("dine_flash", data)
+        self.assertNotIn("departments", data.get("tv_config") or {})
 
 
 @override_settings(PROJECT_NAME="dine_flash_buffet")
@@ -273,6 +402,7 @@ class DineFlashBuffetTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, 
         data = response.json()
         self.assertNotIn("hospital_flash", data)
         self.assertNotIn("dine_flash", data)
+        self.assertNotIn("departments", data.get("tv_config") or {})
 
 
 @override_settings(PROJECT_NAME="airline_flash")
@@ -288,3 +418,4 @@ class AirlineFlashTvRegistrationIsolationTests(_HospitalTvRegistrationMixin, Tes
         data = response.json()
         self.assertNotIn("hospital_flash", data)
         self.assertNotIn("dine_flash", data)
+        self.assertNotIn("departments", data.get("tv_config") or {})
