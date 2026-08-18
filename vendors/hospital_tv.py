@@ -7,8 +7,10 @@ Reuses existing MQTT and Firebase TV infrastructure without touching get_last_to
 
 import logging
 from collections import defaultdict
+from datetime import timezone as dt_timezone
 
 from django.conf import settings
+from django.utils.timezone import is_aware, make_aware, get_current_timezone
 
 from vendors.models import AndroidDevice, Order
 
@@ -111,12 +113,65 @@ def build_hospital_tv_payload(vendor, booking_nos):
     }
 
 
+def _format_hospital_registration_called_at(dt):
+    """UTC ISO-8601 with Z suffix for the Hospital Flash registration snapshot only."""
+    if dt is None:
+        return None
+    if is_aware(dt):
+        utc_dt = dt.astimezone(dt_timezone.utc)
+    else:
+        utc_dt = make_aware(dt, get_current_timezone()).astimezone(dt_timezone.utc)
+    iso = utc_dt.replace(microsecond=0).isoformat()
+    if iso.endswith("+00:00"):
+        return iso[:-6] + "Z"
+    return iso
+
+
+def _hospital_registration_called_tokens(
+    vendor, *, start_dt, end_dt, limit=None, utility_ids=None
+):
+    """
+    Registration-only called-patient rows.
+
+    Uses the same vendor / status / business-day / department / ordering / limit
+    rules as get_hospital_called_booking_nos, but returns token objects instead of
+    strings. Not used by MQTT or Firebase refresh.
+    """
+    if limit is None:
+        config = getattr(vendor, "config", None)
+        limit = getattr(config, "token_display_limit", None) or 8
+
+    qs = Order.objects.filter(
+        vendor=vendor,
+        status="called",
+        created_at__range=(start_dt, end_dt),
+    )
+    if utility_ids is not None:
+        qs = qs.filter(utility_id__in=utility_ids)
+
+    rows = list(
+        qs.exclude(table_booking_no__isnull=True)
+        .exclude(table_booking_no="")
+        .order_by("-updated_at")
+        .values("table_booking_no", "utility_id", "updated_at")[:limit]
+    )
+    return [
+        {
+            "token": row["table_booking_no"],
+            "utility_id": row["utility_id"],
+            "called_at": _format_hospital_registration_called_at(row["updated_at"]),
+        }
+        for row in rows
+    ]
+
+
 def build_hospital_tv_registration_snapshot(vendor, tv_config=None):
     """
     Bootstrap snapshot for Hospital TV registration responses.
 
     When tv_config is provided, filters called patients to the configuration's departments.
-    Returns only tokens and total_count for the hospital_flash registration key.
+    Returns tokens (token, utility_id, called_at) and total_count for the
+    hospital_flash registration key only. Live TV MQTT/Firebase payloads are unchanged.
     """
     if not is_hospital_flash():
         return None
@@ -134,17 +189,16 @@ def build_hospital_tv_registration_snapshot(vendor, tv_config=None):
 
     start_dt, end_dt = get_vendor_business_day_range(vendor)
     utility_ids = resolve_tv_config_utility_ids(tv_config)
-    booking_nos = get_hospital_called_booking_nos(
+    tokens = _hospital_registration_called_tokens(
         vendor,
         start_dt=start_dt,
         end_dt=end_dt,
         limit=config.token_display_limit,
         utility_ids=utility_ids,
     )
-    payload = build_hospital_tv_payload(vendor, booking_nos)
     return {
-        "tokens": payload["tokens"],
-        "total_count": payload["total_count"],
+        "tokens": tokens,
+        "total_count": len(tokens),
     }
 
 

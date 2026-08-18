@@ -167,17 +167,54 @@ class HospitalTvPayloadTests(TestCase):
         self.assertEqual(booking_nos, ["LAB-12"])
 
     def test_registration_snapshot_helper_returns_tokens_and_total_count(self):
-        from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+        from vendors.hospital_tv import (
+            _format_hospital_registration_called_at,
+            build_hospital_tv_registration_snapshot,
+        )
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
-        self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
+        lab = self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
+        ortho = self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
         self._create_order(status="waiting", booking_no="CARDIO-3", token_no=3)
 
         self.vendor.refresh_from_db()
         snapshot = build_hospital_tv_registration_snapshot(self.vendor)
 
-        self.assertEqual(snapshot["tokens"], ["ORTHO-5", "LAB-12"])
+        self.assertEqual(
+            snapshot["tokens"],
+            [
+                {
+                    "token": "ORTHO-5",
+                    "utility_id": ortho.utility_id,
+                    "called_at": _format_hospital_registration_called_at(ortho.updated_at),
+                },
+                {
+                    "token": "LAB-12",
+                    "utility_id": lab.utility_id,
+                    "called_at": _format_hospital_registration_called_at(lab.updated_at),
+                },
+            ],
+        )
         self.assertEqual(snapshot["total_count"], 2)
+
+    def test_registration_snapshot_enrichment_does_not_change_live_tv_payload(self):
+        from vendors.hospital_tv import (
+            build_hospital_tv_payload,
+            build_hospital_tv_registration_snapshot,
+            get_hospital_called_booking_nos,
+        )
+
+        self._create_order(status="called", booking_no="LAB-12", token_no=1)
+
+        self.vendor.refresh_from_db()
+        snapshot = build_hospital_tv_registration_snapshot(self.vendor)
+        booking_nos = get_hospital_called_booking_nos(
+            self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
+        )
+        payload = build_hospital_tv_payload(self.vendor, booking_nos)
+
+        self.assertTrue(all(isinstance(item, dict) for item in snapshot["tokens"]))
+        self.assertEqual(payload["tokens"], ["LAB-12"])
+        self.assertTrue(all(isinstance(item, str) for item in payload["tokens"]))
 
 
 @override_settings(PROJECT_NAME="hospital_flash")
@@ -486,16 +523,28 @@ class HospitalTvDepartmentFilterTests(TestCase):
         )
 
     def test_registration_snapshot_respects_tv_config_departments(self):
-        from vendors.hospital_tv import build_hospital_tv_registration_snapshot
+        from vendors.hospital_tv import (
+            _format_hospital_registration_called_at,
+            build_hospital_tv_registration_snapshot,
+        )
 
-        self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
+        lab_order = self._create_order(status="called", booking_no="LAB-12", utility=self.lab)
         self._create_order(status="called", booking_no="ORTHO-5", utility=self.ortho, token_no=2)
 
         tv_config = self._create_tv_config([self.lab])
         self.vendor.refresh_from_db()
         snapshot = build_hospital_tv_registration_snapshot(self.vendor, tv_config)
 
-        self.assertEqual(snapshot["tokens"], ["LAB-12"])
+        self.assertEqual(
+            snapshot["tokens"],
+            [
+                {
+                    "token": "LAB-12",
+                    "utility_id": self.lab.id,
+                    "called_at": _format_hospital_registration_called_at(lab_order.updated_at),
+                }
+            ],
+        )
         self.assertEqual(snapshot["total_count"], 1)
 
     @patch("static.utils.functions.notifications.notify_android_tv", return_value=(True, {}))

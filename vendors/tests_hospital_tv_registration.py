@@ -5,7 +5,7 @@ Verifies register_android_device() returns the current called-patient snapshot
 for hospital_flash only, without affecting other flavours.
 """
 
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -15,6 +15,24 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from vendors.models import AdminOutlet, AndroidDevice, Order, TVDeviceConfig, Utility, Vendor, VendorConfig
+
+
+def _expected_called_at(order):
+    dt = order.updated_at
+    if timezone.is_aware(dt):
+        dt = dt.astimezone(dt_timezone.utc)
+    iso = dt.replace(microsecond=0).isoformat()
+    if iso.endswith("+00:00"):
+        return iso[:-6] + "Z"
+    return iso
+
+
+def _expected_token(order):
+    return {
+        "token": order.table_booking_no,
+        "utility_id": order.utility_id,
+        "called_at": _expected_called_at(order),
+    }
 
 
 class _HospitalTvRegistrationMixin:
@@ -88,8 +106,8 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
     def test_registration_includes_called_patients_snapshot(self, mock_mqtt):
         mock_mqtt.return_value = {"topic": "FF/705041/ALL", "host": "mqtt.test"}
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
-        self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
+        lab = self._create_order(status="called", booking_no="LAB-12", token_no=1, offset_minutes=1)
+        ortho = self._create_order(status="called", booking_no="ORTHO-5", token_no=2, offset_minutes=2)
         self._create_order(status="waiting", booking_no="CARDIO-3", token_no=3)
 
         response = self._register()
@@ -99,7 +117,10 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
         self.assertTrue(data["mapped"])
         self.assertEqual(data["vendor_id"], 705041)
         self.assertIn("hospital_flash", data)
-        self.assertEqual(data["hospital_flash"]["tokens"], ["ORTHO-5", "LAB-12"])
+        self.assertEqual(
+            data["hospital_flash"]["tokens"],
+            [_expected_token(ortho), _expected_token(lab)],
+        )
         self.assertEqual(data["hospital_flash"]["total_count"], 2)
         self.assertNotIn("dine_flash", data)
 
@@ -123,14 +144,17 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
         self.config.save(update_fields=["token_display_limit"])
 
         self._create_order(status="called", booking_no="LAB-1", token_no=1, offset_minutes=1)
-        self._create_order(status="called", booking_no="LAB-2", token_no=2, offset_minutes=2)
-        self._create_order(status="called", booking_no="LAB-3", token_no=3, offset_minutes=3)
+        lab2 = self._create_order(status="called", booking_no="LAB-2", token_no=2, offset_minutes=2)
+        lab3 = self._create_order(status="called", booking_no="LAB-3", token_no=3, offset_minutes=3)
 
         response = self._register()
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(data["hospital_flash"]["tokens"], ["LAB-3", "LAB-2"])
+        self.assertEqual(
+            data["hospital_flash"]["tokens"],
+            [_expected_token(lab3), _expected_token(lab2)],
+        )
         self.assertEqual(data["hospital_flash"]["total_count"], 2)
 
     @patch("vendors.views.get_mqtt_config_for_vendor")
@@ -315,7 +339,7 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
             department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
         )
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1, utility=lab)
+        lab_order = self._create_order(status="called", booking_no="LAB-12", token_no=1, utility=lab)
         self._create_order(status="called", booking_no="ORTHO-5", token_no=2, utility=ortho)
 
         tv_config = TVDeviceConfig.objects.create(
@@ -333,8 +357,9 @@ class HospitalTvRegistrationBootstrapTests(_HospitalTvRegistrationMixin, TestCas
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(data["hospital_flash"]["tokens"], ["LAB-12"])
+        self.assertEqual(data["hospital_flash"]["tokens"], [_expected_token(lab_order)])
         self.assertEqual(data["hospital_flash"]["total_count"], 1)
+        self.assertEqual(data["hospital_flash"]["tokens"][0]["utility_id"], lab.id)
 
 
 @override_settings(PROJECT_NAME="dine_flash")
