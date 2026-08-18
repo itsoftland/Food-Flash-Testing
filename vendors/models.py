@@ -170,6 +170,15 @@ class VendorConfig(models.Model):
         blank=True,
         help_text="Hospital Flash: spoken announcement template selections (unused by other flavours)",
     )
+    # Hospital Flash only: Called chat-card template. Empty => "Please move to {department}".
+    called_chat_template = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Hospital Flash: Called chat-card template. Use {department}. "
+            "Empty keeps the default: Please move to {department}."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

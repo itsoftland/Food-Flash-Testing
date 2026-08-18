@@ -1,5 +1,5 @@
 // orders/static/orders/js/services/chatRestoreService.js
-import { ChatHistoryService } from "./chatHistoryService.js";
+import { ChatHistoryService } from "./chatHistoryService.js?v=20260818_1";
 import { ChatSyncService } from "./chatSyncService.js";
 import { appendMessage } from "./chatService.js?v=20260806_1";
 import { WelcomeMessageService } from "./welcomeMessageService.js";

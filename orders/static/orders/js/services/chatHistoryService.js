@@ -1,5 +1,5 @@
 // orders/static/js/services/chatHistoryService.js
-import { ChatTemplateService } from "./chatTemplateService.js?v=20260817_2";
+import { ChatTemplateService } from "./chatTemplateService.js?v=20260818_1";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
@@ -36,6 +36,10 @@ export const ChatHistoryService = (() => {
             if (!data || !Array.isArray(data.messages)) {
                 console.warn("Unexpected response format:", data);
                 return [];
+            }
+
+            if (Object.prototype.hasOwnProperty.call(data, "called_chat_template")) {
+                ChatTemplateService.setCalledChatTemplate(data.called_chat_template);
             }
 
             return data.messages.map(msg => {

@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const billNumberEnabledEl = document.getElementById('bill_number_enabled');
   const qrExpiryMinutesEl = document.getElementById('qr_expiry_minutes');
   const announcementRoot = document.getElementById('hospital-announcement-templates');
+  const calledChatSection = document.getElementById('hospital-called-chat-template-section');
+  const calledChatSelectEl = document.getElementById('called-chat-select');
+  const calledChatCustomEl = document.getElementById('called-chat-custom');
+  const calledChatPreviewEl = document.getElementById('called-chat-preview');
+  const calledChatCustomWrap = document.getElementById('called-chat-custom-wrap');
 
   if (!configForm || !outletsSelect) return;
 
@@ -42,6 +47,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     announcementCatalog &&
     Array.isArray(announcementCatalog.types)
   );
+
+  const isHospitalCalledChatUi = Boolean(
+    calledChatSection &&
+    calledChatSelectEl &&
+    calledChatCustomEl &&
+    calledChatPreviewEl
+  );
+  const CALLED_CHAT_DEFAULT_TEMPLATE = 'Please move to {department}';
+  const CALLED_CHAT_PREVIEW_DEPARTMENT = 'Cardiology';
 
   const previewToken = announcementCatalog?.preview_token || '101';
   const previewDepartment = announcementCatalog?.preview_department || 'Lab';
@@ -182,8 +196,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     return payload;
   };
 
+  const applyCalledChatPreviewPlaceholders = (template) => {
+    if (!template) return '';
+    return String(template).split('{department}').join(CALLED_CHAT_PREVIEW_DEPARTMENT);
+  };
+
+  const updateCalledChatPreview = () => {
+    if (!isHospitalCalledChatUi) return;
+    const selected = calledChatSelectEl.value || 'default';
+    if (calledChatCustomWrap) {
+      calledChatCustomWrap.classList.toggle('is-visible', selected === 'custom');
+    }
+    const raw =
+      selected === 'custom'
+        ? (calledChatCustomEl.value || '').trim()
+        : CALLED_CHAT_DEFAULT_TEMPLATE;
+    calledChatPreviewEl.textContent = applyCalledChatPreviewPlaceholders(raw) || '—';
+  };
+
+  const loadCalledChatTemplate = (vendorConfig) => {
+    if (!isHospitalCalledChatUi) return;
+    const saved = (vendorConfig?.called_chat_template || '').trim();
+    if (saved) {
+      calledChatSelectEl.value = 'custom';
+      calledChatCustomEl.value = saved;
+    } else {
+      calledChatSelectEl.value = 'default';
+      calledChatCustomEl.value = '';
+    }
+    updateCalledChatPreview();
+  };
+
   if (isHospitalAnnouncementUi) {
     renderAnnouncementTemplatesUi();
+  }
+  if (isHospitalCalledChatUi) {
+    calledChatSelectEl.addEventListener('change', updateCalledChatPreview);
+    calledChatCustomEl.addEventListener('input', updateCalledChatPreview);
+    updateCalledChatPreview();
   }
 
   /* ------------------------------------
@@ -249,6 +299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (billNumberEnabledEl) billNumberEnabledEl.checked = false;
       if (qrExpiryMinutesEl) qrExpiryMinutesEl.value = 5;
       loadAnnouncementTemplates(null);
+      loadCalledChatTemplate(null);
       return;
     }
 
@@ -289,6 +340,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     loadAnnouncementTemplates(vendorConfig);
+    loadCalledChatTemplate(vendorConfig);
   };
 
   // Listen for selection changes on the underlying select element
@@ -317,6 +369,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!vendorId) {
       ModalService.showError('Please select an outlet.');
       return;
+    }
+
+    if (isHospitalCalledChatUi && calledChatSelectEl.value === 'custom') {
+      const customText = (calledChatCustomEl.value || '').trim();
+      if (!customText.includes('{department}')) {
+        ModalService.showError(
+          'Called chat template must include the {department} placeholder.'
+        );
+        return;
+      }
     }
 
     const confirmed = await ConfirmModalService.show(
@@ -348,6 +410,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (templates) {
         payload.announcement_templates = templates;
       }
+    }
+    if (isHospitalCalledChatUi) {
+      payload.called_chat_template =
+        calledChatSelectEl.value === 'custom'
+          ? (calledChatCustomEl.value || '').trim()
+          : '';
     }
 
     try {

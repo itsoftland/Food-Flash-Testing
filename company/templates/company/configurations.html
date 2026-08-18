@@ -137,6 +137,47 @@
             </p>
             <div id="hospital-announcement-templates" class="announcement-templates-list"></div>
           </div>
+
+          <hr class="my-3">
+
+          <!-- Step 4: Patient chat templates (Hospital Flash only) -->
+          <div class="mb-3" id="hospital-called-chat-template-section">
+            <h6 class="text-uppercase fw-bold text-muted mb-2">Step 4: Patient Chat Templates</h6>
+            <p class="text-muted small mb-3">
+              Shown on the patient’s chat card when status is Called.
+              This does not change spoken announcements.
+              Placeholder: <code>{department}</code>.
+              Leave on Default to keep “Please move to {department}”.
+            </p>
+            <div class="announcement-type-card">
+              <h6>Called Chat Message</h6>
+              <div class="mb-2">
+                <div class="announcement-preview-label">Current chat message</div>
+                <div class="announcement-preview" id="called-chat-preview"></div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="called-chat-select">
+                  <strong>Template</strong>
+                </label>
+                <select class="form-select form-select-sm" id="called-chat-select">
+                  <option value="default">Default</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="announcement-custom-wrap" id="called-chat-custom-wrap">
+                <label class="form-label" for="called-chat-custom">
+                  <strong>Custom text</strong>
+                </label>
+                <textarea
+                  class="form-control form-control-sm"
+                  id="called-chat-custom"
+                  rows="3"
+                  placeholder="Please move to {department}"
+                ></textarea>
+                <small class="text-muted">Use the {department} placeholder.</small>
+              </div>
+            </div>
+          </div>
           {% endif %}
 
           <hr class="my-3">

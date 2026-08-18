@@ -49,6 +49,21 @@ const hospitalPayloadStatusMap = {
   cancelled: 'Cancelled',
 };
 
+const DEFAULT_CALLED_CHAT_TEMPLATE = "Please move to {department}";
+let calledChatTemplateCache = "";
+
+function setCalledChatTemplateCache(template) {
+  calledChatTemplateCache =
+    template != null && String(template).trim() !== "" ? String(template).trim() : "";
+}
+
+function buildCalledMoveToNotice(departmentName) {
+  const template = calledChatTemplateCache || DEFAULT_CALLED_CHAT_TEMPLATE;
+  const notice = template.split("{department}").join(departmentName);
+  return `
+      <div class="hospital-move-to-notice">${notice}</div>`;
+}
+
 function getActiveVendorLogo() {
   try {
     const prefixedLogo = window.AppUtils?.storageGet?.("activeVendorLogo");
@@ -843,12 +858,9 @@ function buildHospitalStatusMessage(payload) {
     // Hospital Flash only: individual completed push cards replace Status: Completed
     // with Thank You. Batch / check-status / registration snapshot paths are untouched.
     const departmentName = payload.utility_name || "-";
-    // Presentation-only: show "Please move to <dept>" above Status when called.
+    // Presentation-only: Called notice uses VendorConfig template when cached.
     const moveToSection =
-      statusKey === "called"
-        ? `
-      <div class="hospital-move-to-notice">Please move to ${departmentName}</div>`
-        : "";
+      statusKey === "called" ? buildCalledMoveToNotice(departmentName) : "";
     const statusSection =
       statusKey === "completed"
         ? `
@@ -936,6 +948,9 @@ function resolveMessageKind(message) {
 }
 
 export const ChatTemplateService = {
+  setCalledChatTemplate(template) {
+    setCalledChatTemplateCache(template);
+  },
   build(message) {
     // const payload = message.text || {};
     const payload = typeof message.text === "object" && message.text !== null && Object.keys(message.text).length

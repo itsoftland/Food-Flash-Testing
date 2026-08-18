@@ -3,14 +3,14 @@ import { AddOutletService } from "./services/addOutletService.js";
 import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js";
 import { PermissionService } from "./services/permissionService.js";
-import { VendorUIService } from "./services/vendorUIService.js";
+import { VendorUIService } from "./services/vendorUIService.js?v=20260818_1";
 import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260806_1";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
-import { ChatRestoreService } from "./services/chatRestoreService.js";
+import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260818_1";
 import { ChatSyncService } from "./services/chatSyncService.js";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
-import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260817_2";
+import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260818_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";

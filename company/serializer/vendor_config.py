@@ -63,6 +63,24 @@ class VendorConfigUpdateSerializer(serializers.Serializer):
     use_utilities = serializers.BooleanField(required=False)
     qr_expiry_minutes = serializers.IntegerField(required=False, min_value=1, max_value=1440)
     announcement_templates = serializers.JSONField(required=False)
+    called_chat_template = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_called_chat_template(self, value):
+        from django.conf import settings
+
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        if current_project != "hospital_flash":
+            return ""
+        if value is None:
+            return ""
+        text = str(value).strip()
+        if not text:
+            return ""
+        if "{department}" not in text:
+            raise serializers.ValidationError(
+                "Called chat template must include the {department} placeholder."
+            )
+        return text
 
     def validate_announcement_templates(self, value):
         from django.conf import settings

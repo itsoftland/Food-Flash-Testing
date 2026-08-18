@@ -38,6 +38,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             fields.pop("qr_expiry_minutes", None)
         if current_project != "hospital_flash":
             fields.pop("announcement_templates", None)
+            fields.pop("called_chat_template", None)
         return fields
 
     class Meta:
@@ -56,6 +57,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'bill_number_enabled',
             'qr_expiry_minutes',
             'announcement_templates',
+            'called_chat_template',
         ]
 
 class VendorSerializer(serializers.ModelSerializer):

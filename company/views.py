@@ -2962,10 +2962,11 @@ def vendor_configurations(request):
     vendor_id = serializer.validated_data.pop("vendor_id")
     update_fields = serializer.validated_data
 
-    # Never persist hospital-only announcement templates on other flavours.
+    # Never persist hospital-only announcement templates or chat copy on other flavours.
     current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
     if current_project != "hospital_flash":
         update_fields.pop("announcement_templates", None)
+        update_fields.pop("called_chat_template", None)
 
     if not update_fields:
         return Response(
