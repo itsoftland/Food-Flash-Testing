@@ -154,6 +154,22 @@ function useMacFirstColumnForTvConfigList() {
   return raw.trim().toLowerCase() === 'dine_flash';
 }
 
+function isHospitalFlashTvConfigList() {
+  const el = document.getElementById('tv-config-list-page-flags');
+  if (el) {
+    try {
+      const parsed = JSON.parse(el.textContent);
+      if (parsed && typeof parsed.isHospitalFlash === 'boolean') {
+        return parsed.isHospitalFlash;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const raw = window.PROJECT_NAME != null ? String(window.PROJECT_NAME) : '';
+  return raw.trim().toLowerCase() === 'hospital_flash';
+}
+
 function formatFirstColumnCell(c) {
   if (!useMacFirstColumnForTvConfigList()) {
     return `<strong>${escapeHtml(c.config_name || 'Unnamed')}</strong>`;
@@ -166,10 +182,8 @@ function formatFirstColumnCell(c) {
 }
 
 function rowTemplate(c) {
-  const utilitiesCount = getDineFlashUtilitiesCount(c.utilities);
-  return `
-    <tr>
-      <td>${formatFirstColumnCell(c)}</td>
+  const hideHospitalOnlyColumns = isHospitalFlashTvConfigList();
+  const hospitalHiddenColumns = hideHospitalOnlyColumns ? '' : `
       <td>${escapeHtml(c.utility_name_mode)}</td>
 
       <td>
@@ -183,19 +197,24 @@ function rowTemplate(c) {
           ${c.show_qr ? 'Enabled' : 'Disabled'}
         </span>
       </td>
-
+  `;
+  const utilitiesColumn = hideHospitalOnlyColumns ? '' : `
+      <td>
+        <span class="utilities-count">
+          ${getDineFlashUtilitiesCount(c.utilities)}
+        </span>
+      </td>
+  `;
+  return `
+    <tr>
+      <td>${formatFirstColumnCell(c)}</td>
+      ${hospitalHiddenColumns}
       <td>
         <span class="orientation-badge">
           ${escapeHtml(c.screen_orientation)}
         </span>
       </td>
-
-      <td>
-        <span class="utilities-count">
-          ${utilitiesCount}
-        </span>
-      </td>
-
+      ${utilitiesColumn}
       <td class="date-created">
         ${new Date(c.created_at).toLocaleDateString()}
       </td>

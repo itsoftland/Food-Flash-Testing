@@ -72,11 +72,15 @@
           <thead>
             <tr>
               <th>{% if PROJECT_NAME == "dine_flash" %}Android TV (MAC){% else %}Config Name{% endif %}</th>
+              {% if PROJECT_NAME != "hospital_flash" %}
               <th>Utility Name Mode</th>
               <th>Items to Show</th>
               <th>QR Code</th>
+              {% endif %}
               <th>Orientation</th>
+              {% if PROJECT_NAME != "hospital_flash" %}
               <th>Utilities</th>
+              {% endif %}
               <th>Created Date</th>
               <th>Actions</th>
             </tr>

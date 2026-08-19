@@ -8,7 +8,7 @@ export function initEditHandlers(ctx) {
   });
 }
 
-import { loadConfigurations } from './tvConfigCore.js';
+import { loadConfigurations } from './tvConfigCore.js?v=20260819_1';
 
 function isTvConfigListDineFlash() {
   const el = document.getElementById('tv-config-list-page-flags');
