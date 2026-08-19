@@ -209,6 +209,40 @@ async function showNotificationModal(pushData, source) {
       STATUS_MESSAGE_MAP[modalPayload.type] || STATUS_MESSAGE_MAP[modalPayload.status];
     let messageHtml = messageFn ? messageFn(modalPayload) : "You have a new update.";
 
+    // Hospital Flash only: in-app modal text for patient department status updates.
+    // Gated by type hospitalstatus + Hospital surface so other flavours cannot enter.
+    const isHospitalFlashFlavour =
+      (typeof window !== "undefined" &&
+        typeof window.PROJECT_NAME === "string" &&
+        window.PROJECT_NAME.trim().toLowerCase() === "hospital_flash") ||
+      (typeof window !== "undefined" &&
+        typeof window.BASE === "string" &&
+        window.BASE.includes("/hospital_flash/")) ||
+      (typeof window !== "undefined" &&
+        typeof window.location?.pathname === "string" &&
+        window.location.pathname.includes("/hospital_flash"));
+    const hospitalTypeKey = String(modalPayload.type || "").toLowerCase();
+    if (isHospitalFlashFlavour && hospitalTypeKey === "hospitalstatus") {
+      const hospitalStatus = String(modalPayload.status || "").toLowerCase();
+      const department =
+        modalPayload.utility_name != null && String(modalPayload.utility_name).trim() !== ""
+          ? String(modalPayload.utility_name).trim()
+          : "your department";
+      const bookingNo =
+        modalPayload.booking_no != null && String(modalPayload.booking_no).trim() !== ""
+          ? String(modalPayload.booking_no).trim()
+          : (modalPayload.token_no != null && String(modalPayload.token_no).trim() !== ""
+            ? String(modalPayload.token_no).trim()
+            : "-");
+      if (hospitalStatus === "called") {
+        messageHtml = `Your token <strong>${bookingNo}</strong> has been called for <strong>${department}</strong>. Please proceed to the department.`;
+      } else if (hospitalStatus === "completed") {
+        messageHtml = `Your visit for <strong>${department}</strong> has been completed. Thank you.`;
+      } else if (hospitalStatus === "cancelled") {
+        messageHtml = `Your token <strong>${bookingNo}</strong> for <strong>${department}</strong> has been cancelled. Please contact the hospital staff for assistance.`;
+      }
+    }
+
     // 🍽️ Buffet flavour: keep ready message aligned with other status templates.
     // Use BASE/path detection to avoid relying on PROJECT_NAME being set.
     const isBuffetFlavour =
