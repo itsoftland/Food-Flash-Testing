@@ -188,6 +188,15 @@ class VendorConfig(models.Model):
             "Empty keeps the default: You will be called in {minutes} minute(s)."
         ),
     )
+    # Hospital Flash only: Completed chat-card text. Empty => "Thank You".
+    completed_chat_template = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Hospital Flash: Completed chat-card template. Optional {department}. "
+            "Empty keeps the default: Thank You."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -2968,6 +2968,7 @@ def vendor_configurations(request):
         update_fields.pop("announcement_templates", None)
         update_fields.pop("called_chat_template", None)
         update_fields.pop("pre_announcement_chat_template", None)
+        update_fields.pop("completed_chat_template", None)
 
     if not update_fields:
         return Response(

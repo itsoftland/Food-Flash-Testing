@@ -40,6 +40,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             fields.pop("announcement_templates", None)
             fields.pop("called_chat_template", None)
             fields.pop("pre_announcement_chat_template", None)
+            fields.pop("completed_chat_template", None)
         return fields
 
     class Meta:
@@ -60,6 +61,7 @@ class VendorConfigSerializer(serializers.ModelSerializer):
             'announcement_templates',
             'called_chat_template',
             'pre_announcement_chat_template',
+            'completed_chat_template',
         ]
 
 class VendorSerializer(serializers.ModelSerializer):

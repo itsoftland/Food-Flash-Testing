@@ -149,3 +149,86 @@ class PreAnnouncementChatTemplateNonHospitalTests(SimpleTestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data.get("pre_announcement_chat_template"), "")
+
+
+@override_settings(PROJECT_NAME="hospital_flash")
+class CompletedChatTemplateSerializerTests(SimpleTestCase):
+    def test_blank_is_allowed(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={"vendor_id": 1, "completed_chat_template": ""}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["completed_chat_template"], "")
+
+    def test_custom_without_department_is_accepted(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={"vendor_id": 1, "completed_chat_template": "Visit completed successfully."}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["completed_chat_template"],
+            "Visit completed successfully.",
+        )
+
+    def test_custom_with_department_is_accepted(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={
+                "vendor_id": 1,
+                "completed_chat_template": "Thank you for visiting {department}",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["completed_chat_template"],
+            "Thank you for visiting {department}",
+        )
+
+
+@override_settings(PROJECT_NAME="food_flash")
+class CompletedChatTemplateNonHospitalTests(SimpleTestCase):
+    def test_update_serializer_clears_on_non_hospital(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={
+                "vendor_id": 1,
+                "phone_number_enabled": True,
+                "completed_chat_template": "Thank you for visiting {department}",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data.get("completed_chat_template"), "")
+
+    def test_read_serializer_omits_field(self):
+        from company.serializers import VendorConfigSerializer
+
+        fields = VendorConfigSerializer().get_fields()
+        self.assertNotIn("completed_chat_template", fields)
+        self.assertNotIn("called_chat_template", fields)
+        self.assertNotIn("pre_announcement_chat_template", fields)
+
+    def test_read_serializer_omits_field_on_other_flavours(self):
+        from django.test.utils import override_settings as override_project
+        from company.serializers import VendorConfigSerializer
+
+        for project_name in ("dine_flash", "dine_flash_buffet", "airline_flash"):
+            with override_project(PROJECT_NAME=project_name):
+                fields = VendorConfigSerializer().get_fields()
+                self.assertNotIn("completed_chat_template", fields, project_name)
+
+
+@override_settings(PROJECT_NAME="hospital_flash")
+class CompletedChatTemplateReadSerializerTests(SimpleTestCase):
+    def test_read_serializer_includes_hospital_chat_templates(self):
+        from company.serializers import VendorConfigSerializer
+
+        fields = VendorConfigSerializer().get_fields()
+        self.assertIn("completed_chat_template", fields)
+        self.assertIn("called_chat_template", fields)
+        self.assertIn("pre_announcement_chat_template", fields)

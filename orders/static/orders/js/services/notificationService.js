@@ -1,5 +1,5 @@
 // orders/static/orders/js/services/notificationService.js
-import { updateChatOnPush } from './chatService.js?v=20260819_1';
+import { updateChatOnPush } from './chatService.js?v=20260819_2';
 
 let notificationsEnabled = true;
 let activeNotificationToken = null;

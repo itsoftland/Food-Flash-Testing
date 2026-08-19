@@ -1,5 +1,5 @@
 // orders/static/js/services/chatHistoryService.js
-import { ChatTemplateService } from "./chatTemplateService.js?v=20260819_1";
+import { ChatTemplateService } from "./chatTemplateService.js?v=20260819_2";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
@@ -45,6 +45,9 @@ export const ChatHistoryService = (() => {
                 ChatTemplateService.setPreAnnouncementChatTemplate(
                     data.pre_announcement_chat_template
                 );
+            }
+            if (Object.prototype.hasOwnProperty.call(data, "completed_chat_template")) {
+                ChatTemplateService.setCompletedChatTemplate(data.completed_chat_template);
             }
 
             return data.messages.map(msg => {

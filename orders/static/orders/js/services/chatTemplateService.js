@@ -51,8 +51,10 @@ const hospitalPayloadStatusMap = {
 
 const DEFAULT_CALLED_CHAT_TEMPLATE = "Please move to {department}";
 const DEFAULT_PRE_ANNOUNCEMENT_CHAT_TEMPLATE = "You will be called in {minutes} minute(s)";
+const DEFAULT_COMPLETED_CHAT_TEMPLATE = "Thank You";
 let calledChatTemplateCache = "";
 let preAnnouncementChatTemplateCache = "";
+let completedChatTemplateCache = "";
 
 function setCalledChatTemplateCache(template) {
   calledChatTemplateCache =
@@ -61,6 +63,11 @@ function setCalledChatTemplateCache(template) {
 
 function setPreAnnouncementChatTemplateCache(template) {
   preAnnouncementChatTemplateCache =
+    template != null && String(template).trim() !== "" ? String(template).trim() : "";
+}
+
+function setCompletedChatTemplateCache(template) {
+  completedChatTemplateCache =
     template != null && String(template).trim() !== "" ? String(template).trim() : "";
 }
 
@@ -74,6 +81,11 @@ function buildCalledMoveToNotice(departmentName) {
 function buildPreAnnouncementNotice(etaMinutes) {
   const template = preAnnouncementChatTemplateCache || DEFAULT_PRE_ANNOUNCEMENT_CHAT_TEMPLATE;
   return template.split("{minutes}").join(String(etaMinutes));
+}
+
+function buildCompletedChatNotice(departmentName) {
+  const template = completedChatTemplateCache || DEFAULT_COMPLETED_CHAT_TEMPLATE;
+  return template.split("{department}").join(departmentName);
 }
 
 function getActiveVendorLogo() {
@@ -868,7 +880,8 @@ function buildHospitalStatusMessage(payload) {
 
   if (isStatusUpdate) {
     // Hospital Flash only: individual completed push cards replace Status: Completed
-    // with Thank You. Batch / check-status / registration snapshot paths are untouched.
+    // with completed_chat_template (default Thank You). Batch / check-status /
+    // registration snapshot paths are untouched.
     const departmentName = payload.utility_name || "-";
     // Presentation-only: Called notice uses VendorConfig template when cached.
     const moveToSection =
@@ -877,7 +890,7 @@ function buildHospitalStatusMessage(payload) {
       statusKey === "completed"
         ? `
       <div class="dine-status-row">
-        <span class="dine-status-value delivered-color" style="color:#ffffff">Thank You</span>
+        <span class="dine-status-value delivered-color" style="color:#ffffff">${buildCompletedChatNotice(departmentName)}</span>
       </div>`
         : `
       <div class="dine-status-row">
@@ -965,6 +978,9 @@ export const ChatTemplateService = {
   },
   setPreAnnouncementChatTemplate(template) {
     setPreAnnouncementChatTemplateCache(template);
+  },
+  setCompletedChatTemplate(template) {
+    setCompletedChatTemplateCache(template);
   },
   build(message) {
     // const payload = message.text || {};

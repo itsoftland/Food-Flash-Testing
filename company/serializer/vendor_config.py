@@ -65,6 +65,7 @@ class VendorConfigUpdateSerializer(serializers.Serializer):
     announcement_templates = serializers.JSONField(required=False)
     called_chat_template = serializers.CharField(required=False, allow_blank=True)
     pre_announcement_chat_template = serializers.CharField(required=False, allow_blank=True)
+    completed_chat_template = serializers.CharField(required=False, allow_blank=True)
 
     def validate_called_chat_template(self, value):
         from django.conf import settings
@@ -99,6 +100,16 @@ class VendorConfigUpdateSerializer(serializers.Serializer):
                 "Pre-announcement chat template must include the {minutes} placeholder."
             )
         return text
+
+    def validate_completed_chat_template(self, value):
+        from django.conf import settings
+
+        current_project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+        if current_project != "hospital_flash":
+            return ""
+        if value is None:
+            return ""
+        return str(value).strip()
 
     def validate_announcement_templates(self, value):
         from django.conf import settings

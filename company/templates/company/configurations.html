@@ -147,6 +147,7 @@
               Shown on the patient’s chat card. This does not change spoken announcements.
               Called placeholder: <code>{department}</code>.
               Pre-announcement placeholder: <code>{minutes}</code>.
+              Completed placeholder: <code>{department}</code> (optional).
               Leave on Default to keep the built-in messages.
             </p>
             <div class="announcement-templates-list">
@@ -204,6 +205,34 @@
                   placeholder="You will be called in {minutes} minute(s)"
                 ></textarea>
                 <small class="text-muted">Use the {minutes} placeholder.</small>
+              </div>
+            </div>
+            <div class="announcement-type-card">
+              <h6>Completed Chat Message</h6>
+              <div class="mb-2">
+                <div class="announcement-preview-label">Current chat message</div>
+                <div class="announcement-preview" id="completed-chat-preview"></div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="completed-chat-select">
+                  <strong>Template</strong>
+                </label>
+                <select class="form-select form-select-sm" id="completed-chat-select">
+                  <option value="default">Default</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="announcement-custom-wrap" id="completed-chat-custom-wrap">
+                <label class="form-label" for="completed-chat-custom">
+                  <strong>Custom text</strong>
+                </label>
+                <textarea
+                  class="form-control form-control-sm"
+                  id="completed-chat-custom"
+                  rows="3"
+                  placeholder="Thank You"
+                ></textarea>
+                <small class="text-muted">Optional {department} placeholder. Leave empty or Default for “Thank You”.</small>
               </div>
             </div>
             </div>
