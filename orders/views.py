@@ -1923,12 +1923,18 @@ def webchat_messages(request):
         payload = {"messages": serializer.data}
         if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "hospital_flash":
             called_chat_template = ""
+            pre_announcement_chat_template = ""
             try:
                 cfg = vendor.config
                 called_chat_template = (getattr(cfg, "called_chat_template", None) or "").strip()
+                pre_announcement_chat_template = (
+                    getattr(cfg, "pre_announcement_chat_template", None) or ""
+                ).strip()
             except Exception:
                 called_chat_template = ""
+                pre_announcement_chat_template = ""
             payload["called_chat_template"] = called_chat_template
+            payload["pre_announcement_chat_template"] = pre_announcement_chat_template
         return Response(payload, status=status.HTTP_200_OK)
 
     except Exception as e:

@@ -144,11 +144,12 @@
           <div class="mb-3" id="hospital-called-chat-template-section">
             <h6 class="text-uppercase fw-bold text-muted mb-2">Step 4: Patient Chat Templates</h6>
             <p class="text-muted small mb-3">
-              Shown on the patient’s chat card when status is Called.
-              This does not change spoken announcements.
-              Placeholder: <code>{department}</code>.
-              Leave on Default to keep “Please move to {department}”.
+              Shown on the patient’s chat card. This does not change spoken announcements.
+              Called placeholder: <code>{department}</code>.
+              Pre-announcement placeholder: <code>{minutes}</code>.
+              Leave on Default to keep the built-in messages.
             </p>
+            <div class="announcement-templates-list">
             <div class="announcement-type-card">
               <h6>Called Chat Message</h6>
               <div class="mb-2">
@@ -176,6 +177,35 @@
                 ></textarea>
                 <small class="text-muted">Use the {department} placeholder.</small>
               </div>
+            </div>
+            <div class="announcement-type-card">
+              <h6>Pre-Announcement Message</h6>
+              <div class="mb-2">
+                <div class="announcement-preview-label">Current chat message</div>
+                <div class="announcement-preview" id="pre-announcement-chat-preview"></div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="pre-announcement-chat-select">
+                  <strong>Template</strong>
+                </label>
+                <select class="form-select form-select-sm" id="pre-announcement-chat-select">
+                  <option value="default">Default</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="announcement-custom-wrap" id="pre-announcement-chat-custom-wrap">
+                <label class="form-label" for="pre-announcement-chat-custom">
+                  <strong>Custom text</strong>
+                </label>
+                <textarea
+                  class="form-control form-control-sm"
+                  id="pre-announcement-chat-custom"
+                  rows="3"
+                  placeholder="You will be called in {minutes} minute(s)"
+                ></textarea>
+                <small class="text-muted">Use the {minutes} placeholder.</small>
+              </div>
+            </div>
             </div>
           </div>
           {% endif %}

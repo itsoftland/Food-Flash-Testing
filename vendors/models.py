@@ -179,6 +179,15 @@ class VendorConfig(models.Model):
             "Empty keeps the default: Please move to {department}."
         ),
     )
+    # Hospital Flash only: Pre-announcement chat-card notice. Empty => default sentence.
+    pre_announcement_chat_template = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Hospital Flash: Pre-announcement chat-card template. Use {minutes}. "
+            "Empty keeps the default: You will be called in {minutes} minute(s)."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

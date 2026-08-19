@@ -38,6 +38,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const calledChatCustomEl = document.getElementById('called-chat-custom');
   const calledChatPreviewEl = document.getElementById('called-chat-preview');
   const calledChatCustomWrap = document.getElementById('called-chat-custom-wrap');
+  const preAnnouncementChatSelectEl = document.getElementById('pre-announcement-chat-select');
+  const preAnnouncementChatCustomEl = document.getElementById('pre-announcement-chat-custom');
+  const preAnnouncementChatPreviewEl = document.getElementById('pre-announcement-chat-preview');
+  const preAnnouncementChatCustomWrap = document.getElementById('pre-announcement-chat-custom-wrap');
 
   if (!configForm || !outletsSelect) return;
 
@@ -54,8 +58,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     calledChatCustomEl &&
     calledChatPreviewEl
   );
+  const isHospitalPreAnnouncementChatUi = Boolean(
+    calledChatSection &&
+    preAnnouncementChatSelectEl &&
+    preAnnouncementChatCustomEl &&
+    preAnnouncementChatPreviewEl
+  );
   const CALLED_CHAT_DEFAULT_TEMPLATE = 'Please move to {department}';
   const CALLED_CHAT_PREVIEW_DEPARTMENT = 'Cardiology';
+  const PRE_ANNOUNCEMENT_CHAT_DEFAULT_TEMPLATE = 'You will be called in {minutes} minute(s)';
+  const PRE_ANNOUNCEMENT_CHAT_PREVIEW_MINUTES = '5';
 
   const previewToken = announcementCatalog?.preview_token || '101';
   const previewDepartment = announcementCatalog?.preview_department || 'Lab';
@@ -227,6 +239,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCalledChatPreview();
   };
 
+  const applyPreAnnouncementChatPreviewPlaceholders = (template) => {
+    if (!template) return '';
+    return String(template).split('{minutes}').join(PRE_ANNOUNCEMENT_CHAT_PREVIEW_MINUTES);
+  };
+
+  const updatePreAnnouncementChatPreview = () => {
+    if (!isHospitalPreAnnouncementChatUi) return;
+    const selected = preAnnouncementChatSelectEl.value || 'default';
+    if (preAnnouncementChatCustomWrap) {
+      preAnnouncementChatCustomWrap.classList.toggle('is-visible', selected === 'custom');
+    }
+    const raw =
+      selected === 'custom'
+        ? (preAnnouncementChatCustomEl.value || '').trim()
+        : PRE_ANNOUNCEMENT_CHAT_DEFAULT_TEMPLATE;
+    preAnnouncementChatPreviewEl.textContent =
+      applyPreAnnouncementChatPreviewPlaceholders(raw) || '—';
+  };
+
+  const loadPreAnnouncementChatTemplate = (vendorConfig) => {
+    if (!isHospitalPreAnnouncementChatUi) return;
+    const saved = (vendorConfig?.pre_announcement_chat_template || '').trim();
+    if (saved) {
+      preAnnouncementChatSelectEl.value = 'custom';
+      preAnnouncementChatCustomEl.value = saved;
+    } else {
+      preAnnouncementChatSelectEl.value = 'default';
+      preAnnouncementChatCustomEl.value = '';
+    }
+    updatePreAnnouncementChatPreview();
+  };
+
   if (isHospitalAnnouncementUi) {
     renderAnnouncementTemplatesUi();
   }
@@ -234,6 +278,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     calledChatSelectEl.addEventListener('change', updateCalledChatPreview);
     calledChatCustomEl.addEventListener('input', updateCalledChatPreview);
     updateCalledChatPreview();
+  }
+  if (isHospitalPreAnnouncementChatUi) {
+    preAnnouncementChatSelectEl.addEventListener('change', updatePreAnnouncementChatPreview);
+    preAnnouncementChatCustomEl.addEventListener('input', updatePreAnnouncementChatPreview);
+    updatePreAnnouncementChatPreview();
   }
 
   /* ------------------------------------
@@ -300,6 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (qrExpiryMinutesEl) qrExpiryMinutesEl.value = 5;
       loadAnnouncementTemplates(null);
       loadCalledChatTemplate(null);
+      loadPreAnnouncementChatTemplate(null);
       return;
     }
 
@@ -341,6 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadAnnouncementTemplates(vendorConfig);
     loadCalledChatTemplate(vendorConfig);
+    loadPreAnnouncementChatTemplate(vendorConfig);
   };
 
   // Listen for selection changes on the underlying select element
@@ -380,6 +431,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
     }
+    if (isHospitalPreAnnouncementChatUi && preAnnouncementChatSelectEl.value === 'custom') {
+      const customText = (preAnnouncementChatCustomEl.value || '').trim();
+      if (!customText.includes('{minutes}')) {
+        ModalService.showError(
+          'Pre-announcement chat template must include the {minutes} placeholder.'
+        );
+        return;
+      }
+    }
 
     const confirmed = await ConfirmModalService.show(
       'Are you sure you want to update these configurations? This action will immediately affect system behavior.'
@@ -415,6 +475,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       payload.called_chat_template =
         calledChatSelectEl.value === 'custom'
           ? (calledChatCustomEl.value || '').trim()
+          : '';
+    }
+    if (isHospitalPreAnnouncementChatUi) {
+      payload.pre_announcement_chat_template =
+        preAnnouncementChatSelectEl.value === 'custom'
+          ? (preAnnouncementChatCustomEl.value || '').trim()
           : '';
     }
 

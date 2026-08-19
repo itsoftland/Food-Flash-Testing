@@ -50,10 +50,17 @@ const hospitalPayloadStatusMap = {
 };
 
 const DEFAULT_CALLED_CHAT_TEMPLATE = "Please move to {department}";
+const DEFAULT_PRE_ANNOUNCEMENT_CHAT_TEMPLATE = "You will be called in {minutes} minute(s)";
 let calledChatTemplateCache = "";
+let preAnnouncementChatTemplateCache = "";
 
 function setCalledChatTemplateCache(template) {
   calledChatTemplateCache =
+    template != null && String(template).trim() !== "" ? String(template).trim() : "";
+}
+
+function setPreAnnouncementChatTemplateCache(template) {
+  preAnnouncementChatTemplateCache =
     template != null && String(template).trim() !== "" ? String(template).trim() : "";
 }
 
@@ -62,6 +69,11 @@ function buildCalledMoveToNotice(departmentName) {
   const notice = template.split("{department}").join(departmentName);
   return `
       <div class="hospital-move-to-notice">${notice}</div>`;
+}
+
+function buildPreAnnouncementNotice(etaMinutes) {
+  const template = preAnnouncementChatTemplateCache || DEFAULT_PRE_ANNOUNCEMENT_CHAT_TEMPLATE;
+  return template.split("{minutes}").join(String(etaMinutes));
 }
 
 function getActiveVendorLogo() {
@@ -788,7 +800,7 @@ function buildHospitalPreAnnouncementMessage(payload) {
 
       <div class="dine-status-row">
         <span class="dine-status-label">Notice:</span>
-        <span class="dine-status-value boarding-shortly-color">You will be called in ${eta} minute(s)</span>
+        <span class="dine-status-value boarding-shortly-color">${buildPreAnnouncementNotice(eta)}</span>
       </div>
     </div>
   `;
@@ -950,6 +962,9 @@ function resolveMessageKind(message) {
 export const ChatTemplateService = {
   setCalledChatTemplate(template) {
     setCalledChatTemplateCache(template);
+  },
+  setPreAnnouncementChatTemplate(template) {
+    setPreAnnouncementChatTemplateCache(template);
   },
   build(message) {
     // const payload = message.text || {};

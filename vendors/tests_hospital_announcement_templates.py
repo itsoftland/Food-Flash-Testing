@@ -95,3 +95,57 @@ class HospitalAnnouncementTemplatesNonHospitalTests(SimpleTestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         # Normalized to empty; view strips before save on non-hospital.
         self.assertEqual(serializer.validated_data.get("announcement_templates"), {})
+
+
+@override_settings(PROJECT_NAME="hospital_flash")
+class PreAnnouncementChatTemplateSerializerTests(SimpleTestCase):
+    def test_blank_is_allowed(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={"vendor_id": 1, "pre_announcement_chat_template": ""}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["pre_announcement_chat_template"], "")
+
+    def test_custom_requires_minutes_placeholder(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={"vendor_id": 1, "pre_announcement_chat_template": "Your turn is approaching."}
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("pre_announcement_chat_template", serializer.errors)
+
+    def test_custom_with_minutes_is_accepted(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={
+                "vendor_id": 1,
+                "pre_announcement_chat_template": (
+                    "Your turn is approaching. Expected wait: {minutes} minute(s)"
+                ),
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["pre_announcement_chat_template"],
+            "Your turn is approaching. Expected wait: {minutes} minute(s)",
+        )
+
+
+@override_settings(PROJECT_NAME="food_flash")
+class PreAnnouncementChatTemplateNonHospitalTests(SimpleTestCase):
+    def test_update_serializer_clears_on_non_hospital(self):
+        from company.serializer.vendor_config import VendorConfigUpdateSerializer
+
+        serializer = VendorConfigUpdateSerializer(
+            data={
+                "vendor_id": 1,
+                "phone_number_enabled": True,
+                "pre_announcement_chat_template": "Wait {minutes} minutes",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data.get("pre_announcement_chat_template"), "")
