@@ -12,6 +12,16 @@ from django.utils import timezone
 from vendors.models import AdminOutlet, AndroidDevice, Order, TVDeviceConfig, Utility, Vendor, VendorConfig
 
 
+def _expected_token_row(order):
+    from vendors.hospital_tv import _format_hospital_registration_called_at
+
+    return {
+        "token": order.table_booking_no,
+        "utility_id": order.utility_id,
+        "called_at": _format_hospital_registration_called_at(order.updated_at),
+    }
+
+
 @override_settings(PROJECT_NAME="hospital_flash")
 class HospitalTvPayloadTests(TestCase):
     def setUp(self):
@@ -58,16 +68,19 @@ class HospitalTvPayloadTests(TestCase):
         return order
 
     def test_called_patient_appears_in_payload(self):
-        from vendors.hospital_tv import build_hospital_tv_payload, get_hospital_called_booking_nos
+        from vendors.hospital_tv import (
+            _hospital_registration_called_tokens,
+            build_hospital_tv_payload,
+        )
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1)
-        booking_nos = get_hospital_called_booking_nos(
+        order = self._create_order(status="called", booking_no="LAB-12", token_no=1)
+        token_rows = _hospital_registration_called_tokens(
             self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
         )
-        payload = build_hospital_tv_payload(self.vendor, booking_nos)
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
 
-        self.assertEqual(booking_nos, ["LAB-12"])
-        self.assertEqual(payload["tokens"], ["LAB-12"])
+        self.assertEqual(token_rows, [_expected_token_row(order)])
+        self.assertEqual(payload["tokens"], [_expected_token_row(order)])
         self.assertEqual(payload["total_count"], 1)
         self.assertEqual(payload["vendor_id"], 705041)
         self.assertEqual(payload["mode"], "All")
@@ -124,28 +137,35 @@ class HospitalTvPayloadTests(TestCase):
         self.assertEqual(booking_nos, ["LAB-4", "LAB-3", "LAB-2"])
 
     def test_payload_uses_table_booking_no_not_token_no(self):
-        from vendors.hospital_tv import build_hospital_tv_payload, get_hospital_called_booking_nos
+        from vendors.hospital_tv import (
+            _hospital_registration_called_tokens,
+            build_hospital_tv_payload,
+        )
 
-        self._create_order(status="called", booking_no="RAD-99", token_no=42)
+        order = self._create_order(status="called", booking_no="RAD-99", token_no=42)
 
-        booking_nos = get_hospital_called_booking_nos(
+        token_rows = _hospital_registration_called_tokens(
             self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
         )
-        payload = build_hospital_tv_payload(self.vendor, booking_nos)
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
 
-        self.assertEqual(payload["tokens"], ["RAD-99"])
-        self.assertNotIn(42, payload["tokens"])
+        self.assertEqual(payload["tokens"], [_expected_token_row(order)])
+        self.assertNotEqual(payload["tokens"][0]["token"], 42)
 
-    def test_payload_tokens_are_strings_without_padding(self):
+    def test_payload_tokens_include_utility_id_and_called_at(self):
         from vendors.hospital_tv import build_hospital_tv_payload
 
-        payload = build_hospital_tv_payload(self.vendor, ["LAB-12", "ORTHO-5"])
+        token_rows = [
+            {"token": "LAB-12", "utility_id": 123, "called_at": "2026-08-20T05:58:00Z"},
+            {"token": "ORTHO-5", "utility_id": 456, "called_at": "2026-08-20T06:00:00Z"},
+        ]
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
 
-        self.assertEqual(payload["tokens"], ["LAB-12", "ORTHO-5"])
-        self.assertTrue(all(isinstance(t, str) for t in payload["tokens"]))
+        self.assertEqual(payload["tokens"], token_rows)
+        self.assertTrue(all(isinstance(item, dict) for item in payload["tokens"]))
         self.assertEqual(payload["total_count"], 2)
-        self.assertNotIn(0, payload["tokens"])
-        self.assertNotIn("", payload["tokens"])
+        self.assertEqual(payload["tokens"][0]["utility_id"], 123)
+        self.assertEqual(payload["tokens"][0]["called_at"], "2026-08-20T05:58:00Z")
 
     def test_blank_table_booking_no_excluded(self):
         from vendors.hospital_tv import get_hospital_called_booking_nos
@@ -196,25 +216,124 @@ class HospitalTvPayloadTests(TestCase):
         )
         self.assertEqual(snapshot["total_count"], 2)
 
-    def test_registration_snapshot_enrichment_does_not_change_live_tv_payload(self):
+    def test_live_payload_matches_registration_snapshot_format(self):
         from vendors.hospital_tv import (
+            _hospital_registration_called_tokens,
             build_hospital_tv_payload,
             build_hospital_tv_registration_snapshot,
-            get_hospital_called_booking_nos,
         )
 
-        self._create_order(status="called", booking_no="LAB-12", token_no=1)
+        order = self._create_order(status="called", booking_no="LAB-12", token_no=1)
 
         self.vendor.refresh_from_db()
         snapshot = build_hospital_tv_registration_snapshot(self.vendor)
-        booking_nos = get_hospital_called_booking_nos(
+        token_rows = _hospital_registration_called_tokens(
             self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
         )
-        payload = build_hospital_tv_payload(self.vendor, booking_nos)
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
 
         self.assertTrue(all(isinstance(item, dict) for item in snapshot["tokens"]))
-        self.assertEqual(payload["tokens"], ["LAB-12"])
-        self.assertTrue(all(isinstance(item, str) for item in payload["tokens"]))
+        self.assertEqual(payload["tokens"], snapshot["tokens"])
+        self.assertEqual(payload["tokens"], [_expected_token_row(order)])
+
+    def test_live_payload_utility_id_from_order_not_prefix(self):
+        from vendors.hospital_tv import (
+            _hospital_registration_called_tokens,
+            build_hospital_tv_payload,
+        )
+
+        lab = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Laboratory",
+            display_name="Laboratory",
+            display_code="LAB",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        ortho = Utility.objects.create(
+            vendor=self.vendor,
+            utility_name="Orthopedics",
+            display_name="Orthopedics",
+            display_code="ORTHO",
+            department_type=Utility.DEPARTMENT_TYPE_INDIVIDUAL,
+        )
+        lab_order = Order.objects.create(
+            vendor=self.vendor,
+            token_no=1,
+            table_booking_no="LAB-12",
+            status="called",
+            utility=lab,
+            counter_no=1,
+        )
+        ortho_order = Order.objects.create(
+            vendor=self.vendor,
+            token_no=2,
+            table_booking_no="ORTHO-5",
+            status="called",
+            utility=ortho,
+            counter_no=1,
+        )
+
+        token_rows = _hospital_registration_called_tokens(
+            self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
+        )
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
+
+        utility_by_token = {row["token"]: row["utility_id"] for row in payload["tokens"]}
+        self.assertEqual(utility_by_token["LAB-12"], lab.id)
+        self.assertEqual(utility_by_token["ORTHO-5"], ortho.id)
+        self.assertEqual(lab_order.utility_id, lab.id)
+        self.assertEqual(ortho_order.utility_id, ortho.id)
+
+    def test_live_payload_preserves_null_utility_id(self):
+        from vendors.hospital_tv import (
+            _hospital_registration_called_tokens,
+            build_hospital_tv_payload,
+        )
+
+        order = self._create_order(status="called", booking_no="LAB-12", token_no=1)
+        self.assertIsNone(order.utility_id)
+
+        token_rows = _hospital_registration_called_tokens(
+            self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
+        )
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
+
+        self.assertEqual(payload["tokens"][0]["utility_id"], None)
+
+    def test_live_payload_called_at_uses_order_updated_at(self):
+        from vendors.hospital_tv import (
+            _format_hospital_registration_called_at,
+            _hospital_registration_called_tokens,
+            build_hospital_tv_payload,
+        )
+
+        order = self._create_order(
+            status="called", booking_no="LAB-12", token_no=1, offset_minutes=5
+        )
+        token_rows = _hospital_registration_called_tokens(
+            self.vendor, start_dt=self.start_dt, end_dt=self.end_dt
+        )
+        payload = build_hospital_tv_payload(self.vendor, token_rows)
+
+        self.assertEqual(
+            payload["tokens"][0]["called_at"],
+            _format_hospital_registration_called_at(order.updated_at),
+        )
+
+    @patch("static.utils.functions.notifications.notify_android_tv", return_value=(True, {}))
+    def test_live_payload_empty_when_no_called_patients(self, mock_notify):
+        from vendors.hospital_tv import refresh_hospital_tv
+
+        self.config.tv_communication_mode = "Firebase"
+        self.config.save(update_fields=["tv_communication_mode"])
+        self._create_order(status="waiting", booking_no="LAB-12", token_no=1)
+
+        result = refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
+
+        self.assertTrue(result["success"])
+        payload = mock_notify.call_args.args[1]
+        self.assertEqual(payload["tokens"], [])
+        self.assertEqual(payload["total_count"], 0)
 
 
 @override_settings(PROJECT_NAME="hospital_flash")
@@ -239,12 +358,13 @@ class HospitalTvDispatchTests(TestCase):
         self.start_dt = self.now - timedelta(hours=1)
         self.end_dt = self.now + timedelta(hours=1)
 
-    def _create_called_order(self, booking_no):
-        Order.objects.create(
+    def _create_called_order(self, booking_no, utility=None):
+        return Order.objects.create(
             vendor=self.vendor,
             token_no=1,
             table_booking_no=booking_no,
             status="called",
+            utility=utility,
             counter_no=1,
         )
 
@@ -258,7 +378,7 @@ class HospitalTvDispatchTests(TestCase):
             tv_communication_mode="MQTT",
             mqtt_mode="All",
         )
-        self._create_called_order("LAB-12")
+        order = self._create_called_order("LAB-12")
 
         result = refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
 
@@ -268,7 +388,7 @@ class HospitalTvDispatchTests(TestCase):
         args, kwargs = mock_publish.call_args
         self.assertEqual(args[0], self.vendor)
         payload = args[1]
-        self.assertEqual(payload["tokens"], ["LAB-12"])
+        self.assertEqual(payload["tokens"], [_expected_token_row(order)])
         self.assertEqual(payload["total_count"], 1)
 
     @patch("static.utils.functions.notifications.notify_android_tv", return_value=(True, {}))
@@ -281,7 +401,7 @@ class HospitalTvDispatchTests(TestCase):
             tv_communication_mode="Firebase",
             mqtt_mode="All",
         )
-        self._create_called_order("ORTHO-5")
+        order = self._create_called_order("ORTHO-5")
 
         result = refresh_hospital_tv(self.vendor, start_dt=self.start_dt, end_dt=self.end_dt)
 
@@ -291,7 +411,7 @@ class HospitalTvDispatchTests(TestCase):
         args, kwargs = mock_notify.call_args
         self.assertEqual(args[0], self.vendor)
         payload = args[1]
-        self.assertEqual(payload["tokens"], ["ORTHO-5"])
+        self.assertEqual(payload["tokens"], [_expected_token_row(order)])
 
     @patch("vendors.mqtt_client.publish_mqtt", return_value=True)
     @patch("vendors.order_utils.get_last_tokens")
@@ -582,7 +702,7 @@ class HospitalTvDepartmentFilterTests(TestCase):
         self.assertEqual(mock_notify.call_count, 2)
 
         payloads = [call.args[1] for call in mock_notify.call_args_list]
-        token_sets = [set(payload["tokens"]) for payload in payloads]
+        token_sets = [{row["token"] for row in payload["tokens"]} for payload in payloads]
         self.assertIn({"LAB-12"}, token_sets)
         self.assertIn({"ORTHO-5"}, token_sets)
 
@@ -613,4 +733,9 @@ class HospitalTvDepartmentFilterTests(TestCase):
 
         mock_notify.assert_called_once()
         payload = mock_notify.call_args.args[1]
-        self.assertEqual(set(payload["tokens"]), {"LAB-12", "ORTHO-5"})
+        self.assertEqual(
+            {row["token"] for row in payload["tokens"]},
+            {"LAB-12", "ORTHO-5"},
+        )
+        utility_ids = {row["utility_id"] for row in payload["tokens"]}
+        self.assertEqual(utility_ids, {self.lab.id, self.ortho.id})

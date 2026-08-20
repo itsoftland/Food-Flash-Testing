@@ -101,10 +101,10 @@ def get_hospital_called_booking_nos(
     return booking_nos
 
 
-def build_hospital_tv_payload(vendor, booking_nos):
-    """Build the standard Hospital TV snapshot payload (string tokens, no padding)."""
+def build_hospital_tv_payload(vendor, token_rows):
+    """Build the standard Hospital TV snapshot payload (token, utility_id, called_at)."""
     config = vendor.config
-    tokens = list(booking_nos)
+    tokens = list(token_rows)
     return {
         "vendor_id": vendor.vendor_id,
         "mode": config.mqtt_mode,
@@ -114,7 +114,7 @@ def build_hospital_tv_payload(vendor, booking_nos):
 
 
 def _format_hospital_registration_called_at(dt):
-    """UTC ISO-8601 with Z suffix for the Hospital Flash registration snapshot only."""
+    """UTC ISO-8601 with Z suffix for Hospital Flash TV snapshots."""
     if dt is None:
         return None
     if is_aware(dt):
@@ -131,11 +131,11 @@ def _hospital_registration_called_tokens(
     vendor, *, start_dt, end_dt, limit=None, utility_ids=None
 ):
     """
-    Registration-only called-patient rows.
+    Called-patient rows for Hospital Flash TV snapshots.
 
     Uses the same vendor / status / business-day / department / ordering / limit
     rules as get_hospital_called_booking_nos, but returns token objects instead of
-    strings. Not used by MQTT or Firebase refresh.
+    strings.
     """
     if limit is None:
         config = getattr(vendor, "config", None)
@@ -170,8 +170,7 @@ def build_hospital_tv_registration_snapshot(vendor, tv_config=None):
     Bootstrap snapshot for Hospital TV registration responses.
 
     When tv_config is provided, filters called patients to the configuration's departments.
-    Returns tokens (token, utility_id, called_at) and total_count for the
-    hospital_flash registration key only. Live TV MQTT/Firebase payloads are unchanged.
+    Returns tokens (token, utility_id, called_at) and total_count.
     """
     if not is_hospital_flash():
         return None
@@ -253,10 +252,10 @@ def _dispatch_hospital_tv_mqtt(vendor, devices, payload, mqtt_mode):
 
 def _refresh_hospital_tv_vendor_wide(vendor, *, start_dt, end_dt, limit, mode, mqtt_mode):
     """Legacy vendor-wide refresh when no Android TVs are registered."""
-    booking_nos = get_hospital_called_booking_nos(
+    token_rows = _hospital_registration_called_tokens(
         vendor, start_dt=start_dt, end_dt=end_dt, limit=limit
     )
-    payload = build_hospital_tv_payload(vendor, booking_nos)
+    payload = build_hospital_tv_payload(vendor, token_rows)
 
     if mode == "MQTT":
         result = _dispatch_hospital_tv_mqtt(vendor, [], payload, mqtt_mode)
@@ -333,15 +332,15 @@ def refresh_hospital_tv(vendor, *, start_dt, end_dt):
     for tv_config_id, devices in device_groups.items():
         tv_config = devices[0].tv_config if devices else None
         utility_ids = resolve_tv_config_utility_ids(tv_config)
-        booking_nos = get_hospital_called_booking_nos(
+        token_rows = _hospital_registration_called_tokens(
             vendor,
             start_dt=start_dt,
             end_dt=end_dt,
             limit=limit,
             utility_ids=utility_ids,
         )
-        payload = build_hospital_tv_payload(vendor, booking_nos)
-        payload_key = tuple(payload["tokens"])
+        payload = build_hospital_tv_payload(vendor, token_rows)
+        payload_key = tuple(row["token"] for row in payload["tokens"])
 
         try:
             if mode == "Firebase":
