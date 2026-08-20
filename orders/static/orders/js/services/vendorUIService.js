@@ -1,7 +1,7 @@
 import { AdSliderService } from "./adSliderService.js";
 import { AddOutletService } from "./addOutletService.js";
-import { ChatRestoreService } from "./chatRestoreService.js?v=20260819_2";
-import { handleOutletSelection } from "./chatService.js?v=20260819_2";
+import { ChatRestoreService } from "./chatRestoreService.js?v=20260820_1";
+import { handleOutletSelection } from "./chatService.js?v=20260820_1";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
 const base = AppUtils.getStartUrl();

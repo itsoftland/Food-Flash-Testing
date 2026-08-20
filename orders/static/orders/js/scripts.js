@@ -1,16 +1,16 @@
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 import { AddOutletService } from "./services/addOutletService.js"; 
 import { MenuModalService } from './services/menuModalService.js';
-import { FeedbackService } from "./services/feedBackService.js";
+import { FeedbackService } from "./services/feedBackService.js?v=20260820_1";
 import { PermissionService } from "./services/permissionService.js";
-import { VendorUIService } from "./services/vendorUIService.js?v=20260819_2";
-import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260819_2";
-import { PushSubscriptionService } from "./services/pushSubscriptionService.js";
+import { VendorUIService } from "./services/vendorUIService.js?v=20260820_1";
+import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260820_1";
+import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260820_1";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
-import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260819_2";
-import { ChatSyncService } from "./services/chatSyncService.js?v=20260819_2";
+import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260820_1";
+import { ChatSyncService } from "./services/chatSyncService.js?v=20260820_1";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
-import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260819_2";
+import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260820_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";
@@ -115,7 +115,7 @@ onDOMReady(async function () {
         if (!isDineFlashBuffetSurface) return true;
         try {
             const mod = await import(
-                "./buffet/services/selectedOrderConversationService.js"
+                "./buffet/services/selectedOrderConversationService.js?v=20260820_1"
             );
             if (typeof mod.shouldPaintPushMessage === "function") {
                 return Boolean(mod.shouldPaintPushMessage(pushData));
@@ -613,7 +613,7 @@ onDOMReady(async function () {
             if (!token) return null;
             try {
                 const convMod = await import(
-                    "./buffet/services/selectedOrderConversationService.js"
+                    "./buffet/services/selectedOrderConversationService.js?v=20260820_1"
                 );
                 if (typeof convMod.rebuildVisibleConversation === "function") {
                     await convMod.rebuildVisibleConversation(token);
