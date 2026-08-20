@@ -241,6 +241,21 @@ async function showNotificationModal(pushData, source) {
       } else if (hospitalStatus === "cancelled") {
         messageHtml = `Your token <strong>${bookingNo}</strong> for <strong>${department}</strong> has been cancelled. Please contact the hospital staff for assistance.`;
       }
+    } else if (isHospitalFlashFlavour && hospitalTypeKey === "hospital_pre_announcement") {
+      // Hospital Flash only: shorter in-app modal. OS push, TTS, and chat are unchanged.
+      const department =
+        modalPayload.department_name != null && String(modalPayload.department_name).trim() !== ""
+          ? String(modalPayload.department_name).trim()
+          : (modalPayload.utility_name != null && String(modalPayload.utility_name).trim() !== ""
+            ? String(modalPayload.utility_name).trim()
+            : "your department");
+      const bookingNo =
+        modalPayload.booking_no != null && String(modalPayload.booking_no).trim() !== ""
+          ? String(modalPayload.booking_no).trim()
+          : (modalPayload.token_no != null && String(modalPayload.token_no).trim() !== ""
+            ? String(modalPayload.token_no).trim()
+            : "-");
+      messageHtml = `Your turn for <strong>${department}</strong> is approaching. Token <strong>${bookingNo}</strong>.`;
     }
 
     // 🍽️ Buffet flavour: keep ready message aligned with other status templates.
