@@ -297,6 +297,20 @@ async function showNotificationModal(pushData, source) {
         messageHtml = `
           Order <strong>${modalPayload.token_no}</strong> station update:<br>
           ${lines.join("<br>")}`;
+      } else if (typeKey === "buffet_pre_announcement") {
+        const itemLabel =
+          (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
+            ? modalPayload.item_name.trim()
+            : null) ||
+          (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
+            ? modalPayload.utility_name.trim()
+            : null) ||
+          "your item";
+        const token =
+          modalPayload.token_no != null && String(modalPayload.token_no) !== ""
+            ? modalPayload.token_no
+            : "-";
+        messageHtml = `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn.`;
       } else {
         const isReadyLike =
           statusKey.includes("ready") ||

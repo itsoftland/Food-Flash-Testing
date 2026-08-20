@@ -818,6 +818,36 @@ function buildHospitalPreAnnouncementMessage(payload) {
   `;
 }
 
+function buildBuffetPreAnnouncementMessage(payload) {
+  const itemName = payload.item_name || payload.utility_name || "your item";
+  const tokenNo = payload.token_no != null ? payload.token_no : "-";
+  const distance =
+    payload.distance_from_ready != null ? payload.distance_from_ready : "-";
+  const notice =
+    payload.message ||
+    payload.body ||
+    `Your Order ${tokenNo} for ${itemName} is approaching its turn (about ${distance} ahead in the queue).`;
+
+  return `
+    <div class="response-title">
+      ${buildLogoImg(payload)}
+      <span class="response-title-text">${payload.alias_name || "Buffet Service"}</span>
+    </div>
+    <div class="buffet-status-card">
+        <div class="buffet-item-header">
+            <span class="buffet-item-name">${itemName}</span>
+            <span class="buffet-status-badge boarding-shortly-color">COMING UP</span>
+        </div>
+        <div class="buffet-item-body">
+            ${notice}
+        </div>
+        <div class="buffet-item-meta text-muted" style="font-size: 0.85rem; margin-top: 6px;">
+            Token ${tokenNo} · about ${distance} ahead
+        </div>
+    </div>
+  `;
+}
+
 function buildHospitalStatusMessage(payload) {
   if (Array.isArray(payload?.departments) && payload.departments.length > 0) {
     let hasCalledDept = false;
@@ -965,7 +995,8 @@ function resolveMessageKind(message) {
     inner.startsWith("item_") ||
     inner.startsWith("buffet_item") ||
     inner === "buffet_utilities_ready" ||
-    inner === "buffet_utilities_status"
+    inner === "buffet_utilities_status" ||
+    inner === "buffet_pre_announcement"
   ) {
     return inner;
   }
@@ -1032,6 +1063,8 @@ export const ChatTemplateService = {
         return buildHospitalStatusMessage(payload);
       case "hospital_pre_announcement":
         return buildHospitalPreAnnouncementMessage(payload);
+      case "buffet_pre_announcement":
+        return buildBuffetPreAnnouncementMessage(payload);
       case "buffetstatus":
         // Fallback for buffet order status itself (though usually items are handled individually)
         return buildStatusMessage(payload);

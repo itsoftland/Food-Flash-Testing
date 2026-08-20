@@ -454,6 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ` : `
         <p><strong>Food Type:</strong> ${escapeHtml(formatFoodTypeLabel(utility.food_type))}</p>
         <p><strong>Description:</strong> ${utility.description ? escapeHtml(utility.description) : '—'}</p>
+        <p><strong>Pre Announcement Count:</strong> ${escapeHtml(String(utility.pre_announcement_count ?? 0))}</p>
         `}
         <p><strong>Outlet:</strong> ${escapeHtml(vendorName)}</p>
         <p><strong>Status:</strong> ${utility.is_active ? 'Active' : 'Inactive'}</p>
@@ -497,6 +498,11 @@ document.addEventListener('DOMContentLoaded', async () => {
               <option value="non_veg" ${utility.food_type === 'non_veg' ? 'selected' : ''}>Non Veg</option>
             </select>
             ${!utility.food_type ? '<small class="form-text text-warning" style="font-size: 0.75rem;">This counter has no food type yet. Select Veg or Non Veg to save.</small>' : ''}
+          </div>
+          <div class="form-group col-md-6 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Pre Announcement Count</label>
+            <input type="number" id="edit-buffet-pre-announcement" class="form-control form-control-sm" value="${utility.pre_announcement_count ?? 0}" min="0" step="1" />
+            <small class="form-text text-muted" style="font-size: 0.75rem;">Next customers in this station queue to notify when an item becomes ready. 0 disables.</small>
           </div>
         </div>
         <div class="row g-2">
@@ -724,6 +730,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isBuffet && !['veg', 'non_veg'].includes(foodType)) {
           return showInlineError('Please select Veg or Non Veg');
         }
+        if (isBuffet) {
+          const buffetPreAnnouncement = parseInt(
+            document.getElementById('edit-buffet-pre-announcement')?.value || '0',
+            10
+          );
+          if (Number.isNaN(buffetPreAnnouncement) || buffetPreAnnouncement < 0) {
+            return showInlineError('Pre-announcement count must be 0 or greater.');
+          }
+        }
         if (!isBuffet && !isGroupDepartment && !dcode) return showInlineError('Display code is required');
         if (!isBuffet && !isGroupDepartment && !tmode) return showInlineError('Token mode is required');
         if (!isBuffet && !isGroupDepartment && (pref === '' || pref === null)) return showInlineError('Prefix is required');
@@ -792,6 +807,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             fd.append('prefix', pref);
             fd.append('food_type', foodType);
             fd.append('description', description);
+            fd.append(
+              'pre_announcement_count',
+              String(
+                parseInt(
+                  document.getElementById('edit-buffet-pre-announcement')?.value || '0',
+                  10
+                ) || 0
+              )
+            );
             const clearEl = document.getElementById('clear-buffet-images');
             const fileEl = document.getElementById('edit-buffet-images');
             const removeIds = Array.from(

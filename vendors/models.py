@@ -309,7 +309,10 @@ class Utility(models.Model):
     )
     pre_announcement_count = models.PositiveIntegerField(
         default=0,
-        help_text="Hospital Flash: number of patients to pre-announce",
+        help_text=(
+            "Hospital Flash: number of patients to pre-announce. "
+            "Dine Flash Buffet: number of next station-queue items to pre-announce."
+        ),
     )
     priority_prefix = models.CharField(
         max_length=4,
@@ -1115,7 +1118,18 @@ class BuffetOrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1) # For grouped utilities
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+    # ---- Dine Flash Buffet – pre-announcement dedupe (per item / distance) ----
+    pre_announcement_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Dine Flash Buffet: when this line last received a pre-announcement",
+    )
+    pre_announcement_notified_distance = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Dine Flash Buffet: eligible-queue distance of the last pre-announcement",
+    )
+
     def __str__(self):
         return f"Item for Order {self.order.token_no} - {self.utility.display_name if self.utility else 'Unknown'}"
 

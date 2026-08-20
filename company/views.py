@@ -51,6 +51,7 @@ from vendors.utils import (
     apply_buffet_utility_image_changes,
     _collect_buffet_upload_files,
     _BUFFET_UTILITY_IMAGES_MAX_COUNT,
+    _parse_positive_int,
     validate_hospital_utility_fields,
     hospital_utility_payload,
     apply_hospital_group_departments,
@@ -2080,6 +2081,7 @@ def create_utility(request):
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
         is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
+        buffet_pre_announcement_count = None
         if is_buffet:
             food_type_err = validate_buffet_food_type(food_type)
             if food_type_err:
@@ -2087,6 +2089,12 @@ def create_utility(request):
             description, description_err = normalize_buffet_utility_description(description)
             if description_err:
                 return Response({"error": description_err}, status=status.HTTP_400_BAD_REQUEST)
+            buffet_pre_announcement_count, pre_announce_err = _parse_positive_int(
+                request.data.get("pre_announcement_count", 0),
+                "pre_announcement_count",
+            )
+            if pre_announce_err:
+                return Response({"error": pre_announce_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -2239,6 +2247,8 @@ def create_utility(request):
         if is_buffet:
             create_kwargs["food_type"] = food_type
             create_kwargs["description"] = description
+            if buffet_pre_announcement_count is not None:
+                create_kwargs["pre_announcement_count"] = buffet_pre_announcement_count
         if is_hospital and hospital_fields:
             create_kwargs.update({
                 "department_type": hospital_fields["department_type"],
@@ -2277,6 +2287,7 @@ def create_utility(request):
             utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
             utility_payload["food_type"] = utility.food_type
             utility_payload["description"] = utility.description
+            utility_payload["pre_announcement_count"] = utility.pre_announcement_count
             utility_payload.update(buffet_utility_image_payload(request, utility))
         if is_hospital:
             utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)
@@ -3044,6 +3055,7 @@ def get_utilities(request):
             if is_buffet:
                 row["food_type"] = utility.food_type
                 row["description"] = utility.description
+                row["pre_announcement_count"] = utility.pre_announcement_count
                 row.update(buffet_utility_image_payload(request, utility))
             if is_hospital:
                 row.update(hospital_utility_payload(utility))
@@ -3239,6 +3251,7 @@ def update_utility(request):
         is_buffet = settings.PROJECT_NAME == "dine_flash_buffet"
         is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
+        buffet_pre_announcement_count = None
         if is_buffet:
             # Keep existing food type when the client omits it (e.g. description-only edit).
             if not food_type or not str(food_type).strip():
@@ -3249,6 +3262,13 @@ def update_utility(request):
             description, description_err = normalize_buffet_utility_description(description)
             if description_err:
                 return Response({"error": description_err}, status=status.HTTP_400_BAD_REQUEST)
+            if "pre_announcement_count" in request.data:
+                buffet_pre_announcement_count, pre_announce_err = _parse_positive_int(
+                    request.data.get("pre_announcement_count"),
+                    "pre_announcement_count",
+                )
+                if pre_announce_err:
+                    return Response({"error": pre_announce_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -3342,6 +3362,8 @@ def update_utility(request):
         if is_buffet:
             utility.food_type = food_type
             utility.description = description
+            if buffet_pre_announcement_count is not None:
+                utility.pre_announcement_count = buffet_pre_announcement_count
         if is_hospital and hospital_fields:
             utility.department_type = hospital_fields["department_type"]
             utility.display_order = hospital_fields["display_order"]
@@ -3375,6 +3397,7 @@ def update_utility(request):
             utility = Utility.objects.prefetch_related("buffet_images").get(pk=utility.pk)
             utility_response["food_type"] = utility.food_type
             utility_response["description"] = utility.description
+            utility_response["pre_announcement_count"] = utility.pre_announcement_count
             utility_response.update(buffet_utility_image_payload(request, utility))
         if is_hospital:
             utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)

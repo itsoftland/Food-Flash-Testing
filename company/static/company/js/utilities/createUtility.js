@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const buffetImageInput = document.querySelector('input[name="buffet_utility_images"]');
   const foodTypeSelect = document.querySelector('select[name="food_type"]');
   const descriptionInput = document.querySelector('textarea[name="description"]');
+  const buffetPreAnnouncementInput = document.getElementById('buffet-pre-announcement-input');
   const BUFFET_MAX_IMAGES = 3;
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
   const departmentTypeSelect = document.getElementById('department-type-select');
@@ -281,6 +282,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (isBuffet && buffetPreAnnouncementInput) {
+      const buffetPreAnnouncement = parseInt(buffetPreAnnouncementInput.value, 10);
+      if (Number.isNaN(buffetPreAnnouncement) || buffetPreAnnouncement < 0) {
+        ModalService.showError('Pre-announcement count must be 0 or greater.');
+        return;
+      }
+    }
+
     if (isBuffet && buffetImageInput && buffetImageInput.files.length > BUFFET_MAX_IMAGES) {
       ModalService.showError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
       return;
@@ -335,6 +344,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (description) {
         fd.append('description', description);
       }
+      fd.append(
+        'pre_announcement_count',
+        String(
+          buffetPreAnnouncementInput
+            ? parseInt(buffetPreAnnouncementInput.value, 10) || 0
+            : 0
+        )
+      );
       if (buffetImageInput && buffetImageInput.files && buffetImageInput.files.length) {
         Array.from(buffetImageInput.files)
           .slice(0, BUFFET_MAX_IMAGES)

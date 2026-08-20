@@ -127,4 +127,13 @@ export const STATUS_MESSAGE_MAP = {
     Estimated wait: <strong>${eta} minute(s)</strong>.`;
   },
 
+  buffet_pre_announcement: (data) => {
+    const item = data.item_name || data.utility_name || "your item";
+    const token = data.token_no != null ? data.token_no : "-";
+    const distance = data.distance_from_ready != null ? data.distance_from_ready : "-";
+    return `
+    Your Order <strong>${token}</strong> for <strong>${item}</strong> is approaching its turn
+    (about <strong>${distance}</strong> ahead in the queue).`;
+  },
+
 };

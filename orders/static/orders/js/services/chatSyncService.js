@@ -18,6 +18,7 @@ const RECOVERABLE_TYPES = new Set([
     "buffet_item_ready",
     "buffet_manager",
     "buffet_utilities_status",
+    "buffet_pre_announcement",
     "order_delivered",
 ]);
 
@@ -176,6 +177,7 @@ function resolveMessageType(source) {
         innerType === "buffet_utilities_status" ||
         innerType === "buffet_utilities_ready" ||
         innerType === "buffet_manager" ||
+        innerType === "buffet_pre_announcement" ||
         innerType === "order_delivered" ||
         innerType === "dinestatus" ||
         innerType === "dine_manager" ||
@@ -340,6 +342,16 @@ function fingerprint(source, fallbackVendorId) {
             resolvePayload(source)?.distance_from_called ??
             "";
         return `${vendorId}|${bookingId}|hospital_pre_announcement|${distance}`;
+    }
+
+    if (type === "buffet_pre_announcement") {
+        // Per BuffetOrderItem + distance: same-distance retries dedupe;
+        // legitimate queue advances (new distance) are distinct.
+        const payload = resolvePayload(source);
+        const itemId = payload?.item_id ?? source?.item_id ?? "";
+        const distance =
+            payload?.distance_from_ready ?? source?.distance_from_ready ?? "";
+        return `${vendorId}|${bookingId}|buffet_pre_announcement|${itemId}|${distance}`;
     }
 
     if (type === HOSPITAL_MANAGER_PUSH_TYPE) {

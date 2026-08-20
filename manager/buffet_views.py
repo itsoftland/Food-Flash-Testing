@@ -14,6 +14,7 @@ from rest_framework.exceptions import NotFound
 
 from vendors.models import BuffetOrderItem, Order, ChatMessage, UserProfile, Utility
 from manager.utils.utils import get_manager_vendor
+from manager.buffet_pre_announcement import process_buffet_pre_announcements
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push, buffet_utility_image_payload
 from static.utils.functions.utils import get_vendor_business_day_range
@@ -947,7 +948,16 @@ def _update_buffet_item_status(request, new_status):
                 previous_status = item.status
                 item.status = new_status
                 item.save(update_fields=["status"])
+                # Existing item_* notifications first; pre-announcement is additive.
                 _notify_item_update(vendor, item, new_status)
+                if new_status == "ready" and item.utility_id:
+                    process_buffet_pre_announcements(
+                        vendor,
+                        item.utility,
+                        item,
+                        start_dt,
+                        end_dt,
+                    )
                 updated_any = True
                 touched_order = item.order
                 logger.info(

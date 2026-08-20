@@ -1092,6 +1092,7 @@ onDOMReady(async function () {
                     case 'buffet_item_delivered':
                     case 'buffet_utilities_status':
                     case 'buffet_utilities_ready':
+                    case 'buffet_pre_announcement':
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
                         dineFlashDiag("PUSH buffet item/status APPENDING card", {
@@ -1111,7 +1112,11 @@ onDOMReady(async function () {
                             chat_children_after: document.getElementById('chat-container')?.childElementCount,
                             painted: paintBuffetPush,
                         });
-                        handleBuffetActiveOrderLifecyclePush(pushData, messageType);
+                        // Pre-announcement is informational only — do not drive
+                        // active-order lifecycle the way terminal item statuses do.
+                        if (messageType !== 'buffet_pre_announcement') {
+                            handleBuffetActiveOrderLifecyclePush(pushData, messageType);
+                        }
                         break;
                     case 'order_delivered':
                         AppUtils.notifyOrderReady(pushData);
