@@ -1,7 +1,7 @@
 // orders/static/orders/js/services/chatRestoreService.js
-import { ChatHistoryService } from "./chatHistoryService.js?v=20260821_1";
-import { ChatSyncService } from "./chatSyncService.js?v=20260821_1";
-import { appendMessage } from "./chatService.js?v=20260821_1";
+import { ChatHistoryService } from "./chatHistoryService.js?v=20260821_2";
+import { ChatSyncService } from "./chatSyncService.js?v=20260821_2";
+import { appendMessage } from "./chatService.js?v=20260821_2";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
@@ -159,7 +159,7 @@ export const ChatRestoreService = (() => {
         if (isDineFlashBuffetRestoreSurface()) {
           try {
             const convMod = await import(
-              "../buffet/services/selectedOrderConversationService.js?v=20260821_1"
+              "../buffet/services/selectedOrderConversationService.js?v=20260821_2"
             );
             if (typeof convMod.loadChatHistoryFresh === "function") {
               cachedMessages = (await convMod.loadChatHistoryFresh(vendorId, browserId)) || [];
@@ -205,7 +205,7 @@ export const ChatRestoreService = (() => {
           let selectedTokenFilter = null;
           try {
             const convMod = await import(
-              "../buffet/services/selectedOrderConversationService.js?v=20260821_1"
+              "../buffet/services/selectedOrderConversationService.js?v=20260821_2"
             );
             if (
               typeof convMod.shouldIsolateConversation === "function" &&

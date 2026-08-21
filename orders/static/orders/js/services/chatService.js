@@ -1,5 +1,5 @@
 // static/js/chatService.js
-import {ChatHistoryService}  from "./chatHistoryService.js?v=20260821_1";
+import {ChatHistoryService}  from "./chatHistoryService.js?v=20260821_2";
 import { HOSPITAL_MANAGER_PUSH_TYPE, hospitalOnly } from "../hospital/hospitalCommon.js";
 
 /**

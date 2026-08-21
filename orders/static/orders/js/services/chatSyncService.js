@@ -5,8 +5,8 @@
 // table booking. Android, desktop, and Safari browser tabs are untouched:
 // every entry point returns immediately when isEnabled() is false.
 
-import { ChatHistoryService } from "./chatHistoryService.js?v=20260821_1";
-import { appendMessage } from "./chatService.js?v=20260821_1";
+import { ChatHistoryService } from "./chatHistoryService.js?v=20260821_2";
+import { appendMessage } from "./chatService.js?v=20260821_2";
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
 
 const RECOVERABLE_TYPES = new Set([
@@ -554,7 +554,7 @@ export const ChatSyncService = (() => {
                 if (isDineFlashBuffetSurface()) {
                     try {
                         const convMod = await import(
-                            "../buffet/services/selectedOrderConversationService.js?v=20260821_1"
+                            "../buffet/services/selectedOrderConversationService.js?v=20260821_2"
                         );
                         if (typeof convMod.shouldPaintHistoryMessage === "function") {
                             paintMessage = Boolean(convMod.shouldPaintHistoryMessage(msg));
