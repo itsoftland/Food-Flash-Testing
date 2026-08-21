@@ -149,6 +149,10 @@ class BuffetPreAnnouncementProcessTests(SimpleTestCase):
         self.assertNotIn("eta_minutes", payloads_by_item[2])
         self.assertNotIn("eta_minutes", payloads_by_item[3])
         self.assertNotIn("0 minute", payloads_by_item[2]["body"].lower())
+        self.assertEqual(payloads_by_item[2]["body"], "Your order 2 is 1 place away.")
+        self.assertEqual(payloads_by_item[3]["body"], "Your order 3 is 2 places away.")
+        self.assertEqual(payloads_by_item[2]["message"], payloads_by_item[2]["body"])
+        self.assertEqual(payloads_by_item[3]["message"], payloads_by_item[3]["body"])
 
     @patch("manager.buffet_pre_announcement.ChatMessage.objects.create")
     @patch("manager.buffet_pre_announcement.notify_web_push")
@@ -186,7 +190,10 @@ class BuffetPreAnnouncementProcessTests(SimpleTestCase):
         self.assertEqual(payloads[2]["eta_minutes"], 5)
         self.assertEqual(payloads[3]["distance_from_ready"], 2)
         self.assertEqual(payloads[3]["eta_minutes"], 10)
-        self.assertIn("approximately 5 minute", payloads[2]["body"])
+        self.assertEqual(payloads[2]["body"], "Your order 2 will be ready in 5 minutes.")
+        self.assertEqual(payloads[3]["body"], "Your order 3 will be ready in 10 minutes.")
+        self.assertEqual(payloads[2]["message"], payloads[2]["body"])
+        self.assertEqual(payloads[3]["message"], payloads[3]["body"])
         chat_payloads = [
             __import__("json").loads(call.kwargs["message_text"])
             for call in mock_chat.call_args_list
@@ -194,6 +201,8 @@ class BuffetPreAnnouncementProcessTests(SimpleTestCase):
         by_item = {row["item_id"]: row for row in chat_payloads}
         self.assertEqual(by_item[2]["eta_minutes"], 5)
         self.assertEqual(by_item[3]["eta_minutes"], 10)
+        self.assertEqual(by_item[2]["body"], "Your order 2 will be ready in 5 minutes.")
+        self.assertEqual(by_item[3]["body"], "Your order 3 will be ready in 10 minutes.")
 
     @patch("manager.buffet_pre_announcement.ChatMessage.objects.create")
     @patch("manager.buffet_pre_announcement.notify_web_push")
@@ -227,6 +236,80 @@ class BuffetPreAnnouncementProcessTests(SimpleTestCase):
         }
         self.assertNotIn("eta_minutes", payloads[2])
         self.assertNotIn("0 minute", payloads[2]["body"].lower())
+        self.assertEqual(payloads[2]["body"], "Your order 2 is 1 place away.")
+        self.assertEqual(payloads[3]["body"], "Your order 3 is 2 places away.")
+        self.assertEqual(payloads[2]["message"], payloads[2]["body"])
+        self.assertEqual(payloads[3]["message"], payloads[3]["body"])
+
+    @patch("manager.buffet_pre_announcement.ChatMessage.objects.create")
+    @patch("manager.buffet_pre_announcement.notify_web_push")
+    @patch("manager.buffet_pre_announcement.BuffetOrderItem.objects")
+    @patch("manager.buffet_pre_announcement.get_utility_queue_items")
+    def test_eta_one_minute_uses_singular_wording(
+        self, mock_get_queue, mock_item_objects, mock_notify, mock_chat
+    ):
+        from manager.buffet_pre_announcement import process_buffet_pre_announcements
+
+        mock_get_queue.return_value = self._queue_items(["ready", "created"])
+        mock_item_objects.filter.return_value.filter.return_value.filter.return_value.update.return_value = (
+            1
+        )
+        utility = SimpleNamespace(
+            display_name="Dosa",
+            id=10,
+            pre_announcement_count=1,
+            approximate_service_time=1,
+        )
+        notified = process_buffet_pre_announcements(
+            SimpleNamespace(id=1, vendor_id="B1", alias_name="Cafe", name="Cafe"),
+            utility,
+            mock_get_queue.return_value[0],
+            "start",
+            "end",
+        )
+        self.assertEqual([item.id for item in notified], [2])
+        payload = mock_notify.call_args_list[0].args[2]
+        self.assertEqual(payload["eta_minutes"], 1)
+        self.assertEqual(payload["body"], "Your order 2 will be ready in 1 minute.")
+        self.assertEqual(payload["message"], payload["body"])
+        self.assertNotIn("minute(s)", payload["body"])
+        self.assertNotIn("minutes", payload["body"])
+
+    def test_build_payload_wording_examples_token_42(self):
+        from manager.buffet_pre_announcement import build_buffet_pre_announcement_payload
+
+        vendor = SimpleNamespace(name="Buffet", vendor_id="B1")
+        order = SimpleNamespace(id=420, token_no=42, vendor=vendor)
+        utility = SimpleNamespace(display_name="Dosa")
+        item = SimpleNamespace(
+            id=7,
+            status="created",
+            utility=utility,
+            order=order,
+        )
+
+        with_eta = build_buffet_pre_announcement_payload(
+            item, distance=1, queue_position=2, alias_name="Cafe", eta_minutes=5
+        )
+        self.assertEqual(with_eta["body"], "Your order 42 will be ready in 5 minutes.")
+        self.assertEqual(with_eta["message"], with_eta["body"])
+
+        one_minute = build_buffet_pre_announcement_payload(
+            item, distance=1, queue_position=2, alias_name="Cafe", eta_minutes=1
+        )
+        self.assertEqual(one_minute["body"], "Your order 42 will be ready in 1 minute.")
+
+        one_place = build_buffet_pre_announcement_payload(
+            item, distance=1, queue_position=2, alias_name="Cafe", eta_minutes=None
+        )
+        self.assertEqual(one_place["body"], "Your order 42 is 1 place away.")
+        self.assertNotIn("eta_minutes", one_place)
+        self.assertNotIn("0 minute", one_place["body"].lower())
+
+        two_places = build_buffet_pre_announcement_payload(
+            item, distance=2, queue_position=3, alias_name="Cafe", eta_minutes=None
+        )
+        self.assertEqual(two_places["body"], "Your order 42 is 2 places away.")
 
     @patch("manager.buffet_pre_announcement.ChatMessage.objects.create")
     @patch("manager.buffet_pre_announcement.notify_web_push")

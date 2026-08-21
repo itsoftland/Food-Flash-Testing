@@ -831,12 +831,16 @@ function buildBuffetPreAnnouncementMessage(payload) {
     payload.message ||
     payload.body ||
     (eta != null
-      ? `Your Order ${tokenNo} for ${itemName} is approaching its turn (approximately ${eta} minute(s) away).`
-      : `Your Order ${tokenNo} for ${itemName} is approaching its turn (about ${distance} ahead in the queue).`);
+      ? `Your order ${tokenNo} will be ready in ${eta} ${eta === 1 ? "minute" : "minutes"}.`
+      : `Your order ${tokenNo} is ${distance} ${
+          Number(distance) === 1 ? "place" : "places"
+        } away.`);
   const metaLine =
     eta != null
-      ? `Token ${tokenNo} · approximately ${eta} minute(s) away`
-      : `Token ${tokenNo} · about ${distance} ahead`;
+      ? `Token ${tokenNo} · ${eta} ${eta === 1 ? "minute" : "minutes"}`
+      : `Token ${tokenNo} · ${distance} ${
+          Number(distance) === 1 ? "place" : "places"
+        } away`;
 
   return `
     <div class="response-title">

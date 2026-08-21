@@ -112,15 +112,11 @@ def build_buffet_pre_announcement_payload(
 
     title = "Almost Your Turn"
     if eta_minutes is not None and eta_minutes > 0:
-        body = (
-            f"Your Order {token_no} for {item_name} is approaching its turn "
-            f"(approximately {eta_minutes} minute(s) away)."
-        )
+        minute_unit = "minute" if int(eta_minutes) == 1 else "minutes"
+        body = f"Your order {token_no} will be ready in {eta_minutes} {minute_unit}."
     else:
-        body = (
-            f"Your Order {token_no} for {item_name} is approaching its turn "
-            f"(about {distance} ahead in the {utility_name} queue)."
-        )
+        place_unit = "place" if int(distance) == 1 else "places"
+        body = f"Your order {token_no} is {distance} {place_unit} away."
 
     payload = {
         "title": title,

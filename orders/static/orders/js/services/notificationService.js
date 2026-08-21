@@ -298,17 +298,13 @@ async function showNotificationModal(pushData, source) {
           Order <strong>${modalPayload.token_no}</strong> station update:<br>
           ${lines.join("<br>")}`;
       } else if (typeKey === "buffet_pre_announcement") {
-        const itemLabel =
-          (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
-            ? modalPayload.item_name.trim()
-            : null) ||
-          (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
-            ? modalPayload.utility_name.trim()
-            : null) ||
-          "your item";
         const token =
           modalPayload.token_no != null && String(modalPayload.token_no) !== ""
             ? modalPayload.token_no
+            : "-";
+        const distance =
+          modalPayload.distance_from_ready != null
+            ? modalPayload.distance_from_ready
             : "-";
         const eta =
           modalPayload.eta_minutes != null && Number(modalPayload.eta_minutes) > 0
@@ -316,8 +312,12 @@ async function showNotificationModal(pushData, source) {
             : null;
         messageHtml =
           eta != null
-            ? `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn (approximately <strong>${eta}</strong> minute(s) away).`
-            : `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn.`;
+            ? `Your order <strong>${token}</strong> will be ready in <strong>${eta}</strong> ${
+                eta === 1 ? "minute" : "minutes"
+              }.`
+            : `Your order <strong>${token}</strong> is <strong>${distance}</strong> ${
+                Number(distance) === 1 ? "place" : "places"
+              } away.`;
       } else {
         const isReadyLike =
           statusKey.includes("ready") ||
