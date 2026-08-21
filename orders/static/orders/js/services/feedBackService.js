@@ -1,4 +1,4 @@
-import { appendMessage } from './chatService.js?v=20260820_1';
+import { appendMessage } from './chatService.js?v=20260821_1';
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
