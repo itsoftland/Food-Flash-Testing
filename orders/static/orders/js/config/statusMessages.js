@@ -131,6 +131,14 @@ export const STATUS_MESSAGE_MAP = {
     const item = data.item_name || data.utility_name || "your item";
     const token = data.token_no != null ? data.token_no : "-";
     const distance = data.distance_from_ready != null ? data.distance_from_ready : "-";
+    const eta = data.eta_minutes != null && Number(data.eta_minutes) > 0
+      ? Number(data.eta_minutes)
+      : null;
+    if (eta != null) {
+      return `
+    Your Order <strong>${token}</strong> for <strong>${item}</strong> is approaching its turn
+    (approximately <strong>${eta}</strong> minute(s) away).`;
+    }
     return `
     Your Order <strong>${token}</strong> for <strong>${item}</strong> is approaching its turn
     (about <strong>${distance}</strong> ahead in the queue).`;

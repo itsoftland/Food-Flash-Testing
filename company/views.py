@@ -2082,6 +2082,7 @@ def create_utility(request):
         is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
         buffet_pre_announcement_count = None
+        buffet_approximate_service_time = None
         if is_buffet:
             food_type_err = validate_buffet_food_type(food_type)
             if food_type_err:
@@ -2095,6 +2096,13 @@ def create_utility(request):
             )
             if pre_announce_err:
                 return Response({"error": pre_announce_err}, status=status.HTTP_400_BAD_REQUEST)
+            # Dine Flash Buffet only: reuse Utility.approximate_service_time for ETA.
+            buffet_approximate_service_time, service_time_err = _parse_positive_int(
+                request.data.get("approximate_service_time", 0),
+                "approximate_service_time",
+            )
+            if service_time_err:
+                return Response({"error": service_time_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -2249,6 +2257,8 @@ def create_utility(request):
             create_kwargs["description"] = description
             if buffet_pre_announcement_count is not None:
                 create_kwargs["pre_announcement_count"] = buffet_pre_announcement_count
+            if buffet_approximate_service_time is not None:
+                create_kwargs["approximate_service_time"] = buffet_approximate_service_time
         if is_hospital and hospital_fields:
             create_kwargs.update({
                 "department_type": hospital_fields["department_type"],
@@ -2288,6 +2298,7 @@ def create_utility(request):
             utility_payload["food_type"] = utility.food_type
             utility_payload["description"] = utility.description
             utility_payload["pre_announcement_count"] = utility.pre_announcement_count
+            utility_payload["approximate_service_time"] = utility.approximate_service_time
             utility_payload.update(buffet_utility_image_payload(request, utility))
         if is_hospital:
             utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)
@@ -3056,6 +3067,7 @@ def get_utilities(request):
                 row["food_type"] = utility.food_type
                 row["description"] = utility.description
                 row["pre_announcement_count"] = utility.pre_announcement_count
+                row["approximate_service_time"] = utility.approximate_service_time
                 row.update(buffet_utility_image_payload(request, utility))
             if is_hospital:
                 row.update(hospital_utility_payload(utility))
@@ -3252,6 +3264,7 @@ def update_utility(request):
         is_hospital = settings.PROJECT_NAME == "hospital_flash"
 
         buffet_pre_announcement_count = None
+        buffet_approximate_service_time = None
         if is_buffet:
             # Keep existing food type when the client omits it (e.g. description-only edit).
             if not food_type or not str(food_type).strip():
@@ -3269,6 +3282,14 @@ def update_utility(request):
                 )
                 if pre_announce_err:
                     return Response({"error": pre_announce_err}, status=status.HTTP_400_BAD_REQUEST)
+            # Dine Flash Buffet only: reuse Utility.approximate_service_time for ETA.
+            if "approximate_service_time" in request.data:
+                buffet_approximate_service_time, service_time_err = _parse_positive_int(
+                    request.data.get("approximate_service_time"),
+                    "approximate_service_time",
+                )
+                if service_time_err:
+                    return Response({"error": service_time_err}, status=status.HTTP_400_BAD_REQUEST)
 
         # ---- Buffet Flavor Defaults (Before Uniqueness Check) ----
         if is_buffet:
@@ -3364,6 +3385,8 @@ def update_utility(request):
             utility.description = description
             if buffet_pre_announcement_count is not None:
                 utility.pre_announcement_count = buffet_pre_announcement_count
+            if buffet_approximate_service_time is not None:
+                utility.approximate_service_time = buffet_approximate_service_time
         if is_hospital and hospital_fields:
             utility.department_type = hospital_fields["department_type"]
             utility.display_order = hospital_fields["display_order"]
@@ -3398,6 +3421,7 @@ def update_utility(request):
             utility_response["food_type"] = utility.food_type
             utility_response["description"] = utility.description
             utility_response["pre_announcement_count"] = utility.pre_announcement_count
+            utility_response["approximate_service_time"] = utility.approximate_service_time
             utility_response.update(buffet_utility_image_payload(request, utility))
         if is_hospital:
             utility = Utility.objects.prefetch_related("group_departments").get(pk=utility.pk)

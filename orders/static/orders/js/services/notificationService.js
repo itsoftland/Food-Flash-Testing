@@ -310,7 +310,14 @@ async function showNotificationModal(pushData, source) {
           modalPayload.token_no != null && String(modalPayload.token_no) !== ""
             ? modalPayload.token_no
             : "-";
-        messageHtml = `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn.`;
+        const eta =
+          modalPayload.eta_minutes != null && Number(modalPayload.eta_minutes) > 0
+            ? Number(modalPayload.eta_minutes)
+            : null;
+        messageHtml =
+          eta != null
+            ? `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn (approximately <strong>${eta}</strong> minute(s) away).`
+            : `Your Order <strong>${token}</strong> for <strong>${itemLabel}</strong> is approaching its turn.`;
       } else {
         const isReadyLike =
           statusKey.includes("ready") ||

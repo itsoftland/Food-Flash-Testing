@@ -5,7 +5,9 @@ When a BuffetOrderItem transitions to ready, notify the next
 pre_announcement_count eligible (non-terminal, non-ready) items behind that
 anchor in the same vendor/utility business-day queue.
 
-No service-time / ETA. No MQTT. Web Push + ChatMessage only.
+Optional ETA: approximate_service_time * eligible distance (minutes).
+Service time does not affect recipient selection. Service time 0 omits ETA.
+No MQTT. Web Push + ChatMessage only.
 Hospital Flash pre-announcement remains entirely separate.
 """
 
@@ -99,7 +101,9 @@ def select_buffet_pre_announcement_recipients(queue_items, anchor_item_id, pre_c
     return recipients
 
 
-def build_buffet_pre_announcement_payload(item, *, distance, queue_position, alias_name):
+def build_buffet_pre_announcement_payload(
+    item, *, distance, queue_position, alias_name, eta_minutes=None
+):
     order = item.order
     vendor = order.vendor
     item_name = item.utility.display_name if item.utility else "your item"
@@ -107,12 +111,18 @@ def build_buffet_pre_announcement_payload(item, *, distance, queue_position, ali
     token_no = order.token_no
 
     title = "Almost Your Turn"
-    body = (
-        f"Your Order {token_no} for {item_name} is approaching its turn "
-        f"(about {distance} ahead in the {utility_name} queue)."
-    )
+    if eta_minutes is not None and eta_minutes > 0:
+        body = (
+            f"Your Order {token_no} for {item_name} is approaching its turn "
+            f"(approximately {eta_minutes} minute(s) away)."
+        )
+    else:
+        body = (
+            f"Your Order {token_no} for {item_name} is approaching its turn "
+            f"(about {distance} ahead in the {utility_name} queue)."
+        )
 
-    return {
+    payload = {
         "title": title,
         "body": body,
         "message": body,
@@ -129,6 +139,9 @@ def build_buffet_pre_announcement_payload(item, *, distance, queue_position, ali
         "distance_from_ready": distance,
         "name": getattr(vendor, "name", "") or "",
     }
+    if eta_minutes is not None and eta_minutes > 0:
+        payload["eta_minutes"] = eta_minutes
+    return payload
 
 
 def process_buffet_pre_announcements(vendor, utility, ready_item, start_dt, end_dt):
@@ -147,6 +160,10 @@ def process_buffet_pre_announcements(vendor, utility, ready_item, start_dt, end_
     pre_count = int(getattr(utility, "pre_announcement_count", 0) or 0)
     if pre_count <= 0:
         return []
+
+    # Buffet-only read of shared Utility.approximate_service_time.
+    # Does not affect recipient selection; 0 means omit ETA (not disable notify).
+    service_time = int(getattr(utility, "approximate_service_time", 0) or 0)
 
     queue_items = get_utility_queue_items(vendor, utility, start_dt, end_dt)
     if not queue_items:
@@ -192,15 +209,31 @@ def process_buffet_pre_announcements(vendor, utility, ready_item, start_dt, end_
             (idx for idx, row in enumerate(queue_items, start=1) if row.pk == item.pk),
             distance,
         )
+        eta_minutes = service_time * distance if service_time > 0 else None
         payload = build_buffet_pre_announcement_payload(
             item,
             distance=distance,
             queue_position=queue_position,
             alias_name=alias_name,
+            eta_minutes=eta_minutes,
         )
 
         # Chat persistence (Buffet pattern) — no MQTT for pre-announcement.
         order = item.order
+        chat_payload = {
+            "item_id": item.id,
+            "item_name": payload["item_name"],
+            "status": payload["status"],
+            "type": "buffet_pre_announcement",
+            "alias_name": alias_name,
+            "token_no": order.token_no,
+            "distance_from_ready": distance,
+            "queue_position": queue_position,
+            "body": payload["body"],
+            "message": payload["message"],
+        }
+        if "eta_minutes" in payload:
+            chat_payload["eta_minutes"] = payload["eta_minutes"]
         ChatMessage.objects.create(
             vendor=vendor,
             token_no=order.token_no,
@@ -209,31 +242,19 @@ def process_buffet_pre_announcements(vendor, utility, ready_item, start_dt, end_
             created_date=timezone.now().date(),
             sender="system",
             is_send=True,
-            message_text=json.dumps(
-                {
-                    "item_id": item.id,
-                    "item_name": payload["item_name"],
-                    "status": payload["status"],
-                    "type": "buffet_pre_announcement",
-                    "alias_name": alias_name,
-                    "token_no": order.token_no,
-                    "distance_from_ready": distance,
-                    "queue_position": queue_position,
-                    "body": payload["body"],
-                    "message": payload["message"],
-                }
-            ),
+            message_text=json.dumps(chat_payload),
         )
         notify_web_push(order, vendor, payload)
         notified_items.append(item)
         logger.info(
             "[buffet_pre_announcement] item_id=%s order_id=%s token_no=%s "
-            "utility=%s distance=%s ready_anchor_id=%s",
+            "utility=%s distance=%s eta_minutes=%s ready_anchor_id=%s",
             item.id,
             order.id,
             order.token_no,
             getattr(utility, "display_name", None) or utility.id,
             distance,
+            payload.get("eta_minutes"),
             ready_item.pk,
         )
 

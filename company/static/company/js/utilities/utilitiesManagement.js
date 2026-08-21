@@ -455,6 +455,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <p><strong>Food Type:</strong> ${escapeHtml(formatFoodTypeLabel(utility.food_type))}</p>
         <p><strong>Description:</strong> ${utility.description ? escapeHtml(utility.description) : '—'}</p>
         <p><strong>Pre Announcement Count:</strong> ${escapeHtml(String(utility.pre_announcement_count ?? 0))}</p>
+        <p><strong>Service Time (min):</strong> ${escapeHtml(String(utility.approximate_service_time ?? 0))}</p>
         `}
         <p><strong>Outlet:</strong> ${escapeHtml(vendorName)}</p>
         <p><strong>Status:</strong> ${utility.is_active ? 'Active' : 'Inactive'}</p>
@@ -503,6 +504,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Pre Announcement Count</label>
             <input type="number" id="edit-buffet-pre-announcement" class="form-control form-control-sm" value="${utility.pre_announcement_count ?? 0}" min="0" step="1" />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Next customers in this station queue to notify when an item becomes ready. 0 disables.</small>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="form-group col-md-6 mb-2">
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Service Time (min)</label>
+            <input type="number" id="edit-buffet-service-time" class="form-control form-control-sm" value="${utility.approximate_service_time ?? 0}" min="0" step="1" />
+            <small class="form-text text-muted" style="font-size: 0.75rem;">Minutes per eligible queue position for pre-announcement ETA. 0 omits ETA.</small>
           </div>
         </div>
         <div class="row g-2">
@@ -738,6 +746,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (Number.isNaN(buffetPreAnnouncement) || buffetPreAnnouncement < 0) {
             return showInlineError('Pre-announcement count must be 0 or greater.');
           }
+          const buffetServiceTime = parseInt(
+            document.getElementById('edit-buffet-service-time')?.value || '0',
+            10
+          );
+          if (Number.isNaN(buffetServiceTime) || buffetServiceTime < 0) {
+            return showInlineError('Service time must be 0 or greater.');
+          }
         }
         if (!isBuffet && !isGroupDepartment && !dcode) return showInlineError('Display code is required');
         if (!isBuffet && !isGroupDepartment && !tmode) return showInlineError('Token mode is required');
@@ -812,6 +827,15 @@ document.addEventListener('DOMContentLoaded', async () => {
               String(
                 parseInt(
                   document.getElementById('edit-buffet-pre-announcement')?.value || '0',
+                  10
+                ) || 0
+              )
+            );
+            fd.append(
+              'approximate_service_time',
+              String(
+                parseInt(
+                  document.getElementById('edit-buffet-service-time')?.value || '0',
                   10
                 ) || 0
               )

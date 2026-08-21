@@ -131,6 +131,13 @@
                         </div>
                     </div>
                     <div class="row">
+                        <div class="col-md-6 mb-3" id="buffet-service-time-field">
+                            <label class="form-label" for="buffet-service-time-input">Service Time (min)</label>
+                            <input type="number" id="buffet-service-time-input" name="approximate_service_time" class="form-control" value="0" min="0" step="1">
+                            <small class="form-text text-muted">Minutes per eligible queue position for pre-announcement ETA. 0 omits ETA (does not disable pre-announcements).</small>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-12 mb-3">
                             <label class="form-label" for="utility-description">Description <span class="text-muted fw-normal">(optional)</span></label>
                             <textarea id="utility-description" name="description" class="form-control" rows="3" maxlength="500" placeholder="Short description for this food counter"></textarea>

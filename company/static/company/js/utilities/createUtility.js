@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const foodTypeSelect = document.querySelector('select[name="food_type"]');
   const descriptionInput = document.querySelector('textarea[name="description"]');
   const buffetPreAnnouncementInput = document.getElementById('buffet-pre-announcement-input');
+  const buffetServiceTimeInput = document.getElementById('buffet-service-time-input');
   const BUFFET_MAX_IMAGES = 3;
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
   const departmentTypeSelect = document.getElementById('department-type-select');
@@ -290,6 +291,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
+    if (isBuffet && buffetServiceTimeInput) {
+      const buffetServiceTime = parseInt(buffetServiceTimeInput.value, 10);
+      if (Number.isNaN(buffetServiceTime) || buffetServiceTime < 0) {
+        ModalService.showError('Service time must be 0 or greater.');
+        return;
+      }
+    }
+
     if (isBuffet && buffetImageInput && buffetImageInput.files.length > BUFFET_MAX_IMAGES) {
       ModalService.showError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
       return;
@@ -349,6 +358,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         String(
           buffetPreAnnouncementInput
             ? parseInt(buffetPreAnnouncementInput.value, 10) || 0
+            : 0
+        )
+      );
+      fd.append(
+        'approximate_service_time',
+        String(
+          buffetServiceTimeInput
+            ? parseInt(buffetServiceTimeInput.value, 10) || 0
             : 0
         )
       );
