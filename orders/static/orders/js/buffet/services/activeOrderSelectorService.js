@@ -12,6 +12,11 @@ import {
     setSelectedOrder,
 } from "./selectedOrderService.js";
 import { isMultiOrderMode } from "./multiOrderModeService.js";
+import {
+    hasUnseen,
+    clearUnseen,
+    pruneToActiveTokens,
+} from "./orderUnseenUpdateService.js";
 
 const SELECTOR_ROOT_ID = "buffet-active-order-selector";
 const FETCHED_FLAG = "__buffetActiveOrderSelectorFetched";
@@ -251,7 +256,8 @@ async function handleOrderSelect(order) {
 
     const currentToken = await resolveCurrentTokenForBadges();
     if (tokensMatch(tokenNumber, currentToken)) {
-        // Already viewing this order — refresh badge highlight only.
+        // Already viewing this order — clear unseen (idempotent) and refresh UI.
+        clearUnseen(tokenNumber);
         const root = getRoot();
         if (root && cachedOrders) {
             renderSelector(root, cachedOrders, currentToken);
@@ -267,6 +273,8 @@ async function handleOrderSelect(order) {
             token_number: tokenNumber,
         });
         if (!selected) return;
+
+        clearUnseen(tokenNumber);
 
         await applyHomeIdentity({ vendorId, tokenNumber });
         await reloadHomeForSelectedOrder(tokenNumber);
@@ -286,6 +294,7 @@ function buildItemElement(order, { currentToken }) {
     const tokenNumber = order.token_number;
     const isCurrent = tokensMatch(tokenNumber, currentToken);
     const createdLabel = formatCreatedAt(order.created_at);
+    const showUnseen = !isCurrent && hasUnseen(tokenNumber);
 
     const item = document.createElement("button");
     item.type = "button";
@@ -293,6 +302,16 @@ function buildItemElement(order, { currentToken }) {
     if (isCurrent) {
         item.classList.add("is-current");
         item.classList.add("is-highlighted");
+    }
+    if (showUnseen) {
+        item.classList.add("has-unseen");
+        item.setAttribute(
+            "aria-label",
+            tokenNumber !== null && tokenNumber !== undefined
+                ? `Token ${tokenNumber}, new update`
+                : "Token, new update"
+        );
+        item.title = "New update";
     }
     item.setAttribute("aria-pressed", isCurrent ? "true" : "false");
 
@@ -308,7 +327,7 @@ function buildItemElement(order, { currentToken }) {
             ? String(order.order_lookup_id)
             : "";
 
-    // Compact card: Token + creation time only (no badges / markers).
+    // Compact card: Token + creation time; optional unseen class (CSS dot).
     const body = document.createElement("span");
     body.className = "buffet-aos-body";
 
@@ -392,10 +411,14 @@ async function initActiveOrderSelector() {
     if (!orders || orders.length <= 1) {
         hideSelector(root);
         cachedOrders = orders && orders.length ? orders : null;
+        if (orders && orders.length) {
+            pruneToActiveTokens(orders);
+        }
         return;
     }
 
     cachedOrders = orders;
+    pruneToActiveTokens(orders);
 
     try {
         await ensureSelectedOrderSeeded();
@@ -404,6 +427,21 @@ async function initActiveOrderSelector() {
     } catch (e) {
         console.warn("[buffet] active_orders render failed:", e);
         hideSelector(root);
+    }
+}
+
+/**
+ * Lightweight re-render from cached active orders (no API refetch).
+ * Used after mark/clear unseen so the selector dot updates immediately.
+ */
+async function repaintActiveOrderSelector() {
+    const root = getRoot();
+    if (!root || !cachedOrders || cachedOrders.length <= 1) return;
+    try {
+        const currentToken = await resolveCurrentTokenForBadges();
+        renderSelector(root, cachedOrders, currentToken);
+    } catch (e) {
+        console.warn("[buffet] active order selector repaint failed:", e);
     }
 }
 
@@ -421,4 +459,8 @@ async function refreshActiveOrderSelector() {
     }
 }
 
-export { initActiveOrderSelector, refreshActiveOrderSelector };
+export {
+    initActiveOrderSelector,
+    refreshActiveOrderSelector,
+    repaintActiveOrderSelector,
+};

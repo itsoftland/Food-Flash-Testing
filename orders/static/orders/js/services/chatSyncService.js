@@ -440,6 +440,10 @@ export const ChatSyncService = (() => {
     let periodicTimerId = null;
     let listenersBound = false;
     let syncInProgress = false;
+    // Buffet unseen-indicator only: true after seedFromMessages for this vendor
+    // since last resetForVendor. Empty history still counts as a completed seed.
+    // Independent of handledFingerprints / isRestoringHistory.
+    let historySeeded = false;
 
     function isAlreadyHandled(source, fallbackVendorId) {
         if (!isEnabled()) return false;
@@ -455,18 +459,24 @@ export const ChatSyncService = (() => {
 
     function seedFromMessages(messages, vendorId) {
         if (!isEnabled()) return;
-        if (!Array.isArray(messages) || messages.length === 0) return;
+        if (!Array.isArray(messages)) return;
 
-        messages.forEach((msg) => {
-            if (!isRecoverableMessage(msg)) return;
-            handledFingerprints.add(fingerprint(msg, vendorId));
-        });
+        if (messages.length > 0) {
+            messages.forEach((msg) => {
+                if (!isRecoverableMessage(msg)) return;
+                handledFingerprints.add(fingerprint(msg, vendorId));
+            });
+        }
+
+        // Completed seed even when history is empty (Scenario G).
+        historySeeded = true;
     }
 
     function resetForVendor(vendorId) {
         if (!isEnabled()) return;
         activeVendorId = vendorId != null ? String(vendorId) : null;
         handledFingerprints = new Set();
+        historySeeded = false;
     }
 
     async function syncMissing() {
@@ -503,6 +513,11 @@ export const ChatSyncService = (() => {
             }
 
             const messages = (await ChatHistoryService.load(vendorId, browserId)) || [];
+
+            // Unseen-indicator only: if restore/reset raced during the await,
+            // skip Buffet unseen marks this pass (append/dedupe unchanged).
+            const allowBuffetUnseenMark =
+                historySeeded === true && window.isRestoringHistory !== true;
 
             dineFlashClientDiag("SYNC_LOADED", {
                 vendor_id: vendorId,
@@ -561,6 +576,33 @@ export const ChatSyncService = (() => {
                         }
                     } catch (e) {
                         paintMessage = true;
+                    }
+
+                    // Order-level unseen indicator (Buffet Multi-Order only).
+                    // Requires historySeeded; never marks from seedFromMessages.
+                    // Does not change append / registerPushDelivered behaviour.
+                    if (
+                        !paintMessage &&
+                        allowBuffetUnseenMark &&
+                        historySeeded === true &&
+                        window.isRestoringHistory !== true
+                    ) {
+                        try {
+                            const unseenMod = await import(
+                                "../buffet/services/orderUnseenUpdateService.js?v=20260821_2"
+                            );
+                            if (typeof unseenMod.markUnseen === "function") {
+                                unseenMod.markUnseen(msg.token_no);
+                            }
+                            const selectorMod = await import(
+                                "../buffet/services/activeOrderSelectorService.js?v=20260821_2"
+                            );
+                            if (typeof selectorMod.repaintActiveOrderSelector === "function") {
+                                await selectorMod.repaintActiveOrderSelector();
+                            }
+                        } catch (e) {
+                            console.warn("[buffet] ChatSync unseen mark failed:", e);
+                        }
                     }
                 }
 

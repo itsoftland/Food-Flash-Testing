@@ -1014,6 +1014,30 @@ onDOMReady(async function () {
                 // pushes while still notifying / syncing / lifecycle below.
                 const paintBuffetPush = await shouldPaintBuffetPushMessage(pushData);
 
+                // Buffet Multi-Order: non-Selected updates get an order-level
+                // unseen indicator on the Active Order Selector. Fire-and-forget
+                // so notify/modal/TTS in the switch below are not delayed.
+                if (isDineFlashBuffetSurface && !paintBuffetPush) {
+                    const tokenNo = pushData?.token_no;
+                    import("./buffet/services/orderUnseenUpdateService.js?v=20260821_2")
+                        .then((unseenMod) => {
+                            if (typeof unseenMod.markUnseen === "function") {
+                                unseenMod.markUnseen(tokenNo);
+                            }
+                            return import(
+                                "./buffet/services/activeOrderSelectorService.js?v=20260821_2"
+                            );
+                        })
+                        .then((selectorMod) => {
+                            if (typeof selectorMod.repaintActiveOrderSelector === "function") {
+                                return selectorMod.repaintActiveOrderSelector();
+                            }
+                        })
+                        .catch((e) => {
+                            console.warn("[buffet] push unseen mark failed:", e);
+                        });
+                }
+
                 // Handle different message types
                 try {
                 switch (messageType) {

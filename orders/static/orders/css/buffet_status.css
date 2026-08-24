@@ -288,6 +288,30 @@
     background: #e3eefb;
 }
 
+/* Multi-Order: non-selected order has an unseen update (CSS dot only). */
+.buffet-aos-item.has-unseen {
+    position: relative;
+}
+
+.buffet-aos-item.has-unseen::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1565c0;
+    box-shadow: 0 0 0 1.5px #ffffff;
+    pointer-events: none;
+}
+
+/* Selected card never shows the unseen dot (cleared on select). */
+.buffet-aos-item.is-current.has-unseen::after,
+.buffet-aos-item.is-highlighted.has-unseen::after {
+    display: none;
+}
+
 .buffet-aos-body {
     display: flex;
     flex-direction: column;
