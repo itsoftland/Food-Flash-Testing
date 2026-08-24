@@ -569,7 +569,7 @@ export const ChatSyncService = (() => {
                 if (isDineFlashBuffetSurface()) {
                     try {
                         const convMod = await import(
-                            "../buffet/services/selectedOrderConversationService.js?v=20260821_2"
+                            "../buffet/services/selectedOrderConversationService.js?v=20260824_1"
                         );
                         if (typeof convMod.shouldPaintHistoryMessage === "function") {
                             paintMessage = Boolean(convMod.shouldPaintHistoryMessage(msg));
@@ -589,13 +589,13 @@ export const ChatSyncService = (() => {
                     ) {
                         try {
                             const unseenMod = await import(
-                                "../buffet/services/orderUnseenUpdateService.js?v=20260821_2"
+                                "../buffet/services/orderUnseenUpdateService.js?v=20260824_1"
                             );
                             if (typeof unseenMod.markUnseen === "function") {
                                 unseenMod.markUnseen(msg.token_no);
                             }
                             const selectorMod = await import(
-                                "../buffet/services/activeOrderSelectorService.js?v=20260821_2"
+                                "../buffet/services/activeOrderSelectorService.js?v=20260824_1"
                             );
                             if (typeof selectorMod.repaintActiveOrderSelector === "function") {
                                 await selectorMod.repaintActiveOrderSelector();

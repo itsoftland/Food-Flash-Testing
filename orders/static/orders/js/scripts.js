@@ -3,12 +3,12 @@ import { AddOutletService } from "./services/addOutletService.js";
 import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js?v=20260821_2";
 import { PermissionService } from "./services/permissionService.js";
-import { VendorUIService } from "./services/vendorUIService.js?v=20260821_2";
+import { VendorUIService } from "./services/vendorUIService.js?v=20260824_1";
 import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260821_2";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260821_2";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
-import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260821_2";
-import { ChatSyncService } from "./services/chatSyncService.js?v=20260821_2";
+import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260824_1";
+import { ChatSyncService } from "./services/chatSyncService.js?v=20260824_1";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260821_2";
 import { maskSequenceCode } from "./services/clipBoardService.js"
@@ -79,7 +79,7 @@ onDOMReady(async function () {
      */
     function handleBuffetActiveOrderLifecyclePush(pushData, messageType) {
         if (!isDineFlashBuffetSurface) return;
-        import("./buffet/services/multiOrderPushCompatibilityService.js")
+        import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_1")
             .then((mod) => {
                 if (typeof mod.handleMultiOrderTerminalPush !== "function") return;
                 return mod.handleMultiOrderTerminalPush(pushData, messageType);
@@ -96,7 +96,7 @@ onDOMReady(async function () {
     async function shouldApplyBuffetPushHomeContext(pushData) {
         if (!isDineFlashBuffetSurface) return true;
         try {
-            const mod = await import("./buffet/services/multiOrderPushCompatibilityService.js");
+            const mod = await import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_1");
             if (typeof mod.shouldApplyPushHomeContext === "function") {
                 return Boolean(mod.shouldApplyPushHomeContext(pushData));
             }
@@ -115,7 +115,7 @@ onDOMReady(async function () {
         if (!isDineFlashBuffetSurface) return true;
         try {
             const mod = await import(
-                "./buffet/services/selectedOrderConversationService.js?v=20260821_2"
+                "./buffet/services/selectedOrderConversationService.js?v=20260824_1"
             );
             if (typeof mod.shouldPaintPushMessage === "function") {
                 return Boolean(mod.shouldPaintPushMessage(pushData));
@@ -613,7 +613,7 @@ onDOMReady(async function () {
             if (!token) return null;
             try {
                 const convMod = await import(
-                    "./buffet/services/selectedOrderConversationService.js?v=20260821_2"
+                    "./buffet/services/selectedOrderConversationService.js?v=20260824_1"
                 );
                 if (typeof convMod.rebuildVisibleConversation === "function") {
                     await convMod.rebuildVisibleConversation(token);
@@ -710,7 +710,7 @@ onDOMReady(async function () {
             }
         }
 
-        import("./buffet/services/activeOrderSelectorService.js")
+        import("./buffet/services/activeOrderSelectorService.js?v=20260824_1")
             .then((mod) => {
                 if (mod && typeof mod.initActiveOrderSelector === "function") {
                     return mod.initActiveOrderSelector();
@@ -1019,13 +1019,13 @@ onDOMReady(async function () {
                 // so notify/modal/TTS in the switch below are not delayed.
                 if (isDineFlashBuffetSurface && !paintBuffetPush) {
                     const tokenNo = pushData?.token_no;
-                    import("./buffet/services/orderUnseenUpdateService.js?v=20260821_2")
+                    import("./buffet/services/orderUnseenUpdateService.js?v=20260824_1")
                         .then((unseenMod) => {
                             if (typeof unseenMod.markUnseen === "function") {
                                 unseenMod.markUnseen(tokenNo);
                             }
                             return import(
-                                "./buffet/services/activeOrderSelectorService.js?v=20260821_2"
+                                "./buffet/services/activeOrderSelectorService.js?v=20260824_1"
                             );
                         })
                         .then((selectorMod) => {

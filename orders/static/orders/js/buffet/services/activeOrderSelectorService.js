@@ -16,7 +16,7 @@ import {
     hasUnseen,
     clearUnseen,
     pruneToActiveTokens,
-} from "./orderUnseenUpdateService.js";
+} from "./orderUnseenUpdateService.js?v=20260824_1";
 
 const SELECTOR_ROOT_ID = "buffet-active-order-selector";
 const FETCHED_FLAG = "__buffetActiveOrderSelectorFetched";

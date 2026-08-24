@@ -13,12 +13,12 @@
 //   - ChatHistoryService.load + appendMessage + WelcomeMessageService (render)
 
 import { ChatHistoryService } from "../../services/chatHistoryService.js?v=20260821_2";
-import { ChatSyncService } from "../../services/chatSyncService.js?v=20260821_2";
+import { ChatSyncService } from "../../services/chatSyncService.js?v=20260824_1";
 import { appendMessage } from "../../services/chatService.js?v=20260821_2";
 import { WelcomeMessageService } from "../../services/welcomeMessageService.js";
 import { getSelectedOrder } from "./selectedOrderService.js";
 import { isMultiOrderMode } from "./multiOrderModeService.js";
-import { isPushForSelectedOrder } from "./multiOrderPushCompatibilityService.js";
+import { isPushForSelectedOrder } from "./multiOrderPushCompatibilityService.js?v=20260824_1";
 
 /** @type {{ key: string, promise: Promise<Array> } | null} */
 let inFlightLoad = null;

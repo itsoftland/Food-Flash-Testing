@@ -93,7 +93,7 @@ async function handleMultiOrderTerminalPush(pushData, messageType) {
     }
 
     try {
-        const selectorMod = await import("./activeOrderSelectorService.js");
+        const selectorMod = await import("./activeOrderSelectorService.js?v=20260824_1");
         if (typeof selectorMod.refreshActiveOrderSelector === "function") {
             await selectorMod.refreshActiveOrderSelector();
         }

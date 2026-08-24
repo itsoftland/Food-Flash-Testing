@@ -1,6 +1,6 @@
 import { AdSliderService } from "./adSliderService.js";
 import { AddOutletService } from "./addOutletService.js";
-import { ChatRestoreService } from "./chatRestoreService.js?v=20260821_2";
+import { ChatRestoreService } from "./chatRestoreService.js?v=20260824_1";
 import { handleOutletSelection } from "./chatService.js?v=20260821_2";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 
