@@ -222,7 +222,7 @@ async function reactIfSelectedOrderInactive({ tokenHint } = {}) {
     }
 
     try {
-        const lookupMod = await import("./orderLookupService.js");
+        const lookupMod = await import("./orderLookupService.js?v=20260824_2");
         if (typeof lookupMod.resolveOrderLookupForRelaunch !== "function") {
             return { outcome: "fallback_failed", reason: "no_resolve" };
         }

@@ -79,7 +79,7 @@ onDOMReady(async function () {
      */
     function handleBuffetActiveOrderLifecyclePush(pushData, messageType) {
         if (!isDineFlashBuffetSurface) return;
-        import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_1")
+        import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_2")
             .then((mod) => {
                 if (typeof mod.handleMultiOrderTerminalPush !== "function") return;
                 return mod.handleMultiOrderTerminalPush(pushData, messageType);
@@ -96,7 +96,7 @@ onDOMReady(async function () {
     async function shouldApplyBuffetPushHomeContext(pushData) {
         if (!isDineFlashBuffetSurface) return true;
         try {
-            const mod = await import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_1");
+            const mod = await import("./buffet/services/multiOrderPushCompatibilityService.js?v=20260824_2");
             if (typeof mod.shouldApplyPushHomeContext === "function") {
                 return Boolean(mod.shouldApplyPushHomeContext(pushData));
             }
@@ -584,7 +584,7 @@ onDOMReady(async function () {
     // from Recents. Requires a real hidden→visible transition (not initial /home/ load).
     // Dynamic import keeps other flavours from loading buffet resume code.
     if (isDineFlashBuffetSurface) {
-        import("./buffet/services/orderLookupResumeService.js")
+        import("./buffet/services/orderLookupResumeService.js?v=20260824_2")
             .then((mod) => {
                 if (mod && typeof mod.init === "function") {
                     mod.init();
@@ -636,10 +636,10 @@ onDOMReady(async function () {
                 multiOrderFlag === "1" || multiOrderFlag === "true";
 
             if (inMultiOrderMode) {
-                import("./buffet/services/selectedOrderRestoreService.js")
+                import("./buffet/services/selectedOrderRestoreService.js?v=20260824_2")
                     .then(async (restoreMod) => {
                         const lookupMod = await import(
-                            "./buffet/services/orderLookupService.js"
+                            "./buffet/services/orderLookupService.js?v=20260824_2"
                         );
                         if (
                             !restoreMod ||

@@ -81,7 +81,7 @@ async function handleMultiOrderTerminalPush(pushData, messageType) {
 
     let restoreOutcome = { outcome: "skipped" };
     try {
-        const restoreMod = await import("./selectedOrderRestoreService.js");
+        const restoreMod = await import("./selectedOrderRestoreService.js?v=20260824_2");
         if (typeof restoreMod.reactIfSelectedOrderInactive === "function") {
             restoreOutcome = await restoreMod.reactIfSelectedOrderInactive({
                 tokenHint: tokenHint || undefined,

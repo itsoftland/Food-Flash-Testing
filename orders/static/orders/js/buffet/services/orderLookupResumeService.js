@@ -11,8 +11,8 @@
 // Critical: only reacts to a genuine hidden → visible transition. Initial /home/
 // load (already visible) must not trigger a lookup.
 
-import { resolveOrderLookupForRelaunch } from "./orderLookupService.js";
-import { tryRestoreSelectedOrder, applyLatestOrderIdentity } from "./selectedOrderRestoreService.js";
+import { resolveOrderLookupForRelaunch } from "./orderLookupService.js?v=20260824_2";
+import { tryRestoreSelectedOrder, applyLatestOrderIdentity } from "./selectedOrderRestoreService.js?v=20260824_2";
 import { isMultiOrderMode } from "./multiOrderModeService.js";
 
 let listenersBound = false;

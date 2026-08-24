@@ -1,7 +1,7 @@
 import BookingMappingService from './dineflash/services/bookingMappingService.js';
 import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchService.js';
 import { resolveBookingLookupForRelaunch } from './dineflash/services/bookingLookupService.js';
-import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js';
+import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js?v=20260824_2';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 
 // ─────────────────────────────────────
@@ -174,7 +174,7 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
             if (inMultiOrderMode) {
                 try {
                     const restoreMod = await import(
-                        "./buffet/services/selectedOrderRestoreService.js"
+                        "./buffet/services/selectedOrderRestoreService.js?v=20260824_2"
                     );
                     if (restoreMod && typeof restoreMod.tryRestoreSelectedOrder === "function") {
                         const restoreResult = await restoreMod.tryRestoreSelectedOrder();
