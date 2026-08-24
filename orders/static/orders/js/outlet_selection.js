@@ -248,7 +248,8 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                             location_id: String(resolved.location_id ?? ""),
                         });
                     } else {
-                        // not_found / preserve: keep existing storage; continue startup.
+                        // stale: orderLookupService already cleared token/selected_order
+                        // (keeps order_lookup_id). not_found / preserve: keep storage.
                         AppUtils.handoffDiag("BUFFET_ORDER_LOOKUP_SKIP", {
                             page: "outlet_selection",
                             outcome: lookupResult.outcome,

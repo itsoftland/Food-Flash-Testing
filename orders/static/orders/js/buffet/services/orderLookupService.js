@@ -4,6 +4,10 @@
 // installed PWA can refresh token/vendor/location before the existing relaunch
 // flow continues. Does not touch browser_id, PushSubscription, or Chat.
 // Never throws; always returns a typed outcome.
+//
+// On not_found_or_stale (prior business day), clears customer-facing token and
+// selected_order so leftover identity cannot drive automatic check_status.
+// Never clears order_lookup_id.
 
 let dependenciesPromise = null;
 
@@ -30,6 +34,49 @@ function preserve(reason) {
     return { outcome: "preserve", reason };
 }
 
+/**
+ * Clear customer-facing order identity after a prior-business-day Latest resolve.
+ * Keeps order_lookup_id (handoff / multi-order key). Buffet only.
+ */
+async function clearStaleBuffetCustomerOrderIdentity() {
+    if (typeof AppUtils === "undefined") return;
+
+    if (typeof AppUtils.storageRemove === "function") {
+        AppUtils.storageRemove("token");
+    }
+
+    const tokenKey =
+        typeof AppUtils.getPrefixedKey === "function"
+            ? AppUtils.getPrefixedKey("token")
+            : null;
+    if (tokenKey) {
+        try {
+            const { set: idbSet } = await import(
+                "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js"
+            );
+            await idbSet(tokenKey, null);
+        } catch (e) {
+            // Non-fatal — localStorage clear still applied.
+        }
+        if (typeof AppUtils.setCookie === "function") {
+            try {
+                AppUtils.setCookie(tokenKey, "", -1);
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    try {
+        const selectedMod = await import("./selectedOrderService.js");
+        if (selectedMod && typeof selectedMod.clearSelectedOrder === "function") {
+            selectedMod.clearSelectedOrder();
+        }
+    } catch (e) {
+        // Non-fatal
+    }
+}
+
 function buildRequestBody({ order_lookup_id } = {}) {
     const body = {};
     if (
@@ -42,7 +89,7 @@ function buildRequestBody({ order_lookup_id } = {}) {
     return body;
 }
 
-function mapResolvePayload(data) {
+async function mapResolvePayload(data) {
     if (!data || typeof data !== "object") {
         return preserve("invalid_payload");
     }
@@ -64,6 +111,11 @@ function mapResolvePayload(data) {
         };
     }
 
+    if (status === "not_found_or_stale") {
+        await clearStaleBuffetCustomerOrderIdentity();
+        return { outcome: "stale" };
+    }
+
     if (status === "not_found") {
         return { outcome: "not_found" };
     }
@@ -83,6 +135,7 @@ function mapResolvePayload(data) {
  * @returns {Promise<
  *   | { outcome: "found", order: { token_no, vendor_id, location_id } }
  *   | { outcome: "not_found" }
+ *   | { outcome: "stale" }
  *   | { outcome: "preserve", reason: string }
  * >}
  */

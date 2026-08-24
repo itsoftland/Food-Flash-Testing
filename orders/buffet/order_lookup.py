@@ -17,6 +17,7 @@ from typing import Any, Mapping, Optional
 
 from django.db import transaction
 
+from static.utils.functions.utils import get_vendor_business_day_range
 from vendors.models import BuffetOrderLookup, Order
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class BuffetOrderLookupResolveStatus(str, Enum):
 
     FOUND = "found"
     NOT_FOUND = "not_found"
+    NOT_FOUND_OR_STALE = "not_found_or_stale"
     INVALID_INPUT = "invalid_input"
 
 
@@ -114,6 +116,19 @@ def _build_resolve_success_payload(order: Order) -> dict[str, Any]:
     }
 
 
+def _order_in_current_business_day(order: Order) -> bool:
+    """
+    Same business-day window as Buffet Active Order Selector
+    (get_vendor_business_day_range). Prior-day orders remain in the DB but are
+    not recoverable as the customer's current Latest Order.
+    """
+    vendor = getattr(order, "vendor", None)
+    if vendor is None or order.created_at is None:
+        return False
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    return start_dt <= order.created_at <= end_dt
+
+
 def resolve_buffet_order_lookup(
     *,
     order_lookup_id: Any,
@@ -121,7 +136,8 @@ def resolve_buffet_order_lookup(
     """
     Resolve order_lookup_id → token_no, vendor_id, location_id.
 
-    Read-only. Does not mutate Order, PushSubscription, or Chat.
+    Read-only. Does not mutate Order, PushSubscription, Chat, or BuffetOrderLookup.
+    Orders outside the vendor's current business day are not recoverable.
     """
     normalized = normalize_order_lookup_id(order_lookup_id)
     if normalized is None:
@@ -131,7 +147,7 @@ def resolve_buffet_order_lookup(
 
     mapping = (
         BuffetOrderLookup.objects.filter(order_lookup_id=normalized)
-        .select_related("order", "order__vendor")
+        .select_related("order", "order__vendor", "order__vendor__config")
         .first()
     )
     if mapping is None or mapping.order_id is None:
@@ -143,9 +159,22 @@ def resolve_buffet_order_lookup(
             status=BuffetOrderLookupResolveStatus.NOT_FOUND,
         )
 
+    order = mapping.order
+    if not _order_in_current_business_day(order):
+        logger.info(
+            "[buffet] resolve_order_lookup not_found_or_stale order_lookup_id=%s "
+            "order_id=%s token_no=%s",
+            normalized,
+            order.pk,
+            order.token_no,
+        )
+        return BuffetOrderLookupResolveResult(
+            status=BuffetOrderLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+
     return BuffetOrderLookupResolveResult(
         status=BuffetOrderLookupResolveStatus.FOUND,
-        data=_build_resolve_success_payload(mapping.order),
+        data=_build_resolve_success_payload(order),
     )
 
 

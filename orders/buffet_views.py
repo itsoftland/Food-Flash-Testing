@@ -193,6 +193,12 @@ def resolve_order_lookup(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if result.status == BuffetOrderLookupResolveStatus.NOT_FOUND_OR_STALE:
+            return Response(
+                {"status": BuffetOrderLookupResolveStatus.NOT_FOUND_OR_STALE.value},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         logger.exception(
             "[buffet] resolve_order_lookup unhandled status | status=%s",
             result.status,

@@ -24,6 +24,7 @@ from vendors.models import (
     Order,
     Utility,
     Vendor,
+    VendorConfig,
 )
 
 
@@ -43,6 +44,11 @@ class BuffetOrderLookupHelperTests(TestCase):
             vendor_id=910001,
             location_id="LOC-B1",
             menus="[]",
+        )
+        VendorConfig.objects.create(
+            vendor=self.vendor,
+            business_day_start_hour="00:00:00",
+            timezone="UTC",
         )
 
     def _make_order(self, token_no):
@@ -97,6 +103,30 @@ class BuffetOrderLookupHelperTests(TestCase):
             resolve_buffet_order_lookup(order_lookup_id=None).status,
             BuffetOrderLookupResolveStatus.INVALID_INPUT,
         )
+
+    def test_resolve_prior_business_day_is_stale_and_keeps_lookup_row(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        order = self._make_order(8)
+        key = "stale-key"
+        upsert_buffet_order_lookup(order_lookup_id=key, order=order)
+        Order.objects.filter(pk=order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+
+        result = resolve_buffet_order_lookup(order_lookup_id=key)
+        self.assertEqual(
+            result.status,
+            BuffetOrderLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+        self.assertIsNone(result.data)
+        self.assertTrue(
+            BuffetOrderLookup.objects.filter(order_lookup_id=key, order=order).exists(),
+            "stale resolve must not delete BuffetOrderLookup or the Order",
+        )
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
 
     def test_cascade_on_order_delete(self):
         order = self._make_order(3)
@@ -221,6 +251,11 @@ class BuffetResolveOrderLookupApiTests(TestCase):
             location_id="LOC-B3",
             menus="[]",
         )
+        VendorConfig.objects.create(
+            vendor=self.vendor,
+            business_day_start_hour="00:00:00",
+            timezone="UTC",
+        )
         self.order = Order.objects.create(
             vendor=self.vendor,
             token_no=42,
@@ -252,6 +287,22 @@ class BuffetResolveOrderLookupApiTests(TestCase):
         resp = self._post({"order_lookup_id": "missing"})
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(resp.data["status"], "not_found")
+
+    @patch("orders.buffet_views.project_name", "dine_flash_buffet")
+    def test_resolve_not_found_or_stale(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        Order.objects.filter(pk=self.order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        resp = self._post({"order_lookup_id": "api-key"})
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.data["status"], "not_found_or_stale")
+        self.assertTrue(
+            BuffetOrderLookup.objects.filter(order_lookup_id="api-key").exists()
+        )
 
     @patch("orders.buffet_views.project_name", "dine_flash_buffet")
     def test_resolve_invalid_input(self):
