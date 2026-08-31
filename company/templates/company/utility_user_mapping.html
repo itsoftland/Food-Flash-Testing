@@ -34,6 +34,8 @@
     const MAPPING_LABELS = IS_HOSPITAL_FLASH ? {
         selectUser: '-- Select Department User --',
         noEntities: 'No departments exist. Please create them first.',
+        noVendor: 'This user is not assigned to an outlet.',
+        noOutletDepartments: 'No departments exist for this user\'s outlet.',
         selectFirst: 'Select a user first to view and assign departments.',
         saved: 'Department mapping saved successfully.',
     } : {
@@ -81,6 +83,7 @@
     });
 
     let allUtilities = [];
+    let userVendorById = {};
 
     function loadUsers() {
         fetch(activeUsersUrl)
@@ -98,6 +101,10 @@
                 const select = document.getElementById("user-select");
                 select.innerHTML = `<option value="">${MAPPING_LABELS.selectUser}</option>`;
                 const users = data.users || data;
+
+                if (IS_HOSPITAL_FLASH) {
+                    userVendorById = {};
+                }
                 
                 users.forEach(user => {
                     if (user.roles && user.roles.includes('utility_user')) {
@@ -105,6 +112,9 @@
                         opt.value = user.id;
                         opt.text = (user.name || "").trim() || user.username || "Unnamed User";
                         opt.dataset.assigned = JSON.stringify(user.assigned_utilities || []);
+                        if (IS_HOSPITAL_FLASH) {
+                            userVendorById[user.id] = user.vendor ?? null;
+                        }
                         select.appendChild(opt);
                     }
                 });
@@ -128,16 +138,38 @@
             });
     }
 
-    function renderUtilityCheckboxes(selectedIds) {
+    function getUtilitiesForUser(vendorPk) {
+        if (!IS_HOSPITAL_FLASH || activeUtilitiesUrl !== COMPANY_UTILITIES_URL) {
+            return allUtilities;
+        }
+        if (vendorPk == null) {
+            return [];
+        }
+        return allUtilities.filter(u => u.vendor === vendorPk);
+    }
+
+    function renderUtilityCheckboxes(selectedIds, vendorPk = null) {
         const container = document.getElementById("utilities-list");
         container.innerHTML = "";
+
+        if (IS_HOSPITAL_FLASH && activeUtilitiesUrl === COMPANY_UTILITIES_URL && vendorPk == null) {
+            container.innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.noVendor}</div>`;
+            return;
+        }
         
         if (allUtilities.length === 0) {
             container.innerHTML = `<div class="text-danger">${MAPPING_LABELS.noEntities}</div>`;
             return;
         }
+
+        const utilitiesToRender = getUtilitiesForUser(vendorPk);
+
+        if (IS_HOSPITAL_FLASH && activeUtilitiesUrl === COMPANY_UTILITIES_URL && utilitiesToRender.length === 0) {
+            container.innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.noOutletDepartments}</div>`;
+            return;
+        }
         
-        allUtilities.forEach(u => {
+        utilitiesToRender.forEach(u => {
             const isChecked = selectedIds.includes(u.id) ? "checked" : "";
             container.innerHTML += `
                 <div class="form-check mb-2 custom-control custom-checkbox custom-control-inline p-3 border bg-white rounded shadow-sm d-flex align-items-center">
@@ -156,9 +188,11 @@
             try {
                 const assigned = JSON.parse(selectedOpt.dataset.assigned);
                 const assignedIds = assigned.map(a => a.id);
-                renderUtilityCheckboxes(assignedIds);
+                const vendorPk = IS_HOSPITAL_FLASH ? (userVendorById[selectedOpt.value] ?? null) : null;
+                renderUtilityCheckboxes(assignedIds, vendorPk);
             } catch (err) {
-                renderUtilityCheckboxes([]);
+                const vendorPk = IS_HOSPITAL_FLASH ? (userVendorById[selectedOpt.value] ?? null) : null;
+                renderUtilityCheckboxes([], vendorPk);
             }
         } else {
             document.getElementById("utilities-list").innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.selectFirst}</div>`;
