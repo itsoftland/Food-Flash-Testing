@@ -623,11 +623,19 @@ def create_user(request):
     if serializer.is_valid():
         result = serializer.save()
 
+        def _display_username(profile):
+            from vendors.hospital_staff_username import display_staff_username
+            if project == "hospital_flash":
+                return display_staff_username(
+                    profile.user.username, profile.admin_outlet_id
+                )
+            return profile.user.username
+
         # If multiple profiles (i.e., role == 'both')
         if isinstance(result, list):
             return Response({
                 "detail": "User created with both roles successfully.",
-                "username": result[0].user.username,
+                "username": _display_username(result[0]),
                 "roles": [profile.role for profile in result],
                 "vendor": result[0].vendor.name if result[0].vendor else None,
                 "admin_outlet": result[0].admin_outlet.customer_name if result[0].admin_outlet else None,
@@ -637,7 +645,7 @@ def create_user(request):
         user_profile = result
         return Response({
             "detail": "User created successfully.",
-            "username": user_profile.user.username,
+            "username": _display_username(user_profile),
             "role": user_profile.role,
             "vendor": user_profile.vendor.name if user_profile.vendor else None,
             "admin_outlet": user_profile.admin_outlet.customer_name if user_profile.admin_outlet else None,

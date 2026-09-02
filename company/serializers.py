@@ -18,6 +18,12 @@ from .tv_config_scope import (
     dine_flash_exclusive_tv_device_policy_applies,
     hospital_flash_tv_configuration_applies,
 )
+from vendors.hospital_staff_username import (
+    build_internal_username,
+    business_username_exists_for_admin_outlet,
+    display_staff_username,
+    is_hospital_flash_project,
+)
 
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
@@ -579,14 +585,11 @@ class UserProfileCreateSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match.")
-        
-        if User.objects.filter(username=data['username']).exists():
-            raise serializers.ValidationError("Username already exists.")
 
         # Validate AdminOutlet via customer_id or current user
         customer_id = data.get('customer_id')
         request = self.context.get('request')
-        
+
         if customer_id:
             try:
                 data['admin_outlet'] = AdminOutlet.objects.get(customer_id=customer_id)
@@ -596,6 +599,17 @@ class UserProfileCreateSerializer(serializers.Serializer):
             data['admin_outlet'] = request.user.admin_outlet
         else:
             raise serializers.ValidationError("customer_id is required or user must have an associated AdminOutlet.")
+
+        business_username = data['username']
+        admin_outlet = data['admin_outlet']
+
+        if is_hospital_flash_project():
+            if business_username_exists_for_admin_outlet(admin_outlet, business_username):
+                raise serializers.ValidationError(
+                    {"username": ["A user with this username already exists in this company."]}
+                )
+        elif User.objects.filter(username=business_username).exists():
+            raise serializers.ValidationError("Username already exists.")
 
         # Validate Vendor via vendor_id (Optional for some roles)
         vendor_id = data.get('vendor_id')
@@ -630,15 +644,21 @@ class UserProfileCreateSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        username = validated_data['username']
+        business_username = validated_data['username']
         password = validated_data['password']
         role = validated_data['role']
         admin_outlet = validated_data['admin_outlet']
         vendor = validated_data['vendor']
         name = validated_data['name']
 
+        django_username = (
+            build_internal_username(admin_outlet.id, business_username)
+            if is_hospital_flash_project()
+            else business_username
+        )
+
         # Create the user only after validation
-        user = User.objects.create_user(username=username, password=password)
+        user = User.objects.create_user(username=django_username, password=password)
 
         # Decide roles to create
         requested_roles = ['manager', 'web'] if role == 'both' else [role]
@@ -663,7 +683,7 @@ class UserProfileCreateSerializer(serializers.Serializer):
         return created_profiles if len(created_profiles) > 1 else created_profiles[0]
 
 class UserListDetailSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
+    username = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
     outlet_name = serializers.CharField(source='admin_outlet.name', read_only=True)
     vendor_name = serializers.CharField(source='vendor.name', read_only=True, default=None)
@@ -683,6 +703,12 @@ class UserListDetailSerializer(serializers.ModelSerializer):
             'updated_at',
             # Note: We won't include `role` here; instead, we manually inject `roles`
         ]
+
+    def get_username(self, obj):
+        raw = obj.user.username
+        if is_hospital_flash_project():
+            return display_staff_username(raw, obj.admin_outlet_id)
+        return raw
 
     def get_assigned_utilities(self, obj):
         return list(obj.assigned_utilities.values('id', 'display_name'))

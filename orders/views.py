@@ -26,6 +26,10 @@ from vendors.models import (Order, Vendor, AdminOutlet, AndroidDevice,
                             UserProfile,ChatMessage,
                             Utility, UtilityOption, BuffetOrderItem)
 from vendors.hospital_announcement_templates import get_vendor_announcement_templates
+from vendors.hospital_staff_username import (
+    display_staff_username,
+    resolve_hospital_staff_user,
+)
 from vendors.utils import buffet_utility_image_absolute_url, hospital_utility_payload
 from vendors.serializers import OrdersSerializer
 
@@ -1658,9 +1662,78 @@ def login_api_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
     requested_role = request.data.get('role')
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
 
     if not username or not password:
         return Response({'error': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    MANAGER_ROLE_MAP = {
+        'admin_manager': 'Admin Manager',
+        'outlet_manager': 'Outlet Manager',
+        'outlet_staff': 'Outlet Staff',
+        'web_manager': 'Web Manager',
+        'utility_user': 'Department User' if project == 'hospital_flash' else 'Utility User',
+    }
+    STAFF_PROFILE_ROLES = [
+        'outlet_manager', 'admin_manager', 'outlet_staff', 'utility_user', 'airport_manager'
+    ]
+
+    # Hospital Flash staff login: customer_id + business username + password
+    if requested_role and project == 'hospital_flash':
+        customer_id = request.data.get('customer_id')
+        if not customer_id:
+            return Response(
+                {'error': 'customer_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            admin_outlet = AdminOutlet.objects.get(customer_id=customer_id)
+        except AdminOutlet.DoesNotExist:
+            return Response(
+                {'error': 'Invalid customer_id.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user = resolve_hospital_staff_user(admin_outlet, username)
+        if not user or not user.check_password(password):
+            logger.warning(
+                "Hospital staff authentication failed for username: %s customer_id: %s from IP: %s",
+                username,
+                customer_id,
+                request.META.get('REMOTE_ADDR'),
+            )
+            return Response(
+                {'error': 'Invalid username or password.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            profile = UserProfile.objects.get(user=user, role__in=STAFF_PROFILE_ROLES)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'error': f"This user does not have the '{requested_role}' role."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        login(request, user)
+        refresh = RefreshToken.for_user(user)
+        role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
+        display_username = display_staff_username(user.username, profile.admin_outlet_id)
+        return Response({
+            'message': 'Login successful',
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'username': display_username,
+                'role': role_display,
+                'vendor_id': profile.vendor.id if profile.vendor else None,
+                'vendor_name': profile.vendor.name if profile.vendor else None,
+                'customer_id': profile.admin_outlet.customer_id if profile.admin_outlet else None,
+                'outlet_name': profile.admin_outlet.customer_name if profile.admin_outlet else None,
+                'manager_id': profile.id,
+                'manager_name': profile.name,
+            }
+        }, status=status.HTTP_200_OK)
 
     user = authenticate(username=username, password=password)
 
@@ -1669,21 +1742,13 @@ def login_api_view(request):
         return Response({'error': 'Invalid username or password.'}, status=status.HTTP_401_UNAUTHORIZED)
     login(request, user)
     refresh = RefreshToken.for_user(user)
-    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-    MANAGER_ROLE_MAP = {
-        'admin_manager': 'Admin Manager',
-        'outlet_manager': 'Outlet Manager',
-        'outlet_staff': 'Outlet Staff',
-        'web_manager': 'Web Manager',
-        'utility_user': 'Department User' if project == 'hospital_flash' else 'Utility User',
-    }
     
     # 1. Manager Login (UserProfile with a specific role)
     if requested_role:
         try:
             profile = UserProfile.objects.get(
                 user=user,
-                role__in=['outlet_manager', 'admin_manager', 'outlet_staff', 'utility_user', 'airport_manager']
+                role__in=STAFF_PROFILE_ROLES
             )
             role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
             return Response({
