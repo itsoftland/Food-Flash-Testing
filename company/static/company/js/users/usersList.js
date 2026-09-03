@@ -43,10 +43,14 @@ document.addEventListener('DOMContentLoaded', async() => {
         const users = data.users || [];
         userTableBody.innerHTML = '';
 
+        // Hospital Flash User List only: omit Id column (header is template-gated the same way).
+        const hideIdColumn = window.PROJECT_NAME === 'hospital_flash';
+        const emptyColspan = hideIdColumn ? 5 : 6;
+
         if (!users.length) {
             userTableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted">No users found.</td>
+                <td colspan="${emptyColspan}" class="text-center text-muted">No users found.</td>
             </tr>`;
             return;
         }
@@ -60,12 +64,11 @@ document.addEventListener('DOMContentLoaded', async() => {
             const iconTitle = isMapped ? 'Unassign User from Outlet' : 'Assign User to Outlet';
             const outletClass = isMapped ? 'name' : 'text-muted';
 
-            // Hospital Flash User List only: leave Id cell empty; keep data-id for actions.
-            const displayId = window.PROJECT_NAME === 'hospital_flash' ? '' : user.id;
+            const idCell = hideIdColumn ? '' : `<td class="text-center">${user.id}</td>`;
 
             const row = `
             <tr>
-                <td class="text-center">${displayId}</td>
+                ${idCell}
                 <td>${user.name || '-'}</td>
                 <td>${formatRoles(user.roles)}</td>
                 <td class="${outletClass}">${mappedVendor}</td>
