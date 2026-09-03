@@ -60,9 +60,12 @@ document.addEventListener('DOMContentLoaded', async() => {
             const iconTitle = isMapped ? 'Unassign User from Outlet' : 'Assign User to Outlet';
             const outletClass = isMapped ? 'name' : 'text-muted';
 
+            // Hospital Flash User List only: leave Id cell empty; keep data-id for actions.
+            const displayId = window.PROJECT_NAME === 'hospital_flash' ? '' : user.id;
+
             const row = `
             <tr>
-                <td class="text-center">${user.id}</td>
+                <td class="text-center">${displayId}</td>
                 <td>${user.name || '-'}</td>
                 <td>${formatRoles(user.roles)}</td>
                 <td class="${outletClass}">${mappedVendor}</td>
