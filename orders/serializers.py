@@ -164,6 +164,23 @@ _STATE_CITY_STRICT_PROJECTS = frozenset({
 })
 _STATE_CITY_ALPHA_SPACE_RE = re.compile(r"^[A-Za-z]+(?: [A-Za-z]+)*$")
 
+# Flavours that enforce simplified GST Number rules + same-deployment duplicate check.
+# food_flash / airline_flash intentionally excluded — keep legacy behaviour.
+_GST_STRICT_PROJECTS = frozenset({
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+})
+_GST_SIMPLE_RE = re.compile(r"^[A-Za-z0-9]{15}$")
+_GST_HAS_LETTER_RE = re.compile(r"[A-Za-z]")
+_GST_HAS_DIGIT_RE = re.compile(r"[0-9]")
+_GST_FORMAT_ERROR = (
+    "GST Number must be exactly 15 characters, contain only letters and digits "
+    "(A-Z, a-z, 0-9), include at least one letter and one digit, and must not "
+    "contain spaces or special characters."
+)
+_GST_DUPLICATE_ERROR = "A company with this GST Number already exists."
+
 
 def _current_project_name():
     return (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
@@ -171,6 +188,10 @@ def _current_project_name():
 
 def _requires_strict_state_city_validation():
     return _current_project_name() in _STATE_CITY_STRICT_PROJECTS
+
+
+def _requires_strict_gst_validation():
+    return _current_project_name() in _GST_STRICT_PROJECTS
 
 
 def normalize_and_validate_state_or_city(value, field_label="This field"):
@@ -195,6 +216,22 @@ def normalize_and_validate_state_or_city(value, field_label="This field"):
     return text
 
 
+def validate_simplified_gst_number(value):
+    """
+    Simplified GST rules (not full GSTIN): exactly 15 A-Z/a-z/0-9 chars with at
+    least one letter and one digit; no spaces or special characters; no silent
+    normalization. Empty/None are not validated here (caller preserves optional).
+    """
+    text = str(value)
+    if (
+        not _GST_SIMPLE_RE.fullmatch(text)
+        or not _GST_HAS_LETTER_RE.search(text)
+        or not _GST_HAS_DIGIT_RE.search(text)
+    ):
+        raise serializers.ValidationError(_GST_FORMAT_ERROR)
+    return text
+
+
 class AdminOutletSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     authentication_status = serializers.CharField(required=False, allow_null=True,default='Pending')
@@ -212,6 +249,22 @@ class AdminOutletSerializer(serializers.ModelSerializer):
         if not _requires_strict_state_city_validation():
             return value
         return normalize_and_validate_state_or_city(value, field_label="City")
+
+    def validate_gst_number(self, value):
+        if not _requires_strict_gst_validation():
+            return value
+        # Preserve existing optional semantics: omit / null / "" stay allowed.
+        if value is None or value == "":
+            return value
+        text = validate_simplified_gst_number(value)
+        # Duplicate check is deployment-scoped (one PROJECT_NAME per DB).
+        # Case-insensitive match so duplicates cannot bypass via letter case.
+        qs = AdminOutlet.objects.filter(gst_number__iexact=text)
+        if self.instance is not None and getattr(self.instance, "pk", None) is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(_GST_DUPLICATE_ERROR)
+        return text
 
     def validate(self, attrs):
         if attrs.get('authentication_status') is None:

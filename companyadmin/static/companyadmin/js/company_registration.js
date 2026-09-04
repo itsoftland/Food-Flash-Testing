@@ -6,12 +6,27 @@ const STRICT_STATE_CITY_PROJECTS = new Set([
     "hospital_flash",
 ]);
 
+const STRICT_GST_PROJECTS = new Set([
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+]);
+
+const GST_FORMAT_ERROR =
+    "GST Number must be exactly 15 characters, contain only letters and digits " +
+    "(A-Z, a-z, 0-9), include at least one letter and one digit, and must not " +
+    "contain spaces or special characters.";
+
 function currentProjectName() {
     return String(window.PROJECT_NAME || "").trim().toLowerCase();
 }
 
 function requiresStrictStateCityValidation() {
     return STRICT_STATE_CITY_PROJECTS.has(currentProjectName());
+}
+
+function requiresStrictGstValidation() {
+    return STRICT_GST_PROJECTS.has(currentProjectName());
 }
 
 /** Trim, collapse spaces; return { ok, value, message }. */
@@ -34,6 +49,26 @@ function normalizeAndValidateStateOrCity(raw, fieldLabel) {
         };
     }
     return { ok: true, value: text, message: "" };
+}
+
+/** Simplified GST rules; does not strip spaces or special characters. */
+function validateGstNumberInput(raw) {
+    if (!requiresStrictGstValidation()) {
+        return { ok: true, value: raw ?? "", message: "" };
+    }
+    const value = String(raw ?? "");
+    // Preserve HTML required for empty; whitespace/format still validated here.
+    if (!value) {
+        return { ok: true, value, message: "" };
+    }
+    const formatOk =
+        /^[A-Za-z0-9]{15}$/.test(value) &&
+        /[A-Za-z]/.test(value) &&
+        /[0-9]/.test(value);
+    if (!formatOk) {
+        return { ok: false, value, message: GST_FORMAT_ERROR };
+    }
+    return { ok: true, value, message: "" };
 }
 
 function setFieldError(inputEl, message) {
@@ -73,6 +108,29 @@ function validateStateCityInputs(stateInput, cityInput, { showErrors } = { showE
     };
 }
 
+function flattenSerializerErrors(result) {
+    if (!result || typeof result !== "object") return "";
+    const messages = [];
+
+    function walk(node) {
+        if (node == null) return;
+        if (typeof node === "string") {
+            messages.push(node);
+            return;
+        }
+        if (Array.isArray(node)) {
+            node.forEach(walk);
+            return;
+        }
+        if (typeof node === "object") {
+            Object.values(node).forEach(walk);
+        }
+    }
+
+    walk(result);
+    return messages.join(" ");
+}
+
 document.addEventListener("DOMContentLoaded", async function () {
     // Validate BASE exists
     if (!window.BASE) throw new Error('window.BASE is not defined');
@@ -89,6 +147,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     const ModalService = modalModule.ModalService;
     const getFriendlyFieldLabels = labelModule.default;
 
+    function registrationErrorMessage(result) {
+        const fromLabels = getFriendlyFieldLabels(result);
+        if (fromLabels) return fromLabels;
+        if (result?.error) return result.error;
+        const fromSerializer = flattenSerializerErrors(result);
+        if (fromSerializer) return fromSerializer;
+        return "Unknown error occurred";
+    }
+
     const form = document.getElementById("companyForm");
     if (!form) {
         console.warn("Company form not found!");
@@ -97,6 +164,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const stateInput = form.state || document.getElementById("state");
     const cityInput = form.city || document.getElementById("city");
+    const gstInput = form.gst || document.getElementById("gst");
 
     if (requiresStrictStateCityValidation()) {
         const onStateCityInput = () => {
@@ -108,6 +176,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         cityInput?.addEventListener("blur", onStateCityInput);
     }
 
+    if (requiresStrictGstValidation()) {
+        const onGstInput = () => {
+            const gstResult = validateGstNumberInput(gstInput?.value);
+            setFieldError(gstInput, gstResult.ok ? "" : gstResult.message);
+        };
+        gstInput?.addEventListener("input", onGstInput);
+        gstInput?.addEventListener("blur", onGstInput);
+    }
+
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
@@ -115,6 +192,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!stateCity.ok) {
             ModalService.showError(stateCity.message || "Please correct State and City.");
             return;
+        }
+
+        const gstResult = validateGstNumberInput(gstInput?.value);
+        if (requiresStrictGstValidation()) {
+            setFieldError(gstInput, gstResult.ok ? "" : gstResult.message);
+            if (!gstResult.ok) {
+                ModalService.showError(gstResult.message || GST_FORMAT_ERROR);
+                return;
+            }
         }
 
         const payload = {
@@ -158,8 +244,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                     window.location.href = WEB_ENDPOINTS.COMPANY_LIST;
                 });
             } else {
-                const errorMessage = getFriendlyFieldLabels(result);
-                ModalService.showError(errorMessage || result.error || "Unknown error occurred");
+                const errorMessage = registrationErrorMessage(result);
+                ModalService.showError(errorMessage);
             }
         } catch (err) {
             console.error("Request failed:", err);
