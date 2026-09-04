@@ -1,5 +1,78 @@
 // companyadmin/static/companyadmin/js/company_registration.js
 
+const STRICT_STATE_CITY_PROJECTS = new Set([
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+]);
+
+function currentProjectName() {
+    return String(window.PROJECT_NAME || "").trim().toLowerCase();
+}
+
+function requiresStrictStateCityValidation() {
+    return STRICT_STATE_CITY_PROJECTS.has(currentProjectName());
+}
+
+/** Trim, collapse spaces; return { ok, value, message }. */
+function normalizeAndValidateStateOrCity(raw, fieldLabel) {
+    const text = String(raw ?? "")
+        .trim()
+        .replace(/\s+/g, " ");
+    if (!text || !/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(text)) {
+        return {
+            ok: false,
+            value: text,
+            message: `${fieldLabel} must contain alphabetic characters and spaces only.`,
+        };
+    }
+    if (text.length > 100) {
+        return {
+            ok: false,
+            value: text,
+            message: `${fieldLabel} cannot exceed 100 characters.`,
+        };
+    }
+    return { ok: true, value: text, message: "" };
+}
+
+function setFieldError(inputEl, message) {
+    if (!inputEl) return;
+    const group = inputEl.closest(".form-group");
+    const errorEl = group ? group.querySelector(".error-message") : null;
+    if (errorEl) errorEl.textContent = message || "";
+    if (message) {
+        inputEl.classList.add("is-invalid");
+    } else {
+        inputEl.classList.remove("is-invalid");
+    }
+}
+
+function validateStateCityInputs(stateInput, cityInput, { showErrors } = { showErrors: true }) {
+    if (!requiresStrictStateCityValidation()) {
+        return { ok: true, state: stateInput?.value ?? "", city: cityInput?.value ?? "" };
+    }
+
+    const stateResult = normalizeAndValidateStateOrCity(stateInput?.value, "State");
+    const cityResult = normalizeAndValidateStateOrCity(cityInput?.value, "City");
+
+    if (showErrors) {
+        setFieldError(stateInput, stateResult.ok ? "" : stateResult.message);
+        setFieldError(cityInput, cityResult.ok ? "" : cityResult.message);
+    }
+
+    return {
+        ok: stateResult.ok && cityResult.ok,
+        state: stateResult.value,
+        city: cityResult.value,
+        message: !stateResult.ok
+            ? stateResult.message
+            : !cityResult.ok
+              ? cityResult.message
+              : "",
+    };
+}
+
 document.addEventListener("DOMContentLoaded", async function () {
     // Validate BASE exists
     if (!window.BASE) throw new Error('window.BASE is not defined');
@@ -22,8 +95,27 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
     }
 
+    const stateInput = form.state || document.getElementById("state");
+    const cityInput = form.city || document.getElementById("city");
+
+    if (requiresStrictStateCityValidation()) {
+        const onStateCityInput = () => {
+            validateStateCityInputs(stateInput, cityInput, { showErrors: true });
+        };
+        stateInput?.addEventListener("input", onStateCityInput);
+        stateInput?.addEventListener("blur", onStateCityInput);
+        cityInput?.addEventListener("input", onStateCityInput);
+        cityInput?.addEventListener("blur", onStateCityInput);
+    }
+
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
+
+        const stateCity = validateStateCityInputs(stateInput, cityInput, { showErrors: true });
+        if (!stateCity.ok) {
+            ModalService.showError(stateCity.message || "Please correct State and City.");
+            return;
+        }
 
         const payload = {
             CustomerName: form.companyname.value,
@@ -34,8 +126,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             CustomerContact: form.contactphonenumber.value,
             CustomerAddress: form.comaddress1.value,
             CustomerAddress2: form.comaddress2.value,
-            CustomerState: form.state.value,
-            CustomerCity: form.city.value,
+            CustomerState: requiresStrictStateCityValidation() ? stateCity.state : form.state.value,
+            CustomerCity: requiresStrictStateCityValidation() ? stateCity.city : form.city.value,
             CustomerUsername: form.CustomerUsername.value,
             CustomerPassword: form.CustomerPassword.value,
             DeviceModel: "Windows",

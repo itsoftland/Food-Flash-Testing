@@ -2,6 +2,7 @@ from rest_framework import serializers
 from vendors.models import Vendor, Feedback, Order
 from django.conf import settings
 import logging
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,46 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
 
+# Flavours that enforce alphabetic State/City (letters + spaces only).
+# food_flash / airline_flash intentionally excluded — keep legacy behaviour.
+_STATE_CITY_STRICT_PROJECTS = frozenset({
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+})
+_STATE_CITY_ALPHA_SPACE_RE = re.compile(r"^[A-Za-z]+(?: [A-Za-z]+)*$")
+
+
+def _current_project_name():
+    return (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+
+
+def _requires_strict_state_city_validation():
+    return _current_project_name() in _STATE_CITY_STRICT_PROJECTS
+
+
+def normalize_and_validate_state_or_city(value, field_label="This field"):
+    """
+    Trim, collapse internal spaces, require at least one letter, allow A-Z/a-z and
+    single spaces between words only. Used only for strict-project flavours.
+    """
+    if value is None:
+        raise serializers.ValidationError(
+            f"{field_label} must contain alphabetic characters and spaces only."
+        )
+    text = str(value).strip()
+    text = " ".join(text.split())
+    if not text or not _STATE_CITY_ALPHA_SPACE_RE.match(text):
+        raise serializers.ValidationError(
+            f"{field_label} must contain alphabetic characters and spaces only."
+        )
+    if len(text) > 100:
+        raise serializers.ValidationError(
+            f"{field_label} cannot exceed 100 characters."
+        )
+    return text
+
+
 class AdminOutletSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     authentication_status = serializers.CharField(required=False, allow_null=True,default='Pending')
@@ -161,6 +202,16 @@ class AdminOutletSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminOutlet
         fields = '__all__'
+
+    def validate_customer_state(self, value):
+        if not _requires_strict_state_city_validation():
+            return value
+        return normalize_and_validate_state_or_city(value, field_label="State")
+
+    def validate_customer_city(self, value):
+        if not _requires_strict_state_city_validation():
+            return value
+        return normalize_and_validate_state_or_city(value, field_label="City")
 
     def validate(self, attrs):
         if attrs.get('authentication_status') is None:
