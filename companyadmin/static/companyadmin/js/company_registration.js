@@ -12,10 +12,21 @@ const STRICT_GST_PROJECTS = new Set([
     "hospital_flash",
 ]);
 
+const STRICT_COMPANY_NAME_PROJECTS = new Set([
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+]);
+
 const GST_FORMAT_ERROR =
     "GST Number must be exactly 15 characters, contain only letters and digits " +
     "(A-Z, a-z, 0-9), include at least one letter and one digit, and must not " +
     "contain spaces or special characters.";
+
+const COMPANY_NAME_FORMAT_ERROR =
+    "Company Name cannot be empty and must contain at least one alphabetic character.";
+
+const COMPANY_NAME_MAX_LENGTH = 255;
 
 function currentProjectName() {
     return String(window.PROJECT_NAME || "").trim().toLowerCase();
@@ -27,6 +38,10 @@ function requiresStrictStateCityValidation() {
 
 function requiresStrictGstValidation() {
     return STRICT_GST_PROJECTS.has(currentProjectName());
+}
+
+function requiresStrictCompanyNameValidation() {
+    return STRICT_COMPANY_NAME_PROJECTS.has(currentProjectName());
 }
 
 /** Trim, collapse spaces; return { ok, value, message }. */
@@ -69,6 +84,28 @@ function validateGstNumberInput(raw) {
         return { ok: false, value, message: GST_FORMAT_ERROR };
     }
     return { ok: true, value, message: "" };
+}
+
+/**
+ * Strict Company Name: non-empty after trim, at least one Unicode letter.
+ * Numbers/special characters remain allowed when letters are also present.
+ */
+function normalizeAndValidateCompanyName(raw) {
+    if (!requiresStrictCompanyNameValidation()) {
+        return { ok: true, value: raw ?? "", message: "" };
+    }
+    const text = String(raw ?? "").trim();
+    if (!text || !/[\p{L}]/u.test(text)) {
+        return { ok: false, value: text, message: COMPANY_NAME_FORMAT_ERROR };
+    }
+    if (text.length > COMPANY_NAME_MAX_LENGTH) {
+        return {
+            ok: false,
+            value: text,
+            message: `Company Name cannot exceed ${COMPANY_NAME_MAX_LENGTH} characters.`,
+        };
+    }
+    return { ok: true, value: text, message: "" };
 }
 
 function setFieldError(inputEl, message) {
@@ -165,6 +202,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     const stateInput = form.state || document.getElementById("state");
     const cityInput = form.city || document.getElementById("city");
     const gstInput = form.gst || document.getElementById("gst");
+    const companyNameInput =
+        form.companyname || document.getElementById("companyname");
+
+    if (requiresStrictCompanyNameValidation()) {
+        const onCompanyNameInput = () => {
+            const nameResult = normalizeAndValidateCompanyName(companyNameInput?.value);
+            setFieldError(companyNameInput, nameResult.ok ? "" : nameResult.message);
+        };
+        companyNameInput?.addEventListener("input", onCompanyNameInput);
+        companyNameInput?.addEventListener("blur", onCompanyNameInput);
+    }
 
     if (requiresStrictStateCityValidation()) {
         const onStateCityInput = () => {
@@ -188,6 +236,20 @@ document.addEventListener("DOMContentLoaded", async function () {
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
+        const companyNameResult = normalizeAndValidateCompanyName(companyNameInput?.value);
+        if (requiresStrictCompanyNameValidation()) {
+            setFieldError(
+                companyNameInput,
+                companyNameResult.ok ? "" : companyNameResult.message
+            );
+            if (!companyNameResult.ok) {
+                ModalService.showError(
+                    companyNameResult.message || COMPANY_NAME_FORMAT_ERROR
+                );
+                return;
+            }
+        }
+
         const stateCity = validateStateCityInputs(stateInput, cityInput, { showErrors: true });
         if (!stateCity.ok) {
             ModalService.showError(stateCity.message || "Please correct State and City.");
@@ -203,8 +265,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         }
 
+        const customerName = requiresStrictCompanyNameValidation()
+            ? companyNameResult.value
+            : form.companyname.value;
+
         const payload = {
-            CustomerName: form.companyname.value,
+            CustomerName: customerName,
             PhoneNumber: form.phonenumber.value,
             CustomerEmail: form.companyemail.value,
             GSTNumber: form.gst.value,
@@ -217,7 +283,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             CustomerUsername: form.CustomerUsername.value,
             CustomerPassword: form.CustomerPassword.value,
             DeviceModel: "Windows",
-            DeviceIdentifier1: form.companyname.value,
+            DeviceIdentifier1: customerName,
             DeviceType: 1,
             Version: `${window.APP_VERSION}`,
             ProjectName: window.PROJECT_NAME

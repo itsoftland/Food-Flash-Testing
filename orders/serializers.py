@@ -181,6 +181,18 @@ _GST_FORMAT_ERROR = (
 )
 _GST_DUPLICATE_ERROR = "A company with this GST Number already exists."
 
+# Flavours that require Company Name to contain at least one alphabetic character.
+# food_flash / airline_flash intentionally excluded — keep legacy behaviour.
+_COMPANY_NAME_STRICT_PROJECTS = frozenset({
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+})
+_COMPANY_NAME_FORMAT_ERROR = (
+    "Company Name cannot be empty and must contain at least one alphabetic character."
+)
+_COMPANY_NAME_MAX_LENGTH = 255
+
 
 def _current_project_name():
     return (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
@@ -192,6 +204,10 @@ def _requires_strict_state_city_validation():
 
 def _requires_strict_gst_validation():
     return _current_project_name() in _GST_STRICT_PROJECTS
+
+
+def _requires_strict_company_name_validation():
+    return _current_project_name() in _COMPANY_NAME_STRICT_PROJECTS
 
 
 def normalize_and_validate_state_or_city(value, field_label="This field"):
@@ -212,6 +228,24 @@ def normalize_and_validate_state_or_city(value, field_label="This field"):
     if len(text) > 100:
         raise serializers.ValidationError(
             f"{field_label} cannot exceed 100 characters."
+        )
+    return text
+
+
+def normalize_and_validate_company_name(value):
+    """
+    Strip leading/trailing whitespace; require non-empty value with at least one
+    alphabetic character (Unicode-aware). Numbers and special characters remain
+    allowed when letters are also present. No character whitelist.
+    """
+    if value is None:
+        raise serializers.ValidationError(_COMPANY_NAME_FORMAT_ERROR)
+    text = str(value).strip()
+    if not text or not any(ch.isalpha() for ch in text):
+        raise serializers.ValidationError(_COMPANY_NAME_FORMAT_ERROR)
+    if len(text) > _COMPANY_NAME_MAX_LENGTH:
+        raise serializers.ValidationError(
+            f"Company Name cannot exceed {_COMPANY_NAME_MAX_LENGTH} characters."
         )
     return text
 
@@ -239,6 +273,11 @@ class AdminOutletSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminOutlet
         fields = '__all__'
+
+    def validate_customer_name(self, value):
+        if not _requires_strict_company_name_validation():
+            return value
+        return normalize_and_validate_company_name(value)
 
     def validate_customer_state(self, value):
         if not _requires_strict_state_city_validation():
