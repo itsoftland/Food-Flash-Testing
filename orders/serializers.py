@@ -193,6 +193,19 @@ _COMPANY_NAME_FORMAT_ERROR = (
 )
 _COMPANY_NAME_MAX_LENGTH = 255
 
+# Flavours that require Contact Person to be alphabetic characters and spaces only.
+# food_flash / airline_flash intentionally excluded — keep legacy behaviour.
+_CONTACT_PERSON_STRICT_PROJECTS = frozenset({
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+})
+_CONTACT_PERSON_ALPHA_SPACE_RE = re.compile(r"^[A-Za-z]+(?: [A-Za-z]+)*$")
+_CONTACT_PERSON_FORMAT_ERROR = (
+    "Contact Person must contain alphabetic characters and spaces only."
+)
+_CONTACT_PERSON_MAX_LENGTH = 255
+
 
 def _current_project_name():
     return (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
@@ -208,6 +221,10 @@ def _requires_strict_gst_validation():
 
 def _requires_strict_company_name_validation():
     return _current_project_name() in _COMPANY_NAME_STRICT_PROJECTS
+
+
+def _requires_strict_contact_person_validation():
+    return _current_project_name() in _CONTACT_PERSON_STRICT_PROJECTS
 
 
 def normalize_and_validate_state_or_city(value, field_label="This field"):
@@ -250,6 +267,23 @@ def normalize_and_validate_company_name(value):
     return text
 
 
+def normalize_and_validate_contact_person(value):
+    """
+    Trim, collapse internal spaces; require A-Z/a-z and single spaces between
+    words only. Rejects numbers, special characters, and whitespace-only input.
+    Empty/None are not validated here (caller preserves optional semantics).
+    """
+    text = str(value).strip()
+    text = " ".join(text.split())
+    if not text or not _CONTACT_PERSON_ALPHA_SPACE_RE.match(text):
+        raise serializers.ValidationError(_CONTACT_PERSON_FORMAT_ERROR)
+    if len(text) > _CONTACT_PERSON_MAX_LENGTH:
+        raise serializers.ValidationError(
+            f"Contact Person cannot exceed {_CONTACT_PERSON_MAX_LENGTH} characters."
+        )
+    return text
+
+
 def validate_simplified_gst_number(value):
     """
     Simplified GST rules (not full GSTIN): exactly 15 A-Z/a-z/0-9 chars with at
@@ -288,6 +322,14 @@ class AdminOutletSerializer(serializers.ModelSerializer):
         if not _requires_strict_state_city_validation():
             return value
         return normalize_and_validate_state_or_city(value, field_label="City")
+
+    def validate_customer_contact_person(self, value):
+        if not _requires_strict_contact_person_validation():
+            return value
+        # Preserve existing optional semantics: omit / null / "" stay allowed.
+        if value is None or value == "":
+            return value
+        return normalize_and_validate_contact_person(value)
 
     def validate_gst_number(self, value):
         if not _requires_strict_gst_validation():

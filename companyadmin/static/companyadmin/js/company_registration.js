@@ -18,6 +18,12 @@ const STRICT_COMPANY_NAME_PROJECTS = new Set([
     "hospital_flash",
 ]);
 
+const STRICT_CONTACT_PERSON_PROJECTS = new Set([
+    "dine_flash",
+    "dine_flash_buffet",
+    "hospital_flash",
+]);
+
 const GST_FORMAT_ERROR =
     "GST Number must be exactly 15 characters, contain only letters and digits " +
     "(A-Z, a-z, 0-9), include at least one letter and one digit, and must not " +
@@ -26,7 +32,11 @@ const GST_FORMAT_ERROR =
 const COMPANY_NAME_FORMAT_ERROR =
     "Company Name cannot be empty and must contain at least one alphabetic character.";
 
+const CONTACT_PERSON_FORMAT_ERROR =
+    "Contact Person must contain alphabetic characters and spaces only.";
+
 const COMPANY_NAME_MAX_LENGTH = 255;
+const CONTACT_PERSON_MAX_LENGTH = 255;
 
 function currentProjectName() {
     return String(window.PROJECT_NAME || "").trim().toLowerCase();
@@ -42,6 +52,10 @@ function requiresStrictGstValidation() {
 
 function requiresStrictCompanyNameValidation() {
     return STRICT_COMPANY_NAME_PROJECTS.has(currentProjectName());
+}
+
+function requiresStrictContactPersonValidation() {
+    return STRICT_CONTACT_PERSON_PROJECTS.has(currentProjectName());
 }
 
 /** Trim, collapse spaces; return { ok, value, message }. */
@@ -103,6 +117,33 @@ function normalizeAndValidateCompanyName(raw) {
             ok: false,
             value: text,
             message: `Company Name cannot exceed ${COMPANY_NAME_MAX_LENGTH} characters.`,
+        };
+    }
+    return { ok: true, value: text, message: "" };
+}
+
+/**
+ * Strict Contact Person: alphabetic characters and spaces only.
+ * Empty string left to HTML required; whitespace-only / numbers / specials rejected.
+ */
+function normalizeAndValidateContactPerson(raw) {
+    if (!requiresStrictContactPersonValidation()) {
+        return { ok: true, value: raw ?? "", message: "" };
+    }
+    const value = String(raw ?? "");
+    // Preserve HTML required for empty; whitespace/format still validated here.
+    if (!value) {
+        return { ok: true, value, message: "" };
+    }
+    const text = value.trim().replace(/\s+/g, " ");
+    if (!text || !/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(text)) {
+        return { ok: false, value: text, message: CONTACT_PERSON_FORMAT_ERROR };
+    }
+    if (text.length > CONTACT_PERSON_MAX_LENGTH) {
+        return {
+            ok: false,
+            value: text,
+            message: `Contact Person cannot exceed ${CONTACT_PERSON_MAX_LENGTH} characters.`,
         };
     }
     return { ok: true, value: text, message: "" };
@@ -204,6 +245,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     const gstInput = form.gst || document.getElementById("gst");
     const companyNameInput =
         form.companyname || document.getElementById("companyname");
+    const contactPersonInput =
+        form.contactperson || document.getElementById("contactperson");
 
     if (requiresStrictCompanyNameValidation()) {
         const onCompanyNameInput = () => {
@@ -231,6 +274,20 @@ document.addEventListener("DOMContentLoaded", async function () {
         };
         gstInput?.addEventListener("input", onGstInput);
         gstInput?.addEventListener("blur", onGstInput);
+    }
+
+    if (requiresStrictContactPersonValidation()) {
+        const onContactPersonInput = () => {
+            const contactResult = normalizeAndValidateContactPerson(
+                contactPersonInput?.value
+            );
+            setFieldError(
+                contactPersonInput,
+                contactResult.ok ? "" : contactResult.message
+            );
+        };
+        contactPersonInput?.addEventListener("input", onContactPersonInput);
+        contactPersonInput?.addEventListener("blur", onContactPersonInput);
     }
 
     form.addEventListener("submit", async function (e) {
@@ -265,16 +322,36 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         }
 
+        const contactPersonResult = normalizeAndValidateContactPerson(
+            contactPersonInput?.value
+        );
+        if (requiresStrictContactPersonValidation()) {
+            setFieldError(
+                contactPersonInput,
+                contactPersonResult.ok ? "" : contactPersonResult.message
+            );
+            if (!contactPersonResult.ok) {
+                ModalService.showError(
+                    contactPersonResult.message || CONTACT_PERSON_FORMAT_ERROR
+                );
+                return;
+            }
+        }
+
         const customerName = requiresStrictCompanyNameValidation()
             ? companyNameResult.value
             : form.companyname.value;
+
+        const customerContactPerson = requiresStrictContactPersonValidation()
+            ? contactPersonResult.value
+            : form.contactperson.value;
 
         const payload = {
             CustomerName: customerName,
             PhoneNumber: form.phonenumber.value,
             CustomerEmail: form.companyemail.value,
             GSTNumber: form.gst.value,
-            CustomerContactPerson: form.contactperson.value,
+            CustomerContactPerson: customerContactPerson,
             CustomerContact: form.contactphonenumber.value,
             CustomerAddress: form.comaddress1.value,
             CustomerAddress2: form.comaddress2.value,
