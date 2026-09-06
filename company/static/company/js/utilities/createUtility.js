@@ -420,6 +420,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (result?.error) {
         message = result.error;
+        // Hospital Flash Group Department: field is labelled Package Code
+        if (
+          isHospital &&
+          isGroupDepartment &&
+          result.error === 'Display code already exists for this vendor'
+        ) {
+          message = 'Package code already exists for this branch';
+        }
       } else if (result?.message) {
         message = result.message;
       }
