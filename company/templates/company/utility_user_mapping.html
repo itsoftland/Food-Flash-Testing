@@ -34,8 +34,8 @@
     const MAPPING_LABELS = IS_HOSPITAL_FLASH ? {
         selectUser: '-- Select Department User --',
         noEntities: 'No departments exist. Please create them first.',
-        noVendor: 'This user is not assigned to an outlet.',
-        noOutletDepartments: 'No departments exist for this user\'s outlet.',
+        noVendor: 'This user is not assigned to a branch.',
+        noOutletDepartments: 'No departments exist for this user\'s branch.',
         selectFirst: 'Select a user first to view and assign departments.',
         saved: 'Department mapping saved successfully.',
     } : {
@@ -43,6 +43,12 @@
         noEntities: 'No food counters exist. Please create them first.',
         selectFirst: 'Select a user first to view and assign counters.',
         saved: 'Utility mapping saved successfully.',
+    };
+
+    const HOSPITAL_ERROR_DISPLAY = {
+        "User is not a utility_user.": "User is not a Department User.",
+        "User does not belong to a vendor.": "User does not belong to a branch.",
+        "Some utilities are invalid or do not belong to this vendor.": "Some departments are invalid or do not belong to this branch.",
     };
 
     const toastEl = document.getElementById("mapping-toast");
@@ -234,7 +240,11 @@
                 document.getElementById("user-select").value = "";
                 document.getElementById("utilities-list").innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.selectFirst}</div>`;
             } else {
-                showToast(data.error || "Unable to save mapping.", "error");
+                const errorText = data.error || "Unable to save mapping.";
+                const displayError = IS_HOSPITAL_FLASH
+                    ? (HOSPITAL_ERROR_DISPLAY[data.error] || errorText)
+                    : errorText;
+                showToast(displayError, "error");
             }
         })
         .catch(err => {
