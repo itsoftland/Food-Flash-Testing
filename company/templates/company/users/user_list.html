@@ -44,7 +44,7 @@
                 {% endif %}
                 <th>Name</th>
                 <th>Roles</th>
-                <th>Outlet Name</th>
+                <th>{% if PROJECT_NAME == "hospital_flash" %}Branch Name{% else %}Outlet Name{% endif %}</th>
                 <th>Created Time</th>
                 <th>Actions</th>
               </tr>
