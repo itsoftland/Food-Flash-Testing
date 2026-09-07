@@ -901,7 +901,8 @@ function buildDetailEntries(config, utilityLookup = {}) {
 
   return [
     ['Configuration Name', escapeHtml(config.config_name || '-')],
-    ['Show QR', escapeHtml(formatBool(config.show_qr))],
+    // Hospital Flash View Details: omit Show QR (Edit has no QR UI; keep API/value unchanged).
+    ...(isTvConfigListHospitalFlash() ? [] : [['Show QR', escapeHtml(formatBool(config.show_qr))]]),
     ['QR Alignment', escapeHtml(config.qr_alignment || '-')],
     ['QR Placement', escapeHtml(config.qr_placement || '-')],
     ['QR Base URL', escapeHtml(config.qr_base_url || '-')],
