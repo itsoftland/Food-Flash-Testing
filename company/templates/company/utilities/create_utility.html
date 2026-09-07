@@ -31,9 +31,9 @@
                 <form id="create-utilities-form"{% if PROJECT_NAME == "hospital_flash" %} autocomplete="off"{% endif %}>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="vendor-select" class="form-label">Select Outlet</label>
+                            <label for="vendor-select" class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Select Branch{% else %}Select Outlet{% endif %}</label>
                             <select id="vendor-select" name="vendor_id" class="form-select" required>
-                                <option value="">Loading outlets...</option>
+                                <option value="">{% if PROJECT_NAME == "hospital_flash" %}Loading branches...{% else %}Loading outlets...{% endif %}</option>
                             </select>
                         </div>
                     </div>
@@ -89,7 +89,7 @@
                                 role="group"
                                 aria-labelledby="group-departments-label"
                             >
-                                <p class="text-muted small mb-0">Select an outlet first to load departments</p>
+                                <p class="text-muted small mb-0">Select a branch first to load departments</p>
                             </div>
                             <small class="form-text text-muted">Only individual departments can be included. Select at least one.</small>
                         </div>

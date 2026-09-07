@@ -160,9 +160,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   /* ------------------------------------
-     Fetch vendors & populate outlets
+     Fetch vendors & populate outlets / branches
   ------------------------------------ */
+  const selectEntityPlaceholder = isHospital ? 'Select a branch' : 'Select outlet';
+  const loadEntityListError = isHospital
+    ? 'Unable to load branch list. Please refresh the page.'
+    : 'Unable to load outlet list. Please refresh the page.';
+  const selectEntityRequiredError = isHospital
+    ? 'Please select a branch.'
+    : 'Please select an outlet.';
+  const nameRequiredError = isHospital
+    ? 'Department Name is required.'
+    : 'Utility Name is required.';
+  const createFailedFallback = isHospital
+    ? 'Failed to create department.'
+    : 'Failed to create utility.';
+  const selectEntityFirstForDepartments =
+    'Select a branch first to load departments';
+
   let vendorsData = [];
+
+  function populateVendorSelect(selectedValue = '') {
+    vendorSelect.innerHTML = `<option value="">${selectEntityPlaceholder}</option>`;
+    vendorsData.forEach((vendor) => {
+      const option = document.createElement('option');
+      option.value = vendor.vendor_id;
+      option.textContent = `${vendor.name} (${vendor.location})`;
+      vendorSelect.appendChild(option);
+    });
+    if (selectedValue) {
+      vendorSelect.value = selectedValue;
+    }
+  }
+
   try {
     const response = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS, {
       method: 'GET'
@@ -176,22 +206,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (Array.isArray(result.vendors)) {
       vendorsData = result.vendors;
-      
-      // Populate vendor select with plain HTML options
-      vendorSelect.innerHTML = '<option value="">Select outlet</option>';
-      result.vendors.forEach(vendor => {
-        const option = document.createElement('option');
-        option.value = vendor.vendor_id;
-        option.textContent = `${vendor.name} (${vendor.location})`;
-        vendorSelect.appendChild(option);
-      });
+      populateVendorSelect();
     }
 
   } catch (error) {
     console.error('Vendor fetch failed:', error);
-    ModalService.showError(
-      'Unable to load outlet list. Please refresh the page.'
-    );
+    ModalService.showError(loadEntityListError);
     return;
   }
 
@@ -210,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Get vendor selection
     const vendorId = vendorSelect.value;
     if (!vendorId) {
-      ModalService.showError('Please select an outlet.');
+      ModalService.showError(selectEntityRequiredError);
       return;
     }
 
@@ -231,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Basic validation
     if (!utilityName) {
-      ModalService.showError('Utility Name is required.');
+      ModalService.showError(nameRequiredError);
       return;
     }
     if (!displayName) {
@@ -394,20 +414,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           () => {
             createUtilityForm.reset();
             // Reset vendor select to default
-            vendorSelect.innerHTML = '<option value="">Select outlet</option>';
-            vendorsData.forEach(vendor => {
-              const option = document.createElement('option');
-              option.value = vendor.vendor_id;
-              option.textContent = `${vendor.name} (${vendor.location})`;
-              vendorSelect.appendChild(option);
-            });
+            populateVendorSelect();
             // form.reset() does not fire change; re-sync Hospital Flash layout to Individual defaults
             if (isHospital) {
               updateHospitalFormLayout();
               if (groupDepartmentsCheckboxes && setGroupDepartmentCheckboxMessage) {
                 setGroupDepartmentCheckboxMessage(
                   groupDepartmentsCheckboxes,
-                  'Select an outlet first to load departments'
+                  selectEntityFirstForDepartments
                 );
               }
             }
@@ -416,17 +430,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      let message = 'Failed to create utility.';
+      let message = createFailedFallback;
 
       if (result?.error) {
         message = result.error;
-        // Hospital Flash Group Department: field is labelled Package Code
-        if (
-          isHospital &&
-          isGroupDepartment &&
-          result.error === 'Display code already exists for this vendor'
-        ) {
-          message = 'Package code already exists for this branch';
+        // Hospital Flash: remap shared backend wording at the presentation layer only
+        if (isHospital) {
+          if (result.error === 'Display code already exists for this vendor') {
+            message = isGroupDepartment
+              ? 'Package code already exists for this branch'
+              : 'Display code already exists for this branch';
+          } else if (result.error === 'Utility name already exists for this vendor') {
+            message = 'Department name already exists for this branch';
+          }
         }
       } else if (result?.message) {
         message = result.message;
