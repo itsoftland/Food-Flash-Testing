@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', async() => {
         const users = data.users || [];
         userTableBody.innerHTML = '';
 
-        // Hospital Flash User List only: omit Id column (header is template-gated the same way).
-        const hideIdColumn = window.PROJECT_NAME === 'hospital_flash';
+        // Omit Id column for Hospital Flash / Dine Flash / Dine Flash Buffet (header is template-gated the same way).
+        const hideIdColumn = ['hospital_flash', 'dine_flash', 'dine_flash_buffet'].includes(window.PROJECT_NAME);
         const emptyColspan = hideIdColumn ? 5 : 6;
 
         if (!users.length) {
