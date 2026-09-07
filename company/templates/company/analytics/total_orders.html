@@ -8,14 +8,14 @@
 <link rel="stylesheet" href="{% static 'company/css/total_orders.css' %}">
 {% endblock %}
 
-{% block title %}Total Orders{% endblock %}
+{% block title %}{% if PROJECT_NAME == "hospital_flash" %}Total Patients{% else %}Total Orders{% endif %}{% endblock %}
 
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Total Orders</h1>
+        <h1 class="page-title">{% if PROJECT_NAME == "hospital_flash" %}Total Patients{% else %}Total Orders{% endif %}</h1>
       </div>
     </div>
   </div>
