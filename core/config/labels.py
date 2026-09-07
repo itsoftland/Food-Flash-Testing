@@ -344,8 +344,8 @@ HOSPITAL_FLASH = {
         "button": "Update Outlet Data",
     },
     "create_user": {
-        "outlet": "Outlet",
-        "select_outlet": "Select Outlet",
+        "outlet": "Branch",
+        "select_outlet": "Select Branch",
     },
     "registration": {
         "title": "Hospital Registration",
