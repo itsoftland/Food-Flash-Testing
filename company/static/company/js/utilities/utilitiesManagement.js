@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         vendorsData = result.vendors;
 
         // Populate vendor filter dropdown
-        vendorFilter.innerHTML = '<option value="">All Outlets</option>';
+        vendorFilter.innerHTML = `<option value="">${isHospital ? 'All Branches' : 'All Outlets'}</option>`;
         result.vendors.forEach(vendor => {
           const option = document.createElement('option');
           option.value = vendor.vendor_id;
@@ -907,9 +907,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             bs.hide();
 
             // show success and reload utilities on OK
-            ModalService.showSuccess(result.message || 'Utility updated', async () => {
-              await loadUtilities(selectedVendorId);
-            });
+            ModalService.showSuccess(
+              isHospital
+                ? 'Department updated successfully'
+                : (result.message || 'Utility updated'),
+              async () => {
+                await loadUtilities(selectedVendorId);
+              }
+            );
           } else {
             // Server-side validation error - show inline in modal
             showInlineError(result?.error || 'Failed to update utility');

@@ -37,7 +37,7 @@
         <!-- Outlet Filter -->
         <div class="control-item">
           <select id="vendor-filter" class="form-select form-select-sm" title="Filter by outlet">
-            <option value="">All Outlets</option>
+            <option value="">{% if PROJECT_NAME == "hospital_flash" %}All Branches{% else %}All Outlets{% endif %}</option>
           </select>
         </div>
 
