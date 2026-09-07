@@ -101,7 +101,7 @@
         </form>
 
         <!-- Enhanced scrollable table -->
-        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash_buffet' %} table-wrapper--dine-flash-buffet{% elif PROJECT_NAME == 'dine_flash' %} table-wrapper--dine-flash{% endif %}">
+        <div class="table-wrapper{% if PROJECT_NAME == 'dine_flash_buffet' %} table-wrapper--dine-flash-buffet{% elif PROJECT_NAME == 'dine_flash' %} table-wrapper--dine-flash{% elif PROJECT_NAME == 'hospital_flash' %} table-wrapper--hospital-flash{% endif %}">
             <!-- Static header -->
             <div class="table-header">
                 <table class="table table-bordered bg-light-gray mb-0">
@@ -116,7 +116,7 @@
                             {% endif %}
                             {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Current Status</th>
-                            {% if PROJECT_NAME != "dine_flash" %}
+                            {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
                             <th>Counter No</th>
                             {% endif %}
                             {% endif %}
@@ -125,7 +125,7 @@
                             <th>Device No</th>
                             {% endif %}
                             <th>Created Time</th>
-                            {% if PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "dine_flash" %}
+                            {% if PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
                             <th>Ready Time</th>
                             {% endif %}
                             <th>Order Details</th>

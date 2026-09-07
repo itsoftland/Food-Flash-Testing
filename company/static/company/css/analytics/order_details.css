@@ -162,6 +162,61 @@ html, body {
 }   /* Order Details */
 
 /* -------------------------------------------------------------------------
+   Hospital Flash only: 7-column layout (no Counter No or Ready Time).
+   Scoped to .table-wrapper--hospital-flash so other flavours are unaffected.
+   ------------------------------------------------------------------------- */
+.table-wrapper--hospital-flash .table-header th {
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: keep-all;
+    overflow: visible;
+    text-overflow: clip;
+    vertical-align: top;
+    line-height: 1.2;
+}
+
+.table-wrapper--hospital-flash .table-body-container td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table-wrapper--hospital-flash .table-header th:nth-child(1),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(1) {
+    width: 40px; min-width: 40px; max-width: 40px;
+}   /* Id */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(2),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(2) {
+    width: 110px; min-width: 110px; max-width: 110px;
+}   /* Token No (patient-facing booking code, e.g. LAB-12) */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(3),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(3) {
+    width: 90px; min-width: 90px; max-width: 90px;
+}   /* Current Status */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(4),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(4) {
+    width: 150px; min-width: 150px; max-width: 150px;
+}   /* Outlet Name */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(5),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(5) {
+    width: 160px; min-width: 160px; max-width: 160px;
+}   /* Device No */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(6),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(6) {
+    width: 120px; min-width: 120px; max-width: 120px;
+}   /* Created Time */
+
+.table-wrapper--hospital-flash .table-header th:nth-child(7),
+.table-wrapper--hospital-flash .table-body-container td:nth-child(7) {
+    width: 100px; min-width: 100px; max-width: 100px;
+}   /* Order Details */
+
+/* -------------------------------------------------------------------------
    Dine Flash Buffet only: 6-column layout (Table No, no status/counter/device/ready).
    Scoped to .table-wrapper--dine-flash-buffet so other flavours are unaffected.
    ------------------------------------------------------------------------- */

@@ -328,14 +328,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Dine Flash: "Booking No". Dine Flash Buffet: "Table No" (table_booking_no).
+  // Hospital Flash: "Token No" column shows patient-facing table_booking_no (e.g. LAB-12);
+  // Counter No and Ready Time columns are hidden.
   // Other flash variants (airline, food, service, calleron) are unaffected.
   const isDineFlash = window.PROJECT_NAME === "dine_flash";
   const isDineFlashBuffet = window.PROJECT_NAME === "dine_flash_buffet";
+  const isHospitalFlash = window.PROJECT_NAME === "hospital_flash";
   const showTableBookingCol = isDineFlash || isDineFlashBuffet;
 
   function getTableColCount() {
     if (isDineFlashBuffet) return 6;
     if (isDineFlash) return 8;
+    if (isHospitalFlash) return 7;
     return 9;
   }
 
@@ -357,9 +361,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `<td>${order.table_booking_no || "N/A"}</td>`
         : "";
 
+      // Hospital Flash: status only (no Counter No). Dine Flash: status only. Default: status + counter.
       const statusCells = isDineFlashBuffet
         ? ""
-        : isDineFlash
+        : (isDineFlash || isHospitalFlash)
           ? `<td>${order.status}</td>`
           : `
         <td>${order.status}</td>
@@ -370,14 +375,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? ""
         : `<td>${order.device_name || "Not Assigned"}</td>`;
 
-      const readyCell = (isDineFlashBuffet || isDineFlash)
+      const readyCell = (isDineFlashBuffet || isDineFlash || isHospitalFlash)
         ? ""
         : `<td>${readyDate ? `${readyDate.toLocaleDateString()}<br>${readyDate.toLocaleTimeString()}` : "N/A"}</td>`;
+
+      // Hospital Flash only: patient-facing token lives in table_booking_no.
+      const tokenNoDisplay = isHospitalFlash
+        ? (order.table_booking_no || "N/A")
+        : order.token_no;
 
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${index + 1}</td>
-        <td>${order.token_no}</td>
+        <td>${tokenNoDisplay}</td>
         ${bookingCell}
         ${statusCells}
         <td>${order.vendor_name || "Not Assigned"}</td>
