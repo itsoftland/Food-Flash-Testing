@@ -332,7 +332,7 @@ HOSPITAL_FLASH = {
         "title": "Hospital Dashboard",
     },
     "outlet_list": {
-        "title": "You can manage outlets from here.",
+        "title": "You can manage branches from here.",
     },
     "create_outlet_page": {
         "title": "New Branch",
