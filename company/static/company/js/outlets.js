@@ -39,9 +39,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ================================
     if (vendors.length === 0) {
       // Show a warning alert if there are no vendors
+      const emptyStateMessage = window.PROJECT_NAME === 'hospital_flash'
+        ? 'No branches have been added yet.'
+        : ['dine_flash', 'dine_flash_buffet'].includes(window.PROJECT_NAME)
+          ? 'No outlets have been added yet.'
+          : 'No vendors have been added yet.';
       vendorListContainer.innerHTML = `
         <div class="col-12">
-          <div class="alert alert-warning">No vendors have been added yet.</div>
+          <div class="alert alert-warning">${emptyStateMessage}</div>
         </div>`;
       return; // Exit early
     }
