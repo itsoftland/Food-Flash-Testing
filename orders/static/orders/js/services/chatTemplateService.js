@@ -1,6 +1,6 @@
 
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
-import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js";
+import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js?v=20260910_1";
 
 const statusClassMap = {
   created: 'unknown-color',

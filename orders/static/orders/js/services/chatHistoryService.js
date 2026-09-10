@@ -1,5 +1,5 @@
 // orders/static/js/services/chatHistoryService.js
-import { ChatTemplateService } from "./chatTemplateService.js?v=20260821_2";
+import { ChatTemplateService } from "./chatTemplateService.js?v=20260910_1";
 
 const base = AppUtils.getStartUrl();
 const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;

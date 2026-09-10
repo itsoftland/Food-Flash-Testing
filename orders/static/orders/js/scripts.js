@@ -4,13 +4,13 @@ import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js?v=20260821_2";
 import { PermissionService } from "./services/permissionService.js";
 import { VendorUIService } from "./services/vendorUIService.js?v=20260824_1";
-import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260821_2";
+import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260910_1";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260821_2";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260824_1";
 import { ChatSyncService } from "./services/chatSyncService.js?v=20260824_1";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
-import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260821_2";
+import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260910_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
 import BookingMappingService from "./dineflash/services/bookingMappingService.js";
@@ -20,7 +20,7 @@ import {
     isHospitalBatchPayload,
     HOSPITAL_MANAGER_PUSH_TYPE,
 } from "./hospital/hospitalCommon.js";
-import { hospitalFlashClientDiag } from "./hospital/hospitalFlashDiag.js";
+import { hospitalFlashClientDiag } from "./hospital/hospitalFlashDiag.js?v=20260910_1";
 
 
 window.maskSequenceCode = maskSequenceCode

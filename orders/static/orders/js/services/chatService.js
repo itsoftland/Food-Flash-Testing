@@ -1,7 +1,7 @@
 // static/js/chatService.js
 import {ChatHistoryService}  from "./chatHistoryService.js?v=20260821_2";
 import { HOSPITAL_MANAGER_PUSH_TYPE, hospitalOnly } from "../hospital/hospitalCommon.js";
-import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js";
+import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js?v=20260910_1";
 
 /**
  * Hospital Flash presentation only.
