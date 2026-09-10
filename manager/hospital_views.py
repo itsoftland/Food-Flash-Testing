@@ -304,6 +304,15 @@ def manager_patient_update(request):
 
             previous_status = (booking.status or "").strip().lower()
             if previous_status == action:
+                # Diagnostic only: status unchanged skips notify_web_push.
+                # Use vendors.utils logger (already → vendors.log + managers.log)
+                # so this one line persists without enabling manager.hospital_views.
+                logging.getLogger("vendors.utils").info(
+                    "[hospital_flash][diag] manager_patient_update status unchanged | "
+                    "booking_id=%s status=%s (no push)",
+                    booking_id,
+                    action,
+                )
                 payload = build_hospital_department_status_payload(request, booking, action)
                 return Response(
                     {

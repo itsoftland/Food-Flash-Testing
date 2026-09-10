@@ -68,6 +68,30 @@ function dineFlashClientDiag(step, fields) {
   }
 }
 
+// Hospital Flash Called-flow diagnostic only. POSTs to existing
+// /api/hospital_flash_client_diag/ → orders.log. Does not change push decisions.
+function hospitalFlashClientDiag(step, fields) {
+  if (EXPECTED_PROJECT !== "hospital_flash") return;
+  try {
+    const root = BASE_URL || self.registration.scope;
+    const url = `${root}api/hospital_flash_client_diag/`;
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        step,
+        source: "service_worker",
+        project: "hospital_flash",
+        timestamp: Date.now(),
+        ...(fields || {}),
+      }),
+    }).catch(() => {});
+  } catch (e) {
+    // Diagnostics must never affect push delivery.
+  }
+}
+
 function normalizeProjectName(value) {
   return String(value || "")
     .toLowerCase()
@@ -172,6 +196,18 @@ self.addEventListener("push", (event) => {
     project: EXPECTED_PROJECT,
   });
 
+  // Hospital Flash Called chain: confirm SW received hospitalstatus push.
+  if (EXPECTED_PROJECT === "hospital_flash" && payload?.type === "hospitalstatus") {
+    hospitalFlashClientDiag("SW_PUSH_RECEIVED", {
+      message_id: payload?.message_id,
+      booking_id: payload?.booking_id,
+      token_no: payload?.token_no,
+      type: payload?.type,
+      status: payload?.status,
+      project: EXPECTED_PROJECT,
+    });
+  }
+
   const isDineFlashPush =
     projectsMatch(EXPECTED_PROJECT, "dine_flash") &&
     payload?.type === "dinestatus";
@@ -252,6 +288,8 @@ self.addEventListener("push", (event) => {
         project: EXPECTED_PROJECT,
       });
 
+      let hospitalPostedClientCount = 0;
+
       allClients.forEach((client) => {
         const clientProject = inferProjectFromUrl(client?.url);
         if (EXPECTED_PROJECT && !projectsMatch(EXPECTED_PROJECT, clientProject)) {
@@ -262,6 +300,7 @@ self.addEventListener("push", (event) => {
           type: "PUSH_STATUS_UPDATE",
           payload,
         });
+        hospitalPostedClientCount += 1;
 
         if (client.focused || client.visibilityState === "visible") {
           shouldShowSystemNotification = false;
@@ -276,6 +315,23 @@ self.addEventListener("push", (event) => {
         matching_client_count: matchingClients.length,
         will_show_system_notification: shouldShowSystemNotification,
       });
+
+      // Hospital Flash Called chain: record postMessage + OS notification decision
+      // without changing either decision.
+      if (EXPECTED_PROJECT === "hospital_flash" && payload?.type === "hospitalstatus") {
+        hospitalFlashClientDiag("SW_PUSH_STATUS_UPDATE_POSTED", {
+          message_id: payload?.message_id,
+          booking_id: payload?.booking_id,
+          token_no: payload?.token_no,
+          type: payload?.type,
+          status: payload?.status,
+          client_count: allClients.length,
+          matching_client_count: matchingClients.length,
+          posted_to_clients: hospitalPostedClientCount,
+          os_notification: shouldShowSystemNotification ? "shown" : "suppressed",
+          project: EXPECTED_PROJECT,
+        });
+      }
 
       if (shouldShowSystemNotification) {
         const customTitle = payload.title || "🍽 New Update";

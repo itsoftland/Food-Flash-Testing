@@ -616,6 +616,22 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
             payload.get("type"),
             sub_count,
         )
+    elif project_name == "hospital_flash" and isinstance(payload, dict):
+        # Diagnostic only: correlate Called push targeting without dumping keys/endpoints.
+        targeted = [
+            "subscription_id=%s:browser_id=%s" % (sub.id, sub.browser_id)
+            for sub in subscriptions
+        ]
+        logger.info(
+            "[hospital_flash][diag] notify_web_push subscription lookup | order_id=%s "
+            "booking_id=%s status=%s type=%s subscription_count=%s targeted=[%s]",
+            getattr(order, "pk", None),
+            payload.get("booking_id"),
+            payload.get("status"),
+            payload.get("type"),
+            sub_count,
+            ", ".join(targeted) if targeted else "",
+        )
 
     if sub_count == 0:
         msg = f"No push subscriptions found for token_no={order.token_no}, vendor_id={vendor.id}"
@@ -625,6 +641,16 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
                 getattr(order, "pk", None),
                 payload.get("booking_id"),
                 vendor.id,
+            )
+        elif project_name == "hospital_flash" and isinstance(payload, dict):
+            logger.warning(
+                "[hospital_flash][diag] No push subscriptions for order_id=%s booking_id=%s "
+                "vendor_id=%s status=%s type=%s",
+                getattr(order, "pk", None),
+                payload.get("booking_id"),
+                vendor.id,
+                payload.get("status"),
+                payload.get("type"),
             )
         else:
             logger.warning(msg)
@@ -663,6 +689,20 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
                         sub.browser_id,
                         getattr(order, "pk", None),
                     )
+                elif project_name == "hospital_flash":
+                    booking_id = (
+                        payload.get("booking_id") if isinstance(payload, dict) else None
+                    )
+                    logger.info(
+                        "[hospital_flash][diag] Web push delivered | subscription_id=%s "
+                        "browser_id=%s order_id=%s booking_id=%s type=%s status=%s",
+                        sub.id,
+                        sub.browser_id,
+                        getattr(order, "pk", None),
+                        booking_id,
+                        payload.get("type") if isinstance(payload, dict) else None,
+                        payload.get("status") if isinstance(payload, dict) else None,
+                    )
                 try:
                     save_server_chat_message(payload, vendor, sub, sequence_code)
                 except Exception as chat_err:
@@ -677,6 +717,16 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
                         f"for endpoint={sub.endpoint}"
                     )
                     logger.warning(msg)
+                    if project_name == "hospital_flash":
+                        logger.warning(
+                            "[hospital_flash][diag] Web push stale | subscription_id=%s "
+                            "browser_id=%s order_id=%s booking_id=%s status_code=%s",
+                            sub.id,
+                            sub.browser_id,
+                            getattr(order, "pk", None),
+                            payload.get("booking_id") if isinstance(payload, dict) else None,
+                            response_status,
+                        )
                     sub.mark_as_stale(response_text)
 
                     if auto_delete_stale:
@@ -687,6 +737,16 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
                         f"❌ Push failed (status={response_status}) for endpoint={sub.endpoint}: {ex}"
                     )
                     logger.error(msg)
+                    if project_name == "hospital_flash":
+                        logger.error(
+                            "[hospital_flash][diag] Web push failed | subscription_id=%s "
+                            "browser_id=%s order_id=%s booking_id=%s status_code=%s",
+                            sub.id,
+                            sub.browser_id,
+                            getattr(order, "pk", None),
+                            payload.get("booking_id") if isinstance(payload, dict) else None,
+                            response_status,
+                        )
                     sub.last_push_status = 'failed'
                     sub.last_push_response = response_text
                     sub.save(update_fields=['last_push_status', 'last_push_response', 'updated_at'])
@@ -695,6 +755,15 @@ def notify_web_push(order, vendor, payload, sequence_code=None, auto_delete_stal
             except Exception as e:
                 msg = f"❌ Unexpected error sending push to {sub.endpoint}: {e}"
                 logger.exception(msg)
+                if project_name == "hospital_flash":
+                    logger.error(
+                        "[hospital_flash][diag] Web push unexpected error | subscription_id=%s "
+                        "browser_id=%s order_id=%s booking_id=%s",
+                        sub.id,
+                        sub.browser_id,
+                        getattr(order, "pk", None),
+                        payload.get("booking_id") if isinstance(payload, dict) else None,
+                    )
                 errors.append(msg)
 
     logger.info(f"📬 Push complete: {sub_count - len(errors)} success, {len(errors)} failed.")

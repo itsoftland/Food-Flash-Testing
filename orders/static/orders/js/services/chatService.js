@@ -1,6 +1,7 @@
 // static/js/chatService.js
 import {ChatHistoryService}  from "./chatHistoryService.js?v=20260821_2";
 import { HOSPITAL_MANAGER_PUSH_TYPE, hospitalOnly } from "../hospital/hospitalCommon.js";
+import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js";
 
 /**
  * Hospital Flash presentation only.
@@ -70,6 +71,17 @@ function isBuffetReplyableType(type) {
 
 export function appendMessage(text, sender, timestamp = null,type,token_no,passenger_name = null) {
     console.log("Booking ID from message:", token_no);
+    if (
+        hospitalOnly() &&
+        String(type || "").toLowerCase() === "hospitalstatus"
+    ) {
+        hospitalFlashClientDiag("APPEND_MESSAGE_REACHED", {
+            booking_id: token_no,
+            message_id: passenger_name,
+            type: "hospitalstatus",
+            source: "appendMessage",
+        });
+    }
     const chatContainer = document.getElementById("chat-container");
 
     const messageRow = document.createElement('div');
@@ -207,6 +219,12 @@ export function appendMessage(text, sender, timestamp = null,type,token_no,passe
         String(type || "").toLowerCase() === "hospitalstatus"
     ) {
         syncHospitalCalledHighlight(messageBubble, token_no);
+        hospitalFlashClientDiag("APPEND_MESSAGE_DOM_INSERTED", {
+            booking_id: token_no,
+            message_id: passenger_name,
+            type: "hospitalstatus",
+            source: "appendMessage",
+        });
     }
 
     // Final logo hydration fallback for server cards:

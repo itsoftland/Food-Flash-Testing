@@ -1,5 +1,6 @@
 
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
+import { hospitalFlashClientDiag } from "../hospital/hospitalFlashDiag.js";
 
 const statusClassMap = {
   created: 'unknown-color',
@@ -863,6 +864,18 @@ function buildBuffetPreAnnouncementMessage(payload) {
 }
 
 function buildHospitalStatusMessage(payload) {
+  // Hospital Flash Called-flow diagnostic: confirm card build stage reached.
+  try {
+    hospitalFlashClientDiag("CHAT_TEMPLATE_HOSPITALSTATUS_BUILD", {
+      booking_id: payload?.booking_id,
+      message_id: payload?.message_id,
+      type: "hospitalstatus",
+      status: payload?.status,
+    });
+  } catch (_e) {
+    // Diagnostics must never affect card HTML.
+  }
+
   if (Array.isArray(payload?.departments) && payload.departments.length > 0) {
     let hasCalledDept = false;
     const deptRows = payload.departments

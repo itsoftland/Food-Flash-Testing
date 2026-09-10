@@ -128,6 +128,8 @@ const RELATIVE_API_ENDPOINTS = {
   GENERATE_HOSPITAL_BRANCH_QR: "company/api/generate_hospital_branch_qr/",
   // ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Remove with the `[diag]` logs.
   DINE_FLASH_CLIENT_DIAG: "api/dine_flash_client_diag/",
+  // Hospital Flash Called-flow diagnostic breadcrumbs (server orders.log only).
+  HOSPITAL_FLASH_CLIENT_DIAG: "api/hospital_flash_client_diag/",
 };
 
 const RELATIVE_WEB_ENDPOINTS = {

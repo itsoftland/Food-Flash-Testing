@@ -20,6 +20,7 @@ import {
     isHospitalBatchPayload,
     HOSPITAL_MANAGER_PUSH_TYPE,
 } from "./hospital/hospitalCommon.js";
+import { hospitalFlashClientDiag } from "./hospital/hospitalFlashDiag.js";
 
 
 window.maskSequenceCode = maskSequenceCode
@@ -196,6 +197,7 @@ onDOMReady(async function () {
             // Diagnostics must never break the page.
         }
     };
+
     console.info("REACHED LINE 92");
     dineFlashDiag("page init START", {
         url: window.location?.href,
@@ -824,6 +826,14 @@ onDOMReady(async function () {
         dineFlashDiag("SW message listener REGISTERED", {
             controller_present: Boolean(navigator.serviceWorker.controller),
         });
+        if (isHospitalFlashSurface) {
+            hospitalFlashClientDiag("PAGE_LISTENER_READY", {
+                type: "serviceWorker.message",
+                controller_present: Boolean(navigator.serviceWorker.controller),
+                visibility_state: document.visibilityState,
+                document_hidden: document.hidden,
+            });
+        }
         navigator.serviceWorker.addEventListener('message', async (event) => {
             const diagPayload = event.data?.payload || {};
             dineFlashClientDiag("PAGE_MESSAGE_RECEIVED", {
@@ -834,6 +844,19 @@ onDOMReady(async function () {
                 browser_id: diagPayload.browser_id,
                 project: currentProject(),
             });
+            if (
+                isHospitalFlashSurface &&
+                event.data?.type === "PUSH_STATUS_UPDATE" &&
+                diagPayload?.type === "hospitalstatus"
+            ) {
+                hospitalFlashClientDiag("PAGE_PUSH_STATUS_UPDATE_RECEIVED", {
+                    message_id: diagPayload.message_id,
+                    booking_id: diagPayload.booking_id,
+                    token_no: diagPayload.token_no,
+                    type: diagPayload.type,
+                    status: diagPayload.status,
+                });
+            }
             dineFlashDiag("SW message RECEIVED by page", {
                 type: event.data?.type,
                 has_payload: Boolean(event.data?.payload),
@@ -1009,6 +1032,15 @@ onDOMReady(async function () {
                     type: messageType,
                     text: pushData
                 });
+                if (isHospitalFlashSurface && messageType === "hospitalstatus") {
+                    hospitalFlashClientDiag("CALLED_CARD_BUILT", {
+                        message_id: pushData?.message_id,
+                        booking_id: pushData?.booking_id,
+                        token_no: pushData?.token_no,
+                        type: messageType,
+                        status: pushData?.status,
+                    });
+                }
 
                 // Phase 9: buffet Multi-Order may skip painting non-Selected
                 // pushes while still notifying / syncing / lifecycle below.
@@ -1194,6 +1226,13 @@ onDOMReady(async function () {
 
                     case 'hospitalstatus':
                         if (isHospitalFlashSurface) {
+                            hospitalFlashClientDiag("HOSPITALSTATUS_HANDLER_REACHED", {
+                                message_id: pushData?.message_id,
+                                booking_id: pushData?.booking_id,
+                                token_no: pushData?.token_no,
+                                type: messageType,
+                                status: pushData?.status,
+                            });
                             const hasBatchDepartments =
                                 Array.isArray(pushData?.departments) && pushData.departments.length > 0;
                             if (hasBatchDepartments) {

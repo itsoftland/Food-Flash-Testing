@@ -153,6 +153,32 @@ _DINE_FLASH_DIAG_FIELDS = (
 # Defensive cap so a malformed/oversized client value can never bloat the logs.
 _DINE_FLASH_DIAG_MAX_VALUE_LEN = 200
 
+# Hospital Flash Called-flow client/SW breadcrumbs → existing orders.log only.
+# Separate from dine_flash so other flavours never emit these lines.
+_HOSPITAL_FLASH_DIAG_FIELDS = (
+    "step",
+    "message_id",
+    "booking_id",
+    "token_no",
+    "browser_id",
+    "subscription_id",
+    "vendor_id",
+    "type",
+    "status",
+    "project",
+    "source",
+    "client_count",
+    "matching_client_count",
+    "os_notification",
+    "posted_to_clients",
+    "controller_present",
+    "visibility_state",
+    "document_hidden",
+    "reason",
+    "timestamp",
+)
+_HOSPITAL_FLASH_DIAG_MAX_VALUE_LEN = 200
+
 
 @api_view(["POST"])
 @authentication_classes([])
@@ -182,6 +208,36 @@ def dine_flash_client_diag(request):
         parts.append("%s=%s" % (key, value))
 
     logger.info("[%s][diag] %s", project_name, " ".join(parts))
+
+    return Response(status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def hospital_flash_client_diag(request):
+    """
+    Diagnostic-only endpoint for Hospital Flash Called chat-card delivery chain.
+
+    Page + Service Worker POST one breadcrumb per pipeline step so a Called event
+    can be traced in existing hospital_flash_logs/.../orders.log without device
+    access. Logging only — no DB writes, no business logic. No-op when
+    PROJECT_NAME is not hospital_flash.
+    """
+    if project_name != "hospital_flash":
+        return Response(status=status.HTTP_200_OK)
+
+    data = request.data if isinstance(request.data, dict) else {}
+
+    parts = []
+    for key in _HOSPITAL_FLASH_DIAG_FIELDS:
+        value = data.get(key)
+        if value is None or value == "":
+            continue
+        value = str(value)[:_HOSPITAL_FLASH_DIAG_MAX_VALUE_LEN]
+        parts.append("%s=%s" % (key, value))
+
+    logger.info("[hospital_flash][diag] %s", " ".join(parts))
 
     return Response(status=status.HTTP_200_OK)
 

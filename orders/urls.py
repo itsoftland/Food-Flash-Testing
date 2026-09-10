@@ -52,6 +52,12 @@ urlpatterns = [
     path('api/utility_list/',views.utility_list,name='utility_list'),
     # ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Remove with the `[diag]` logs.
     path('api/dine_flash_client_diag/', views.dine_flash_client_diag, name='dine_flash_client_diag'),
+    # Hospital Flash Called-flow diagnostic breadcrumbs → orders.log (HF only).
+    path(
+        'api/hospital_flash_client_diag/',
+        views.hospital_flash_client_diag,
+        name='hospital_flash_client_diag',
+    ),
     # DineFlash Buffet System URLs
     path('api/buffet_submit_order/', buffet_views.buffet_submit_order, name='buffet_submit_order'),
     path(
