@@ -123,6 +123,28 @@ function inferProjectFromUrl(url) {
   }
 }
 
+// Buffet item-level notification identity (tag + cache key).
+// Only when dine_flash_buffet AND top-level item_id is present.
+// Same order+item → same identity (type is NOT part of identity).
+function buffetNotificationIdentity(payload) {
+  const token = payload?.token_no;
+  if (
+    EXPECTED_PROJECT === "dine_flash_buffet" &&
+    payload?.item_id != null &&
+    String(payload.item_id).trim() !== ""
+  ) {
+    const itemId = String(payload.item_id).trim();
+    return {
+      tag: `${token}:${itemId}`,
+      key: `push_${token}_${itemId}`,
+    };
+  }
+  return {
+    tag: token,
+    key: `push_${token}`,
+  };
+}
+
 // ============================================================================
 // 🧱 Install & Activate
 // ============================================================================
@@ -232,7 +254,7 @@ self.addEventListener("push", (event) => {
     if (!seq) return;
   }
 
-  const key = `push_${payload.token_no}`;
+  const { tag: notificationTag, key } = buffetNotificationIdentity(payload);
 
   // 🔹 Notify active clients (live update)
   event.waitUntil((async () => {
@@ -345,7 +367,7 @@ self.addEventListener("push", (event) => {
           data: payload,
           icon: icon,
           badge: icon,
-          tag: payload.token_no,
+          tag: notificationTag,
           requireInteraction: true,
           vibrate: [200, 100, 200],
           renotify: true,
@@ -363,8 +385,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const token = data.token_no;
-  const key = `push_${token}`;
+  const { key } = buffetNotificationIdentity(data);
 
   event.waitUntil(
     (async () => {
