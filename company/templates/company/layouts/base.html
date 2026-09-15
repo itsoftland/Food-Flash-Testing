@@ -121,7 +121,7 @@
             </li>
             {% endif %}
             {% if PROJECT_NAME != "airline_flash" %}
-            {% if PROJECT_NAME != "dine_flash" %}
+            {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "dine_flash_buffet" %}
 
             <li class="nav-item">
               <a href="{% url 'company:keypad_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'keypad_devices' %}active{% endif %}">
