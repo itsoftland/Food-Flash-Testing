@@ -14,6 +14,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const descriptionInput = document.querySelector('textarea[name="description"]');
   const buffetPreAnnouncementInput = document.getElementById('buffet-pre-announcement-input');
   const buffetServiceTimeInput = document.getElementById('buffet-service-time-input');
+  const createOptionsSection = document.getElementById('create-utility-options-section');
+  const createOptionsListContainer = document.getElementById('create-options-list-container');
+  const createOptionsErrorDiv = document.getElementById('create-options-error-message');
+  const createOptionNameInput = document.getElementById('create-new-option-name');
+  const createOptionStatusInput = document.getElementById('create-new-option-status');
+  const createOptionIdInput = document.getElementById('create-edit-option-id');
+  const createOptionFormTitle = document.getElementById('create-option-form-title');
+  const createSaveOptionBtn = document.getElementById('create-save-option-btn');
+  const createCancelEditOptBtn = document.getElementById('create-cancel-edit-opt-btn');
+  const createCancelEditRow = document.getElementById('create-cancel-edit-row');
+  const isBuffetCreatePage = Boolean(createOptionsSection);
   const BUFFET_MAX_IMAGES = 3;
   const isActiveCheckbox = document.querySelector('input[name="is_active"]');
   const departmentTypeSelect = document.getElementById('department-type-select');
@@ -100,6 +111,216 @@ document.addEventListener('DOMContentLoaded', async () => {
     getSelectedGroupDepartmentIds,
     setGroupDepartmentCheckboxMessage,
   } = groupDepartmentsUiModule || {};
+
+  /* ------------------------------------
+     Buffet-only: draft options for new Food Counter
+     (persisted via existing option APIs after create)
+  ------------------------------------ */
+  let draftOptions = [];
+  let draftOptionSeq = 1;
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+  }
+
+  function showCreateOptionsError(msg) {
+    if (!createOptionsErrorDiv) return;
+    createOptionsErrorDiv.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      ${escapeHtml(msg)}
+      <button type="button" class="btn-close" style="padding: 0.6rem;" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>`;
+    createOptionsErrorDiv.style.display = 'block';
+  }
+
+  function clearCreateOptionsError() {
+    if (!createOptionsErrorDiv) return;
+    createOptionsErrorDiv.innerHTML = '';
+    createOptionsErrorDiv.style.display = 'none';
+  }
+
+  function resetCreateOptionForm() {
+    if (createOptionNameInput) createOptionNameInput.value = '';
+    if (createOptionStatusInput) createOptionStatusInput.value = 'true';
+    if (createOptionIdInput) createOptionIdInput.value = '';
+    if (createOptionFormTitle) createOptionFormTitle.textContent = 'Add New Option';
+    if (createSaveOptionBtn) createSaveOptionBtn.textContent = 'Save';
+    if (createCancelEditRow) createCancelEditRow.style.display = 'none';
+  }
+
+  function renderDraftOptions() {
+    if (!createOptionsListContainer) return;
+
+    if (draftOptions.length === 0) {
+      createOptionsListContainer.innerHTML =
+        '<p class="text-muted small mb-0" id="create-options-empty">No options configured.</p>';
+      return;
+    }
+
+    let optionsHtml = '<ul class="list-group mb-0">';
+    draftOptions.forEach((opt) => {
+      const activeBadge = opt.is_active
+        ? '<span class="badge bg-success" style="font-size:0.7em;">Active</span>'
+        : '<span class="badge bg-warning text-dark" style="font-size:0.7em;">Inactive</span>';
+      optionsHtml += `
+        <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+          <div>
+            <strong>${escapeHtml(opt.name)}</strong> ${activeBadge}
+          </div>
+          <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary create-edit-opt-btn" data-id="${escapeHtml(opt.tempId)}" data-name="${escapeHtml(opt.name)}" data-active="${opt.is_active}"><i class="fas fa-edit"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger create-del-opt-btn" data-id="${escapeHtml(opt.tempId)}"><i class="fas fa-trash"></i></button>
+          </div>
+        </li>
+      `;
+    });
+    optionsHtml += '</ul>';
+    createOptionsListContainer.innerHTML = optionsHtml;
+
+    createOptionsListContainer.querySelectorAll('.create-edit-opt-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearCreateOptionsError();
+        createOptionNameInput.value = btn.dataset.name;
+        createOptionStatusInput.value = String(btn.dataset.active === 'true');
+        createOptionIdInput.value = btn.dataset.id;
+        createOptionFormTitle.textContent = 'Edit Option';
+        createSaveOptionBtn.textContent = 'Update';
+        createCancelEditRow.style.display = 'block';
+      });
+    });
+
+    createOptionsListContainer.querySelectorAll('.create-del-opt-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!confirm('Are you sure you want to delete this option?')) return;
+        draftOptions = draftOptions.filter((opt) => opt.tempId !== btn.dataset.id);
+        resetCreateOptionForm();
+        clearCreateOptionsError();
+        renderDraftOptions();
+      });
+    });
+  }
+
+  function saveDraftOption() {
+    if (!isBuffetCreatePage) return;
+    clearCreateOptionsError();
+
+    const nameVal = createOptionNameInput ? createOptionNameInput.value.trim() : '';
+    const activeVal = createOptionStatusInput
+      ? createOptionStatusInput.value === 'true'
+      : true;
+    const optId = createOptionIdInput ? createOptionIdInput.value : '';
+
+    if (!nameVal) {
+      showCreateOptionsError('Option name is required');
+      return;
+    }
+
+    const duplicate = draftOptions.some(
+      (opt) =>
+        opt.name.toLowerCase() === nameVal.toLowerCase() &&
+        opt.tempId !== optId
+    );
+    if (duplicate) {
+      showCreateOptionsError('Option with this name already exists for this Food Counter');
+      return;
+    }
+
+    if (optId) {
+      const existing = draftOptions.find((opt) => opt.tempId === optId);
+      if (existing) {
+        existing.name = nameVal;
+        existing.is_active = activeVal;
+      }
+    } else {
+      draftOptions.push({
+        tempId: `draft-${draftOptionSeq++}`,
+        name: nameVal,
+        is_active: activeVal,
+      });
+    }
+
+    resetCreateOptionForm();
+    renderDraftOptions();
+  }
+
+  async function persistDraftOptions(utilityId) {
+    if (!isBuffetCreatePage || !draftOptions.length) {
+      return { failed: [] };
+    }
+
+    const failed = [];
+    for (const opt of draftOptions) {
+      try {
+        const createResp = await fetchWithAutoRefresh(
+          `${window.BASE}company/api/create_utility_option/${utilityId}/`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': AppUtils.getCSRFToken(),
+            },
+            body: JSON.stringify({ name: opt.name, is_active: opt.is_active }),
+          }
+        );
+        const createRes = await createResp.json();
+        if (!createResp.ok) {
+          failed.push(opt.name);
+          continue;
+        }
+
+        // create_utility_option currently defaults is_active=True; sync inactive via update
+        if (!opt.is_active && createRes?.option?.id) {
+          const updateResp = await fetchWithAutoRefresh(
+            `${window.BASE}company/api/update_utility_option/${createRes.option.id}/`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': AppUtils.getCSRFToken(),
+              },
+              body: JSON.stringify({ name: opt.name, is_active: false }),
+            }
+          );
+          if (!updateResp.ok) {
+            failed.push(opt.name);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to persist draft option:', opt.name, err);
+        failed.push(opt.name);
+      }
+    }
+
+    return { failed };
+  }
+
+  function clearDraftOptions() {
+    draftOptions = [];
+    draftOptionSeq = 1;
+    resetCreateOptionForm();
+    clearCreateOptionsError();
+    renderDraftOptions();
+  }
+
+  if (isBuffetCreatePage) {
+    renderDraftOptions();
+    if (createSaveOptionBtn) {
+      createSaveOptionBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        saveDraftOption();
+      });
+    }
+    if (createCancelEditOptBtn) {
+      createCancelEditOptBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetCreateOptionForm();
+        clearCreateOptionsError();
+      });
+    }
+  }
 
   /* ------------------------------------
      Token Mode Choices (from Utility model)
@@ -409,12 +630,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       const result = await response.json();
 
       if (response.ok) {
+        const utilityId = result?.utility?.id;
+        let optionsWarning = '';
+
+        if (isBuffet && utilityId && draftOptions.length) {
+          const { failed } = await persistDraftOptions(utilityId);
+          if (failed.length) {
+            optionsWarning =
+              ` Food Counter created, but some options could not be saved: ${failed.join(', ')}. You can manage them from Utilities → Manage Options.`;
+          }
+        }
+
         ModalService.showSuccess(
-          isHospital ? 'Department created successfully!' : 'Utility created successfully!',
+          (isHospital ? 'Department created successfully!' : 'Utility created successfully!') +
+            optionsWarning,
           () => {
             createUtilityForm.reset();
             // Reset vendor select to default
             populateVendorSelect();
+            if (isBuffet) {
+              clearDraftOptions();
+            }
             // form.reset() does not fire change; re-sync Hospital Flash layout to Individual defaults
             if (isHospital) {
               updateHospitalFormLayout();

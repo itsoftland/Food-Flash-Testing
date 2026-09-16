@@ -150,6 +150,42 @@
                             <small class="form-text text-muted">Select up to 3 images. JPEG, PNG, GIF or WebP, max 2 MB each. Served to kitchen apps via the assigned utilities API.</small>
                         </div>
                     </div>
+
+                    <div class="row" id="create-utility-options-section">
+                        <div class="col-12 mb-3">
+                            <hr>
+                            <h5 class="mb-1">Manage Options</h5>
+                            <div id="create-options-error-message" style="display: none; margin-bottom: 12px;"></div>
+                            <div id="create-options-list-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;">
+                                <p class="text-muted small mb-0" id="create-options-empty">No options configured.</p>
+                            </div>
+                            <h6 class="mb-2" id="create-option-form-title" style="font-size: 0.95rem;">Add New Option</h6>
+                            <div id="create-manage-option-form" class="px-0 py-0" style="max-width: 100%;">
+                                <input type="hidden" id="create-edit-option-id" value="">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-7 mb-2">
+                                        <label class="form-label" for="create-new-option-name" style="font-size: 0.85rem; margin-bottom: 4px;">Option Name</label>
+                                        <input type="text" id="create-new-option-name" class="form-control form-control-sm" placeholder="e.g. No onion" maxlength="100">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label" for="create-new-option-status" style="font-size: 0.85rem; margin-bottom: 4px;">Status</label>
+                                        <select id="create-new-option-status" class="form-select form-select-sm">
+                                            <option value="true">Active</option>
+                                            <option value="false">Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <button type="button" id="create-save-option-btn" class="btn btn-golden btn-sm w-100">Save</button>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-1" id="create-cancel-edit-row" style="display: none;">
+                                    <div class="col-12 text-end">
+                                        <button type="button" class="btn btn-sm btn-secondary" id="create-cancel-edit-opt-btn">Cancel Edit</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     {% endif %}
 
                     <div class="mb-3 form-check">
