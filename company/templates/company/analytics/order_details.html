@@ -28,19 +28,20 @@
         <!-- 🔍 Filter Form -->
         <form id="order-filter-form">
             <div class="row align-items-end">
-            <div class="col-md-2 col-6">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} mb-2{% endif %}">
                 <label class="small mb-1">Outlet</label>
                 <select class="form-control form-control-sm" id="outlet-filter">
                 <option value="">All</option>
                 </select>
             </div>
-            <div class="col-md-2 col-6">
+            {# Dine Flash Buffet: hide Device/Status/Shown on TV/Notified from UI only; keep DOM for existing JS/API. #}
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
                 <label class="small mb-1">Device</label>
                 <select class="form-control form-control-sm" id="device-filter">
                 <option value="">All</option>
                 </select>
             </div>
-            <div class="col-md-2 col-6">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
                 <label class="small mb-1">Status</label>
                 <select class="form-control form-control-sm" id="status-filter">
                 <option value="">All</option>
@@ -56,7 +57,7 @@
                 {% endif %}
                 </select>
             </div>
-            <div class="col-md-2 col-6">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
                 <label class="small mb-1">Shown on TV</label>
                 <select class="form-control form-control-sm" id="shown-filter">
                 <option value="">All</option>
@@ -64,7 +65,7 @@
                 <option value="false">No</option>
                 </select>
             </div>
-            <div class="col-md-2 col-6">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
                 <label class="small mb-1">Notified</label>
                 <select class="form-control form-control-sm" id="notified-filter">
                 <option value="">All</option>
