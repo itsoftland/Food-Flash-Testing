@@ -286,26 +286,26 @@
             {% endif %}
 
             {% if PROJECT_NAME == "dine_flash_buffet" %}
-            <li class="nav-header">FOOD / UTILITY</li>
+            <li class="nav-header">MENU</li>
             <li class="nav-item">
               <a href="{% url 'company:utilities_management' %}"
                 class="nav-link {% if request.resolver_match.url_name == 'utilities_management' %}active{% endif %}">
                 <i class="nav-icon fas fa-list"></i>
-                <p>Manage Food Counters</p>
+                <p>Manage Food Menu</p>
               </a>
             </li>
             <li class="nav-item">
               <a href="{% url 'company:create_utility_page' %}"
                 class="nav-link {% if request.resolver_match.url_name == 'create_utility_page' %}active{% endif %}">
                 <i class="nav-icon fas fa-plus-circle"></i>
-                <p>New Food Counter</p>
+                <p>Add Menu</p>
               </a>
             </li>
             <li class="nav-item">
               <a href="{% url 'company:utility_user_mapping' %}"
                 class="nav-link {% if request.resolver_match.url_name == 'utility_user_mapping' %}active{% endif %}">
                 <i class="nav-icon fas fa-user-tag"></i>
-                <p>Food / Utility Mapping</p>
+                <p>Menu Mapping</p>
               </a>
             </li>
             <li class="nav-item">
