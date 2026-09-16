@@ -146,6 +146,94 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
   }
 
+  function formatPrepTimestamp(isoString) {
+    if (!isoString) return "Not recorded";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "Not recorded";
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  }
+
+  function formatDurationSeconds(totalSeconds) {
+    if (totalSeconds == null || !Number.isFinite(Number(totalSeconds))) return null;
+    let seconds = Math.max(0, Math.floor(Number(totalSeconds)));
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return minutes > 0 ? `${hours} hr ${minutes} min` : `${hours} hr`;
+    }
+    if (minutes > 0 && secs > 0) {
+      return `${minutes} min ${secs} sec`;
+    }
+    if (minutes > 0) {
+      return `${minutes} min`;
+    }
+    return `${secs} sec`;
+  }
+
+  function formatPreparationDetails(utility) {
+    const preparingAt = utility.preparing_at || null;
+    const readyAt = utility.ready_at || null;
+    const durationSeconds = utility.preparation_duration_seconds;
+    const serviceConfigured = Boolean(utility.service_time_configured);
+    const serviceMinutes = Number(utility.approximate_service_time) || 0;
+
+    let preparationTimeLabel = "Not recorded";
+    if (durationSeconds != null && Number.isFinite(Number(durationSeconds))) {
+      preparationTimeLabel = formatDurationSeconds(durationSeconds) || "Not recorded";
+    } else if (preparingAt && !readyAt) {
+      const currentStatus = String(utility.status || "").toLowerCase();
+      // Only "preparing" means kitchen is still working; cancelled/etc. never became ready.
+      preparationTimeLabel = currentStatus === "preparing" ? "In progress" : "Not recorded";
+    }
+
+    const expectedLabel = serviceConfigured
+      ? `${serviceMinutes} min`
+      : "Not configured";
+
+    let comparisonHtml = "";
+    if (durationSeconds != null && serviceConfigured) {
+      if (utility.within_expected === true) {
+        comparisonHtml = `
+          <div class="buffet-utility-detail-row buffet-prep-comparison buffet-prep-within">
+            <span class="buffet-utility-label">Service Time Check</span>
+            <span class="buffet-utility-time">Within Expected Time</span>
+          </div>`;
+      } else if (utility.within_expected === false) {
+        const exceededLabel = formatDurationSeconds(utility.exceeded_by_seconds) || "—";
+        comparisonHtml = `
+          <div class="buffet-utility-detail-row buffet-prep-comparison buffet-prep-exceeded">
+            <span class="buffet-utility-label">Exceeded By</span>
+            <span class="buffet-utility-time">${exceededLabel}</span>
+          </div>`;
+      }
+    }
+
+    return `
+      <div class="buffet-prep-details">
+        <div class="buffet-prep-details-title">Preparation Details</div>
+        <div class="buffet-utility-detail-row">
+          <span class="buffet-utility-label">Preparing At</span>
+          <span class="buffet-utility-time">${formatPrepTimestamp(preparingAt)}</span>
+        </div>
+        <div class="buffet-utility-detail-row">
+          <span class="buffet-utility-label">Ready At</span>
+          <span class="buffet-utility-time">${formatPrepTimestamp(readyAt)}</span>
+        </div>
+        <div class="buffet-utility-detail-row">
+          <span class="buffet-utility-label">Preparation Time</span>
+          <span class="buffet-utility-time">${preparationTimeLabel}</span>
+        </div>
+        <div class="buffet-utility-detail-row">
+          <span class="buffet-utility-label">Expected Service Time</span>
+          <span class="buffet-utility-time">${expectedLabel}</span>
+        </div>
+        ${comparisonHtml}
+      </div>`;
+  }
+
   function formatCustomizations(customizations) {
     if (!Array.isArray(customizations) || customizations.length === 0) return "";
     const text = customizations.map((c) => String(c).trim()).filter(Boolean).join(", ");
@@ -236,6 +324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <span class="buffet-utility-label">Latest Status Change</span>
               <span class="buffet-utility-time">${formatDateTime(utility.latest_status_change_at)}</span>
             </div>
+            ${formatPreparationDetails(utility)}
             ${formatCustomizations(utility.customizations)}
             ${formatRemarks(utility.remarks)}
           </div>

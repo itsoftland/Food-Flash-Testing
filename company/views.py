@@ -1903,6 +1903,91 @@ def _buffet_item_status_history_from_chat(booking_id, vendor_id):
     return history
 
 
+def _buffet_item_prep_events_from_chat(booking_id, vendor_id):
+    """
+    Dine Flash Buffet analytics: earliest Preparing and Ready ChatMessage times
+    per BuffetOrderItem from buffet_item_update audit rows.
+
+    Returns item_id -> {"preparing_at": datetime|None, "ready_at": datetime|None}.
+    Does not use item/order created_at or updated_at.
+    """
+    events = {}
+    messages = ChatMessage.objects.filter(
+        booking_id=booking_id,
+        vendor_id=vendor_id,
+        sender='system',
+    ).order_by('created_at', 'id')
+
+    for msg in messages:
+        if not msg.message_text:
+            continue
+        try:
+            payload = json.loads(msg.message_text)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if payload.get('type') != 'buffet_item_update':
+            continue
+        status_key = (payload.get('status') or '').strip().lower()
+        if status_key not in ('preparing', 'ready'):
+            continue
+        raw_item_id = payload.get('item_id')
+        if raw_item_id is None:
+            continue
+        try:
+            item_id = int(raw_item_id)
+        except (TypeError, ValueError):
+            continue
+        entry = events.setdefault(item_id, {'preparing_at': None, 'ready_at': None})
+        if status_key == 'preparing' and entry['preparing_at'] is None:
+            entry['preparing_at'] = msg.created_at
+        elif status_key == 'ready' and entry['ready_at'] is None:
+            entry['ready_at'] = msg.created_at
+    return events
+
+
+def _buffet_prep_analytics_fields(prep_events, item_id, approximate_service_time):
+    """
+    Build preparation-time analytics fields for one buffet line.
+    Duration only when both earliest preparing and earliest ready exist.
+    Service-time comparison only when approximate_service_time > 0.
+    """
+    entry = prep_events.get(item_id) or {}
+    preparing_at = entry.get('preparing_at')
+    ready_at = entry.get('ready_at')
+
+    duration_seconds = None
+    if preparing_at is not None and ready_at is not None and ready_at >= preparing_at:
+        duration_seconds = int((ready_at - preparing_at).total_seconds())
+
+    try:
+        service_minutes = int(approximate_service_time or 0)
+    except (TypeError, ValueError):
+        service_minutes = 0
+    if service_minutes < 0:
+        service_minutes = 0
+    service_configured = service_minutes > 0
+
+    within_expected = None
+    exceeded_by_seconds = None
+    if duration_seconds is not None and service_configured:
+        expected_seconds = service_minutes * 60
+        if duration_seconds > expected_seconds:
+            within_expected = False
+            exceeded_by_seconds = duration_seconds - expected_seconds
+        else:
+            within_expected = True
+
+    return {
+        'preparing_at': preparing_at.isoformat() if preparing_at else None,
+        'ready_at': ready_at.isoformat() if ready_at else None,
+        'preparation_duration_seconds': duration_seconds,
+        'approximate_service_time': service_minutes,
+        'service_time_configured': service_configured,
+        'within_expected': within_expected,
+        'exceeded_by_seconds': exceeded_by_seconds,
+    }
+
+
 def _buffet_latest_status_change_at(item, chat_history):
     """
     Latest status change time for a buffet line.
@@ -1951,6 +2036,9 @@ def buffet_order_utilities_detail(request, order_id):
     Dine Flash Buffet company Order Details: utilities/services for one order.
     Each BuffetOrderItem is returned separately with current status and latest
     status change time (ChatMessage for transitions; created_at when still created).
+
+    Also includes per-line preparation analytics derived from earliest
+    preparing/ready buffet_item_update ChatMessages vs Utility.approximate_service_time.
     """
     if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
         return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -1968,6 +2056,7 @@ def buffet_order_utilities_detail(request, order_id):
         return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
     chat_history = _buffet_item_status_history_from_chat(source_order_id, vendor.id)
+    prep_events = _buffet_item_prep_events_from_chat(source_order_id, vendor.id)
 
     if order and table_booking_no is None:
         table_booking_no = order.table_booking_no
@@ -1983,6 +2072,8 @@ def buffet_order_utilities_detail(request, order_id):
         for item in items:
             latest_change = _buffet_latest_status_change_at(item, chat_history)
             customizations = item.customizations if isinstance(item.customizations, list) else []
+            service_time = getattr(item.utility, 'approximate_service_time', 0) if item.utility else 0
+            prep_fields = _buffet_prep_analytics_fields(prep_events, item.id, service_time)
             utilities.append({
                 'id': item.id,
                 'utility_name': item.utility.display_name if item.utility else 'Unknown',
@@ -1992,10 +2083,12 @@ def buffet_order_utilities_detail(request, order_id):
                 'customizations': customizations,
                 'remarks': (item.remarks or '').strip(),
                 'is_grouped': item.is_grouped,
+                **prep_fields,
             })
     else:
         for item_id, entry in sorted(chat_history.items()):
             changed_at = entry.get('changed_at')
+            prep_fields = _buffet_prep_analytics_fields(prep_events, item_id, 0)
             utilities.append({
                 'id': item_id,
                 'utility_name': entry.get('item_name') or 'Unknown',
@@ -2005,6 +2098,7 @@ def buffet_order_utilities_detail(request, order_id):
                 'customizations': entry.get('customizations') or [],
                 'remarks': entry.get('remarks') or '',
                 'is_grouped': False,
+                **prep_fields,
             })
 
     if not utilities:

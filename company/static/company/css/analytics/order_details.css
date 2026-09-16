@@ -334,6 +334,31 @@ html, body {
     margin-top: 6px;
 }
 
+.buffet-prep-details {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e5e5;
+}
+
+.buffet-prep-details-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.buffet-prep-comparison.buffet-prep-within .buffet-utility-time {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.buffet-prep-comparison.buffet-prep-exceeded .buffet-utility-time {
+    color: #c62828;
+    font-weight: 600;
+}
+
 /* Cell content styling */
 .table-body-container td {
     overflow: hidden;
