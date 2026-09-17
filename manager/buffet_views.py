@@ -532,8 +532,10 @@ def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
 
 def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
     """
-    Build [{token_no, booking_id, submitted_at, utilities: [...]}, ...] for today's orders
-    that still have at least one visible line after optional delivered stripping.
+    Build [{token_no, booking_id, table_no, submitted_at, utilities: [...]}, ...] for today's
+    orders that still have at least one visible line after optional delivered stripping.
+
+    table_no is Order.table_booking_no (where buffet order create stores the table number).
     """
     start_dt, end_dt = get_vendor_business_day_range(vendor)
     base_qs = _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile)
@@ -556,6 +558,7 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
             {
                 "token_no": order.token_no,
                 "booking_id": order.id,
+                "table_no": order.table_booking_no,
                 "submitted_at": order.created_at.isoformat(),
                 "utilities": utilities,
             }
