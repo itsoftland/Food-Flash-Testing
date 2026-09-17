@@ -11,7 +11,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
-  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  // Cache-bust apiEndpoints so newly added Buffet saved-QR constants are picked up after deploy.
+  const assetVersion = encodeURIComponent(window.APP_VERSION || "1.0.0");
+  const apiModule = await import(
+    `${window.BASE}static/utils/js/apiEndpoints.js?v=${assetVersion}`
+  );
   const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
