@@ -29,6 +29,12 @@ urlpatterns = [
     path('buffet_kitchen/', views.buffet_kitchen, name='buffet_kitchen'),
     path('table_qr_generator/', views.table_qr_generator, name='table_qr_generator'),
     path('api/generate_buffet_table_qr/', views.generate_buffet_table_qr, name='generate_buffet_table_qr'),
+    path('api/buffet_saved_table_qrs/', views.buffet_saved_table_qrs, name='buffet_saved_table_qrs'),
+    path(
+        'api/buffet_saved_table_qrs/<int:saved_id>/',
+        views.delete_buffet_saved_table_qr,
+        name='delete_buffet_saved_table_qr',
+    ),
     path('branch_qr_generator/', views.branch_qr_generator, name='branch_qr_generator'),
     path('api/generate_hospital_branch_qr/', views.generate_hospital_branch_qr, name='generate_hospital_branch_qr'),
     path('utility_user_mapping/', views.utility_user_mapping, name='utility_user_mapping'),

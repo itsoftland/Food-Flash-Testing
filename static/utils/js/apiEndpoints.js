@@ -125,6 +125,7 @@ const RELATIVE_API_ENDPOINTS = {
   BUFFET_RESOLVE_ORDER_LOOKUP: "api/buffet/resolve_order_lookup/",
   BUFFET_ACTIVE_ORDERS: "api/buffet/active_orders/",
   GENERATE_BUFFET_TABLE_QR: "company/api/generate_buffet_table_qr/",
+  BUFFET_SAVED_TABLE_QRS: "company/api/buffet_saved_table_qrs/",
   GENERATE_HOSPITAL_BRANCH_QR: "company/api/generate_hospital_branch_qr/",
   // ⚠️ TEMP DIAGNOSTIC (iOS push-delivery chain). Remove with the `[diag]` logs.
   DINE_FLASH_CLIENT_DIAG: "api/dine_flash_client_diag/",

@@ -32,6 +32,16 @@
   #print-area {
     display: none;
   }
+  .saved-qr-table th,
+  .saved-qr-table td {
+    vertical-align: middle;
+  }
+  .saved-qr-empty {
+    display: none;
+  }
+  .saved-qr-empty.visible {
+    display: block;
+  }
   @media print {
     body * {
       visibility: hidden;
@@ -53,7 +63,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4" style="max-width: 720px;">
+<div class="container-fluid mt-4" style="max-width: 960px;">
   <h2 class="mb-2">Table QR Generator</h2>
   <p class="text-muted mb-4">
     Generate a QR code for a buffet table. Customers scan it to open the booking page with the table number prefilled.
@@ -124,8 +134,35 @@
           <button type="button" id="print-qr-btn" class="btn btn-outline-secondary">
             <i class="fas fa-print me-1"></i> Print QR
           </button>
+          <button type="button" id="save-qr-btn" class="btn btn-outline-primary">
+            <i class="fas fa-save me-1"></i> Save QR
+          </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 rounded-3 p-4 mt-4">
+    <h3 class="h5 mb-3">Saved Table QR Codes</h3>
+    <p class="text-muted mb-3">
+      Previously saved table QR codes. View shows the exact saved QR; delete removes it from this list only.
+    </p>
+    <div id="saved-qr-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+    <div id="saved-qr-empty" class="saved-qr-empty alert alert-light border text-muted mb-0">
+      No saved table QR codes yet.
+    </div>
+    <div class="table-responsive">
+      <table id="saved-qr-table" class="table table-hover saved-qr-table mb-0" style="display: none;">
+        <thead>
+          <tr>
+            <th scope="col">Outlet</th>
+            <th scope="col">Table</th>
+            <th scope="col">Saved</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="saved-qr-tbody"></tbody>
+      </table>
     </div>
   </div>
   {% endif %}

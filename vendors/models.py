@@ -1197,6 +1197,47 @@ class BuffetActiveOrder(models.Model):
         )
 
 
+class BuffetSavedTableQr(models.Model):
+    """
+    Dine Flash Buffet only — Company Admin saved table QR catalog entry.
+
+    Stores a specific generated qr_token so the admin can view/reprint the same
+    QR later. Multiple rows for the same vendor+table_no are allowed. Deleting
+    a row only removes the admin list entry; it does not invalidate the token.
+    """
+
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name="buffet_saved_table_qrs",
+    )
+    table_no = models.CharField(max_length=50)
+    qr_token = models.TextField()
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="buffet_saved_table_qrs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["vendor", "-created_at"],
+                name="buffet_saved_qr_vendor_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"BuffetSavedTableQr vendor={self.vendor_id} "
+            f"table={self.table_no} id={self.id}"
+        )
+
+
 class DineFlashBookingLookup(models.Model):
     """
     Dine Flash only opaque recovery pointer: order_lookup_id → current booking Order.

@@ -31,7 +31,8 @@ from vendors.models import (Vendor, Device, AdminOutlet,
                             AndroidAPK,VendorConfig,
                             OrderStatusHistory,ArchivedOrderStatusHistory,
                             Utility,TVDeviceConfig,UtilityOption,
-                            TVAdvertisement,BuffetOrderItem,ChatMessage)
+                            TVAdvertisement,BuffetOrderItem,ChatMessage,
+                            BuffetSavedTableQr)
 
 from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import (
@@ -41,7 +42,11 @@ from static.utils.functions.utils import (
 )
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
-from orders.buffet_table_qr import is_valid_buffet_table_no, sign_buffet_table_qr
+from orders.buffet_table_qr import (
+    is_valid_buffet_table_no,
+    sign_buffet_table_qr,
+    unsign_buffet_table_qr,
+)
 from orders.hospital_qr import sign_hospital_branch_qr
 from vendors.utils import (
     buffet_utility_image_payload,
@@ -1084,6 +1089,143 @@ def generate_buffet_table_qr(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+def _buffet_saved_table_qr_url(request, qr_token):
+    """Rebuild the absolute Buffet table-booking URL for a saved qr_token."""
+    booking_path = reverse("buffet_table_booking")
+    return request.build_absolute_uri(
+        f"{booking_path}?qr_token={quote(qr_token, safe='')}"
+    )
+
+
+def _serialize_buffet_saved_table_qr(request, saved):
+    vendor = saved.vendor
+    vendor_label = vendor.name
+    if vendor.location:
+        vendor_label = f"{vendor.name} — {vendor.location}"
+    return {
+        "id": saved.id,
+        "vendor_id": str(vendor.vendor_id),
+        "vendor_name": vendor.name,
+        "vendor_location": vendor.location or "",
+        "vendor_label": vendor_label,
+        "table_no": saved.table_no,
+        "qr_token": saved.qr_token,
+        "qr_url": _buffet_saved_table_qr_url(request, saved.qr_token),
+        "created_at": saved.created_at.isoformat() if saved.created_at else None,
+    }
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def buffet_saved_table_qrs(request):
+    """
+    Dine Flash Buffet only — list or save Company Admin table QR records.
+    Multiple saves for the same outlet/table are allowed.
+    """
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return Response({"error": "Outlet not found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+    vendors_qs = admin_outlet.vendors.all()
+
+    if request.method == "GET":
+        saved_rows = (
+            BuffetSavedTableQr.objects.filter(vendor__in=vendors_qs)
+            .select_related("vendor")
+            .order_by("-created_at")
+        )
+        return Response(
+            [_serialize_buffet_saved_table_qr(request, row) for row in saved_rows],
+            status=status.HTTP_200_OK,
+        )
+
+    # POST — save a previously generated QR token (do not re-sign).
+    vendor, vendor_error = _resolve_buffet_table_qr_vendor(
+        admin_outlet, request.data.get("vendor_id")
+    )
+    if vendor_error:
+        status_code = status.HTTP_400_BAD_REQUEST
+        if vendor is None and "unauthorized" in vendor_error.lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        return Response({"error": vendor_error}, status=status_code)
+
+    table_no = request.data.get("table_no")
+    if not is_valid_buffet_table_no(table_no):
+        return Response(
+            {"error": "Table number must be a positive integer."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    normalized_table_no = str(int(str(table_no).strip()))
+
+    qr_token = str(request.data.get("qr_token") or "").strip()
+    if not qr_token:
+        return Response(
+            {"error": "qr_token is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    payload = unsign_buffet_table_qr(qr_token)
+    if not payload:
+        return Response(
+            {"error": "Invalid qr_token."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if str(payload["vendor_id"]) != str(vendor.vendor_id):
+        return Response(
+            {"error": "qr_token does not match the selected outlet."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if payload["table_no"] != normalized_table_no:
+        return Response(
+            {"error": "qr_token does not match the table number."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    saved = BuffetSavedTableQr.objects.create(
+        vendor=vendor,
+        table_no=normalized_table_no,
+        qr_token=qr_token,
+        created_by=request.user,
+    )
+    return Response(
+        _serialize_buffet_saved_table_qr(request, saved),
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_buffet_saved_table_qr(request, saved_id):
+    """
+    Dine Flash Buffet only — remove a saved table QR from the admin list.
+    Does not invalidate the underlying signed token.
+    """
+    if (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() != "dine_flash_buffet":
+        return Response({"error": "Not supported"}, status=status.HTTP_400_BAD_REQUEST)
+
+    admin_outlet = getattr(request.user, "admin_outlet", None)
+    if not admin_outlet:
+        return Response({"error": "Outlet not found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+    saved = (
+        BuffetSavedTableQr.objects.filter(
+            id=saved_id,
+            vendor__admin_outlet=admin_outlet,
+        )
+        .select_related("vendor")
+        .first()
+    )
+    if not saved:
+        return Response({"error": "Saved QR not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    saved.delete()
+    return Response({"message": "Saved QR deleted."}, status=status.HTTP_200_OK)
 
 
 @login_required
