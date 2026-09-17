@@ -130,6 +130,7 @@
               </a>
             </li>
             {% endif %}
+            {% if PROJECT_NAME != "dine_flash_buffet" %}
             <li class="nav-item has-treeview {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' or request.resolver_match.url_name == 'tv_configuration' %}menu-open{% endif %}">
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' or request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv"></i>
@@ -161,6 +162,7 @@
                 </li>
               </ul>
             </li>
+            {% endif %}
             {% endif %}
             <li class="nav-item">
               <a href="{% url 'company:banners' %}" class="nav-link {% if request.resolver_match.url_name == 'banners' %}active{% endif %}">
