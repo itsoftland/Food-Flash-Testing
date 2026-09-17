@@ -257,7 +257,7 @@ DINE_FLASH_BUFFET = {
         "outlet_list": "Outlet List",
         "outlet_update":"Update Outlet Data",
         "order_update": "Table Allot",
-        "total_orders":"Total Bookings",
+        "total_orders":"Total Orders",
         "order_details":"Booking Details",
         "configurations":"Configurations",
         "utilities":"Food / Utility",
