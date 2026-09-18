@@ -22,7 +22,7 @@
       </div>
       <div class="col-sm-6 text-end">
         <a href="{% url 'company:create_utility_page' %}" class="btn-add-utility">
-          <i class="fas fa-plus"></i> {% if PROJECT_NAME == "hospital_flash" %}Add Department{% else %}Add Utility{% endif %}
+          <i class="fas fa-plus"></i> {% if PROJECT_NAME == "hospital_flash" %}Add Department{% elif PROJECT_NAME == "dine_flash_buffet" %}Add Menu{% else %}Add Utility{% endif %}
         </a>
       </div>
     </div>
