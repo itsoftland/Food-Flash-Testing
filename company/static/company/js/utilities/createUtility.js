@@ -642,7 +642,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         ModalService.showSuccess(
-          (isHospital ? 'Department created successfully!' : 'Utility created successfully!') +
+          (isHospital
+            ? 'Department created successfully!'
+            : isBuffet
+              ? 'Menu created successfully!'
+              : 'Utility created successfully!') +
             optionsWarning,
           () => {
             createUtilityForm.reset();
@@ -670,7 +674,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (result?.error) {
         message = result.error;
-        // Hospital Flash: remap shared backend wording at the presentation layer only
+        // Hospital Flash / Dine Flash Buffet: remap shared backend wording at the presentation layer only
         if (isHospital) {
           if (result.error === 'Display code already exists for this vendor') {
             message = isGroupDepartment
@@ -679,6 +683,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           } else if (result.error === 'Utility name already exists for this vendor') {
             message = 'Department name already exists for this branch';
           }
+        } else if (
+          isBuffet &&
+          result.error === 'Utility name already exists for this vendor'
+        ) {
+          message = 'Menu name already exists for this outlet';
         }
       } else if (result?.message) {
         message = result.message;
