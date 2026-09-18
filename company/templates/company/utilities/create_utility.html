@@ -11,14 +11,14 @@
 {% comment %} <link rel="stylesheet" href="{% static 'company/css/create_utility.css' %}"> {% endcomment %}
 {% endblock %}
 
-{% block title %}{{ LABELS.sidebar.new_utility }}{% endblock %}
+{% block title %}{% if PROJECT_NAME == "dine_flash_buffet" %}New Menu{% else %}{{ LABELS.sidebar.new_utility }}{% endif %}{% endblock %}
 
 {% block content %}
 <section class="content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1>{{ LABELS.sidebar.new_utility }}</h1>
+                <h1>{% if PROJECT_NAME == "dine_flash_buffet" %}New Menu{% else %}{{ LABELS.sidebar.new_utility }}{% endif %}</h1>
             </div>
         </div>
     </div>
