@@ -60,8 +60,12 @@
     <!-- Main Sidebar Container -->
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
       <a href="{% url 'company:dashboard' %}" class="brand-link text-center">
+        {% if PROJECT_NAME == "dine_flash_buffet" %}
+        <span class="brand-text">Food On Demand</span>
+        {% else %}
         <img id="main-logo" src="" alt="Main Logo" class="brand-image logo-lg">
         <img id="mini-logo" src="" alt="Mini Logo" class="brand-image logo-sm d-none">
+        {% endif %}
       </a>
 
       <div class="sidebar">
