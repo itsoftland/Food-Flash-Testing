@@ -194,7 +194,7 @@
                     </div>
 
                     <div class="mt-4">
-                        <button type="submit" class="btn btn-golden">{% if PROJECT_NAME == "hospital_flash" %}Create Department{% else %}Create Utility{% endif %}</button>
+                        <button type="submit" class="btn btn-golden">{% if PROJECT_NAME == "hospital_flash" %}Create Department{% elif PROJECT_NAME == "dine_flash_buffet" %}Create Menu{% else %}Create Utility{% endif %}</button>
                         <a href="{% url 'company:utilities_management' %}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
