@@ -18,7 +18,7 @@
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">{% if PROJECT_NAME == "hospital_flash" %}Departments{% else %}Utilities{% endif %}</h1>
+        <h1 class="page-title">{% if PROJECT_NAME == "hospital_flash" %}Departments{% elif PROJECT_NAME == "dine_flash_buffet" %}Menu{% else %}Utilities{% endif %}</h1>
       </div>
       <div class="col-sm-6 text-end">
         <a href="{% url 'company:create_utility_page' %}" class="btn-add-utility">
@@ -70,7 +70,7 @@
         <table class="utilities-table">
           <thead>
             <tr>
-              <th>{% if PROJECT_NAME == "hospital_flash" %}Department Name{% else %}Utility Name{% endif %}</th>
+              <th>{% if PROJECT_NAME == "hospital_flash" %}Department Name{% elif PROJECT_NAME == "dine_flash_buffet" %}Menu{% else %}Utility Name{% endif %}</th>
               <th>Display Name</th>
               {% if PROJECT_NAME == "hospital_flash" %}
               <th>Type</th>
