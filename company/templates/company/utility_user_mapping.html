@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container-fluid mt-4 max-w-lg mx-auto" style="max-width: 800px;">
     <div id="mapping-toast" class="mapping-toast" aria-live="polite" aria-atomic="true"></div>
-    <h2 class="mb-3">{% if PROJECT_NAME == "hospital_flash" %}Department User Mapping{% else %}Utility User Mapping{% endif %}</h2>
+    <h2 class="mb-3">{% if PROJECT_NAME == "hospital_flash" %}Department User Mapping{% elif PROJECT_NAME == "dine_flash_buffet" %}Menu Mapping{% else %}Utility User Mapping{% endif %}</h2>
     <p class="text-muted mb-4">{% if PROJECT_NAME == "hospital_flash" %}Map Department Users to individual departments so they only see relevant patient queue data.{% else %}Map your Kitchen Staff (Utility Users) to specific Food Counters so they only receive relevant items in their kitchen view.{% endif %}</p>
     
     <div class="card shadow-sm border-0 rounded-3 p-4 mt-3">
