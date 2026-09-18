@@ -39,7 +39,7 @@
               <tr>
                 <th>Id</th>
                 <th>Mac Address</th>
-                <th>Utility User</th>
+                <th>{% if PROJECT_NAME == "dine_flash_buffet" %}Kitchen Staff{% else %}Utility User{% endif %}</th>
                 <th>Created Time</th>
                 <th>Actions</th>
               </tr>
