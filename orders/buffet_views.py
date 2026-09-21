@@ -526,3 +526,107 @@ def buffet_utility_login(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def buffet_outlet_manager_login(request):
+    """
+    Buffet-only Outlet Manager login.
+
+    Authenticates username/password, requires role=outlet_manager, validates that
+    the supplied customer_id matches the manager's company, and requires a vendor
+    belonging to that company. Issues SimpleJWT tokens. No Android device/APK
+    registration is performed on this endpoint.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    username = request.data.get("username")
+    password = request.data.get("password")
+    customer_id = request.data.get("customer_id")
+
+    required = {
+        "username": username,
+        "password": password,
+        "customer_id": customer_id,
+    }
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        return Response(
+            {"error": f"Missing required fields: {', '.join(missing)}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    admin_outlets_qs = AdminOutlet.objects.filter(customer_id=customer_id).order_by("id")
+    if not admin_outlets_qs.exists():
+        return Response(
+            {"error": "Invalid customer_id."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    user = authenticate(username=username, password=password)
+    if not user:
+        return Response(
+            {"error": "Invalid username or password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    manager_profile = (
+        UserProfile.objects.select_related("vendor", "admin_outlet")
+        .filter(user=user, role="outlet_manager")
+        .first()
+    )
+    if not manager_profile:
+        return Response(
+            {"error": "This user does not have the 'outlet_manager' role."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    admin_outlet_ids = list(admin_outlets_qs.values_list("id", flat=True))
+    if manager_profile.admin_outlet_id not in admin_outlet_ids:
+        return Response(
+            {"error": "Outlet manager does not belong to this customer."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if manager_profile.vendor is None:
+        return Response(
+            {
+                "error": "Outlet manager is not mapped to any vendor. Please contact admin.",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if manager_profile.vendor.admin_outlet_id not in admin_outlet_ids:
+        return Response(
+            {
+                "error": (
+                    "Outlet manager vendor does not belong to this customer. "
+                    "Please contact admin."
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    admin_outlet = manager_profile.admin_outlet
+    refresh = RefreshToken.for_user(user)
+    return Response(
+        {
+            "message": "Login successful",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": {
+                "username": user.username,
+                "role": "Outlet Manager",
+                "vendor_id": manager_profile.vendor.id,
+                "vendor_name": manager_profile.vendor.name,
+                "customer_id": admin_outlet.customer_id if admin_outlet else None,
+                "outlet_name": admin_outlet.customer_name if admin_outlet else None,
+                "manager_id": manager_profile.id,
+                "manager_name": manager_profile.name,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )

@@ -71,6 +71,11 @@ urlpatterns = [
         name='buffet_active_orders',
     ),
     path('api/buffet/utility-login/', buffet_views.buffet_utility_login, name='buffet_utility_login'),
+    path(
+        'api/buffet/outlet-manager-login/',
+        buffet_views.buffet_outlet_manager_login,
+        name='buffet_outlet_manager_login',
+    ),
     path('buffet/table_booking/', buffet_views.buffet_table_booking, name='buffet_table_booking'),
     path('buffet/utility_selection/', buffet_views.buffet_utility_selection, name='buffet_utility_selection'),
     path('buffet/combined_options/', buffet_views.buffet_combined_options, name='buffet_combined_options'),
