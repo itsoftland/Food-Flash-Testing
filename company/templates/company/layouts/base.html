@@ -116,6 +116,12 @@
                 <p>Android Tabs</p>
               </a>
             </li>
+            <li class="nav-item">
+              <a href="{% url 'company:manager_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'manager_devices' %}active{% endif %}">
+                <i class="nav-icon fas fa-mobile-retro"></i>
+                <p>Manager Devices</p>
+              </a>
+            </li>
             {% else %}
             <li class="nav-item">
               <a href="{% url 'company:manager_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'manager_devices' %}active{% endif %}">

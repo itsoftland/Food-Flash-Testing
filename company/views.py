@@ -711,14 +711,25 @@ def get_manager_devices(request):
         return Response({"error": "AdminOutlet not associated with this user."}, status=404)
 
     filter_type = request.GET.get('filter', 'all')  # Options: mapped, unmapped, all
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    base_qs = AndroidAPK.objects.filter(admin_outlet=admin_outlet)
 
-    if filter_type == 'mapped':
-        devices = AndroidAPK.objects.filter(admin_outlet=admin_outlet,user_profile__isnull=False)
+    if project == "dine_flash_buffet":
+        # Buffet Manager Devices: outlet managers + shared unmapped pool only.
+        outlet_manager_q = Q(user_profile__role="outlet_manager")
+        if filter_type == "mapped":
+            devices = base_qs.filter(outlet_manager_q)
+        elif filter_type == "unmapped":
+            devices = base_qs.filter(user_profile__isnull=True)
+        else:  # 'all' or invalid filter
+            devices = base_qs.filter(outlet_manager_q | Q(user_profile__isnull=True))
+    elif filter_type == 'mapped':
+        devices = base_qs.filter(user_profile__isnull=False)
     elif filter_type == 'unmapped':
-        devices = AndroidAPK.objects.filter(admin_outlet=admin_outlet, user_profile__isnull=True)
+        devices = base_qs.filter(user_profile__isnull=True)
     else:  # 'all' or invalid filter
         # Return both mapped (only for this admin_outlet) and unmapped devices
-        devices = AndroidAPK.objects.filter(admin_outlet=admin_outlet)
+        devices = base_qs
 
     serializer = ManagerDeviceSerializer(devices, many=True)
     return Response({
@@ -855,6 +866,13 @@ def map_manager_devices(request, device_id):
     # ✅ Enforce same admin outlet
     if manager.admin_outlet != admin_outlet:
         return Response({"error": "Vendor does not belong to your admin outlet."}, status=status.HTTP_403_FORBIDDEN)
+
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    if project == "dine_flash_buffet" and manager.role != "outlet_manager":
+        return Response(
+            {"error": "Selected user is not an outlet manager."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     manager_devices.user_profile = manager
     manager_devices.save(update_fields=['user_profile'])

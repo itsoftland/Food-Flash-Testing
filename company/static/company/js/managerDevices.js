@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tableBody = document.getElementById('manager-devices-table-body');
   const filterDropdown = document.getElementById('deviceFilter');
-  const showReleaseDevice = (window.PROJECT_NAME || '').trim().toLowerCase() === 'dine_flash';
+  const projectName = (window.PROJECT_NAME || '').trim().toLowerCase();
+  const isBuffetProject = projectName === 'dine_flash_buffet';
+  const showReleaseDevice = projectName === 'dine_flash' || isBuffetProject;
 
   const RELEASE_DEVICE_CONFIRM = {
     title: 'Release Device',
@@ -205,7 +207,13 @@ function attachActionListeners() {
         try {
           const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_USERS);
           const data = await res.json();
-          const managers = data.users || [];
+          let managers = data.users || [];
+          // Buffet Manager Devices: only Outlet Managers (exclude Kitchen Staff).
+          if (isBuffetProject) {
+            managers = managers.filter(
+              (user) => Array.isArray(user.roles) && user.roles.includes('outlet_manager')
+            );
+          }
 
           if (!managers.length) {
             managerSelect.innerHTML = `<option disabled>No managers available</option>`;
