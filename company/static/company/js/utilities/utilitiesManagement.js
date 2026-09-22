@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     `${window.BASE}static/utils/js/services/modalService.js`
   );
   const isHospital = window.PROJECT_NAME === 'hospital_flash';
+  const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
   const groupDepartmentsUiModule = isHospital
     ? await import(`${window.BASE}static/company/js/utilities/hospitalGroupDepartmentsUi.js`)
     : null;
@@ -205,7 +206,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
       console.error('Error loading utilities:', error);
-      ModalService.showError('Failed to load utilities. Please try again.');
+      ModalService.showError(
+        isBuffet
+          ? 'Failed to load menu. Please try again.'
+          : 'Failed to load utilities. Please try again.'
+      );
     }
   }
 
@@ -372,7 +377,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.stopPropagation();
     const utility = getUtilityById(btn.dataset.utilityId);
     if (!utility) {
-      ModalService.showError('Utility data is unavailable. Please refresh the page.');
+      ModalService.showError(
+        isBuffet
+          ? 'Menu data is unavailable. Please refresh the page.'
+          : 'Utility data is unavailable. Please refresh the page.'
+      );
       return;
     }
 
@@ -444,8 +453,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const details = `
       <div style="text-align: left;">
-        <p><strong>Utility ID:</strong> ${escapeHtml(String(utility.id))}</p>
-        <p><strong>Utility Name:</strong> ${escapeHtml(utility.utility_name)}</p>
+        <p><strong>${isBuffet ? 'Menu ID' : 'Utility ID'}:</strong> ${escapeHtml(String(utility.id))}</p>
+        <p><strong>${isBuffet ? 'Menu' : 'Utility Name'}:</strong> ${escapeHtml(utility.utility_name)}</p>
         <p><strong>Display Name:</strong> ${escapeHtml(utility.display_name)}</p>
         ${!isBuffet ? `
         <p><strong>Display Code:</strong> ${escapeHtml(utility.display_code)}</p>
@@ -462,7 +471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
-    ModalService.showCustom('Utility Details', details, 'OK');
+    ModalService.showCustom(isBuffet ? 'Menu Details' : 'Utility Details', details, 'OK');
   }
 
   /* ------------------------------------
@@ -478,7 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <!-- Row 1: Utility Name & Display Name -->
         <div class="row g-2">
           <div class="form-group col-md-6 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">${isHospital ? 'Department Name' : 'Utility Name'}</label>
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">${isHospital ? 'Department Name' : (isBuffet ? 'Menu' : 'Utility Name')}</label>
             <input type="text" id="edit-utility-name" class="form-control form-control-sm" value="${escapeHtml(utility.utility_name)}" maxlength="30" />
             <small class="form-text text-muted" style="font-size: 0.75rem;">Max 30 characters</small>
           </div>
@@ -498,7 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <option value="veg" ${utility.food_type === 'veg' ? 'selected' : ''}>Veg</option>
               <option value="non_veg" ${utility.food_type === 'non_veg' ? 'selected' : ''}>Non Veg</option>
             </select>
-            ${!utility.food_type ? '<small class="form-text text-warning" style="font-size: 0.75rem;">This counter has no food type yet. Select Veg or Non Veg to save.</small>' : ''}
+            ${!utility.food_type ? '<small class="form-text text-warning" style="font-size: 0.75rem;">This menu has no food type yet. Select Veg or Non Veg to save.</small>' : ''}
           </div>
           <div class="form-group col-md-6 mb-2">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Pre Announcement Count</label>
@@ -516,12 +525,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="row g-2">
           <div class="form-group col-12 mb-2">
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Description <span class="text-muted fw-normal">(optional)</span></label>
-            <textarea id="edit-description" class="form-control form-control-sm" rows="3" maxlength="500" placeholder="Short description for this food counter">${utility.description ? escapeHtml(utility.description) : ''}</textarea>
+            <textarea id="edit-description" class="form-control form-control-sm" rows="3" maxlength="500" placeholder="Short description for this menu">${utility.description ? escapeHtml(utility.description) : ''}</textarea>
           </div>
         </div>
         <div class="row g-2">
           <div class="form-group col-12 mb-2">
-            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Utility images <span class="text-muted fw-normal">(optional, up to 3)</span></label>
+            <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Menu images <span class="text-muted fw-normal">(optional, up to 3)</span></label>
             ${buildBuffetImagesEditHtml(utility)}
             <label class="form-label mb-1 mt-2" style="font-size: 0.85rem;">Add more images</label>
             <input type="file" id="edit-buffet-images" name="buffet_utility_images" class="form-control form-control-sm" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
@@ -613,7 +622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </form>
     `;
 
-    ModalService.showCustom({ title: isHospital ? 'Edit Department' : 'Edit Utility', body, onShown: async () => {
+    ModalService.showCustom({ title: isHospital ? 'Edit Department' : (isBuffet ? 'Edit Menu' : 'Edit Utility'), body, onShown: async () => {
       const departmentTypeEl = document.getElementById('edit-department-type');
       const groupDepartmentsRow = document.getElementById('edit-group-departments-row');
       const groupDepartmentsEl = document.getElementById('edit-group-departments-checkboxes');
@@ -727,10 +736,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           : '';
 
         // Client-side validations (same limits as server) - show inline
-        if (!name) return showInlineError('Utility name is required');
+        if (!name) return showInlineError(isBuffet ? 'Menu name is required' : 'Utility name is required');
         if (!dname) return showInlineError('Display name is required');
         if (isBuffet && !foodType) {
-          return showInlineError('Please select Veg or Non Veg in Food Type (required for buffet counters).');
+          return showInlineError('Please select Veg or Non Veg in Food Type (required for buffet menu).');
         }
         if (isBuffet && description.length > 500) {
           return showInlineError('Description must be at most 500 characters');
@@ -782,7 +791,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        if (name.length > 30) return showInlineError('Utility name must be at most 30 characters');
+        if (name.length > 30) return showInlineError(isBuffet ? 'Menu name must be at most 30 characters' : 'Utility name must be at most 30 characters');
         if (dname.length > 20) return showInlineError('Display name must be at most 20 characters');
         if (!isBuffet && dcode.length > 10) return showInlineError('Display code must be at most 10 characters');
         if (!isBuffet && pref.length > 4) return showInlineError('Prefix must be at most 4 characters');
@@ -910,18 +919,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             ModalService.showSuccess(
               isHospital
                 ? 'Department updated successfully'
-                : (result.message || 'Utility updated'),
+                : isBuffet
+                  ? 'Menu updated'
+                  : (result.message || 'Utility updated'),
               async () => {
                 await loadUtilities(selectedVendorId);
               }
             );
           } else {
             // Server-side validation error - show inline in modal
-            showInlineError(result?.error || 'Failed to update utility');
+            showInlineError(result?.error || (isBuffet ? 'Failed to update menu' : 'Failed to update utility'));
           }
         } catch (err) {
           console.error('Error updating utility:', err);
-          showInlineError('An error occurred while updating utility');
+          showInlineError(isBuffet ? 'An error occurred while updating menu' : 'An error occurred while updating utility');
         }
       });
     }});
@@ -1126,12 +1137,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const result = await response.json();
 
       if (response.ok) {
-        ModalService.showSuccess(`Utility ${actionLabel}d successfully!`, () => {
+        ModalService.showSuccess(
+          isBuffet
+            ? `Menu ${actionLabel}d successfully!`
+            : `Utility ${actionLabel}d successfully!`,
+          () => {
           // Reload utilities from API to get fresh data
           loadUtilities(selectedVendorId);
         });
       } else {
-        ModalService.showError(result?.error || `Failed to ${actionLabel} utility`);
+        ModalService.showError(
+          result?.error ||
+            (isBuffet
+              ? `Failed to ${actionLabel} menu`
+              : `Failed to ${actionLabel} utility`)
+        );
       }
     } catch (error) {
       console.error('Error toggling utility status:', error);

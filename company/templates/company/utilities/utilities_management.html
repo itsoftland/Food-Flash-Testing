@@ -11,7 +11,7 @@
 {% endif %}
 {% endblock %}
 
-{% block title %}{% if PROJECT_NAME == "hospital_flash" %}Manage Departments{% else %}Utilities Management{% endif %}{% endblock %}
+{% block title %}{% if PROJECT_NAME == "hospital_flash" %}Manage Departments{% elif PROJECT_NAME == "dine_flash_buffet" %}Manage Food Menu{% else %}Utilities Management{% endif %}{% endblock %}
 
 {% block content %}
 <section class="content-header">
@@ -48,7 +48,7 @@
             id="search-input"
             class="form-control form-control-sm"
             placeholder="Search…"
-            aria-label="Search utilities"
+            aria-label="{% if PROJECT_NAME == 'dine_flash_buffet' %}Search menu{% else %}Search utilities{% endif %}"
           >
           <i class="fas fa-search search-icon"></i>
         </div>
@@ -103,10 +103,10 @@
       <div id="empty-state-no-utilities" class="empty-state" style="display: none;">
         <div class="empty-state-content">
           <i class="fas fa-inbox"></i>
-          <h3>No utilities found</h3>
-          <p>No utilities match your filters. Try adjusting your search criteria.</p>
+          <h3>{% if PROJECT_NAME == "dine_flash_buffet" %}No menu found{% else %}No utilities found{% endif %}</h3>
+          <p>{% if PROJECT_NAME == "dine_flash_buffet" %}No menu matches your filters. Try adjusting your search criteria.{% else %}No utilities match your filters. Try adjusting your search criteria.{% endif %}</p>
           <a href="{% url 'company:create_utility_page' %}" class="btn-create-utility">
-            <i class="fas fa-plus"></i> Create Utility
+            <i class="fas fa-plus"></i> {% if PROJECT_NAME == "dine_flash_buffet" %}Add Menu{% else %}Create Utility{% endif %}
           </a>
         </div>
       </div>
@@ -116,7 +116,7 @@
 
 <div class="action-menu" id="action-menu" style="display: none;">
   <div class="menu-item" data-action="edit">
-    <i class="fas fa-edit"></i> {% if PROJECT_NAME == "hospital_flash" %}Edit Department{% else %}Edit Utility{% endif %}
+    <i class="fas fa-edit"></i> {% if PROJECT_NAME == "hospital_flash" %}Edit Department{% elif PROJECT_NAME == "dine_flash_buffet" %}Edit Menu{% else %}Edit Utility{% endif %}
   </div>
   {% if PROJECT_NAME == "dine_flash_buffet" %}
   <div class="menu-item" data-action="options" id="manage-options-item">

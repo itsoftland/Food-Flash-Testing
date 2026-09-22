@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         opt.tempId !== optId
     );
     if (duplicate) {
-      showCreateOptionsError('Option with this name already exists for this Food Counter');
+      showCreateOptionsError('Option with this name already exists for this Menu');
       return;
     }
 
@@ -392,10 +392,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     : 'Please select an outlet.';
   const nameRequiredError = isHospital
     ? 'Department Name is required.'
-    : 'Utility Name is required.';
+    : (window.PROJECT_NAME === 'dine_flash_buffet'
+      ? 'Menu name is required.'
+      : 'Utility Name is required.');
   const createFailedFallback = isHospital
     ? 'Failed to create department.'
-    : 'Failed to create utility.';
+    : (window.PROJECT_NAME === 'dine_flash_buffet'
+      ? 'Failed to create menu.'
+      : 'Failed to create utility.');
   const selectEntityFirstForDepartments =
     'Select a branch first to load departments';
 
@@ -541,7 +545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (isBuffet && buffetImageInput && buffetImageInput.files.length > BUFFET_MAX_IMAGES) {
-      ModalService.showError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
+      ModalService.showError(`You can upload at most ${BUFFET_MAX_IMAGES} images per menu.`);
       return;
     }
 
@@ -637,7 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const { failed } = await persistDraftOptions(utilityId);
           if (failed.length) {
             optionsWarning =
-              ` Food Counter created, but some options could not be saved: ${failed.join(', ')}. You can manage them from Utilities → Manage Options.`;
+              ` Menu created, but some options could not be saved: ${failed.join(', ')}. You can manage them from Manage Food Menu → Manage Options.`;
           }
         }
 
