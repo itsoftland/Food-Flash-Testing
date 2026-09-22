@@ -26,6 +26,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     cancelButtonText: 'Cancel',
   };
 
+  /** Buffet-only: rewrite map/unmap API error text for display; leave backend strings unchanged. */
+  function toBuffetUserFacingError(message) {
+    if (!showReleaseDevice || typeof message !== 'string') return message;
+    const buffetErrorMap = {
+      'Utility user not found.': 'Kitchen staff not found.',
+      'Utility user device not found.': 'Kitchen staff device not found.',
+      'Utility user does not belong to your admin outlet.': 'Kitchen staff does not belong to your admin outlet.',
+      'Selected user is not a utility user.': 'Selected user is not kitchen staff.',
+    };
+    return buffetErrorMap[message] || message;
+  }
+
   loadDevices('all');
 
   filterDropdown.addEventListener('change', (e) => {
@@ -59,6 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isMapped = !!device.user_profile;
         const utilityUserName = isMapped ? device.user_profile.name : 'Unmapped';
         const createdTime = new Date(device.created_at).toLocaleString();
+        const userDataLabel = showReleaseDevice ? 'Kitchen Staff' : 'Utility User';
 
         const iconClass = isMapped ? 'fa-link-slash' : 'fa-link';
         const iconTitle = isMapped ? 'Unlink Device' : 'Link Device';
@@ -76,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <tr>
               <td class="text-muted text-center" data-label="ID">${id}</td>
               <td class="name" data-label="MAC Address">${device.mac_address}</td>
-              <td class="${userClass}" data-label="Utility User">${utilityUserName}</td>
+              <td class="${userClass}" data-label="${userDataLabel}">${utilityUserName}</td>
               <td class="text-muted" data-label="Created Time">${createdTime}</td>
               <td class="text-center" data-label="Actions">
                 <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
@@ -127,7 +140,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!res.ok) {
               const err = await res.json();
-              ModalService.showError(`Error: ${err.error || 'Unable to unlink device.'}`);
+              const unlinkError = toBuffetUserFacingError(err.error) || 'Unable to unlink device.';
+              ModalService.showError(`Error: ${unlinkError}`);
               return;
             }
 
@@ -179,9 +193,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function openMapDeviceModal(deviceId, macAddress) {
     let mapModalTitle = 'Link Device to Utility User';
     let mapModalUserLabel = 'Choose Utility User';
+    let loadingUsersText = 'Loading utility users...';
+    let noUsersText = 'No utility users available';
+    let errorLoadingUsersText = 'Error loading utility users';
+    let selectUserValidation = 'Please select a utility user.';
+    let linkedSuccessText = (mac) => `Device #${mac} linked to selected utility user.`;
     if (showReleaseDevice) {
       mapModalTitle = 'Link Device to Kitchen Staff';
       mapModalUserLabel = 'Choose Kitchen Staff';
+      loadingUsersText = 'Loading kitchen staff...';
+      noUsersText = 'No kitchen staff available';
+      errorLoadingUsersText = 'Error loading kitchen staff';
+      selectUserValidation = 'Please select kitchen staff.';
+      linkedSuccessText = (mac) => `Device #${mac} linked to selected kitchen staff.`;
     }
 
     const modalBodyHTML = `
@@ -189,7 +213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="form-group col-md-12 col-12">
           <label for="utility-user-select">${mapModalUserLabel}</label>
           <select id="utility-user-select" name="utility_user_id" class="form-control">
-            <option disabled selected>Loading utility users...</option>
+            <option disabled selected>${loadingUsersText}</option>
           </select>
         </div>
 
@@ -213,14 +237,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           const utilityUsers = users.filter((user) => Array.isArray(user.roles) && user.roles.includes('utility_user'));
 
           if (!utilityUsers.length) {
-            utilityUserSelect.innerHTML = '<option disabled>No utility users available</option>';
+            utilityUserSelect.innerHTML = `<option disabled>${noUsersText}</option>`;
           } else {
             utilityUserSelect.innerHTML = utilityUsers
               .map((user) => `<option value="${user.id}">${user.name}</option>`)
               .join('');
           }
         } catch (err) {
-          utilityUserSelect.innerHTML = '<option disabled>Error loading utility users</option>';
+          utilityUserSelect.innerHTML = `<option disabled>${errorLoadingUsersText}</option>`;
         }
 
         document.getElementById('map-device-form').addEventListener('submit', async (e) => {
@@ -228,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const utilityUserId = utilityUserSelect.value;
           if (!utilityUserId) {
-            ModalService.showError('Please select a utility user.');
+            ModalService.showError(selectUserValidation);
             return;
           }
 
@@ -247,12 +271,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (res.ok) {
               setTimeout(() => {
-                ModalService.showSuccess(`Device #${macAddress} linked to selected utility user.`, () => {
+                ModalService.showSuccess(linkedSuccessText(macAddress), () => {
                   location.reload();
                 });
               }, 300);
             } else {
-              const msg = result?.error || result?.message || 'Unable to map device.';
+              const rawMsg = result?.error || result?.message || 'Unable to map device.';
+              const msg = toBuffetUserFacingError(rawMsg);
               setTimeout(() => {
                 ModalService.showError(msg, () => openMapDeviceModal(deviceId, macAddress));
               }, 300);
