@@ -642,7 +642,12 @@ def manager_utility_list(request):
       - Vendor lookup avoids loading VendorConfig (we don't need it here).
       - Result is served from a process-local cache that is invalidated by
         Utility post_save/post_delete signals.
-      Other flavours retain the original behaviour exactly.
+
+    Dine Flash Buffet (only when PROJECT_NAME == "dine_flash_buffet"):
+      - Each utility also includes active UtilityOption rows under `options`
+        (same filter/shape as customer utility_list / kitchen buffet serializer).
+
+    Other flavours retain the original behaviour exactly (no `options` field).
     """
 
     started_at = time.perf_counter()
@@ -723,27 +728,52 @@ def manager_utility_list(request):
 
         # --------------------------------------------------------
         # Other flavours: unchanged behaviour
+        # (Dine Flash Buffet adds active UtilityOption rows per utility)
         # --------------------------------------------------------
         t0 = time.perf_counter()
         vendor = _resolve_vendor_for_manager(request)
         t_vendor_ms = (time.perf_counter() - t0) * 1000
 
         t1 = time.perf_counter()
-        utilities = Utility.objects.filter(
+        utilities_qs = Utility.objects.filter(
             vendor=vendor,
             is_active=True,
         ).order_by("id")
-        data = [
-            {
-                "id": util.id,
-                "utility_name": util.utility_name,
-                "display_name": util.display_name,
-                "display_code": util.display_code,
-                "token_mode": util.token_mode,
-                "prefix": util.prefix,
-            }
-            for util in utilities
-        ]
+        if project_name == "dine_flash_buffet":
+            # Same option shape/filter as customer utility_list / _serialize_buffet_utility
+            utilities_qs = utilities_qs.prefetch_related("options")
+            data = [
+                {
+                    "id": util.id,
+                    "utility_name": util.utility_name,
+                    "display_name": util.display_name,
+                    "display_code": util.display_code,
+                    "token_mode": util.token_mode,
+                    "prefix": util.prefix,
+                    "options": [
+                        {
+                            "id": opt.id,
+                            "name": opt.name,
+                            "is_active": opt.is_active,
+                        }
+                        for opt in util.options.all()
+                        if opt.is_active
+                    ],
+                }
+                for util in utilities_qs
+            ]
+        else:
+            data = [
+                {
+                    "id": util.id,
+                    "utility_name": util.utility_name,
+                    "display_name": util.display_name,
+                    "display_code": util.display_code,
+                    "token_mode": util.token_mode,
+                    "prefix": util.prefix,
+                }
+                for util in utilities_qs
+            ]
         t_query_ms = (time.perf_counter() - t1) * 1000
 
         logger.info(
