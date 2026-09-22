@@ -277,20 +277,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       const contentType = res.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         console.error("Expected JSON from buffet order utilities API, got:", contentType, url);
-        alert("Failed to load order utilities. The utilities API may be unavailable.");
+        alert("Failed to load order items. Please try again.");
         return;
       }
 
       const payload = await res.json();
 
       if (!res.ok) {
-        alert(payload.detail || "No utilities found for this order.");
+        const rawDetail = payload.detail;
+        const detail =
+          rawDetail === "No utilities found for this order."
+            ? "No order items found for this order."
+            : rawDetail;
+        alert(detail || "No order items found for this order.");
         return;
       }
 
       const utilities = Array.isArray(payload.utilities) ? payload.utilities : [];
       if (!utilities.length) {
-        alert("No utilities found for this order.");
+        alert("No order items found for this order.");
         return;
       }
 
@@ -302,7 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (payload.table_booking_no) {
         titleParts.push(`Table ${payload.table_booking_no}`);
       }
-      modal.querySelector('.modal-title').textContent = `Order Utilities — ${titleParts.join(" · ")}`;
+      modal.querySelector('.modal-title').textContent = `Order Items — ${titleParts.join(" · ")}`;
 
       const cardsHtml = utilities.map((utility) => {
         const status = (utility.status || "unknown").toUpperCase();
@@ -344,7 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
       console.error("Failed to load order utilities:", error);
-      alert("Failed to load order utilities. See console for details.");
+      alert("Failed to load order items. See console for details.");
     }
   }
 
