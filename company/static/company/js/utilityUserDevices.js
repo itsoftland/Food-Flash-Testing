@@ -177,10 +177,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function openMapDeviceModal(deviceId, macAddress) {
+    let mapModalTitle = 'Link Device to Utility User';
+    let mapModalUserLabel = 'Choose Utility User';
+    if (showReleaseDevice) {
+      mapModalTitle = 'Link Device to Kitchen Staff';
+      mapModalUserLabel = 'Choose Kitchen Staff';
+    }
+
     const modalBodyHTML = `
       <form id="map-device-form" class="px-4 py-3 mx-auto" style="max-width: 600px;">
         <div class="form-group col-md-12 col-12">
-          <label for="utility-user-select">Choose Utility User</label>
+          <label for="utility-user-select">${mapModalUserLabel}</label>
           <select id="utility-user-select" name="utility_user_id" class="form-control">
             <option disabled selected>Loading utility users...</option>
           </select>
@@ -195,7 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     ModalService.showCustom({
-      title: 'Link Device to Utility User',
+      title: mapModalTitle,
       body: modalBodyHTML,
       onShown: async () => {
         const utilityUserSelect = document.getElementById('utility-user-select');
