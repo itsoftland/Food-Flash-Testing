@@ -91,10 +91,10 @@ export const AddOutletService = (() => {
         // handoff). buffet_vendor_id is only written on table_booking and is not
         // rehydrated by restore/handoff — so it can be missing while "+" is usable.
         const vendorId =
-            localStorage.getItem("buffet_vendor_id") ||
             (typeof AppUtils.storageGet === "function"
                 ? AppUtils.storageGet("activeVendor")
-                : null);
+                : null) ||
+            localStorage.getItem("buffet_vendor_id");
         if (!vendorId) {
             AppUtils.showToast("Vendor is missing. Please scan the table QR again.");
             return;
