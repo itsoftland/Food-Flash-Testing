@@ -1,5 +1,5 @@
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
-import { AddOutletService } from "./services/addOutletService.js"; 
+import { AddOutletService } from "./services/addOutletService.js?v=20260923_1";
 import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js?v=20260821_2";
 import { PermissionService } from "./services/permissionService.js";
