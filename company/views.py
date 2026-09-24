@@ -630,13 +630,8 @@ def create_user(request):
 
         def _display_username(profile):
             from vendors.hospital_staff_username import display_staff_username
-            from vendors.buffet_staff_username import display_buffet_staff_username
             if project == "hospital_flash":
                 return display_staff_username(
-                    profile.user.username, profile.admin_outlet_id
-                )
-            if project == "dine_flash_buffet":
-                return display_buffet_staff_username(
                     profile.user.username, profile.admin_outlet_id
                 )
             return profile.user.username

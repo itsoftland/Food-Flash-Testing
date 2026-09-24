@@ -24,12 +24,6 @@ from vendors.hospital_staff_username import (
     display_staff_username,
     is_hospital_flash_project,
 )
-from vendors.buffet_staff_username import (
-    buffet_business_username_exists_for_admin_outlet,
-    build_buffet_internal_username,
-    display_buffet_staff_username,
-    is_dine_flash_buffet_project,
-)
 
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
@@ -614,11 +608,6 @@ class UserProfileCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"username": ["A user with this username already exists in this company."]}
                 )
-        elif is_dine_flash_buffet_project():
-            if buffet_business_username_exists_for_admin_outlet(admin_outlet, business_username):
-                raise serializers.ValidationError(
-                    {"username": ["A user with this username already exists in this company."]}
-                )
         elif User.objects.filter(username=business_username).exists():
             raise serializers.ValidationError("Username already exists.")
 
@@ -662,12 +651,11 @@ class UserProfileCreateSerializer(serializers.Serializer):
         vendor = validated_data['vendor']
         name = validated_data['name']
 
-        if is_hospital_flash_project():
-            django_username = build_internal_username(admin_outlet.id, business_username)
-        elif is_dine_flash_buffet_project():
-            django_username = build_buffet_internal_username(admin_outlet.id, business_username)
-        else:
-            django_username = business_username
+        django_username = (
+            build_internal_username(admin_outlet.id, business_username)
+            if is_hospital_flash_project()
+            else business_username
+        )
 
         # Create the user only after validation
         user = User.objects.create_user(username=django_username, password=password)
@@ -720,8 +708,6 @@ class UserListDetailSerializer(serializers.ModelSerializer):
         raw = obj.user.username
         if is_hospital_flash_project():
             return display_staff_username(raw, obj.admin_outlet_id)
-        if is_dine_flash_buffet_project():
-            return display_buffet_staff_username(raw, obj.admin_outlet_id)
         return raw
 
     def get_assigned_utilities(self, obj):
