@@ -1,17 +1,21 @@
 import logging
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
-from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from vendors.buffet_staff_username import (
+    display_buffet_staff_username,
+    resolve_buffet_staff_user,
+)
 from vendors.models import (
     Vendor,
     AdminOutlet,
@@ -364,18 +368,18 @@ def buffet_utility_login(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    user = authenticate(username=username, password=password)
-    if not user:
-        return Response(
-            {"error": "Invalid username or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
     admin_outlets_qs = AdminOutlet.objects.filter(customer_id=customer_id).order_by("id")
     if not admin_outlets_qs.exists():
         return Response(
             {"error": "Invalid customer_id."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+
+    user = resolve_buffet_staff_user(admin_outlets_qs, username)
+    if not user or not user.is_active or not user.check_password(password):
+        return Response(
+            {"error": "Invalid username or password."},
+            status=status.HTTP_401_UNAUTHORIZED,
         )
 
     utility_profile = (
@@ -516,7 +520,9 @@ def buffet_utility_login(request):
             "outlet_name": admin_outlet.customer_name or "",
             "possible_statuses": possible_statuses,
             "user": {
-                "username": user.username,
+                "username": display_buffet_staff_username(
+                    user.username, utility_profile.admin_outlet_id
+                ),
                 "role": "Utility User",
                 "manager_id": utility_profile.id,
                 "manager_name": utility_profile.name,
@@ -566,12 +572,28 @@ def buffet_outlet_manager_login(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    user = authenticate(username=username, password=password)
-    if not user:
-        return Response(
-            {"error": "Invalid username or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+    user = resolve_buffet_staff_user(admin_outlets_qs, username)
+    if user:
+        if not user.is_active or not user.check_password(password):
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+    else:
+        # Legacy raw-username fallback only. Does not match bf:* users.
+        # Identification only; company/role/vendor checks below still gate tokens.
+        raw_user = User.objects.filter(username=username).first()
+        if (
+            not raw_user
+            or str(raw_user.username).startswith("bf:")
+            or not raw_user.is_active
+            or not raw_user.check_password(password)
+        ):
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        user = raw_user
 
     manager_profile = (
         UserProfile.objects.select_related("vendor", "admin_outlet")
@@ -618,7 +640,9 @@ def buffet_outlet_manager_login(request):
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": {
-                "username": user.username,
+                "username": display_buffet_staff_username(
+                    user.username, manager_profile.admin_outlet_id
+                ),
                 "role": "Outlet Manager",
                 "vendor_id": manager_profile.vendor.id,
                 "vendor_name": manager_profile.vendor.name,
