@@ -1,7 +1,7 @@
 {% extends 'companyadmin/layouts/base.html' %}
 {% load static %}
 
-{% block title %}Outlet List{% endblock %}
+{% block title %}{{ LABELS.outlet_list_page.title|default:"Outlet List" }}{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'companyadmin/css/company_lists.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
@@ -12,7 +12,7 @@
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Outlet List</h1>
+        <h1 class="page-title">{{ LABELS.outlet_list_page.title|default:"Outlet List" }}</h1>
       </div>
     </div>
   </div>
@@ -27,11 +27,11 @@
           <table id="outletTable" class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
             <thead class="thead-light">
               <tr>
-                <th>Vendor ID</th>
-                <th>Outlet Name</th>
-                <th>Alias Name</th>
-                <th>Location</th>
-                <th>Company Name</th>
+                <th>{{ LABELS.outlet_list_page.vendor_id|default:"Vendor ID" }}</th>
+                <th>{{ LABELS.outlet_list_page.name|default:"Outlet Name" }}</th>
+                <th>{{ LABELS.outlet_list_page.alias_name|default:"Alias Name" }}</th>
+                <th>{{ LABELS.outlet_list_page.location|default:"Location" }}</th>
+                <th>{{ LABELS.outlet_list_page.company_name|default:"Company Name" }}</th>
               </tr>
             </thead>
             <tbody id="outlet-table-body">
@@ -47,5 +47,17 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  window.OUTLET_LIST_PAGE_LABELS = {
+    vendorId: "{{ LABELS.outlet_list_page.vendor_id|default:'Vendor ID'|escapejs }}",
+    name: "{{ LABELS.outlet_list_page.name|default:'Outlet Name'|escapejs }}",
+    aliasName: "{{ LABELS.outlet_list_page.alias_name|default:'Alias Name'|escapejs }}",
+    location: "{{ LABELS.outlet_list_page.location|default:'Location'|escapejs }}",
+    companyName: "{{ LABELS.outlet_list_page.company_name|default:'Company Name'|escapejs }}",
+    loading: "{{ LABELS.outlet_list_page.loading|default:'Loading outlets…'|escapejs }}",
+    empty: "{{ LABELS.outlet_list_page.empty|default:'No outlets found.'|escapejs }}",
+    error: "{{ LABELS.outlet_list_page.error|default:'Error loading outlets'|escapejs }}"
+  };
+</script>
 <script type="module" src="{% static 'companyadmin/js/outlets/outletList.js' %}"></script>
 {% endblock %}

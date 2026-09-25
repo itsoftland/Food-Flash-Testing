@@ -35,6 +35,17 @@ DEFAULT = {
     "outlet_list":{
         "title":"You can manage companies from here."
     },
+    "outlet_list_page": {
+        "title": "Outlet List",
+        "vendor_id": "Vendor ID",
+        "name": "Outlet Name",
+        "alias_name": "Alias Name",
+        "location": "Location",
+        "company_name": "Company Name",
+        "loading": "Loading outlets…",
+        "empty": "No outlets found.",
+        "error": "Error loading outlets",
+    },
     "outlet_update": {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
@@ -213,6 +224,17 @@ DINE_FLASH = {
     "outlet_list":{
         "title":"You can manage outlets from here."
     },
+    "outlet_list_page": {
+        "title": "Outlet List",
+        "vendor_id": "Vendor ID",
+        "name": "Outlet Name",
+        "alias_name": "Alias Name",
+        "location": "Location",
+        "company_name": "Restaurant Name",
+        "loading": "Loading outlets…",
+        "empty": "No outlets found.",
+        "error": "Error loading outlets",
+    },
     "outlet_update": {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
@@ -272,6 +294,17 @@ DINE_FLASH_BUFFET = {
     },
     "outlet_list":{
         "title":"You can manage outlets from here."
+    },
+    "outlet_list_page": {
+        "title": "Outlet List",
+        "vendor_id": "Vendor ID",
+        "name": "Outlet Name",
+        "alias_name": "Alias Name",
+        "location": "Location",
+        "company_name": "Restaurant Name",
+        "loading": "Loading outlets…",
+        "empty": "No outlets found.",
+        "error": "Error loading outlets",
     },
     "outlet_update": {
         "outlet_name": "Outlet Name",
@@ -333,6 +366,17 @@ HOSPITAL_FLASH = {
     },
     "outlet_list": {
         "title": "You can manage branches from here.",
+    },
+    "outlet_list_page": {
+        "title": "Branch List",
+        "vendor_id": "Vendor ID",
+        "name": "Branch Name",
+        "alias_name": "Alias Name",
+        "location": "Location",
+        "company_name": "Hospital Name",
+        "loading": "Loading branches…",
+        "empty": "No branches found.",
+        "error": "Error loading branches",
     },
     "create_outlet_page": {
         "title": "New Branch",
