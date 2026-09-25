@@ -48,6 +48,9 @@
               <button type="submit" class="btn btn-golden w-100 shadow-sm">Upload</button>
             </div>
           </div>
+          {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}
+          <small class="form-text text-muted">Supported formats: PNG, JPG/JPEG, WEBP</small>
+          {% endif %}
         </form>
         </div>
         <!-- Banner Selection -->
