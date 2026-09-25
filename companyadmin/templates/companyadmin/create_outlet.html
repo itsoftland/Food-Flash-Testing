@@ -42,11 +42,11 @@
           <!-- Row 2 -->
           <div class="row">
             <div class="form-group col-md-6">
-              <label for="name">Outlet Name</label>
+              <label for="name">{{ LABELS.create_outlet_page.outlet_name|default:"Outlet Name" }}</label>
               <input type="text" id="name" name="name" class="form-control form-control-sm" required{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %} autocomplete="off"{% endif %} />
             </div>
             <div class="form-group col-md-6">
-              <label for="alias_name">Outlet Alias Name</label>
+              <label for="alias_name">{{ LABELS.create_outlet_page.outlet_alias_name|default:"Outlet Alias Name" }}</label>
               <input type="text" id="alias_name" name="alias_name" class="form-control form-control-sm" required />
             </div>
           </div>

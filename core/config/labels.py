@@ -337,6 +337,8 @@ HOSPITAL_FLASH = {
     "create_outlet_page": {
         "title": "New Branch",
         "button": "Create Branch",
+        "outlet_name": "Branch Name",
+        "outlet_alias_name": "Branch Alias Name",
     },
     "outlet_update": {
         "outlet_name": "Outlet Name",
