@@ -71,6 +71,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     return option ? option.textContent.trim() : "";
   }
 
+  function toHospitalBranchQrDisplayError(message) {
+    const isHospitalFlash =
+      String(window.PROJECT_NAME || "").trim().toLowerCase() === "hospital_flash";
+    if (isHospitalFlash && message === "Outlet not found for this user.") {
+      return "Your account is not linked to a hospital.";
+    }
+    return message;
+  }
+
   async function renderQr(url) {
     if (typeof QRCode === "undefined" || typeof QRCode.toCanvas !== "function") {
       throw new Error("QR rendering library failed to load. Please refresh the page.");
@@ -132,7 +141,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       previewWrap.classList.add("visible");
     } catch (error) {
       console.error("QR generation failed:", error);
-      ModalService.showError(error.message || "Failed to generate QR. Please try again.");
+      ModalService.showError(
+        toHospitalBranchQrDisplayError(error.message) || "Failed to generate QR. Please try again."
+      );
     } finally {
       generateBtn.disabled = false;
       generateBtn.textContent = "Generate QR";

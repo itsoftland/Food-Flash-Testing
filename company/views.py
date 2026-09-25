@@ -1257,7 +1257,7 @@ def branch_qr_generator(request):
     vendor_error = None
 
     if not admin_outlet:
-        vendor_error = "Your account is not linked to a company outlet."
+        vendor_error = "Your account is not linked to a hospital."
     else:
         vendors = list(admin_outlet.vendors.order_by("id"))
         if not vendors:
