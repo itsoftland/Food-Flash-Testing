@@ -169,7 +169,7 @@
   <div class="modal-dialog modal-dialog-centered modal-lg custom-timeline-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Order Timeline</h5>
+        <h5 class="modal-title">{% if PROJECT_NAME == "hospital_flash" %}Queue Timeline{% else %}Order Timeline{% endif %}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">

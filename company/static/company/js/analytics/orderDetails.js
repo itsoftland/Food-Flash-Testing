@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
+
+  // Dine Flash: "Booking No". Dine Flash Buffet: "Table No" (table_booking_no).
+  // Hospital Flash: "Token No" column shows patient-facing table_booking_no (e.g. LAB-12);
+  // Counter No and Ready Time columns are hidden.
+  // Other flash variants (airline, food, service, calleron) are unaffected.
+  const isDineFlash = window.PROJECT_NAME === "dine_flash";
+  const isDineFlashBuffet = window.PROJECT_NAME === "dine_flash_buffet";
+  const isHospitalFlash = window.PROJECT_NAME === "hospital_flash";
+  const showTableBookingCol = isDineFlash || isDineFlashBuffet;
   
   const tableBody = document.getElementById("orders-table-body");
 
@@ -107,7 +116,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const resVendors = await fetchWithAutoRefresh(API_ENDPOINTS.GET_VENDORS);
       const { vendors } = await resVendors.json();
 
-      outletSelect.innerHTML = '<option value="">All Outlets</option>';
+      outletSelect.innerHTML = isHospitalFlash
+        ? '<option value="">All Branches</option>'
+        : '<option value="">All Outlets</option>';
       vendors.forEach(vendor => {
         outletSelect.innerHTML += `<option value="${vendor.id}">${vendor.name}</option>`;
       });
@@ -251,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     modal.querySelector('.modal-dialog').classList.add('custom-timeline-modal');
     modal.querySelector('.modal-dialog').style.width = '';
     const titleEl = modal.querySelector('.modal-title');
-    if (titleEl) titleEl.textContent = 'Order Timeline';
+    if (titleEl) titleEl.textContent = isHospitalFlash ? 'Queue Timeline' : 'Order Timeline';
     const bodyEl = modal.querySelector('.modal-body');
     if (bodyEl) {
       bodyEl.innerHTML = `
@@ -361,14 +372,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const timeline = await res.json();
 
       if (!timeline.length) {
-        alert("No status history found for this order.");
+        alert(
+          isHospitalFlash
+            ? "No status history found for this token."
+            : "No status history found for this order."
+        );
         return;
       }
 
       restoreTimelineModalLayout();
 
       const timelineHtml = timeline.map((item, index) => {
-        const changedBy = item.changed_by || "System";
+        const changedByRaw = item.changed_by || "System";
+        const changedBy = isHospitalFlash && changedByRaw === "customer"
+          ? "Patient"
+          : changedByRaw;
         const readableTime = timeAgo(new Date(item.changed_at));
         
         return `
@@ -421,15 +439,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
-  // Dine Flash: "Booking No". Dine Flash Buffet: "Table No" (table_booking_no).
-  // Hospital Flash: "Token No" column shows patient-facing table_booking_no (e.g. LAB-12);
-  // Counter No and Ready Time columns are hidden.
-  // Other flash variants (airline, food, service, calleron) are unaffected.
-  const isDineFlash = window.PROJECT_NAME === "dine_flash";
-  const isDineFlashBuffet = window.PROJECT_NAME === "dine_flash_buffet";
-  const isHospitalFlash = window.PROJECT_NAME === "hospital_flash";
-  const showTableBookingCol = isDineFlash || isDineFlashBuffet;
-
   function getTableColCount() {
     if (isDineFlashBuffet) return 6;
     if (isDineFlash) return 8;
@@ -443,7 +452,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const colCount = getTableColCount();
 
     if (orders.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center">No orders found.</td></tr>`;
+      const emptyMessage = isHospitalFlash ? "No records found." : "No orders found.";
+      tableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center">${emptyMessage}</td></tr>`;
       return;
     }
 
@@ -489,7 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${createdDate.toLocaleDateString()}<br>${createdDate.toLocaleTimeString()}</td>
         ${readyCell}
         <td>
-          <button class="icon-btn view-timeline-btn" title="View Order Details" data-order-id="${order.id}">
+          <button class="icon-btn view-timeline-btn" title="${isHospitalFlash ? "View queue timeline" : "View Order Details"}" data-order-id="${order.id}">
             <i class="fa-regular fa-eye"></i>
           </button>
         </td>

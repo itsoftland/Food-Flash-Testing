@@ -8,14 +8,14 @@
 <link rel="stylesheet" href="{% static 'company/css/analytics/order_details.css' %}?v={{ APP_VERSION }}">
 {% endblock %}
 
-{% block title %}Order Details{% endblock %}
+{% block title %}{% if PROJECT_NAME == "hospital_flash" %}Patient Details{% else %}Order Details{% endif %}{% endblock %}
 
 {% block content %}
 <section class="content-header">
   <div class="container-fluid">
     <div class="row align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">Order Details</h1>
+        <h1 class="page-title">{% if PROJECT_NAME == "hospital_flash" %}Patient Details{% else %}Order Details{% endif %}</h1>
       </div>
     </div>
   </div>
@@ -29,19 +29,20 @@
         <form id="order-filter-form">
             <div class="row align-items-end">
             <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} mb-2{% endif %}">
-                <label class="small mb-1">Outlet</label>
+                <label class="small mb-1">{% if PROJECT_NAME == "hospital_flash" %}Branch{% else %}Outlet{% endif %}</label>
                 <select class="form-control form-control-sm" id="outlet-filter">
                 <option value="">All</option>
                 </select>
             </div>
             {# Dine Flash Buffet: hide Device/Status/Shown on TV/Notified from UI only; keep DOM for existing JS/API. #}
+            {# Hospital Flash: hide Status only (food/kitchen options); keep DOM/values for existing JS/API. #}
             <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
                 <label class="small mb-1">Device</label>
                 <select class="form-control form-control-sm" id="device-filter">
                 <option value="">All</option>
                 </select>
             </div>
-            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' or PROJECT_NAME == 'hospital_flash' %} d-none{% endif %}">
                 <label class="small mb-1">Status</label>
                 <select class="form-control form-control-sm" id="status-filter">
                 <option value="">All</option>
@@ -121,7 +122,7 @@
                             <th>Counter No</th>
                             {% endif %}
                             {% endif %}
-                            <th>Outlet Name</th>
+                            <th>{% if PROJECT_NAME == "hospital_flash" %}Branch Name{% else %}Outlet Name{% endif %}</th>
                             {% if PROJECT_NAME != "dine_flash_buffet" %}
                             <th>Device No</th>
                             {% endif %}
@@ -129,7 +130,7 @@
                             {% if PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
                             <th>Ready Time</th>
                             {% endif %}
-                            <th>Order Details</th>
+                            <th>{% if PROJECT_NAME == "hospital_flash" %}Timeline{% else %}Order Details{% endif %}</th>
                         </tr>
                     </thead>
                 </table>
