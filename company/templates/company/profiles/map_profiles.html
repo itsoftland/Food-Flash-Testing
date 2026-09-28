@@ -32,12 +32,12 @@
         <div class="container-fluid">
             <form id="assign-profile-form" method="POST" class="px-4 py-3 mx-auto" style="max-width: 900px;">
             {% csrf_token %}
-            <h4 class="text-center mb-4">Map Profiles to Outlets</h4>
+            <h4 class="text-center mb-4">{% if PROJECT_NAME == "hospital_flash" %}Map Profiles to Branches{% else %}Map Profiles to Outlets{% endif %}</h4>
 
             <div class="row">
                 <!-- Outlets -->
                 <div class="form-group col-md-6 col-12">
-                <label for="outlet-select">Outlets</label>
+                <label for="outlet-select">{% if PROJECT_NAME == "hospital_flash" %}Branches{% else %}Outlets{% endif %}</label>
                 <div class="choices-scroll-wrapper">
                     <select id="outlet-select" name="outlets[]" multiple>
                     <!-- JS will dynamically populate options -->
@@ -46,7 +46,7 @@
                 </div>
                 <!-- Advertisement Profiles -->
                 <div class="form-group col-md-6 col-12">
-                <label for="ad-profile-select">Advertisement Profiles</label>
+                <label for="ad-profile-select">{% if PROJECT_NAME == "hospital_flash" %}Banner Profiles{% else %}Advertisement Profiles{% endif %}</label>
                 <div class="choices-scroll-wrapper">
                     <select id="ad-profile-select" name="profiles[]" multiple>
                     <!-- JS will dynamically populate options -->

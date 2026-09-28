@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // =================== ASSIGN PROFILE ===================
 
 async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
+  const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
   try {
     // Fetch Ad Profiles
     const profilesRes = await fetchWithAutoRefresh(API_ENDPOINTS.GET_AD_PROFILES);
@@ -53,7 +54,7 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
 
     const outletChoices = new Choices(outletSelect, {
       removeItemButton: true,
-      placeholderValue: 'Select outlets',
+      placeholderValue: isHospitalFlash ? 'Select branches' : 'Select outlets',
       classNames: {
         containerInner: 'choices-inner-foodflash',
         item: 'choices-item-foodflash',
@@ -69,7 +70,9 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
       const outletIds = outletChoices.getValue(true);   // Array
 
       if (!profileIds.length || !outletIds.length) {
-        showErrorModal("Please select at least one profile and one outlet.");
+        showErrorModal(isHospitalFlash
+          ? "Please select at least one profile and one branch."
+          : "Please select at least one profile and one outlet.");
         return;
       }
 
@@ -90,7 +93,10 @@ async function initAssignProfileForm(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
         const result = await res.json();
         // console.log(result)
         if (res.ok) {
-          const msg = `${result.summary}\n${result.duplicates_skipped} duplicate mappings were skipped.`;
+          const summary = isHospitalFlash && result.summary
+            ? result.summary.replace(/\boutlets\b/g, 'branches')
+            : result.summary;
+          const msg = `${summary}\n${result.duplicates_skipped} duplicate mappings were skipped.`;
           ModalService.showSuccess(msg, () => {
             profileChoices.clearStore();
             outletChoices.clearStore();
