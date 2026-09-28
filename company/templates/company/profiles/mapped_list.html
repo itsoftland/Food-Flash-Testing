@@ -23,7 +23,7 @@
   <div class="container-fluid">
     <div class="card shadow-sm border-0">
       <div class="card-body">
-        <h4 class="text-center mb-4">Profiles Mapped to Each Outlet</h4>
+        <h4 class="text-center mb-4">{% if PROJECT_NAME == "hospital_flash" %}Profiles Mapped to Each Branch{% else %}Profiles Mapped to Each Outlet{% endif %}</h4>
         <div class="accordion" id="outletAccordion"></div>
       </div>
     </div>

@@ -102,10 +102,13 @@ async function loadAssignedProfiles(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPO
         await attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService);
     }
 async function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
+    const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
     document.querySelectorAll('.remove-icon').forEach(icon => {
         icon.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const confirmed = await ConfirmModalService.show("Do you want to Unmap Profile from Outlet?");
+        const confirmed = await ConfirmModalService.show(isHospitalFlash
+          ? "Do you want to Unmap Profile from Branch?"
+          : "Do you want to Unmap Profile from Outlet?");
         if (!confirmed) return;
         const vendorId = icon.dataset.vendor;
         const profileId = icon.dataset.profile;
@@ -123,6 +126,7 @@ async function attachActionListeners(fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDP
     }
 
 async function unmapProfile(vendorId, profileId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
+    const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
     try {
         const res = await fetchWithAutoRefresh(
         `${API_ENDPOINTS.UNMAP_PROFILE}${vendorId}/${profileId}/`,
@@ -135,7 +139,11 @@ async function unmapProfile(vendorId, profileId,fetchWithAutoRefresh,API_ENDPOIN
         });
         } else {
         const data = await res.json();
-        ModalService.showError(data.error || 'Failed to unmap profile');
+        const errorText = data.error || 'Failed to unmap profile';
+        const displayError = isHospitalFlash && errorText === 'No such mapping found between this vendor and profile.'
+          ? 'No such mapping found between this branch and profile.'
+          : errorText;
+        ModalService.showError(displayError);
         }
     } catch (err) {
         ModalService.showError('Server error while unmapping profile');
@@ -143,12 +151,13 @@ async function unmapProfile(vendorId, profileId,fetchWithAutoRefresh,API_ENDPOIN
 }
 
 async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_ENDPOINTS,ModalService) {
+  const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
   const modalBodyHTML = `
     <form id="assign-profile-form" class="px-4 py-3 mx-auto" style="max-width: 900px;">
-      <h4 class="text-center mb-4">Map Profiles to Outlets</h4>
+      <h4 class="text-center mb-4">${isHospitalFlash ? 'Map Profiles to Branches' : 'Map Profiles to Outlets'}</h4>
 
       <div class="form-group col-md-12 col-12">
-        <label for="ad-profile-select">Advertisement Profiles</label>
+        <label for="ad-profile-select">${isHospitalFlash ? 'Banner Profiles' : 'Advertisement Profiles'}</label>
         <div class="choices-scroll-wrapper">
           <select id="ad-profile-select" name="profiles[]" multiple class="form-select">
             <option disabled>Loading...</option>
@@ -199,7 +208,9 @@ async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_E
       const profileIds = profileChoices.getValue(true);
 
       if (!profileIds.length || !vendorId.length) {
-        ModalService.showError("Please select at least one profile and one outlet.");
+        ModalService.showError(isHospitalFlash
+          ? "Please select at least one profile and one branch."
+          : "Please select at least one profile and one outlet.");
         return;
       }
 
@@ -225,7 +236,10 @@ async function openAssignModal(vendorId,fetchWithAutoRefresh,API_ENDPOINTS,WEB_E
         const modalInstance = bootstrap.Modal.getInstance(modalElement);
 
         if (res.ok) {
-          const msg = `${result.summary}\n${result.duplicates_skipped} duplicate mappings were skipped.`;
+          const summary = isHospitalFlash && result.summary
+            ? result.summary.replace(/\boutlets\b/g, 'branches')
+            : result.summary;
+          const msg = `${summary}\n${result.duplicates_skipped} duplicate mappings were skipped.`;
           
           // Close Assign modal first
           modalInstance.hide();
