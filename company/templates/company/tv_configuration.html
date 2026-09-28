@@ -234,7 +234,7 @@
                             </div>
                             {% endif %}
                             <div class="col-md-4">
-                                <label class="form-label">Utility Font Size</label>
+                                <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Font Size{% else %}Utility Font Size{% endif %}</label>
                                 {% if PROJECT_NAME == "dine_flash" %}
                                 <input type="number" name="utility_font_size" class="form-control" min="1" max="100" value="12" />
                                 {% else %}
@@ -285,7 +285,7 @@
                             </div>
                             {% endif %}
                             <div class="col-md-4">
-                                <label class="form-label">Utility Text Color</label>
+                                <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Text Color{% else %}Utility Text Color{% endif %}</label>
                                 <div class="color-input-wrapper">
                                     <input type="color" name="utility_text_color" value="#000000" class="color-picker">
                                     <span class="text-muted small color-code">#000000</span>
@@ -369,7 +369,7 @@
                             <div class="col-md-4">
                                 <div class="form-check form-switch">
                                     <input type="checkbox" name="blink_utility" class="form-check-input" id="blink-utility">
-                                    <label class="form-check-label" for="blink-utility">Blink Utility Text</label>
+                                    <label class="form-check-label" for="blink-utility">{% if PROJECT_NAME == "hospital_flash" %}Blink Department Text{% else %}Blink Utility Text{% endif %}</label>
                                 </div>
                             </div>
                         </div>
@@ -400,7 +400,7 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Footer Texts (max 8, one per line)</label>
-                                <textarea id="footer-texts" class="form-control" rows="4" placeholder="Welcome to Dine Flash&#10;Please wait for your table&#10;Thank you for your patience"></textarea>
+                                <textarea id="footer-texts" class="form-control" rows="4" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}Welcome to our hospital&#10;Please wait to be called&#10;Thank you for your patience{% else %}Welcome to Dine Flash&#10;Please wait for your table&#10;Thank you for your patience{% endif %}"></textarea>
                                 <small class="text-muted">When enabled, TV can rotate these footer lines.</small>
                             </div>
                         </div>
@@ -495,7 +495,7 @@
                         <h6 class="form-section-title"><i class="fas fa-list-ul"></i>Other Display Logic</h6>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">{% if PROJECT_NAME == "dine_flash" %}Items to Show (1-20){% else %}Items to Show (1-5){% endif %}</label>
+                                <label class="form-label">{% if PROJECT_NAME == "dine_flash" %}Items to Show (1-20){% elif PROJECT_NAME == "hospital_flash" %}Tokens to Show (1-5){% else %}Items to Show (1-5){% endif %}</label>
                                 <select name="items_to_show" class="form-select" required>
                                     {% if PROJECT_NAME == "dine_flash" %}
                                     <option value="1">1 Item</option>
@@ -518,6 +518,12 @@
                                     <option value="18">18 Items</option>
                                     <option value="19">19 Items</option>
                                     <option value="20">20 Items</option>
+                                    {% elif PROJECT_NAME == "hospital_flash" %}
+                                    <option value="1">1 Token</option>
+                                    <option value="2">2 Tokens</option>
+                                    <option value="3" selected>3 Tokens</option>
+                                    <option value="4">4 Tokens</option>
+                                    <option value="5">5 Tokens</option>
                                     {% else %}
                                     <option value="1">1 Item</option>
                                     <option value="2">2 Items</option>
@@ -528,7 +534,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Utility Name Mode</label>
+                                <label class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Name Mode{% else %}Utility Name Mode{% endif %}</label>
                                 <select name="utility_name_mode" class="form-select" required>
                                     <option value="display_name" selected>Display Name</option>
                                     <option value="display_code">Display Code</option>

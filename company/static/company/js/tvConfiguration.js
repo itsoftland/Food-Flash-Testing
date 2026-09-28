@@ -75,7 +75,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             removeItemButton: true,
             itemSelectText: 'Click to select',
             placeholder: true,
-            placeholderValue: 'Click to select utilities...',
+            placeholderValue: isHospitalFlash
+                ? 'Click to select departments...'
+                : 'Click to select utilities...',
             shouldSort: false,
         });
     }
@@ -117,17 +119,25 @@ document.addEventListener('DOMContentLoaded', async function () {
             initializeChoices();
 
             if (!response.ok) {
-                const msg =
-                    data.error ||
-                    data.message ||
-                    'Could not load utilities. Check that an admin outlet is selected and try again.';
+                const hospitalLoadError = 'Could not load departments. Please refresh the page.';
+                const msg = isHospitalFlash
+                    ? hospitalLoadError
+                    : (
+                        data.error ||
+                        data.message ||
+                        'Could not load utilities. Check that an admin outlet is selected and try again.'
+                    );
                 ModalService.showError(msg);
             }
         } catch (error) {
             console.error('Error loading utilities:', error);
             utilitiesSelect.innerHTML = '';
             initializeChoices();
-            ModalService.showError('Could not load utilities. Please refresh the page.');
+            ModalService.showError(
+                isHospitalFlash
+                    ? 'Could not load departments. Please refresh the page.'
+                    : 'Could not load utilities. Please refresh the page.'
+            );
         }
     }
 
