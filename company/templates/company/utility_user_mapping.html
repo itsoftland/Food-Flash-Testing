@@ -1,7 +1,11 @@
 {% extends 'company/layouts/base.html' %} 
 {% load static %}
 
-{% block title %}{% if PROJECT_NAME == "dine_flash_buffet" %}Menu Mapping{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block title %}
+  {% if PROJECT_NAME == "hospital_flash" %}Department User Mapping
+  {% elif PROJECT_NAME == "dine_flash_buffet" %}Menu Mapping
+  {% else %}{{ block.super }}{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 max-w-lg mx-auto" style="max-width: 800px;">
