@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Dine Flash: "Booking No". Dine Flash Buffet: "Table No" (table_booking_no).
   // Hospital Flash: "Token No" column shows patient-facing table_booking_no (e.g. LAB-12);
-  // Counter No and Ready Time columns are hidden.
+  // Counter No, Ready Time, and Device No columns are hidden.
   // Other flash variants (airline, food, service, calleron) are unaffected.
   const isDineFlash = window.PROJECT_NAME === "dine_flash";
   const isDineFlashBuffet = window.PROJECT_NAME === "dine_flash_buffet";
@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function getTableColCount() {
     if (isDineFlashBuffet) return 6;
     if (isDineFlash) return 8;
-    if (isHospitalFlash) return 7;
+    if (isHospitalFlash) return 6;
     return 9;
   }
 
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${order.counter_no}</td>
       `;
 
-      const deviceCell = isDineFlashBuffet
+      const deviceCell = (isDineFlashBuffet || isHospitalFlash)
         ? ""
         : `<td>${order.device_name || "Not Assigned"}</td>`;
 

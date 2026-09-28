@@ -35,8 +35,8 @@
                 </select>
             </div>
             {# Dine Flash Buffet: hide Device/Status/Shown on TV/Notified from UI only; keep DOM for existing JS/API. #}
-            {# Hospital Flash: hide Status only (food/kitchen options); keep DOM/values for existing JS/API. #}
-            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
+            {# Hospital Flash: hide Device/Status/Shown on TV/Notified from UI only; keep DOM/values for existing JS/API. #}
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' or PROJECT_NAME == 'hospital_flash' %} d-none{% endif %}">
                 <label class="small mb-1">Device</label>
                 <select class="form-control form-control-sm" id="device-filter">
                 <option value="">All</option>
@@ -58,7 +58,7 @@
                 {% endif %}
                 </select>
             </div>
-            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' or PROJECT_NAME == 'hospital_flash' %} d-none{% endif %}">
                 <label class="small mb-1">Shown on TV</label>
                 <select class="form-control form-control-sm" id="shown-filter">
                 <option value="">All</option>
@@ -66,7 +66,7 @@
                 <option value="false">No</option>
                 </select>
             </div>
-            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' %} d-none{% endif %}">
+            <div class="col-md-2 col-6{% if PROJECT_NAME == 'dine_flash_buffet' or PROJECT_NAME == 'hospital_flash' %} d-none{% endif %}">
                 <label class="small mb-1">Notified</label>
                 <select class="form-control form-control-sm" id="notified-filter">
                 <option value="">All</option>
@@ -123,7 +123,7 @@
                             {% endif %}
                             {% endif %}
                             <th>{% if PROJECT_NAME == "hospital_flash" %}Branch Name{% else %}Outlet Name{% endif %}</th>
-                            {% if PROJECT_NAME != "dine_flash_buffet" %}
+                            {% if PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "hospital_flash" %}
                             <th>Device No</th>
                             {% endif %}
                             <th>Created Time</th>
