@@ -92,5 +92,5 @@
 <script type="application/json" id="android-tvs-page-flags">
 {"hideConfigurationColumn": {% if PROJECT_NAME == "dine_flash" %}true{% else %}false{% endif %}}
 </script>
-<script type="module" src="{% static 'company/js/androidTvs.js' %}"></script>
+<script type="module" src="{% static 'company/js/androidTvs.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}
