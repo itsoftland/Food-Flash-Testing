@@ -66,7 +66,7 @@
               <tr>
                 <th>Id</th>
                 <th>Mac Address</th>
-                <th>Outlet Name</th>
+                <th>{% if PROJECT_NAME == "hospital_flash" %}Branch Name{% else %}Outlet Name{% endif %}</th>
                 {% if PROJECT_NAME != "dine_flash" %}
                 <th>Configuration</th>
                 {% endif %}

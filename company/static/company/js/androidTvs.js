@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
   const API_ENDPOINTS = apiModule.API_ENDPOINTS;
   const ModalService = modalModule.ModalService;
+  const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
+  const outletNameLabel = isHospitalFlash ? 'Branch Name' : 'Outlet Name';
 
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();
@@ -144,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <tr>
             <td class="text-muted text-center" data-label="ID">${Id}</td>
             <td class="name" data-label="MAC Address">${device.mac_address}</td>
-            <td class="${outletClass}" data-label="Outlet Name">${outletName}</td>
+            <td class="${outletClass}" data-label="${outletNameLabel}">${outletName}</td>
             ${configCell}
             <td class="text-muted" data-label="Created Time">${createdTime}</td>
             <td class="text-center" data-label="Actions">
@@ -315,13 +317,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   }
+  function mapHospitalFlashMapError(message) {
+    if (!isHospitalFlash || typeof message !== 'string') return message;
+    const mappings = {
+      'Vendor not found.': 'Branch not found.',
+      'Vendor does not belong to your admin outlet.': 'This branch does not belong to your hospital.',
+      'vendor_id is required.': 'Please select a branch.',
+      'AdminOutlet not found.': 'Unable to complete this action.',
+    };
+    return mappings[message] || message;
+  }
+
   async function openMapDeviceModal(deviceId, macAddress) {
+    const selectOutletLabel = isHospitalFlash ? 'Select Branch' : 'Select Outlet';
+    const loadingOutletsLabel = isHospitalFlash ? 'Loading branches...' : 'Loading outlets...';
+    const noOutletsLabel = isHospitalFlash ? 'No branches available' : 'No outlets available';
+    const errorLoadingOutletsLabel = isHospitalFlash ? 'Error loading branches' : 'Error loading outlets';
+    const selectOutletError = isHospitalFlash ? 'Please select a branch.' : 'Please select an outlet.';
+    const linkedSuccessMessage = isHospitalFlash
+      ? `Device #${macAddress} linked to selected branch.`
+      : `Device #${macAddress} linked to selected outlet.`;
+    const mapModalTitle = isHospitalFlash ? 'Link Device to Branch' : 'Link Device to Outlet';
+
     const modalBodyHTML = `
       <form id="map-device-form" class="px-4 py-3 mx-auto" style="max-width: 600px;">
         <div class="form-group col-md-12 col-12">
-          <label for="vendor-select">Select Outlet</label>
+          <label for="vendor-select">${selectOutletLabel}</label>
           <select id="vendor-select" name="vendor_id" class="form-control">
-            <option disabled selected>Loading outlets...</option>
+            <option disabled selected>${loadingOutletsLabel}</option>
           </select>
         </div>
 
@@ -334,7 +357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     ModalService.showCustom({
-      title: 'Link Device to Outlet',
+      title: mapModalTitle,
       body: modalBodyHTML,
       onShown: async () => {
         const vendorSelect = document.getElementById('vendor-select');
@@ -344,14 +367,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           const vendors = data.vendors || [];
 
           if (!vendors.length) {
-            vendorSelect.innerHTML = `<option disabled>No outlets available</option>`;
+            vendorSelect.innerHTML = `<option disabled>${noOutletsLabel}</option>`;
           } else {
             vendorSelect.innerHTML = vendors
               .map(v => `<option value="${v.id}">${v.name} (${v.location})</option>`)
               .join('');
           }
         } catch (err) {
-          vendorSelect.innerHTML = `<option disabled>Error loading outlets</option>`;
+          vendorSelect.innerHTML = `<option disabled>${errorLoadingOutletsLabel}</option>`;
         }
 
         // Handle form submission
@@ -360,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           const vendorId = vendorSelect.value;
           if (!vendorId) {
-            ModalService.showError('Please select an outlet.');
+            ModalService.showError(selectOutletError);
             return;
           }
 
@@ -379,12 +402,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (res.ok) {
               setTimeout(() => {
-                ModalService.showSuccess(`Device #${macAddress} linked to selected outlet.`, () => {
+                ModalService.showSuccess(linkedSuccessMessage, () => {
                   location.reload(); // Or call loadDevices()
                 });
               }, 300);
             } else {
-              const msg = result?.error || result?.message || 'Unable to map device.';
+              const rawMsg = result?.error || result?.message || 'Unable to map device.';
+              const msg = mapHospitalFlashMapError(rawMsg);
               setTimeout(() => {
                 ModalService.showError(msg, () => openMapDeviceModal(deviceId, macAddress));
               }, 300);
