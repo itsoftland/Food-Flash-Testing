@@ -64,7 +64,7 @@
                     <div id="standard-utility-fields" class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label" id="display-code-label">Display Code</label>
-                            <input type="text" name="display_code" id="display-code-input" class="form-control" placeholder="e.g. SINC" maxlength="10">
+                            <input type="text" name="display_code" id="display-code-input" class="form-control" placeholder="{% if PROJECT_NAME == 'hospital_flash' %}e.g. LAB{% else %}e.g. SINC{% endif %}" maxlength="10">
                         </div>
                         <div class="col-md-4 mb-3" id="token-mode-field">
                             <label class="form-label">Token Mode</label>
