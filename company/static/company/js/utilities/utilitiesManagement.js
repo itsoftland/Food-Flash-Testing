@@ -17,6 +17,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   );
   const isHospital = window.PROJECT_NAME === 'hospital_flash';
   const isBuffet = window.PROJECT_NAME === 'dine_flash_buffet';
+  const HOSPITAL_ERROR_DISPLAY = {
+    "Utility name already exists for this vendor": "Department name already exists for this branch",
+    "Display name already exists for this vendor": "Display name already exists for this branch",
+    "Display code already exists for this vendor": "Display code already exists for this branch",
+    "One or more included departments were not found for this outlet": "One or more included departments were not found for this branch",
+    "Utility not found": "Department not found",
+    "Utilities feature is disabled for this vendor": "Departments feature is disabled for this branch",
+    "Vendor not found": "Branch not found",
+    "prefix must be unique for each vendor": "prefix must be unique for each branch",
+    "You don't have permission to modify this utility": "You don't have permission to modify this department",
+    "Unable to determine utility owner": "Unable to determine department owner",
+    "Utility ID is required": "Department ID is required",
+    "An error occurred while updating utility": "An error occurred while updating department",
+  };
+
+  function hospitalDisplayError(errorText, fallback) {
+    if (!errorText) return fallback;
+    return HOSPITAL_ERROR_DISPLAY[errorText] || errorText;
+  }
   const groupDepartmentsUiModule = isHospital
     ? await import(`${window.BASE}static/company/js/utilities/hospitalGroupDepartmentsUi.js`)
     : null;
@@ -159,7 +178,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (error) {
       console.error('Error loading vendors:', error);
-      ModalService.showError('Failed to load outlets. Please refresh the page.');
+      ModalService.showError(
+        isHospital
+          ? 'Failed to load branches. Please refresh the page.'
+          : 'Failed to load outlets. Please refresh the page.'
+      );
     }
   }
 
@@ -207,9 +230,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
       console.error('Error loading utilities:', error);
       ModalService.showError(
-        isBuffet
-          ? 'Failed to load menu. Please try again.'
-          : 'Failed to load utilities. Please try again.'
+        isHospital
+          ? 'Failed to load departments. Please try again.'
+          : isBuffet
+            ? 'Failed to load menu. Please try again.'
+            : 'Failed to load utilities. Please try again.'
       );
     }
   }
@@ -241,7 +266,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     paginatedUtilities.forEach(utility => {
       const row = document.createElement('tr');
       const vendorName = utility.vendor_name || 'N/A';
-      const tokenModeLabel = utility.token_mode === 'continuous' ? 'Continuous' : 'Utility Specific';
+      const tokenModeLabel = utility.token_mode === 'continuous'
+        ? 'Continuous'
+        : (isHospital ? 'Department Specific' : 'Utility Specific');
       const statusClass = utility.is_active ? 'active' : 'inactive';
       const statusLabel = utility.is_active ? 'Active' : 'Inactive';
 
@@ -378,9 +405,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const utility = getUtilityById(btn.dataset.utilityId);
     if (!utility) {
       ModalService.showError(
-        isBuffet
-          ? 'Menu data is unavailable. Please refresh the page.'
-          : 'Utility data is unavailable. Please refresh the page.'
+        isHospital
+          ? 'Department data is unavailable. Please refresh the page.'
+          : isBuffet
+            ? 'Menu data is unavailable. Please refresh the page.'
+            : 'Utility data is unavailable. Please refresh the page.'
       );
       return;
     }
@@ -599,7 +628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <label class="form-label" style="font-size: 0.9rem; margin-bottom: 4px;">Token Mode</label>
             <select id="edit-token-mode" class="form-select form-select-sm">
               <option value="continuous" ${utility.token_mode === 'continuous' ? 'selected' : ''}>Continuous</option>
-              <option value="utility_specific" ${utility.token_mode === 'utility_specific' ? 'selected' : ''}>Utility Specific</option>
+              <option value="utility_specific" ${utility.token_mode === 'utility_specific' ? 'selected' : ''}>${isHospital ? 'Department Specific' : 'Utility Specific'}</option>
             </select>
           </div>
         </div>
@@ -736,7 +765,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           : '';
 
         // Client-side validations (same limits as server) - show inline
-        if (!name) return showInlineError(isBuffet ? 'Menu name is required' : 'Utility name is required');
+        if (!name) return showInlineError(isHospital ? 'Department name is required' : (isBuffet ? 'Menu name is required' : 'Utility name is required'));
         if (!dname) return showInlineError('Display name is required');
         if (isBuffet && !foodType) {
           return showInlineError('Please select Veg or Non Veg in Food Type (required for buffet menu).');
@@ -791,7 +820,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        if (name.length > 30) return showInlineError(isBuffet ? 'Menu name must be at most 30 characters' : 'Utility name must be at most 30 characters');
+        if (name.length > 30) return showInlineError(isHospital ? 'Department name must be at most 30 characters' : (isBuffet ? 'Menu name must be at most 30 characters' : 'Utility name must be at most 30 characters'));
         if (dname.length > 20) return showInlineError('Display name must be at most 20 characters');
         if (!isBuffet && dcode.length > 10) return showInlineError('Display code must be at most 10 characters');
         if (!isBuffet && pref.length > 4) return showInlineError('Prefix must be at most 4 characters');
@@ -928,11 +957,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
           } else {
             // Server-side validation error - show inline in modal
-            showInlineError(result?.error || (isBuffet ? 'Failed to update menu' : 'Failed to update utility'));
+            const updateFallback = isHospital
+              ? 'Failed to update department'
+              : (isBuffet ? 'Failed to update menu' : 'Failed to update utility');
+            let updateError = result?.error || updateFallback;
+            if (isHospital) {
+              updateError = hospitalDisplayError(result?.error, updateFallback);
+              if (
+                result?.error === 'Display code already exists for this vendor' &&
+                isGroupDepartment
+              ) {
+                updateError = 'Package code already exists for this branch';
+              }
+            }
+            showInlineError(updateError);
           }
         } catch (err) {
           console.error('Error updating utility:', err);
-          showInlineError(isBuffet ? 'An error occurred while updating menu' : 'An error occurred while updating utility');
+          showInlineError(
+            isHospital
+              ? 'An error occurred while updating department'
+              : isBuffet
+                ? 'An error occurred while updating menu'
+                : 'An error occurred while updating utility'
+          );
         }
       });
     }});
@@ -1138,19 +1186,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (response.ok) {
         ModalService.showSuccess(
-          isBuffet
-            ? `Menu ${actionLabel}d successfully!`
-            : `Utility ${actionLabel}d successfully!`,
+          isHospital
+            ? `Department ${actionLabel}d successfully!`
+            : isBuffet
+              ? `Menu ${actionLabel}d successfully!`
+              : `Utility ${actionLabel}d successfully!`,
           () => {
           // Reload utilities from API to get fresh data
           loadUtilities(selectedVendorId);
         });
       } else {
+        const toggleFallback = isHospital
+          ? `Failed to ${actionLabel} department`
+          : isBuffet
+            ? `Failed to ${actionLabel} menu`
+            : `Failed to ${actionLabel} utility`;
         ModalService.showError(
-          result?.error ||
-            (isBuffet
-              ? `Failed to ${actionLabel} menu`
-              : `Failed to ${actionLabel} utility`)
+          isHospital
+            ? hospitalDisplayError(result?.error, toggleFallback)
+            : (result?.error || toggleFallback)
         );
       }
     } catch (error) {

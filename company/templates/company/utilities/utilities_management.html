@@ -36,7 +36,7 @@
       <div class="control-items">
         <!-- Outlet Filter -->
         <div class="control-item">
-          <select id="vendor-filter" class="form-select form-select-sm" title="Filter by outlet">
+          <select id="vendor-filter" class="form-select form-select-sm" title="{% if PROJECT_NAME == 'hospital_flash' %}Filter by branch{% else %}Filter by outlet{% endif %}">
             <option value="">{% if PROJECT_NAME == "hospital_flash" %}All Branches{% else %}All Outlets{% endif %}</option>
           </select>
         </div>
@@ -48,7 +48,7 @@
             id="search-input"
             class="form-control form-control-sm"
             placeholder="Search…"
-            aria-label="{% if PROJECT_NAME == 'dine_flash_buffet' %}Search menu{% else %}Search utilities{% endif %}"
+            aria-label="{% if PROJECT_NAME == 'hospital_flash' %}Search departments{% elif PROJECT_NAME == 'dine_flash_buffet' %}Search menu{% else %}Search utilities{% endif %}"
           >
           <i class="fas fa-search search-icon"></i>
         </div>
@@ -85,7 +85,7 @@
               <th>Food Type</th>
               <th>Description</th>
               {% endif %}
-              <th>Outlet</th>
+              <th>{% if PROJECT_NAME == "hospital_flash" %}Branch{% else %}Outlet{% endif %}</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -103,10 +103,10 @@
       <div id="empty-state-no-utilities" class="empty-state" style="display: none;">
         <div class="empty-state-content">
           <i class="fas fa-inbox"></i>
-          <h3>{% if PROJECT_NAME == "dine_flash_buffet" %}No menu found{% else %}No utilities found{% endif %}</h3>
-          <p>{% if PROJECT_NAME == "dine_flash_buffet" %}No menu matches your filters. Try adjusting your search criteria.{% else %}No utilities match your filters. Try adjusting your search criteria.{% endif %}</p>
+          <h3>{% if PROJECT_NAME == "hospital_flash" %}No departments found{% elif PROJECT_NAME == "dine_flash_buffet" %}No menu found{% else %}No utilities found{% endif %}</h3>
+          <p>{% if PROJECT_NAME == "hospital_flash" %}No departments match your filters. Try adjusting your search criteria.{% elif PROJECT_NAME == "dine_flash_buffet" %}No menu matches your filters. Try adjusting your search criteria.{% else %}No utilities match your filters. Try adjusting your search criteria.{% endif %}</p>
           <a href="{% url 'company:create_utility_page' %}" class="btn-create-utility">
-            <i class="fas fa-plus"></i> {% if PROJECT_NAME == "dine_flash_buffet" %}Add Menu{% else %}Create Utility{% endif %}
+            <i class="fas fa-plus"></i> {% if PROJECT_NAME == "hospital_flash" %}Add Department{% elif PROJECT_NAME == "dine_flash_buffet" %}Add Menu{% else %}Create Utility{% endif %}
           </a>
         </div>
       </div>

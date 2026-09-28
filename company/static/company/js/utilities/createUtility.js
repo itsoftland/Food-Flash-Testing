@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   ------------------------------------ */
   const TOKEN_MODE_CHOICES = [
     { value: 'continuous', label: 'Continuous' },
-    { value: 'utility_specific', label: 'Utility Specific' }
+    { value: 'utility_specific', label: isHospital ? 'Department Specific' : 'Utility Specific' }
   ];
 
   // Populate token mode dropdown
@@ -680,12 +680,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         message = result.error;
         // Hospital Flash / Dine Flash Buffet: remap shared backend wording at the presentation layer only
         if (isHospital) {
-          if (result.error === 'Display code already exists for this vendor') {
-            message = isGroupDepartment
-              ? 'Package code already exists for this branch'
-              : 'Display code already exists for this branch';
-          } else if (result.error === 'Utility name already exists for this vendor') {
-            message = 'Department name already exists for this branch';
+          const hospitalCreateErrorDisplay = {
+            "Utility name already exists for this vendor": "Department name already exists for this branch",
+            "Display name already exists for this vendor": "Display name already exists for this branch",
+            "Display code already exists for this vendor": "Display code already exists for this branch",
+            "One or more included departments were not found for this outlet": "One or more included departments were not found for this branch",
+            "Utility not found": "Department not found",
+            "Utilities feature is disabled for this vendor": "Departments feature is disabled for this branch",
+            "Vendor not found": "Branch not found",
+            "prefix must be unique for each vendor": "prefix must be unique for each branch",
+            "You don't have permission to modify this utility": "You don't have permission to modify this department",
+          };
+          if (result.error === 'Display code already exists for this vendor' && isGroupDepartment) {
+            message = 'Package code already exists for this branch';
+          } else {
+            message = hospitalCreateErrorDisplay[result.error] || result.error;
           }
         } else if (
           isBuffet &&
