@@ -336,10 +336,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ------------------------------------
      Initialize Choices (ONCE)
   ------------------------------------ */
+  const isHospitalFlash =
+    String(window.PROJECT_NAME || '').trim().toLowerCase() === 'hospital_flash';
   const outletsChoices = new Choices(outletsSelect, {
     searchEnabled: true,
     shouldSort: false,
-    placeholderValue: 'Select Outlet',
+    placeholderValue: isHospitalFlash ? 'Select Branch' : 'Select Outlet',
     classNames: {
       containerInner: 'choices-inner-foodflash',
       item: 'choices-item-foodflash',
@@ -373,7 +375,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (error) {
     console.error('Vendor fetch failed:', error);
     ModalService.showError(
-      'Unable to load outlet list. Please refresh the page.'
+      isHospitalFlash
+        ? 'Unable to load branch list. Please refresh the page.'
+        : 'Unable to load outlet list. Please refresh the page.'
     );
     return;
   }
@@ -468,7 +472,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const vendorId = Array.isArray(selected) ? (selected[0] || null) : (selected || null);
 
     if (!vendorId) {
-      ModalService.showError('Please select an outlet.');
+      ModalService.showError(
+        isHospitalFlash ? 'Please select a branch.' : 'Please select an outlet.'
+      );
       return;
     }
 

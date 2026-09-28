@@ -33,7 +33,7 @@
 
           <!-- Step 1: Outlet Selection -->
           <div class="mb-3">
-            <h6 class="text-uppercase fw-bold text-muted mb-2">Step 1: Select Outlet</h6>
+            <h6 class="text-uppercase fw-bold text-muted mb-2">{% if is_hospital_flash %}Step 1: Select Branch{% else %}Step 1: Select Outlet{% endif %}</h6>
             <div class="choices-scroll-wrapper">
               <select id="outlets" name="outlets"></select>
             </div>
