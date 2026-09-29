@@ -18,6 +18,7 @@ from manager.buffet_pre_announcement import process_buffet_pre_announcements
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push, buffet_utility_image_payload
 from static.utils.functions.utils import get_vendor_business_day_range
+from orders.buffet.api_helpers import build_buffet_tracking_url
 from orders.buffet.order_create import (
     BuffetOrderCreateStatus,
     create_buffet_order,
@@ -243,6 +244,9 @@ def buffet_create_order(request):
             "token_no": order.token_no,
             "table_number": table_number,
             "items_count": len(created_items),
+            "tracking_url": build_buffet_tracking_url(
+                request, vendor, order.token_no
+            ),
         },
         status=status.HTTP_201_CREATED,
     )
@@ -530,10 +534,11 @@ def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
     return qs
 
 
-def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
+def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, request):
     """
-    Build [{token_no, booking_id, table_no, submitted_at, utilities: [...]}, ...] for today's
-    orders that still have at least one visible line after optional delivered stripping.
+    Build [{token_no, booking_id, table_no, submitted_at, tracking_url, utilities: [...]}, ...]
+    for today's orders that still have at least one visible line after optional delivered
+    stripping.
 
     table_no is Order.table_booking_no (where buffet order create stores the table number).
     """
@@ -560,6 +565,9 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered):
                 "booking_id": order.id,
                 "table_no": order.table_booking_no,
                 "submitted_at": order.created_at.isoformat(),
+                "tracking_url": build_buffet_tracking_url(
+                    request, vendor, order.token_no
+                ),
                 "utilities": utilities,
             }
         )
@@ -646,7 +654,9 @@ def buffet_utilities_orders_summary(request):
                 {"error": "This summary is only available for utility users or outlet managers."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        orders_payload = _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered)
+        orders_payload = _buffet_all_assigned_tokens_response(
+            vendor, user_profile, hide_delivered, request
+        )
         return Response(
             {
                 "message": "Buffet utilities summary.",
