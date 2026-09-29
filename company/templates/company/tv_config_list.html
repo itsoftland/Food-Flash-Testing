@@ -209,7 +209,7 @@
             <h6 class="form-section-title">Items Display Settings</h6>
             <div class="row g-3">
               <div class="form-group col-lg-4">
-                <label for="edit-items-to-show" class="form-label">{% if PROJECT_NAME == "dine_flash" %}Items to Show (1-20){% else %}Items to Show (1-5){% endif %}</label>
+                <label for="edit-items-to-show" class="form-label">{% if PROJECT_NAME == "dine_flash" %}Items to Show (1-20){% elif PROJECT_NAME == "hospital_flash" %}Tokens to Show (1-5){% else %}Items to Show (1-5){% endif %}</label>
                 <select id="edit-items-to-show" name="items_to_show" class="form-select form-select-sm" required>
                   <option value="">-- Select --</option>
                   {% if PROJECT_NAME == "dine_flash" %}
@@ -233,6 +233,12 @@
                   <option value="18">18 Items</option>
                   <option value="19">19 Items</option>
                   <option value="20">20 Items</option>
+                  {% elif PROJECT_NAME == "hospital_flash" %}
+                  <option value="1">1 Token</option>
+                  <option value="2">2 Tokens</option>
+                  <option value="3">3 Tokens</option>
+                  <option value="4">4 Tokens</option>
+                  <option value="5">5 Tokens</option>
                   {% else %}
                   <option value="1">1 Item</option>
                   <option value="2">2 Items</option>
@@ -243,7 +249,7 @@
                 </select>
               </div>
               <div class="form-group col-lg-4">
-                <label for="edit-utility-name-mode" class="form-label">Utility Name Mode</label>
+                <label for="edit-utility-name-mode" class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Name Mode{% else %}Utility Name Mode{% endif %}</label>
                 <select id="edit-utility-name-mode" name="utility_name_mode" class="form-select form-select-sm"
                   required>
                   <option value="">-- Select --</option>
@@ -319,7 +325,7 @@
               </div>
               {% endif %}
               <div class="form-group col-lg-4">
-                <label for="edit-utility-font-size" class="form-label">Utility Font Size</label>
+                <label for="edit-utility-font-size" class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Font Size{% else %}Utility Font Size{% endif %}</label>
                 {% if PROJECT_NAME == "dine_flash" %}
                 <input type="number" id="edit-utility-font-size" name="utility_font_size" class="form-control form-control-sm" min="1" max="100" value="12" />
                 {% else %}
@@ -363,7 +369,7 @@
               </div>
               {% endif %}
               <div class="form-group col-lg-4">
-                <label for="edit-utility-text-color" class="form-label">Utility Text Color</label>
+                <label for="edit-utility-text-color" class="form-label">{% if PROJECT_NAME == "hospital_flash" %}Department Text Color{% else %}Utility Text Color{% endif %}</label>
                 <input type="color" id="edit-utility-text-color" name="utility_text_color" class="form-control form-control-color" />
               </div>
               <div class="form-group col-lg-4">
@@ -512,7 +518,7 @@
               <div class="form-group col-lg-3">
                 <div class="form-check ps-0 mt-4">
                   <input type="checkbox" id="edit-blink-utility" name="blink_utility" class="form-check-input" />
-                  <label class="form-check-label" for="edit-blink-utility">Blink Utility</label>
+                  <label class="form-check-label" for="edit-blink-utility">Blink Department Text</label>
                 </div>
               </div>
               <div class="form-group col-lg-3">

@@ -894,41 +894,68 @@ function formatList(values, formatter = (v) => v) {
 }
 
 function buildDetailEntries(config, utilityLookup = {}) {
+  const isHospitalFlash = isTvConfigListHospitalFlash();
   const utilities = normalizeTvConfigUtilities(config.utilities, utilityLookup);
-  const utilitiesLabel = isTvConfigListHospitalFlash() ? 'Departments' : 'Utilities';
+  const utilitiesLabel = isHospitalFlash ? 'Departments' : 'Utilities';
   const advertisements = (config.advertisements || []).map((ad) => ad.title || `Ad #${ad.id}`);
   const footerTexts = Array.isArray(config.footer_texts) ? config.footer_texts : [];
+
+  const itemsToShowLabel = isHospitalFlash ? 'Tokens to Show' : 'Items to Show';
+  const itemsToShowValue = (() => {
+    const raw = config.items_to_show;
+    if (raw === undefined || raw === null || raw === '') return '-';
+    if (!isHospitalFlash) return String(raw);
+    const count = Number(raw);
+    if (!Number.isFinite(count)) return String(raw);
+    return count === 1 ? '1 Token' : `${count} Tokens`;
+  })();
+
+  const utilityNameModeLabel = isHospitalFlash ? 'Department Name Mode' : 'Utility Name Mode';
+  const utilityFontSizeLabel = isHospitalFlash ? 'Department Font Size' : 'Utility Font Size';
+  const utilityTextColorLabel = isHospitalFlash ? 'Department Text Color' : 'Utility Text Color';
+  const blinkUtilityLabel = isHospitalFlash ? 'Blink Department Text' : 'Blink Utility';
 
   return [
     ['Configuration Name', escapeHtml(config.config_name || '-')],
     // Hospital Flash View Details: omit Show QR (Edit has no QR UI; keep API/value unchanged).
-    ...(isTvConfigListHospitalFlash() ? [] : [['Show QR', escapeHtml(formatBool(config.show_qr))]]),
-    ['QR Alignment', escapeHtml(config.qr_alignment || '-')],
-    ['QR Placement', escapeHtml(config.qr_placement || '-')],
-    ['QR Base URL', escapeHtml(config.qr_base_url || '-')],
+    ...(isHospitalFlash ? [] : [['Show QR', escapeHtml(formatBool(config.show_qr))]]),
+    // Hospital Flash: omit Dine-specific QR / customer visibility rows.
+    ...(isHospitalFlash ? [] : [
+      ['QR Alignment', escapeHtml(config.qr_alignment || '-')],
+      ['QR Placement', escapeHtml(config.qr_placement || '-')],
+      ['QR Base URL', escapeHtml(config.qr_base_url || '-')],
+    ]),
     ['Screen Orientation', escapeHtml(formatField(config.screen_orientation || '-'))],
-    ['Items to Show', escapeHtml(String(config.items_to_show ?? '-'))],
-    ['Utility Name Mode', escapeHtml(formatField(config.utility_name_mode || '-'))],
+    [itemsToShowLabel, escapeHtml(itemsToShowValue)],
+    [utilityNameModeLabel, escapeHtml(formatField(config.utility_name_mode || '-'))],
     [utilitiesLabel, formatList(utilities)],
     ['Display Rows', escapeHtml(String(config.display_rows ?? '-'))],
     ['Display Columns', escapeHtml(String(config.display_columns ?? '-'))],
     ['Token Font Size', escapeHtml(formatField(config.token_font_size || '-'))],
-    ['Utility Font Size', escapeHtml(formatField(config.utility_font_size || '-'))],
+    ...(isHospitalFlash ? [
+      ['Counter Font Size', escapeHtml(formatField(config.counter_font_size || '-'))],
+    ] : []),
+    [utilityFontSizeLabel, escapeHtml(formatField(config.utility_font_size || '-'))],
     ['Header Font Size', escapeHtml(formatField(config.header_font_size || '-'))],
     ['Header Font Style', escapeHtml(formatField(config.header_font_style || '-'))],
     ['Token Text Color', escapeHtml(config.token_text_color || '-')],
-    ['Utility Text Color', escapeHtml(config.utility_text_color || '-')],
+    ...(isHospitalFlash ? [
+      ['Counter Text Color', escapeHtml(config.counter_text_color || '-')],
+    ] : []),
+    [utilityTextColorLabel, escapeHtml(config.utility_text_color || '-')],
     ['Header Text Color', escapeHtml(config.header_text_color || '-')],
     ['Footer Font Size', escapeHtml(formatField(config.footer_font_size || '-'))],
     ['Footer Text Color', escapeHtml(config.footer_text_color || '-')],
-    ['Show Customer Name', escapeHtml(formatBool(config.show_customer_name))],
-    ['Show Phone Number', escapeHtml(formatBool(config.show_phone_number))],
-    ['Show Partially Masked Phone Number', escapeHtml(formatBool(config.show_partially_masked_phone_number))],
-    ['Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
+    ...(isHospitalFlash ? [] : [
+      ['Show Customer Name', escapeHtml(formatBool(config.show_customer_name))],
+      ['Show Phone Number', escapeHtml(formatBool(config.show_phone_number))],
+      ['Show Partially Masked Phone Number', escapeHtml(formatBool(config.show_partially_masked_phone_number))],
+      ['Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
+    ]),
     ['Audio Enabled', escapeHtml(formatBool(config.audio_enabled))],
     ['Announcement Language', escapeHtml(config.announcement_language || '-')],
     ['Blink Token', escapeHtml(formatBool(config.blink_token))],
-    ['Blink Utility', escapeHtml(formatBool(config.blink_utility))],
+    [blinkUtilityLabel, escapeHtml(formatBool(config.blink_utility))],
     ['Enable Ads', escapeHtml(formatBool(config.enable_ads))],
     ['Ad Position', escapeHtml(formatField(config.ad_position || '-'))],
     ['Ad Interval (seconds)', escapeHtml(String(config.ad_interval ?? '-'))],
@@ -942,6 +969,10 @@ function buildDetailEntries(config, utilityLookup = {}) {
 function normalizeTvConfigUtilities(utilities, utilityLookup = {}) {
   if (!Array.isArray(utilities)) return [];
 
+  const idFallback = (id) => (
+    isTvConfigListHospitalFlash() ? `Department #${id}` : `#${id}`
+  );
+
   return utilities
     .filter((utility) => utility !== null && utility !== undefined)
     .map((utility) => {
@@ -950,14 +981,14 @@ function normalizeTvConfigUtilities(utilities, utilityLookup = {}) {
           utility.display_name
           || utility.utility_name
           || utility.display_code
-          || (utility.id != null ? (utilityLookup[String(utility.id)] || `#${utility.id}`) : null)
+          || (utility.id != null ? (utilityLookup[String(utility.id)] || idFallback(utility.id)) : null)
         );
       }
 
       const raw = String(utility).trim();
       if (!raw || raw.toLowerCase() === 'undefined') return null;
       if (Number.isFinite(Number(raw))) {
-        return utilityLookup[raw] || `#${raw}`;
+        return utilityLookup[raw] || idFallback(raw);
       }
       return raw;
     })
