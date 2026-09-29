@@ -16,6 +16,15 @@ _DINE_FLASH_MANAGER_ROLES = (
     "manager",
 )
 
+# Dine Flash Buffet: customer-chat FCM should reach Outlet Manager devices,
+# not kitchen utility_user APKs that share the same vendor mapping.
+_BUFFET_MANAGER_CHAT_ROLES = (
+    "outlet_manager",
+    "admin_manager",
+    "order_manager",
+    "manager",
+)
+
 
 def dine_flash_manager_fcm_event_name(data: dict) -> str | None:
     """Derive top-level FCM ``event`` for Dine Flash manager APK routing."""
@@ -82,22 +91,24 @@ def dine_flash_manager_fcm_data_extra(data: dict) -> dict[str, str] | None:
     }
 
 
-def collect_manager_fcm_tokens(vendor) -> list[str]:
+def collect_manager_fcm_tokens(vendor, *, roles=None) -> list[str]:
     """
     Resolve manager APK FCM tokens for a vendor.
 
     Dine Flash only: include legacy ``AndroidAPK`` rows registered without ``user_profile``.
     Other flavours: unchanged lookup via ``user_profile__vendor``.
+
+    Optional ``roles``: when provided (non-Dine Flash path), restrict to
+    ``user_profile__role__in=roles``. Used by Buffet customer-chat FCM to
+    exclude kitchen ``utility_user`` devices.
     """
-    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    is_dine_flash = project == "dine_flash"
     if not is_dine_flash:
-        return [
-            t
-            for t in AndroidAPK.objects.filter(user_profile__vendor=vendor).values_list(
-                "token", flat=True
-            )
-            if (t or "").strip()
-        ]
+        qs = AndroidAPK.objects.filter(user_profile__vendor=vendor)
+        if roles:
+            qs = qs.filter(user_profile__role__in=roles)
+        return [t for t in qs.values_list("token", flat=True) if (t or "").strip()]
 
     outlet_id = vendor.admin_outlet_id
     devices = (
@@ -221,14 +232,25 @@ def send_to_managers(vendor, data, title=None, body=None):
     """
     Sends a notification to all registered AndroidAPK devices for the given vendor.
     Supports optional custom title/body.
+
+    Dine Flash Buffet customer chat (``type=user_reply``): tokens are limited to
+    manager roles so kitchen ``utility_user`` devices do not receive chat FCM.
+    Status / other Buffet pushes keep the vendor-wide token set.
     """
-    tokens = collect_manager_fcm_tokens(vendor)
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    is_dine_flash = project == "dine_flash"
+    is_buffet = project == "dine_flash_buffet"
+    is_buffet_customer_chat = is_buffet and (data or {}).get("type") == "user_reply"
+
+    if is_buffet_customer_chat:
+        tokens = collect_manager_fcm_tokens(vendor, roles=_BUFFET_MANAGER_CHAT_ROLES)
+    else:
+        tokens = collect_manager_fcm_tokens(vendor)
 
     if not tokens:
         logger.warning(f"[FCM] No tokens found for vendor {vendor.name}")
         return False, {"error": "No tokens"}
 
-    is_dine_flash = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash"
     is_customer_chat = is_dine_flash and (data or {}).get("type") == "user_reply"
     is_booking_created = is_dine_flash and (data or {}).get("action") == "booking_created"
     fcm_payload = dine_flash_manager_fcm_payload(data) if is_dine_flash else data
@@ -238,6 +260,13 @@ def send_to_managers(vendor, data, title=None, body=None):
     if is_customer_chat:
         logger.info(
             "[FCM] Dine Flash customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
+            vendor.vendor_id,
+            len(tokens),
+            (fcm_payload or {}).get("type"),
+        )
+    elif is_buffet_customer_chat:
+        logger.info(
+            "[FCM] Buffet customer chat push | vendor_id=%s | token_count=%s | fcm_type=%s",
             vendor.vendor_id,
             len(tokens),
             (fcm_payload or {}).get("type"),

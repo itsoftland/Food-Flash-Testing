@@ -1431,7 +1431,10 @@ def check_status(request):
                 )
             
             chat_message = None
-            if project_name == "dine_flash":
+            # Use vendor-local business date so chat_history (which filters by
+            # get_vendor_current_date) and unread clearing stay consistent.
+            # Dine Flash and Buffet; other flavours keep server UTC date.
+            if project_name in ("dine_flash", "dine_flash_buffet"):
                 chat_created_date = get_vendor_current_time(order.vendor).date()
             else:
                 chat_created_date = timezone.now().date()

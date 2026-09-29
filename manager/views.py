@@ -1752,14 +1752,17 @@ def manager_order_update(request):
             return Response({"message": f"Order with token_no {token_no} not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 5: Serialize vendor logo ===
+        # Buffet freeform chat (action=message) must not hard-fail when the
+        # vendor has no logo — chat text delivery does not require branding art.
+        # Status actions (ready/delivered/cancelled) keep the shared logo gate.
+        is_buffet_project = project_name == "dine_flash_buffet"
         vendor_serializer = VendorLogoSerializer(vendor, context={'request': request})
-        logo_url = vendor_serializer.data.get("logo_url", "")
-        if not logo_url:
+        logo_url = vendor_serializer.data.get("logo_url", "") or ""
+        if not logo_url and not (is_buffet_project and action_type == "message"):
             logger.warning("⚠️ No logo URL for vendor %s", vendor.name)
             return Response({"message": "Vendor logo not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # === Step 6: Prepare push payload ===
-        is_buffet_project = project_name == "dine_flash_buffet"
         if is_buffet_project:
             buffet_alias = (vendor.alias_name or "").strip() or vendor.name
             status_push_type = "buffet_item_ready"
