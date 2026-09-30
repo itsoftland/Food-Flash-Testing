@@ -56,6 +56,10 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
       if ((projectName === "dine_flash" || projectName === "dine_flash_buffet") && key === "keypad_devices") {
         return;
       }
+      // Skip keypad_devices for hospital_flash (sidebar already hidden; dashboard card is separate)
+      if (projectName === "hospital_flash" && key === "keypad_devices") {
+        return;
+      }
       // Skip android_tvs for dine_flash_buffet (sidebar already hidden; dashboard card is separate)
       if (projectName === "dine_flash_buffet" && key === "android_tvs") {
         return;
