@@ -163,6 +163,7 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
                 "table_no": "5",
                 "submitted_at": "2026-09-29T10:00:00",
                 "tracking_url": EXPECTED_TRACKING_URL,
+                "unread_message_count": 0,
                 "utilities": [{"id": 1, "name": "Grill", "lines": []}],
             }
         ]
@@ -217,7 +218,10 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
         ), patch(
             "manager.buffet_views.build_buffet_tracking_url",
             return_value=EXPECTED_TRACKING_URL,
-        ) as mock_build:
+        ) as mock_build, patch(
+            "manager.views._build_unread_notifications_map",
+            return_value={123: 2},
+        ) as mock_unread:
             base_qs = MagicMock()
             base_qs.values_list.return_value.distinct.return_value = [123]
             filtered = MagicMock()
@@ -237,8 +241,10 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
         self.assertEqual(row["table_no"], "5")
         self.assertEqual(row["submitted_at"], "2026-09-29T10:00:00")
         self.assertEqual(row["tracking_url"], EXPECTED_TRACKING_URL)
+        self.assertEqual(row["unread_message_count"], 2)
         self.assertEqual(
             row["utilities"],
             [{"id": 1, "name": "Grill", "lines": [{"id": 9}]}],
         )
         mock_build.assert_called_once_with(request, vendor, 42)
+        mock_unread.assert_called_once_with(vendor, [123])

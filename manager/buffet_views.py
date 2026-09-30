@@ -536,23 +536,32 @@ def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
 
 def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, request):
     """
-    Build [{token_no, booking_id, table_no, submitted_at, tracking_url, utilities: [...]}, ...]
+    Build [{token_no, booking_id, table_no, submitted_at, tracking_url,
+    unread_message_count, utilities: [...]}, ...]
     for today's orders that still have at least one visible line after optional delivered
     stripping.
 
     table_no is Order.table_booking_no (where buffet order create stores the table number).
+    unread_message_count is unread customer (sender=user) ChatMessage rows per order.id.
     """
+    # Local import: reuse shared helper without modifying it; avoids import cycles.
+    from manager.views import _build_unread_notifications_map
+
     start_dt, end_dt = get_vendor_business_day_range(vendor)
     base_qs = _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile)
     order_ids = base_qs.values_list("order_id", flat=True).distinct()
     if not order_ids:
         return []
 
+    order_list = list(
+        Order.objects.filter(id__in=order_ids, vendor=vendor).order_by("token_no", "id")
+    )
+    unread_map = _build_unread_notifications_map(
+        vendor, [order.id for order in order_list]
+    )
+
     orders_payload = []
-    for order in (
-        Order.objects.filter(id__in=order_ids, vendor=vendor)
-        .order_by("token_no", "id")
-    ):
+    for order in order_list:
         qs = base_qs.filter(order_id=order.id).order_by("utility_id", "id")
         utilities = _group_buffet_lines_by_utility(qs)
         if hide_delivered:
@@ -568,6 +577,7 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, r
                 "tracking_url": build_buffet_tracking_url(
                     request, vendor, order.token_no
                 ),
+                "unread_message_count": unread_map.get(order.id, 0),
                 "utilities": utilities,
             }
         )
