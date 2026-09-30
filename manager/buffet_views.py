@@ -17,7 +17,10 @@ from manager.utils.utils import get_manager_vendor
 from manager.buffet_pre_announcement import process_buffet_pre_announcements
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push, buffet_utility_image_payload
-from static.utils.functions.utils import get_vendor_business_day_range
+from static.utils.functions.utils import (
+    get_vendor_business_day_range,
+    get_vendor_current_date,
+)
 from orders.buffet.api_helpers import build_buffet_tracking_url
 from orders.buffet.order_create import (
     BuffetOrderCreateStatus,
@@ -1099,3 +1102,104 @@ def mark_booking_delivered(request):
     except Exception as e:
         logger.exception("[mark_booking_delivered] Error: %s", e)
         return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _build_buffet_conversation_orders_response(vendor, request):
+    """
+    Build OM conversation-list rows for today's human ChatMessage activity.
+
+    Day filter matches Buffet chat_history: ChatMessage.created_date ==
+    get_vendor_current_date(vendor). Existence ignores is_read and system rows.
+    """
+    # Local import: reuse shared unread helper without modifying it; avoids cycles.
+    from manager.views import _build_unread_notifications_map
+
+    chat_date = get_vendor_current_date(vendor)
+    human_qs = ChatMessage.objects.filter(
+        vendor=vendor,
+        created_date=chat_date,
+        booking_id__isnull=False,
+        sender__in=["user", "manager"],
+    )
+    booking_ids = list(human_qs.values_list("booking_id", flat=True).distinct())
+    if not booking_ids:
+        return []
+
+    order_by_id = {
+        order.id: order
+        for order in Order.objects.filter(id__in=booking_ids, vendor=vendor)
+    }
+    if not order_by_id:
+        return []
+
+    order_ids = list(order_by_id.keys())
+    unread_map = _build_unread_notifications_map(vendor, order_ids)
+
+    # One query for today's human messages on these orders; pick latest per booking.
+    latest_by_booking = {}
+    for msg in (
+        human_qs.filter(booking_id__in=order_ids)
+        .only("booking_id", "message_text", "sender", "created_at")
+        .order_by("-created_at", "-id")
+    ):
+        if msg.booking_id not in latest_by_booking:
+            latest_by_booking[msg.booking_id] = msg
+
+    rows = []
+    for booking_id, latest in latest_by_booking.items():
+        order = order_by_id.get(booking_id)
+        if order is None:
+            continue
+        rows.append(
+            {
+                "booking_id": order.id,
+                "token_no": order.token_no,
+                "customer_name": order.customer_name,
+                "table_no": order.table_booking_no,
+                "latest_message": latest.message_text,
+                "latest_message_sender": latest.sender,
+                "latest_message_at": latest.created_at.isoformat(),
+                "unread_message_count": unread_map.get(order.id, 0),
+                "tracking_url": build_buffet_tracking_url(
+                    request, vendor, order.token_no
+                ),
+            }
+        )
+
+    rows.sort(key=lambda r: r["latest_message_at"] or "", reverse=True)
+    return rows
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def buffet_conversation_orders(request):
+    """
+    Dine Flash Buffet — Outlet Manager conversation/order list.
+
+    Returns today's Orders that have at least one human ChatMessage
+    (sender user or manager) for the authenticated manager's vendor.
+    """
+    if project_name != "dine_flash_buffet":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        vendor = get_manager_vendor(request.user)
+    except NotFound:
+        return Response({"error": "Vendor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        orders_payload = _build_buffet_conversation_orders_response(vendor, request)
+        return Response(
+            {
+                "message": "Conversation orders retrieved successfully.",
+                "count": len(orders_payload),
+                "orders": orders_payload,
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        logger.exception("[buffet_conversation_orders] Error: %s", e)
+        return Response(
+            {"error": "Internal server error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

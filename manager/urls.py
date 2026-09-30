@@ -41,4 +41,9 @@ urlpatterns = [
         buffet_views.buffet_utilities_orders_summary,
         name='buffet_utilities_orders_summary',
     ),
+    path(
+        'api/buffet_conversation_orders/',
+        buffet_views.buffet_conversation_orders,
+        name='buffet_conversation_orders',
+    ),
 ]
