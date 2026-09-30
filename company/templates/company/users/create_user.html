@@ -85,6 +85,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script type="module" src="{% static 'company/js/users/create_user.js' %}"></script>
+<script type="module" src="{% static 'company/js/users/create_user.js' %}?v={{ APP_VERSION }}"></script>
 
 {% endblock %}
