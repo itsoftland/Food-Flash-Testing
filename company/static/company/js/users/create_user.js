@@ -61,7 +61,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleOutletBasedOnRole();
     } catch (error) {
         console.error('Error loading outlets:', error);
-        ModalService.showError('Failed to load outlets. Please try again later.');
+        const loadFailedMessage = window.PROJECT_NAME === 'hospital_flash'
+            ? 'Failed to load branches. Please try again later.'
+            : 'Failed to load outlets. Please try again later.';
+        ModalService.showError(loadFailedMessage);
     }
 
     roleSelect.addEventListener('change', toggleOutletBasedOnRole);
