@@ -20,7 +20,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const filterDropdown = document.getElementById('deviceFilter');
   const projectName = (window.PROJECT_NAME || '').trim().toLowerCase();
   const isBuffetProject = projectName === 'dine_flash_buffet';
+  const isHospitalFlash = projectName === 'hospital_flash';
   const showReleaseDevice = projectName === 'dine_flash' || isBuffetProject;
+
+  // Hospital Flash only: map_manager_devices checks manager.admin_outlet (not Vendor/Branch).
+  function mapHospitalManagerDevicesError(message) {
+    if (!isHospitalFlash || typeof message !== 'string') return message;
+    if (message === 'Vendor does not belong to your admin outlet.') {
+      return 'Selected manager does not belong to your hospital.';
+    }
+    return message;
+  }
 
   const RELEASE_DEVICE_CONFIRM = {
     title: 'Release Device',
@@ -256,7 +266,8 @@ function attachActionListeners() {
                 });
               }, 300);
             } else {
-              const msg = result?.error || result?.message || 'Unable to map device.';
+              const rawMsg = result?.error || result?.message || 'Unable to map device.';
+              const msg = mapHospitalManagerDevicesError(rawMsg);
               setTimeout(() => {
                 ModalService.showError(msg, () => openMapDeviceModal(deviceId, macAddress));
               }, 300);
