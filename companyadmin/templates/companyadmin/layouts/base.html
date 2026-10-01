@@ -92,7 +92,7 @@
                 <p>{{ LABELS.sidebar.outlet_list }}</p>
               </a>
             </li>
-            {% if PROJECT_NAME != "airline_flash" and PROJECT_NAME != "dine_flash_buffet" %}
+            {% if PROJECT_NAME != "airline_flash" and PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "hospital_flash" %}
             <li class="nav-item">
               <a href="{% url 'companyadmin:order_update' %}"
                 class="nav-link {% if request.resolver_match.url_name == 'order_update' %}active{% endif %}">
