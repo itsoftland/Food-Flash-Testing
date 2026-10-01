@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const WEB_ENDPOINTS = apiModule.WEB_ENDPOINTS;
     const getFriendlyFieldLabels = labelModule.default;
     const ModalService = modalModule.ModalService
+    const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
 
     const form = document.getElementById('create-outlet-form');
   
@@ -83,22 +84,35 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
 
         if (response.ok && result.success) {
-          ModalService.showSuccess("Outlet Created Successfully", () => {
+          const successMessage = isHospitalFlash
+            ? "Branch Created Successfully"
+            : "Outlet Created Successfully";
+          ModalService.showSuccess(successMessage, () => {
           form.reset();
           window.location.href = WEB_ENDPOINTS.COMPANY_OUTLETS;
         });
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);
+          let apiError = result?.error || result?.message || '';
+          if (
+            isHospitalFlash &&
+            apiError === 'Vendor with this name already exists.'
+          ) {
+            apiError = 'Branch with this name already exists.';
+          }
           const fallbackMessage =
             userFriendlyMessage ||
-            result?.error ||
-            result?.message ||
-            `Failed to create outlet (HTTP ${response.status})`;
+            apiError ||
+            (isHospitalFlash
+              ? `Failed to create branch (HTTP ${response.status})`
+              : `Failed to create outlet (HTTP ${response.status})`);
           ModalService.showError(fallbackMessage);
           console.error('Create outlet failed:', { status: response.status, result });
         }
         } catch (err) {
-        const errMessage = err?.message || 'Unexpected error while creating outlet.';
+        const errMessage = err?.message || (isHospitalFlash
+          ? 'Unexpected error while creating branch.'
+          : 'Unexpected error while creating outlet.');
         ModalService.showError(errMessage);
         console.error('Error creating outlet:', err);
         }

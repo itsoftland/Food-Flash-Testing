@@ -407,6 +407,8 @@ HOSPITAL_FLASH = {
         "button": "Create Branch",
         "outlet_name": "Branch Name",
         "outlet_alias_name": "Branch Alias Name",
+        "company": "Hospital",
+        "select_company": "Select Hospital",
     },
     "outlet_update": {
         "outlet_name": "Branch Name",
