@@ -5,13 +5,17 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
-from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from vendors.buffet_staff_username import (
+    display_buffet_staff_username,
+    find_buffet_staff_users_by_business_username,
+    resolve_buffet_staff_user,
+)
 from vendors.models import (
     Vendor,
     AdminOutlet,
@@ -364,19 +368,36 @@ def buffet_utility_login(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    user = authenticate(username=username, password=password)
-    if not user:
-        return Response(
-            {"error": "Invalid username or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
     admin_outlets_qs = AdminOutlet.objects.filter(customer_id=customer_id).order_by("id")
     if not admin_outlets_qs.exists():
         return Response(
             {"error": "Invalid customer_id."},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    # Company-aware resolve first (legacy raw + bf:{outlet_id}:business).
+    # If resolve misses, identification-only fallback finds the user by business
+    # username (legacy or bf:*:business) so wrong-company cases still reach the
+    # existing profile checks (403). Does not grant access by itself.
+    user = resolve_buffet_staff_user(admin_outlets_qs, username)
+    if user:
+        if not user.is_active or not user.check_password(password):
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+    else:
+        identified = None
+        for candidate in find_buffet_staff_users_by_business_username(username):
+            if candidate.is_active and candidate.check_password(password):
+                identified = candidate
+                break
+        if not identified:
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        user = identified
 
     utility_profile = (
         UserProfile.objects.select_related("vendor", "admin_outlet")
@@ -516,7 +537,9 @@ def buffet_utility_login(request):
             "outlet_name": admin_outlet.customer_name or "",
             "possible_statuses": possible_statuses,
             "user": {
-                "username": user.username,
+                "username": display_buffet_staff_username(
+                    user.username, utility_profile.admin_outlet_id
+                ),
                 "role": "Utility User",
                 "manager_id": utility_profile.id,
                 "manager_name": utility_profile.name,
@@ -566,12 +589,28 @@ def buffet_outlet_manager_login(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    user = authenticate(username=username, password=password)
-    if not user:
-        return Response(
-            {"error": "Invalid username or password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+    # Company-aware resolve first (legacy raw + bf:{outlet_id}:business).
+    # Identification-only fallback (legacy or bf:*:business) preserves existing
+    # wrong-company 403 after role/company checks below. Does not grant access.
+    user = resolve_buffet_staff_user(admin_outlets_qs, username)
+    if user:
+        if not user.is_active or not user.check_password(password):
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+    else:
+        identified = None
+        for candidate in find_buffet_staff_users_by_business_username(username):
+            if candidate.is_active and candidate.check_password(password):
+                identified = candidate
+                break
+        if not identified:
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        user = identified
 
     manager_profile = (
         UserProfile.objects.select_related("vendor", "admin_outlet")
@@ -618,7 +657,9 @@ def buffet_outlet_manager_login(request):
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": {
-                "username": user.username,
+                "username": display_buffet_staff_username(
+                    user.username, manager_profile.admin_outlet_id
+                ),
                 "role": "Outlet Manager",
                 "vendor_id": manager_profile.vendor.id,
                 "vendor_name": manager_profile.vendor.name,
