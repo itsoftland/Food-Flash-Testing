@@ -1,5 +1,14 @@
 // companyadmin/static/companyadmin/js/companyList.js
 
+function getCompanyListPageLabels() {
+  const labels = window.COMPANY_LIST_PAGE_LABELS || {};
+  return {
+    companyName: labels.companyName || 'Company Name',
+    empty: labels.empty || 'No companies registered yet.',
+    error: labels.error || 'Error loading company data',
+  };
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Validate BASE exists
   if (!window.BASE) throw new Error('window.BASE is not defined');
@@ -133,7 +142,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   } catch (err) {
     console.error('Failed to load companies:', err);
-    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">Error loading company data</td></tr>`;
+    const labels = getCompanyListPageLabels();
+    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">${esc(labels.error)}</td></tr>`;
   }
 });
 
@@ -311,6 +321,7 @@ function updateCellToVerified(row, statusText, fromDate = null, toDate = null) {
 async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
   const tableBody = document.querySelector('#companyTable tbody');
   if (!tableBody) throw new Error('Table body element not found: #companyTable tbody');
+  const labels = getCompanyListPageLabels();
 
   // clear existing rows
   tableBody.innerHTML = '';
@@ -323,7 +334,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
     const companies = data.results || data;
 
     if (!companies || companies.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center">No companies registered yet.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center">${esc(labels.empty)}</td></tr>`;
       return companies || [];
     }
 
@@ -352,7 +363,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
       const row = document.createElement('tr');
       row.dataset.companyId = id;
       row.innerHTML = `
-        <td data-label="Company Name">${esc(company.customer_name || '-')}</td>
+        <td data-label="${esc(labels.companyName)}">${esc(company.customer_name || '-')}</td>
         <td data-label="Customer ID">${esc(company.customer_id ?? 'NIL')}</td>
         <td data-label="Contact Person">${esc(company.customer_contact_person || '-')}</td>
         <td data-label="Phone">${esc(company.phone_number || '-')}</td>
@@ -368,7 +379,7 @@ async function loadCompanyList(fetchWithAutoRefresh,API_ENDPOINTS) {
     return companies;
   } catch (err) {
     console.error('Failed to load companies:', err);
-    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">Error loading company data</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="text-center text-danger">${esc(labels.error)}</td></tr>`;
     return [];
   }
 }

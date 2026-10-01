@@ -1,7 +1,7 @@
 {% extends 'companyadmin/layouts/base.html' %}
 {% load static %}
 
-{% block title %}Company List {% endblock %}
+{% block title %}{{ LABELS.company_list_page.title|default:"Company List" }}{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'companyadmin/css/company_lists.css' %}">
 <link rel="stylesheet" href="{% static 'utils/css/tables.css' %}">
@@ -13,7 +13,7 @@
   <div class="container-fluid">
     <div class="row mb-2 align-items-center justify-content-between">
       <div class="col-sm-6">
-        <h1 class="page-title">{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" %}Restaurant List{% else %}Company List{% endif %}</h1>
+        <h1 class="page-title">{{ LABELS.company_list_page.title|default:"Company List" }}</h1>
       </div>
     </div>
   </div>
@@ -28,7 +28,7 @@
           <table id="companyTable" class="table table-hover table-bordered rounded shadow-sm bg-light-gray">
             <thead class="thead-light">
               <tr>
-                <th>Company Name</th>
+                <th>{{ LABELS.company_list_page.company_name|default:"Company Name" }}</th>
                 <th>Customer ID</th>
                 <th>Contact Person</th>
                 <th>Phone</th>
@@ -52,5 +52,12 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  window.COMPANY_LIST_PAGE_LABELS = {
+    companyName: "{{ LABELS.company_list_page.company_name|default:'Company Name'|escapejs }}",
+    empty: "{{ LABELS.company_list_page.empty|default:'No companies registered yet.'|escapejs }}",
+    error: "{{ LABELS.company_list_page.error|default:'Error loading company data'|escapejs }}"
+  };
+</script>
 <script type="module" src="{% static 'companyadmin/js/companyLists.js' %}"></script>
 {% endblock %}

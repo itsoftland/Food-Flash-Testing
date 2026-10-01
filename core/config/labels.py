@@ -46,6 +46,12 @@ DEFAULT = {
         "empty": "No outlets found.",
         "error": "Error loading outlets",
     },
+    "company_list_page": {
+        "title": "Company List",
+        "company_name": "Company Name",
+        "empty": "No companies registered yet.",
+        "error": "Error loading company data",
+    },
     "outlet_update": {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
@@ -235,6 +241,12 @@ DINE_FLASH = {
         "empty": "No outlets found.",
         "error": "Error loading outlets",
     },
+    "company_list_page": {
+        "title": "Restaurant List",
+        "company_name": "Company Name",
+        "empty": "No companies registered yet.",
+        "error": "Error loading company data",
+    },
     "outlet_update": {
         "outlet_name": "Outlet Name",
         "outlet_alias_name": "Outlet Alias Name",
@@ -305,6 +317,12 @@ DINE_FLASH_BUFFET = {
         "loading": "Loading outlets…",
         "empty": "No outlets found.",
         "error": "Error loading outlets",
+    },
+    "company_list_page": {
+        "title": "Restaurant List",
+        "company_name": "Company Name",
+        "empty": "No companies registered yet.",
+        "error": "Error loading company data",
     },
     "outlet_update": {
         "outlet_name": "Outlet Name",
@@ -377,6 +395,12 @@ HOSPITAL_FLASH = {
         "loading": "Loading branches…",
         "empty": "No branches found.",
         "error": "Error loading branches",
+    },
+    "company_list_page": {
+        "title": "Hospital List",
+        "company_name": "Hospital Name",
+        "empty": "No hospitals registered yet.",
+        "error": "Error loading hospital data",
     },
     "create_outlet_page": {
         "title": "New Branch",
