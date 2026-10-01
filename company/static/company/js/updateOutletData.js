@@ -1,8 +1,13 @@
 import { MenuFileManagerService } from './services/menuService.js';
-import { OutletUpdateService } from './services/updateOutletService.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!window.BASE) throw new Error('window.BASE is not defined');
+
+  // Cache-bust modified child module so deploy picks up terminology updates.
+  const assetVersion = encodeURIComponent(window.APP_VERSION || "1.0.0");
+  const { OutletUpdateService } = await import(
+    `./services/updateOutletService.js?v=${assetVersion}`
+  );
 
   // Import modules once
   const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);

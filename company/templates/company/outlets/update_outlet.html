@@ -126,5 +126,5 @@
 {% endblock %}
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script type="module" src="{% static 'company/js/updateOutletData.js' %}"></script>
+<script type="module" src="{% static 'company/js/updateOutletData.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}
