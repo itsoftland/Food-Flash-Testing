@@ -222,7 +222,7 @@ DINE_FLASH = {
     },
     "dashboard": {
         "title": "Dine Flash Dashboard",
-        "body": "You can manage companies and view analytics from here.",
+        "body": "You can manage restaurants and view analytics from here.",
     },
     "company_dashboard": {
         "title": "Company Dashboard",
@@ -302,7 +302,7 @@ DINE_FLASH_BUFFET = {
     },
     "dashboard": {
         "title": "Dine Flash Buffet Dashboard",
-        "body": "You can manage companies and view analytics from here.",
+        "body": "You can manage restaurants and view analytics from here.",
     },
     "company_dashboard": {
         "title": "Company Dashboard",
