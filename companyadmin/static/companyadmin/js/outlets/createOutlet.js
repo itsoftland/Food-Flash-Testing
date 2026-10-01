@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     const getFriendlyFieldLabels = labelModule.default;
     const ModalService = modalModule.ModalService
     const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
+    const isDineFlash =
+      window.PROJECT_NAME === 'dine_flash' ||
+      window.PROJECT_NAME === 'dine_flash_buffet';
 
     const form = document.getElementById('create-outlet-form');
   
@@ -94,11 +97,12 @@ document.addEventListener('DOMContentLoaded', async function () {
         } else {
           const userFriendlyMessage = getFriendlyFieldLabels(result);
           let apiError = result?.error || result?.message || '';
-          if (
-            isHospitalFlash &&
-            apiError === 'Vendor with this name already exists.'
-          ) {
-            apiError = 'Branch with this name already exists.';
+          if (apiError === 'Vendor with this name already exists.') {
+            if (isHospitalFlash) {
+              apiError = 'Branch with this name already exists.';
+            } else if (isDineFlash) {
+              apiError = 'Outlet with this name already exists.';
+            }
           }
           const fallbackMessage =
             userFriendlyMessage ||

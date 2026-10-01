@@ -30,9 +30,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // console.log("companies", companies);
 
         if (company) {
-            const selectCompanyLabel = window.PROJECT_NAME === 'hospital_flash'
+            const projectName = window.PROJECT_NAME;
+            const selectCompanyLabel = projectName === 'hospital_flash'
                 ? 'Select Hospital'
-                : 'Select Company';
+                : (projectName === 'dine_flash' || projectName === 'dine_flash_buffet')
+                    ? 'Select Restaurant'
+                    : 'Select Company';
             company.innerHTML = `<option value="">${selectCompanyLabel}</option>`;
             
             // ✅ Filter out companies with authentication_status = "Pending"

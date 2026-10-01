@@ -272,6 +272,9 @@ DINE_FLASH = {
         "password": "Password",
         "submit_button": "Register Restaurant",
     },
+    "create_outlet_page": {
+        "company": "Restaurant",
+    },
     "select_outlet_modal": {
         "title": "Select Outlet",
         "instruction": "Please select your outlet to proceed.",
@@ -348,6 +351,9 @@ DINE_FLASH_BUFFET = {
         "username": "Username",
         "password": "Password",
         "submit_button": "Register Restaurant",
+    },
+    "create_outlet_page": {
+        "company": "Restaurant",
     },
     "select_outlet_modal": {
         "title": "Select Outlet",
