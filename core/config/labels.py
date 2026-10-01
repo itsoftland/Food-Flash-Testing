@@ -348,7 +348,7 @@ HOSPITAL_FLASH = {
         "company_list": "Hospital List",
         "create_outlet": "Create Branch",
         "outlet_list": "Branch List",
-        "outlet_update": "Update Outlet Data",
+        "outlet_update": "Update Branch Data",
         "order_update": "Queue Update",
         "total_orders": "Total Patients",
         "order_details": "Patient Details",
@@ -385,9 +385,9 @@ HOSPITAL_FLASH = {
         "outlet_alias_name": "Branch Alias Name",
     },
     "outlet_update": {
-        "outlet_name": "Outlet Name",
-        "outlet_alias_name": "Outlet Alias Name",
-        "button": "Update Outlet Data",
+        "outlet_name": "Branch Name",
+        "outlet_alias_name": "Branch Alias Name",
+        "button": "Update Branch Data",
     },
     "create_user": {
         "outlet": "Branch",

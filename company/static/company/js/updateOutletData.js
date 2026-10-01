@@ -128,6 +128,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       autoDeleteHours = "";
       businessHourVal = "";
       modalShowContent = "Airport Data Updated Successfully"
+    } else if (projectName === "hospital_flash") {
+      modalShowContent = "Branch Data Updated Successfully"
     }
 
     const formData = OutletUpdateService.buildFormData({

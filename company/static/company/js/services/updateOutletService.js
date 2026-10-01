@@ -9,7 +9,10 @@ export const OutletUpdateService = (() => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Outlet update failed');
+        const fallbackMessage = (typeof window !== 'undefined' && window.PROJECT_NAME === 'hospital_flash')
+          ? 'Branch update failed'
+          : 'Outlet update failed';
+        throw new Error(data?.error || fallbackMessage);
       }
 
       return { success: true, data };

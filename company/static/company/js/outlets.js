@@ -84,9 +84,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 4. Handle Fetch Errors Gracefully
     // ====================================
     console.error('Error loading vendor data:', error);
+    const loadErrorMessage = window.PROJECT_NAME === 'hospital_flash'
+      ? 'Something went wrong while loading branches.'
+      : 'Something went wrong while loading vendor data.';
     vendorListContainer.innerHTML = `
       <div class="col-12">
-        <div class="alert alert-warning">Something went wrong while loading vendor data.</div>
+        <div class="alert alert-warning">${loadErrorMessage}</div>
       </div>`;
   }
 

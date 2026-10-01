@@ -1,6 +1,6 @@
 {% extends 'company/layouts/base.html' %}
 {% load static %}
-{% block title %}Update Outlet{% endblock %}
+{% block title %}{% if PROJECT_NAME == "hospital_flash" %}{{ LABELS.sidebar.outlet_update }}{% else %}Update Outlet{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
