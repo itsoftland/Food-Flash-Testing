@@ -75,9 +75,13 @@ async function getDashboardMetrics(fetchWithAutoRefresh, API_ENDPOINTS,WEB_ENDPO
           : key;
 
       const className = `icon-circle ${displayKey.replaceAll('_', '-')}`;
-      const formattedKey = displayKey
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, c => c.toUpperCase());
+      // Hospital Flash: Vendor count is Branches; keep displayKey/CSS/links as outlets
+      const formattedKey =
+        projectName === "hospital_flash" && key === "outlets"
+          ? "Branches"
+          : displayKey
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, c => c.toUpperCase());
       // console.log(displayKey)
 
       // Define target URLs per metric
