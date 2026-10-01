@@ -243,9 +243,9 @@ DINE_FLASH = {
     },
     "company_list_page": {
         "title": "Restaurant List",
-        "company_name": "Company Name",
-        "empty": "No companies registered yet.",
-        "error": "Error loading company data",
+        "company_name": "Restaurant Name",
+        "empty": "No restaurants registered yet.",
+        "error": "Error loading restaurant data",
     },
     "outlet_update": {
         "outlet_name": "Outlet Name",
@@ -323,9 +323,9 @@ DINE_FLASH_BUFFET = {
     },
     "company_list_page": {
         "title": "Restaurant List",
-        "company_name": "Company Name",
-        "empty": "No companies registered yet.",
-        "error": "Error loading company data",
+        "company_name": "Restaurant Name",
+        "empty": "No restaurants registered yet.",
+        "error": "Error loading restaurant data",
     },
     "outlet_update": {
         "outlet_name": "Outlet Name",
