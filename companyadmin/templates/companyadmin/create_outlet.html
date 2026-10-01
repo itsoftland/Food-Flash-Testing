@@ -127,6 +127,6 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script type="module" src="{% static 'companyadmin/js/outlets/createOutlet.js' %}"></script>
-<script type="module" src="{% static 'companyadmin/js/outlets/createOutletData.js' %}"></script>
+<script type="module" src="{% static 'companyadmin/js/outlets/createOutlet.js' %}?v={{ APP_VERSION }}"></script>
+<script type="module" src="{% static 'companyadmin/js/outlets/createOutletData.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}
