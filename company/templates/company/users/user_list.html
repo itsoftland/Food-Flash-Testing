@@ -28,7 +28,7 @@
         <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
           <label for="deviceFilter" class="mb-0 me-2 fw-semibold">Filter by:</label>
           <select id="deviceFilter" class="form-control w-auto">
-            <option value="all">All Outlets</option>
+            <option value="all">{% if PROJECT_NAME == "hospital_flash" %}All Branches{% else %}All Outlets{% endif %}</option>
             <option value="mapped">Mapped</option>
             <option value="unmapped">Unmapped</option>
           </select>

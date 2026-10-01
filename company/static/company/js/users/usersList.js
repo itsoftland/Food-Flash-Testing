@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     const fetchWithAutoRefresh = authModule.fetchWithAutoRefresh;
     const API_ENDPOINTS = apiModule.API_ENDPOINTS;
     const ModalService = modalModule.ModalService;
+    const isHospitalFlash = window.PROJECT_NAME === 'hospital_flash';
 
     // Initialize tooltips
     $(function () {
@@ -61,7 +62,9 @@ document.addEventListener('DOMContentLoaded', async() => {
             const isMapped = !!user.vendor_name;
 
             const iconClass = isMapped ? 'fa-link-slash' : 'fa-link';
-            const iconTitle = isMapped ? 'Unassign User from Outlet' : 'Assign User to Outlet';
+            const iconTitle = isMapped
+                ? (isHospitalFlash ? 'Unassign User from Branch' : 'Unassign User from Outlet')
+                : (isHospitalFlash ? 'Assign User to Branch' : 'Assign User to Outlet');
             const outletClass = isMapped ? 'name' : 'text-muted';
 
             const idCell = hideIdColumn ? '' : `<td class="text-center">${user.id}</td>`;
@@ -134,23 +137,35 @@ document.addEventListener('DOMContentLoaded', async() => {
     }
 
     async function openAssignUserModal(userId, username) {
+        const selectLabel = isHospitalFlash ? 'Select Branch' : 'Select Outlet';
+        const loadingLabel = isHospitalFlash ? 'Loading branches...' : 'Loading outlets...';
+        const assignButtonLabel = isHospitalFlash ? 'Assign Branch' : 'Assign Outlet';
+        const assignTitle = isHospitalFlash
+            ? `Assign ${username} to Branch`
+            : `Assign ${username} to Outlet`;
+        const noVendorsLabel = isHospitalFlash ? 'No branches available' : 'No outlets available';
+        const loadErrorLabel = isHospitalFlash ? 'Error loading branches' : 'Error loading outlets';
+        const selectRequiredMessage = isHospitalFlash
+            ? 'Please select a branch.'
+            : 'Please select an outlet.';
+
         const modalBodyHTML = `
         <form id="assign-user-form" class="px-4 py-3 mx-auto" style="max-width: 600px;">
             <div class="form-group">
-            <label for="vendor-select">Select Outlet</label>
+            <label for="vendor-select">${selectLabel}</label>
             <select id="vendor-select" name="vendor_id" class="form-control">
-                <option disabled selected>Loading outlets...</option>
+                <option disabled selected>${loadingLabel}</option>
             </select>
             </div>
             <div class="text-center mt-4">
             <button type="submit" class="btn btn-golden px-4 py-2 shadow-sm">
-                <i class="fas fa-link mr-2"></i> Assign Outlet
+                <i class="fas fa-link mr-2"></i> ${assignButtonLabel}
             </button>
             </div>
         </form>`;
 
         ModalService.showCustom({
-        title: `Assign ${username} to Outlet`,
+        title: assignTitle,
         body: modalBodyHTML,
         onShown: async () => {
             const vendorSelect = document.getElementById('vendor-select');
@@ -159,19 +174,19 @@ document.addEventListener('DOMContentLoaded', async() => {
             const data = await res.json();
             const vendors = data.vendors || [];
             if (!vendors.length) {
-                vendorSelect.innerHTML = `<option disabled>No outlets available</option>`;
+                vendorSelect.innerHTML = `<option disabled>${noVendorsLabel}</option>`;
             } else {
                 vendorSelect.innerHTML = vendors.map(v => `<option value="${v.id}">${v.name} (${v.location})</option>`).join('');
             }
             } catch (err) {
-            vendorSelect.innerHTML = `<option disabled>Error loading outlets</option>`;
+            vendorSelect.innerHTML = `<option disabled>${loadErrorLabel}</option>`;
             }
 
             document.getElementById('assign-user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const vendorId = vendorSelect.value;
             if (!vendorId) {
-                ModalService.showError('Please select an outlet.');
+                ModalService.showError(selectRequiredMessage);
                 return;
             }
 
