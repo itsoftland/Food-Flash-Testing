@@ -161,6 +161,7 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
                 "token_no": 42,
                 "booking_id": 123,
                 "customer_name": "John",
+                "phone_number": "9876543210",
                 "table_no": "5",
                 "submitted_at": "2026-09-29T10:00:00",
                 "tracking_url": EXPECTED_TRACKING_URL,
@@ -203,6 +204,7 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
             id=123,
             token_no=42,
             customer_name="John",
+            phone_number="9876543210",
             table_booking_no="5",
             created_at=SimpleNamespace(isoformat=lambda: "2026-09-29T10:00:00"),
         )
@@ -241,6 +243,7 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
         self.assertEqual(row["token_no"], 42)
         self.assertEqual(row["booking_id"], 123)
         self.assertEqual(row["customer_name"], "John")
+        self.assertEqual(row["phone_number"], "9876543210")
         self.assertEqual(row["table_no"], "5")
         self.assertEqual(row["submitted_at"], "2026-09-29T10:00:00")
         self.assertEqual(row["tracking_url"], EXPECTED_TRACKING_URL)

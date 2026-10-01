@@ -539,8 +539,8 @@ def _buffet_assigned_items_queryset(vendor, start_dt, end_dt, user_profile):
 
 def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, request):
     """
-    Build [{token_no, booking_id, customer_name, table_no, submitted_at, tracking_url,
-    unread_message_count, utilities: [...]}, ...]
+    Build [{token_no, booking_id, customer_name, phone_number, table_no, submitted_at,
+    tracking_url, unread_message_count, utilities: [...]}, ...]
     for today's orders that still have at least one visible line after optional delivered
     stripping.
 
@@ -576,6 +576,7 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, r
                 "token_no": order.token_no,
                 "booking_id": order.id,
                 "customer_name": order.customer_name,
+                "phone_number": order.phone_number,
                 "table_no": order.table_booking_no,
                 "submitted_at": order.created_at.isoformat(),
                 "tracking_url": build_buffet_tracking_url(

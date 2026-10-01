@@ -28,11 +28,13 @@ def _order_row(
     table_no="5",
     submitted_at="2026-09-29T10:00:00",
     customer_name="Guest",
+    phone_number="9876543210",
 ):
     return SimpleNamespace(
         id=order_id,
         token_no=token_no,
         customer_name=customer_name,
+        phone_number=phone_number,
         table_booking_no=table_no,
         created_at=SimpleNamespace(isoformat=lambda: submitted_at),
     )
@@ -142,9 +144,30 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
         self.assertEqual(payload[2]["unread_message_count"], 1)
         mock_unread.assert_called_once_with(self.vendor, [10, 20, 30])
 
+    def test_phone_number_none_and_empty_preserved(self):
+        orders = [
+            _order_row(10, 1, phone_number=None),
+            _order_row(20, 2, phone_number=""),
+            _order_row(30, 3, phone_number="9876543210"),
+        ]
+        payload, mock_unread = self._run_helper(orders, {30: 1})
+
+        self.assertEqual(len(payload), 3)
+        self.assertIsNone(payload[0]["phone_number"])
+        self.assertEqual(payload[1]["phone_number"], "")
+        self.assertEqual(payload[2]["phone_number"], "9876543210")
+        self.assertEqual(payload[0]["unread_message_count"], 0)
+        self.assertEqual(payload[2]["unread_message_count"], 1)
+        mock_unread.assert_called_once_with(self.vendor, [10, 20, 30])
+
     def test_existing_response_fields_preserved(self):
         order = _order_row(
-            123, 42, table_no="7", submitted_at="2026-09-29T11:00:00", customer_name="John"
+            123,
+            42,
+            table_no="7",
+            submitted_at="2026-09-29T11:00:00",
+            customer_name="John",
+            phone_number="9876543210",
         )
         payload, _ = self._run_helper([order], {123: 1})
 
@@ -155,6 +178,7 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
                 "token_no",
                 "booking_id",
                 "customer_name",
+                "phone_number",
                 "table_no",
                 "submitted_at",
                 "tracking_url",
@@ -165,6 +189,7 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
         self.assertEqual(row["token_no"], 42)
         self.assertEqual(row["booking_id"], 123)
         self.assertEqual(row["customer_name"], "John")
+        self.assertEqual(row["phone_number"], "9876543210")
         self.assertEqual(row["table_no"], "7")
         self.assertEqual(row["submitted_at"], "2026-09-29T11:00:00")
         self.assertEqual(row["tracking_url"], TRACKING)
@@ -190,6 +215,7 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
                 "token_no": 42,
                 "booking_id": 123,
                 "customer_name": "John",
+                "phone_number": "9876543210",
                 "table_no": "5",
                 "submitted_at": "2026-09-29T10:00:00",
                 "tracking_url": TRACKING,
@@ -216,6 +242,7 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
         self.assertEqual(response.data["orders"], orders_payload)
         self.assertEqual(response.data["orders"][0]["unread_message_count"], 2)
         self.assertEqual(response.data["orders"][0]["customer_name"], "John")
+        self.assertEqual(response.data["orders"][0]["phone_number"], "9876543210")
         mock_summary.assert_called_once()
 
     def test_legacy_post_notify_path_unaffected(self):
