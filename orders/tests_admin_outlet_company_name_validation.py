@@ -10,7 +10,7 @@ Legacy unrestricted behaviour must remain for:
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.exceptions import ValidationError
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from companyadmin.views import register_company
 from orders.serializers import (
@@ -274,6 +274,7 @@ class DuplicateCompanyNameEmailRegressionTests(TestCase):
 
     def setUp(self):
         self.factory = APIRequestFactory()
+        self.super_admin = User.objects.create_superuser(username="sa_dup", password="pass12345")
         _create_outlet(
             "dup_user",
             customer_name="Acme Corp",
@@ -286,6 +287,7 @@ class DuplicateCompanyNameEmailRegressionTests(TestCase):
             payload,
             format="json",
         )
+        force_authenticate(request, user=self.super_admin)
         return register_company(request)
 
     def test_duplicate_name_and_email_rejected(self):
@@ -308,6 +310,7 @@ class RegisterCompanyApiCompanyNameEnforcementTests(TestCase):
 
     def setUp(self):
         self.factory = APIRequestFactory()
+        self.super_admin = User.objects.create_superuser(username="sa_api_name", password="pass12345")
 
     def _post(self, customer_name):
         request = self.factory.post(
@@ -324,6 +327,7 @@ class RegisterCompanyApiCompanyNameEnforcementTests(TestCase):
             },
             format="json",
         )
+        force_authenticate(request, user=self.super_admin)
         return register_company(request)
 
     def test_numeric_only_rejected_via_api(self):

@@ -28,6 +28,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
     
+from .permissions import IsSuperUser
 from .serializers import VendorListSerializer
 from orders.serializers import AdminOutletSerializer
 from static.utils.functions.validation import validate_fields
@@ -156,8 +157,7 @@ def preprocess_request_data(data):
     }
 
 @api_view(['POST'])
-@authentication_classes([])
-@permission_classes([AllowAny])
+@permission_classes([IsSuperUser])
 def register_company(request):
     logger.info("Company registration initiated. Incoming request data.")
     logger.debug("Registration payload: %s", dict(request.data))
@@ -197,8 +197,7 @@ def register_company(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-@authentication_classes([])
-@permission_classes([AllowAny])
+@permission_classes([IsSuperUser])
 def company_lists(request):
     """
     GET /api/company_lists/
@@ -225,8 +224,7 @@ def company_lists(request):
     return paginator.get_paginated_response(serializer.data)
 
 @api_view(['PUT'])
-@authentication_classes([])
-@permission_classes([AllowAny]) 
+@permission_classes([IsSuperUser])
 def update_company_id(request,id):
     if not id:
         return Response({"error": "customer_id is required."},
@@ -246,8 +244,7 @@ def update_company_id(request,id):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
-@authentication_classes([])
-@permission_classes([AllowAny]) 
+@permission_classes([IsSuperUser])
 def update_company(request):
     customer_id = request.data.get('customer_id')
     if not customer_id:

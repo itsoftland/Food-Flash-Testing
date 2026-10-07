@@ -1918,13 +1918,51 @@ def logout_api_view(request):
 
 
 
+# Licence fields sent by the licence sync (productAuthService.js updateCompanyInfo).
+# Anything else (customer_email, contact fields, user, ...) is ignored, like `displaymode` already was.
+LICENCE_SYNC_FIELDS = (
+    'authentication_status',
+    'product_registration_id',
+    'unique_identifier',
+    'customer_id',
+    'product_from_date',
+    'product_to_date',
+    'total_count',
+    'project_code',
+    'web_login_count',
+    'android_tv_count',
+    'android_apk_count',
+    'keypad_device_count',
+    'led_display_count',
+    'outlet_count',
+    'locations',
+)
+
+
+def _licence_sync_own_admin_outlet(user):
+    """Company a non-superuser may licence-sync: Company Admin's own, or a legacy Outlet's company."""
+    admin_outlet = getattr(user, 'admin_outlet', None)
+    if user.is_staff and admin_outlet is not None:
+        return admin_outlet
+    vendor = getattr(user, 'vendor', None)
+    if vendor is not None:
+        return vendor.admin_outlet
+    return None
+
+
 @api_view(['PUT'])
-@permission_classes([IsAuthenticated]) 
+@permission_classes([IsAuthenticated])
 def update_admin_outlet(request):
     customer_id = request.data.get('customer_id')
     if not customer_id:
         return Response({"error": "customer_id is required."},
                         status=status.HTTP_400_BAD_REQUEST)
+
+    if not request.user.is_superuser:
+        own_admin_outlet = _licence_sync_own_admin_outlet(request.user)
+        if own_admin_outlet is None or str(own_admin_outlet.customer_id) != str(customer_id):
+            return Response({"error": "You do not have permission to update this company."},
+                            status=status.HTTP_403_FORBIDDEN)
 
     try:
         admin_outlet = AdminOutlet.objects.get(customer_id=customer_id)
@@ -1932,10 +1970,7 @@ def update_admin_outlet(request):
         return Response({"error": "AdminOutlet not found for this customer_id."},
                         status=status.HTTP_404_NOT_FOUND)
 
-    # Ensure username is NOT changed, so remove user data or ignore it
-    data = request.data.copy()
-    if 'user' in data:
-        data.pop('user')
+    data = {field: request.data[field] for field in LICENCE_SYNC_FIELDS if field in request.data}
 
     serializer = AdminOutletSerializer(admin_outlet, data=data, partial=True)
     if serializer.is_valid():
