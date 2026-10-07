@@ -1,0 +1,1934 @@
+/* static/utils/css/admin_modern.css
+ *
+ * Modern admin theme for the Super Admin and Company Admin interfaces.
+ *
+ * SCOPE
+ *   - Loaded ONLY by company/layouts/base.html and companyadmin/layouts/base.html,
+ *     and ONLY when PROJECT_NAME is dine_flash, dine_flash_buffet or hospital_flash.
+ *   - Every rule is prefixed with body[data-ff-admin], an attribute those same two
+ *     layouts emit under the same flavour gate. Customer pages, the login page and
+ *     every other flavour never load this file and never carry the attribute.
+ *
+ * RULES OF THE ROAD
+ *   - Presentation only: colour, type, spacing, borders, radius, shadow.
+ *   - Never sets `display`/`visibility` on anything JavaScript toggles
+ *     (.hidden, .visible, .d-none, modals, mobile card views, empty states).
+ *   - Never renames or depends on new markup; it styles the existing DOM.
+ *   - `!important` is used only where an existing rule or inline style already
+ *     uses it (orders/css/base.css, utils/css/base.css, companyadmin.css, inline
+ *     styles emitted by templates/JS).
+ */
+
+/* ==========================================================================
+   1. DESIGN TOKENS
+   ========================================================================== */
+
+body[data-ff-admin] {
+  /* Typography — system UI stack: no new font download, renders as
+     Segoe UI (Windows), SF Pro (macOS/iOS), Roboto (Android). */
+  --ffa-font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --ffa-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ffa-text-xs: 0.75rem;     /* 12px  meta, badges            */
+  --ffa-text-sm: 0.8125rem;   /* 13px  labels, table headers   */
+  --ffa-text-base: 0.875rem;  /* 14px  body, table cells       */
+  --ffa-text-md: 0.9375rem;   /* 15px  card titles             */
+  --ffa-text-lg: 1.125rem;    /* 18px  section titles          */
+  --ffa-text-xl: 1.5rem;      /* 24px  page titles             */
+  --ffa-text-2xl: 1.875rem;   /* 30px  KPI values              */
+
+  /* Neutrals */
+  --ffa-bg: #f5f6f8;
+  --ffa-surface: #ffffff;
+  --ffa-surface-2: #f9fafb;
+  --ffa-surface-3: #f2f4f7;
+  --ffa-border: #e4e7ec;
+  --ffa-border-strong: #d0d5dd;
+  --ffa-text: #101828;
+  --ffa-text-2: #344054;
+  --ffa-muted: #667085;
+  --ffa-faint: #98a2b3;
+
+  /* Semantic */
+  --ffa-success: #067647;  --ffa-success-bg: #ecfdf3;  --ffa-success-bd: #abefc6;  --ffa-success-solid: #079455;
+  --ffa-warning: #b54708;  --ffa-warning-bg: #fffaeb;  --ffa-warning-bd: #fedf89;
+  --ffa-danger: #b42318;   --ffa-danger-bg: #fef3f2;   --ffa-danger-bd: #fecdca;   --ffa-danger-solid: #d92d20;
+  --ffa-info: #175cd3;     --ffa-info-bg: #eff8ff;     --ffa-info-bd: #b2ddff;
+  --ffa-neutral: #344054;  --ffa-neutral-bg: #f2f4f7;  --ffa-neutral-bd: #e4e7ec;
+
+  /* Radius — four steps only */
+  --ffa-r-sm: 6px;
+  --ffa-r: 8px;
+  --ffa-r-lg: 12px;
+  --ffa-r-pill: 999px;
+
+  /* Elevation — restrained */
+  --ffa-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --ffa-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --ffa-shadow-md: 0 6px 16px -4px rgba(16, 24, 40, 0.10), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
+  --ffa-shadow-lg: 0 20px 40px -12px rgba(16, 24, 40, 0.22);
+
+  /* Spacing rhythm (4px base) */
+  --ffa-s1: 4px;  --ffa-s2: 8px;  --ffa-s3: 12px;  --ffa-s4: 16px;
+  --ffa-s5: 20px; --ffa-s6: 24px; --ffa-s8: 32px;
+
+  /* Controls */
+  --ffa-control-h: 40px;
+  --ffa-control-h-sm: 34px;
+
+  /* Sidebar (shared ink palette across the three products) */
+  --ffa-side-bg: #12141a;
+  --ffa-side-bg-2: #181b22;
+  --ffa-side-text: #a4abb8;
+  --ffa-side-text-strong: #f2f4f7;
+  --ffa-side-line: rgba(255, 255, 255, 0.07);
+  --ffa-side-hover: rgba(255, 255, 255, 0.06);
+
+  /* Product identity (overridden per flavour below). Default = Dine Flash gold. */
+  --ffa-primary: #e3a21a;
+  --ffa-primary-hover: #d18f0c;
+  --ffa-primary-active: #b97c08;
+  --ffa-on-primary: #1d1404;
+  --ffa-primary-soft: #fdf4e1;
+  --ffa-primary-soft-2: #fbe7bd;
+  --ffa-primary-text: #8a5a00;
+  --ffa-ring: rgba(227, 162, 26, 0.30);
+
+  /* Re-map the legacy tokens from utils/css/colors.css inside the admin scope,
+     so existing page CSS and inline `var(--…)` styles adopt the new palette. */
+  --primary-gold: var(--ffa-primary);
+  --gold-muted: var(--ffa-primary-soft-2);
+  --icon-circle: var(--ffa-primary);
+  --text-dark: var(--ffa-text);
+  --bg-light: var(--ffa-bg);
+  --accordion-header: var(--ffa-surface);
+  --chip-bg: var(--ffa-surface-3);
+  --chip-text: var(--ffa-text-2);
+  --chip-border: var(--ffa-border);
+  --chip-hover-bg: var(--ffa-primary-soft);
+  --chip-hover-text: var(--ffa-primary-text);
+  --chip-hover-border: var(--ffa-primary-soft-2);
+  --badge-green: var(--ffa-success-bg);
+}
+
+/* --- Dine Flash: warm restaurant gold (the existing brand, refined) --- */
+body[data-ff-flavour="dine_flash"] {
+  --ffa-primary: #e3a21a;
+  --ffa-primary-hover: #d18f0c;
+  --ffa-primary-active: #b97c08;
+  --ffa-on-primary: #1d1404;
+  --ffa-primary-soft: #fdf4e1;
+  --ffa-primary-soft-2: #fbe7bd;
+  --ffa-primary-text: #8a5a00;
+  --ffa-ring: rgba(227, 162, 26, 0.30);
+}
+
+/* --- Food On Demand (dine_flash_buffet): saffron / terracotta kitchen tone --- */
+body[data-ff-flavour="dine_flash_buffet"] {
+  --ffa-primary: #c4520f;
+  --ffa-primary-hover: #a9450b;
+  --ffa-primary-active: #8f3a09;
+  --ffa-on-primary: #ffffff;
+  --ffa-primary-soft: #fff3ea;
+  --ffa-primary-soft-2: #fddcc5;
+  --ffa-primary-text: #9a3c0a;
+  --ffa-ring: rgba(196, 82, 15, 0.24);
+}
+
+/* --- Hospital Flash: calm clinical teal --- */
+body[data-ff-flavour="hospital_flash"] {
+  --ffa-primary: #0e7c7b;
+  --ffa-primary-hover: #0b6968;
+  --ffa-primary-active: #095655;
+  --ffa-on-primary: #ffffff;
+  --ffa-primary-soft: #e7f5f4;
+  --ffa-primary-soft-2: #c5e8e6;
+  --ffa-primary-text: #0a5c5b;
+  --ffa-ring: rgba(14, 124, 123, 0.24);
+}
+
+/* ==========================================================================
+   2. BASE
+   ========================================================================== */
+
+body[data-ff-admin],
+body[data-ff-admin] .wrapper {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-base);
+  line-height: 1.5;
+  color: var(--ffa-text-2);
+  background-color: var(--ffa-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body[data-ff-admin] .content-wrapper {
+  background-color: var(--ffa-bg);
+  color: var(--ffa-text-2);
+}
+
+body[data-ff-admin] h1, body[data-ff-admin] h2, body[data-ff-admin] h3,
+body[data-ff-admin] h4, body[data-ff-admin] h5, body[data-ff-admin] h6 {
+  font-family: var(--ffa-font);
+  color: var(--ffa-text);
+  letter-spacing: -0.01em;
+}
+
+body[data-ff-admin] a { color: var(--ffa-primary-text); }
+body[data-ff-admin] a:hover { color: var(--ffa-primary-active); }
+
+body[data-ff-admin] ::selection { background: var(--ffa-primary-soft-2); color: var(--ffa-text); }
+
+body[data-ff-admin] .text-golden { color: var(--ffa-primary-text) !important; }
+body[data-ff-admin] .text-muted { color: var(--ffa-muted) !important; }
+body[data-ff-admin] .text-danger { color: var(--ffa-danger) !important; }
+body[data-ff-admin] .text-success { color: var(--ffa-success) !important; }
+body[data-ff-admin] .text-primary { color: var(--ffa-primary-text) !important; }
+body[data-ff-admin] .bg-light-gray { background-color: transparent !important; }
+
+body[data-ff-admin] hr { border-color: var(--ffa-border); opacity: 1; }
+
+/* Keyboard focus — visible, branded, never on mouse click */
+body[data-ff-admin] :focus { outline: none; }
+body[data-ff-admin] :focus-visible {
+  outline: 2px solid var(--ffa-primary);
+  outline-offset: 2px;
+  border-radius: var(--ffa-r-sm);
+}
+
+/* Slim, quiet scrollbars inside the app chrome */
+body[data-ff-admin] * { scrollbar-width: thin; scrollbar-color: #c9ced6 transparent; }
+body[data-ff-admin] *::-webkit-scrollbar { width: 10px; height: 10px; }
+body[data-ff-admin] *::-webkit-scrollbar-thumb {
+  background: #c9ced6; border-radius: 10px; border: 3px solid transparent; background-clip: content-box;
+}
+body[data-ff-admin] *::-webkit-scrollbar-track { background: transparent; }
+
+/* ==========================================================================
+   3. ADMIN SHELL — NAVBAR
+   ========================================================================== */
+
+body[data-ff-admin] .main-header.navbar {
+  min-height: 64px;
+  padding: 0 var(--ffa-s6) 0 var(--ffa-s3);
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(8px);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--ffa-border) !important;
+  box-shadow: none;
+}
+
+body[data-ff-admin] .main-header .nav-link {
+  color: var(--ffa-muted);
+  font-weight: 500;
+  font-size: var(--ffa-text-base);
+  height: auto;
+  border-radius: var(--ffa-r);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+body[data-ff-admin] .main-header .nav-link:hover { color: var(--ffa-text); }
+
+/* Hamburger (pushmenu) — square icon button */
+body[data-ff-admin] .main-header [data-widget="pushmenu"] {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--ffa-text-2);
+}
+body[data-ff-admin] .main-header [data-widget="pushmenu"]:hover { background-color: var(--ffa-surface-3); }
+
+/* User identity chip (content injected by authCheck.js). Styled only once
+   filled, so an unfilled container keeps its original (invisible) footprint. */
+body[data-ff-admin] .customer-info {
+  color: var(--ffa-text);
+  font-weight: 500;
+  font-size: var(--ffa-text-base);
+}
+body[data-ff-admin] .customer-info:has(.customer-name, .license-expiry) {
+  padding: 5px 12px 5px 5px;
+  border: 1px solid var(--ffa-border);
+  border-radius: var(--ffa-r-pill);
+  background: var(--ffa-surface);
+}
+body[data-ff-admin] .customer-info:has(.customer-name, .license-expiry)::before {
+  content: "\f007";
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  border-radius: 50%;
+  color: var(--ffa-primary-text);
+  background: var(--ffa-primary-soft);
+  flex-shrink: 0;
+}
+body[data-ff-admin] .customer-info .customer-name { color: var(--ffa-text); font-weight: 600; }
+body[data-ff-admin] .customer-info .customer-id {
+  color: var(--ffa-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin-left: 6px;
+}
+
+/* Logout — quiet ghost button that turns red on intent */
+body[data-ff-admin] .main-header .logout-link {
+  color: var(--ffa-text-2) !important;
+  font-weight: 500;
+  padding: 7px 14px;
+  border: 1px solid var(--ffa-border);
+  border-radius: var(--ffa-r);
+  background: var(--ffa-surface);
+  margin-left: var(--ffa-s2);
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+body[data-ff-admin] .main-header .logout-link:hover {
+  color: var(--ffa-danger) !important;
+  border-color: var(--ffa-danger-bd);
+  background: var(--ffa-danger-bg);
+}
+body[data-ff-admin] .main-header .logout-link i { color: inherit; opacity: 0.85; }
+
+/* ==========================================================================
+   4. ADMIN SHELL — SIDEBAR
+   ========================================================================== */
+
+body[data-ff-admin] .main-sidebar {
+  background-color: var(--ffa-side-bg) !important;
+  box-shadow: none !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+body[data-ff-admin] .main-sidebar .brand-link {
+  background-color: var(--ffa-side-bg) !important;
+  border-bottom: 1px solid var(--ffa-side-line) !important;
+  min-height: 64px;
+  padding: 12px 16px !important;
+  color: var(--ffa-side-text-strong) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body[data-ff-admin] .main-sidebar .brand-image {
+  box-shadow: none;
+  border-radius: 0;
+  float: none;
+  margin: 0;
+  max-height: 38px;
+}
+body[data-ff-admin] .main-sidebar .brand-image:hover { transform: none; }
+body[data-ff-admin] .brand-link .logo-lg { width: auto; max-width: 168px; height: 36px; object-fit: contain; }
+body[data-ff-admin] .brand-link .logo-sm { width: 34px; height: 34px; }
+/* Hide the alt text of a logo that has not loaded yet (src is set by JS). */
+body[data-ff-admin] .brand-link img { color: transparent; font-size: 0; }
+
+/* Food On Demand wordmark (text brand, already rendered by the template) */
+body[data-ff-flavour="dine_flash_buffet"] .brand-link .brand-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700 !important;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+body[data-ff-flavour="dine_flash_buffet"] .brand-link .brand-text::before {
+  content: "\f2e7"; /* utensils */
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ffa-r);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ffa-primary);
+  color: var(--ffa-on-primary);
+}
+
+/* Hospital Flash: its configured sidebar logo (company/images/calleronlogo.webp)
+   is not present in the repository, so the browser shows a broken-image glyph.
+   Present a clean wordmark instead. If that logo asset is added later, delete
+   these three rules to show it again. */
+body[data-ff-flavour="hospital_flash"] .main-sidebar .brand-link img { opacity: 0; width: 0 !important; height: 0 !important; }
+body[data-ff-flavour="hospital_flash"] .main-sidebar .brand-link::before {
+  content: "\f0f8"; /* hospital */
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--ffa-r);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ffa-primary);
+  color: var(--ffa-on-primary);
+}
+body[data-ff-flavour="hospital_flash"] .main-sidebar .brand-link::after {
+  content: "Hospital Flash";
+  margin-left: 10px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  white-space: nowrap;
+}
+body[data-ff-flavour="hospital_flash"].sidebar-collapse:not(.sidebar-open) .main-sidebar:not(:hover) .brand-link::after { content: none; }
+
+body[data-ff-admin] .main-sidebar .sidebar { padding: 8px 10px 24px; }
+body[data-ff-admin] .main-sidebar .sidebar nav.mt-2 { margin-top: 6px !important; }
+
+/* Top-level items */
+body[data-ff-admin] .nav-sidebar .nav-item { margin-bottom: 2px; }
+body[data-ff-admin] .nav-sidebar .nav-link {
+  color: var(--ffa-side-text) !important;
+  font-size: var(--ffa-text-base);
+  font-weight: 500;
+  border-radius: var(--ffa-r) !important;
+  padding: 9px 12px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+}
+body[data-ff-admin] .nav-sidebar .nav-link p { letter-spacing: 0; }
+body[data-ff-admin] .nav-sidebar .nav-link .nav-icon {
+  color: #7d8594 !important;
+  font-size: 0.95rem !important;
+  width: 1.6rem;
+  text-align: center;
+  margin-right: 0.35rem;
+  transition: color 0.15s ease;
+}
+body[data-ff-admin] .nav-sidebar .nav-link:hover {
+  color: var(--ffa-side-text-strong) !important;
+  background-color: var(--ffa-side-hover) !important;
+}
+body[data-ff-admin] .nav-sidebar .nav-link:hover .nav-icon { color: var(--ffa-side-text-strong) !important; }
+
+/* Active item: soft brand wash + accent bar + brand icon */
+body[data-ff-admin] .nav-sidebar > .nav-item > .nav-link.active,
+body[data-ff-admin] .nav-sidebar .nav-treeview > .nav-item > .nav-link.active {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+body[data-ff-admin] .nav-sidebar > .nav-item > .nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ffa-primary);
+}
+body[data-ff-admin] .nav-sidebar .nav-link.active .nav-icon { color: var(--ffa-primary) !important; }
+
+/* Hospital teal on near-black needs a lighter tint to stay legible */
+body[data-ff-flavour="hospital_flash"] .nav-sidebar .nav-link.active .nav-icon { color: #3fc1bf !important; }
+body[data-ff-flavour="hospital_flash"] .nav-sidebar > .nav-item > .nav-link.active::before { background: #3fc1bf; }
+body[data-ff-flavour="dine_flash_buffet"] .nav-sidebar .nav-link.active .nav-icon { color: #f08a4b !important; }
+body[data-ff-flavour="dine_flash_buffet"] .nav-sidebar > .nav-item > .nav-link.active::before { background: #f08a4b; }
+
+/* Open group parent */
+body[data-ff-admin] .nav-sidebar .menu-open > .nav-link {
+  color: var(--ffa-side-text-strong) !important;
+}
+body[data-ff-admin] .nav-sidebar .nav-link > p > .right {
+  color: #6b7280;
+  font-size: 0.75rem;
+  top: 0.95rem;
+  /* Groups use fa-angle-down; point it right when closed, down when open */
+  transform: rotate(-90deg) !important;
+  transition: transform 0.2s ease;
+}
+body[data-ff-admin] .nav-sidebar .menu-open > .nav-link > p > .right,
+body[data-ff-admin] .nav-sidebar .menu-is-opening > .nav-link > p > .right {
+  transform: rotate(0deg) !important;
+}
+
+/* Sub-navigation: indented, connected by a hairline guide */
+body[data-ff-admin] .nav-sidebar .nav-treeview {
+  margin: 2px 0 6px 21px;
+  padding-left: 8px;
+  border-left: 1px solid var(--ffa-side-line);
+  background: transparent !important;
+}
+body[data-ff-admin] .nav-sidebar .nav-treeview > .nav-item > .nav-link {
+  font-size: var(--ffa-text-sm);
+  padding: 7px 10px;
+  color: var(--ffa-side-text) !important;
+}
+body[data-ff-admin] .nav-sidebar .nav-treeview .nav-icon {
+  font-size: 0.4rem !important;
+  width: 1rem;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+}
+body[data-ff-admin] .nav-sidebar .nav-treeview > .nav-item > .nav-link.active {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* Section header ("MENU" in Food On Demand) */
+body[data-ff-admin] .nav-sidebar .nav-header {
+  color: #6b7280 !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 18px 12px 6px !important;
+  background: transparent !important;
+}
+
+/* Collapsed mini sidebar: keep icons centred, no accent bar overflow */
+body[data-ff-admin].sidebar-collapse:not(.sidebar-open) .main-sidebar:not(:hover) .nav-sidebar > .nav-item > .nav-link.active::before {
+  left: -6px;
+}
+body[data-ff-admin].sidebar-collapse:not(.sidebar-open) .main-sidebar:not(:hover) .nav-treeview {
+  border-left: 0;
+  margin-left: 0;
+}
+
+/* ==========================================================================
+   5. ADMIN SHELL — FOOTER
+   ========================================================================== */
+
+body[data-ff-admin] .main-footer {
+  background-color: var(--ffa-surface) !important;
+  color: var(--ffa-faint) !important;
+  border-top: 1px solid var(--ffa-border) !important;
+  font-weight: 400;
+  font-size: var(--ffa-text-xs);
+  letter-spacing: 0.01em;
+  height: 40px;
+  padding: 0 16px;
+}
+body[data-ff-admin] .main-footer strong { font-weight: 500; color: var(--ffa-muted); }
+
+/* ==========================================================================
+   6. PAGE HEADER
+   ========================================================================== */
+
+body[data-ff-admin] .content-wrapper { padding-top: 0 !important; }
+/* Navbar is 64px (AdminLTE assumes 57px): offset fixed-navbar content to match */
+body[data-ff-admin].layout-navbar-fixed .wrapper .content-wrapper { margin-top: 65px; }
+
+/* Pages without a .content-header (QR generators, mappings, kitchen view)
+   use an <h2> directly inside .container-fluid as their page title. */
+body[data-ff-admin] .content-wrapper > .container-fluid.mt-4 { margin-top: 0 !important; padding-top: 28px; padding-bottom: 72px; }
+body[data-ff-admin] .content-wrapper > .container-fluid > h2,
+body[data-ff-admin] .content-wrapper > .container-fluid > .d-flex > h2 {
+  font-size: var(--ffa-text-xl) !important;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ffa-text);
+  margin-bottom: 4px !important;
+}
+body[data-ff-admin] .content-wrapper > .container-fluid > h2 + p.text-muted {
+  font-size: var(--ffa-text-base);
+  margin-bottom: 20px !important;
+}
+
+body[data-ff-admin] .content-header {
+  padding: 28px var(--ffa-s2) 12px;
+}
+body[data-ff-admin] .content-header .row.mb-2 { margin-bottom: 0 !important; row-gap: 12px; }
+
+body[data-ff-admin] .content-header h1,
+body[data-ff-admin] .content-header .page-title,
+body[data-ff-admin] .content > .container-fluid > h1,
+body[data-ff-admin] .page-title {
+  font-size: var(--ffa-text-xl) !important;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ffa-text) !important;
+  margin: 0;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: none;
+}
+
+/* Supporting copy directly under a page header (e.g. "You can manage outlets from here.") */
+body[data-ff-admin] .content .card-body > p.mb-2:first-child {
+  color: var(--ffa-muted);
+  font-size: var(--ffa-text-base);
+  margin-bottom: var(--ffa-s4) !important;
+}
+
+/* Dashboard greeting (injected by dashboard.js) */
+body[data-ff-admin] #welcome-info .text-golden {
+  color: var(--ffa-muted) !important;
+  font-weight: 500 !important;
+  font-size: var(--ffa-text-base);
+}
+
+body[data-ff-admin] .content { padding: 0 var(--ffa-s2) 72px; }
+body[data-ff-admin] .content > .container-fluid,
+body[data-ff-admin] .content-header > .container-fluid { max-width: 1440px; }
+
+/* ==========================================================================
+   7. CARDS
+   ========================================================================== */
+
+body[data-ff-admin] .card {
+  background-color: var(--ffa-surface);
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  margin-bottom: var(--ffa-s6);
+}
+body[data-ff-admin] .card > .card-body { padding: var(--ffa-s6); }
+
+body[data-ff-admin] .card-header,
+body[data-ff-admin] .card-primary:not(.card-outline) > .card-header,
+body[data-ff-admin] .card-primary.card-outline > .card-header {
+  background-color: var(--ffa-surface) !important;
+  color: var(--ffa-text) !important;
+  border-bottom: 1px solid var(--ffa-border) !important;
+  padding: 16px var(--ffa-s6);
+  border-radius: var(--ffa-r-lg) var(--ffa-r-lg) 0 0 !important;
+}
+body[data-ff-admin] .card-primary.card-outline {
+  /* companyadmin.css paints the whole outline card gold with !important */
+  background-color: var(--ffa-surface) !important;
+  color: var(--ffa-text-2) !important;
+  border-top: 1px solid var(--ffa-border) !important;
+}
+body[data-ff-admin] .card-header .card-title,
+body[data-ff-admin] .card-title {
+  font-size: var(--ffa-text-md);
+  font-weight: 600;
+  color: var(--ffa-text);
+  letter-spacing: -0.005em;
+}
+body[data-ff-admin] .card-footer {
+  background-color: var(--ffa-surface-2) !important;
+  border-top: 1px solid var(--ffa-border) !important;
+  padding: 14px var(--ffa-s6);
+  border-radius: 0 0 var(--ffa-r-lg) var(--ffa-r-lg) !important;
+}
+
+/* Company List renders an empty `.card` before its table (existing markup) —
+   flatten it so it no longer draws a stray line. */
+body[data-ff-admin] .card:empty {
+  border: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  background: transparent;
+}
+
+/* Registration has no page header block; give its card breathing room */
+body[data-ff-admin] .registration-content { padding-top: 28px; padding-bottom: 72px; }
+
+/* Section titles inside forms / cards */
+body[data-ff-admin] .form-section-title,
+body[data-ff-admin] .content h2,
+body[data-ff-admin] .content h3:not(.card-title) {
+  font-size: var(--ffa-text-lg);
+  font-weight: 600;
+  color: var(--ffa-text);
+}
+body[data-ff-admin] .content h5 { font-size: var(--ffa-text-md); font-weight: 600; }
+body[data-ff-admin] .form-section {
+  border-color: var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  background: var(--ffa-surface);
+}
+
+/* ==========================================================================
+   8. BUTTONS
+   ========================================================================== */
+
+body[data-ff-admin] .btn {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-base);
+  font-weight: 600;
+  line-height: 1.25;
+  min-height: var(--ffa-control-h);
+  padding: 9px 16px;
+  border-radius: var(--ffa-r) !important;
+  letter-spacing: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transform: none !important;
+}
+body[data-ff-admin] .btn-sm {
+  min-height: var(--ffa-control-h-sm);
+  padding: 6px 12px;
+  font-size: var(--ffa-text-sm);
+}
+body[data-ff-admin] .btn-lg {
+  min-height: 46px;
+  padding: 11px 20px;
+  font-size: var(--ffa-text-md);
+}
+body[data-ff-admin] .btn.shadow-sm { box-shadow: var(--ffa-shadow-xs) !important; }
+body[data-ff-admin] .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--ffa-ring) !important; }
+body[data-ff-admin] .btn:disabled,
+body[data-ff-admin] .btn.disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none !important; }
+
+/* PRIMARY — the brand action. Covers the existing primary-action classes. */
+body[data-ff-admin] .btn-golden,
+body[data-ff-admin] .btn.btn-primary,
+body[data-ff-admin] .btn-create-utility,
+body[data-ff-admin] .btn-create-config,
+body[data-ff-admin] .btn-add-utility,
+body[data-ff-admin] .btn-add-config,
+body[data-ff-admin] .btn-save-utility,
+body[data-ff-admin] #companyForm button[type="submit"],
+body[data-ff-admin] .loader-ok-btn {
+  background-color: var(--ffa-primary) !important;
+  border: 1px solid var(--ffa-primary) !important;
+  color: var(--ffa-on-primary) !important;
+  box-shadow: var(--ffa-shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--ffa-r) !important;
+  font-weight: 600;
+  transform: none !important;
+}
+body[data-ff-admin] .btn-golden:hover,
+body[data-ff-admin] .btn.btn-primary:hover,
+body[data-ff-admin] .btn-create-utility:hover,
+body[data-ff-admin] .btn-create-config:hover,
+body[data-ff-admin] .btn-add-utility:hover,
+body[data-ff-admin] .btn-add-config:hover,
+body[data-ff-admin] .btn-save-utility:hover,
+body[data-ff-admin] #companyForm button[type="submit"]:hover,
+body[data-ff-admin] .loader-ok-btn:hover {
+  background-color: var(--ffa-primary-hover) !important;
+  border-color: var(--ffa-primary-hover) !important;
+  color: var(--ffa-on-primary) !important;
+}
+body[data-ff-admin] .btn-golden:active,
+body[data-ff-admin] .btn.btn-primary:active,
+body[data-ff-admin] #companyForm button[type="submit"]:active {
+  background-color: var(--ffa-primary-active) !important;
+  border-color: var(--ffa-primary-active) !important;
+}
+/* Filter "Apply" is the primary action of its bar (Order / Booking / Patient Details) */
+body[data-ff-admin] #apply-filters {
+  background-color: var(--ffa-primary) !important;
+  border: 1px solid var(--ffa-primary) !important;
+  color: var(--ffa-on-primary) !important;
+}
+body[data-ff-admin] #apply-filters:hover { background-color: var(--ffa-primary-hover) !important; }
+
+/* Anchor-styled primary actions (e.g. "+ Add Department") get button geometry */
+body[data-ff-admin] a.btn-add-utility,
+body[data-ff-admin] .btn-create-utility,
+body[data-ff-admin] .btn-create-config,
+body[data-ff-admin] .btn-add-config {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--ffa-control-h);
+  padding: 9px 16px !important;
+  font-size: var(--ffa-text-base) !important;
+  text-decoration: none !important;
+}
+
+/* SECONDARY — neutral surface button */
+body[data-ff-admin] .btn.btn-secondary,
+body[data-ff-admin] .btn-outline-secondary,
+body[data-ff-admin] .btn-light,
+body[data-ff-admin] .btn-reset-form {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  color: var(--ffa-text-2) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+}
+body[data-ff-admin] .btn.btn-secondary:hover,
+body[data-ff-admin] .btn-outline-secondary:hover,
+body[data-ff-admin] .btn-light:hover,
+body[data-ff-admin] .btn-reset-form:hover {
+  background-color: var(--ffa-surface-2) !important;
+  border-color: var(--ffa-border-strong) !important;
+  color: var(--ffa-text) !important;
+}
+body[data-ff-admin] .btn-outline-secondary.active,
+body[data-ff-admin] .btn-check:checked + .btn-outline-secondary {
+  background-color: var(--ffa-primary-soft) !important;
+  border-color: var(--ffa-primary) !important;
+  color: var(--ffa-primary-text) !important;
+}
+
+/* OUTLINE — brand outline (no pills, no hover zoom) */
+body[data-ff-admin] .btn-outline-primary,
+body[data-ff-admin] .btn-outline-golden {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-primary) !important;
+  color: var(--ffa-primary-text) !important;
+  border-radius: var(--ffa-r) !important;
+  box-shadow: none !important;
+  margin: 0;
+  letter-spacing: 0;
+  transform: none !important;
+}
+body[data-ff-admin] .btn-outline-primary:hover,
+body[data-ff-admin] .btn-outline-primary:focus,
+body[data-ff-admin] .btn-outline-golden:hover {
+  background-color: var(--ffa-primary-soft) !important;
+  border-color: var(--ffa-primary) !important;
+  color: var(--ffa-primary-text) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* SUCCESS */
+body[data-ff-admin] .btn-success {
+  background-color: var(--ffa-success-solid) !important;
+  border: 1px solid var(--ffa-success-solid) !important;
+  color: #fff !important;
+}
+body[data-ff-admin] .btn-success:hover { background-color: var(--ffa-success) !important; border-color: var(--ffa-success) !important; }
+
+/* DESTRUCTIVE */
+body[data-ff-admin] .btn-danger {
+  background-color: var(--ffa-danger-solid) !important;
+  border: 1px solid var(--ffa-danger-solid) !important;
+  color: #fff !important;
+}
+body[data-ff-admin] .btn-danger:hover { background-color: var(--ffa-danger) !important; border-color: var(--ffa-danger) !important; }
+body[data-ff-admin] .btn-outline-danger {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-danger-bd) !important;
+  color: var(--ffa-danger) !important;
+}
+body[data-ff-admin] .btn-outline-danger:hover { background-color: var(--ffa-danger-bg) !important; }
+
+/* ICON-ONLY — table row actions */
+body[data-ff-admin] .icon-btn,
+body[data-ff-admin] .action-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ffa-r) !important;
+  border: 1px solid transparent !important;
+  background-color: transparent !important;
+  font-size: 0.9rem;
+  transform: none !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+body[data-ff-admin] .icon-btn:hover,
+body[data-ff-admin] .action-btn:hover {
+  background-color: var(--ffa-surface-3) !important;
+  border-color: var(--ffa-border) !important;
+  transform: none !important;
+}
+body[data-ff-admin] .icon-view { color: var(--ffa-info); }
+body[data-ff-admin] .icon-edit { color: var(--ffa-text-2); }
+body[data-ff-admin] .icon-delete { color: var(--ffa-danger); }
+body[data-ff-admin] .icon-link-toggle.linked { color: var(--ffa-success); }
+body[data-ff-admin] .icon-link-toggle.unlinked { color: var(--ffa-danger); }
+body[data-ff-admin] .icon-delete:hover { background-color: var(--ffa-danger-bg) !important; border-color: var(--ffa-danger-bd) !important; }
+
+/* Close controls (BS5 .btn-close and legacy .close) */
+body[data-ff-admin] .btn-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--ffa-r);
+  background-size: 11px;
+  opacity: 0.55;
+  filter: none;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+body[data-ff-admin] .btn-close:hover { opacity: 0.9; background-color: var(--ffa-surface-3); }
+body[data-ff-admin] .modal .close {
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px auto;
+  padding: 0 !important;
+  border-radius: var(--ffa-r);
+  font-size: 1.4rem;
+  font-weight: 400;
+  color: var(--ffa-muted);
+  text-shadow: none;
+  opacity: 1;
+  background: transparent;
+  border: 0;
+}
+body[data-ff-admin] .modal .close:hover { color: var(--ffa-text); background-color: var(--ffa-surface-3); }
+
+/* Company list licence button */
+body[data-ff-admin] .license-btn {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 7px 12px;
+  border-radius: var(--ffa-r) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  background: var(--ffa-surface) !important;
+  color: var(--ffa-text-2) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  white-space: nowrap;
+  transform: none !important;
+}
+body[data-ff-admin] .license-btn:hover:not(:disabled) {
+  border-color: var(--ffa-primary) !important;
+  color: var(--ffa-primary-text) !important;
+  background: var(--ffa-primary-soft) !important;
+}
+body[data-ff-admin] .license-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==========================================================================
+   9. FORMS
+   ========================================================================== */
+
+body[data-ff-admin] label,
+body[data-ff-admin] .form-label,
+body[data-ff-admin] .form-group label {
+  font-size: var(--ffa-text-sm);
+  font-weight: 500;
+  color: var(--ffa-text-2);
+  margin-bottom: 6px;
+}
+body[data-ff-admin] .form-check-label,
+body[data-ff-admin] .custom-control-label {
+  font-size: var(--ffa-text-base);
+  font-weight: 400;
+  color: var(--ffa-text-2);
+  margin-bottom: 0;
+}
+body[data-ff-admin] label .text-danger,
+body[data-ff-admin] .form-label .text-danger { color: var(--ffa-danger) !important; font-weight: 500; }
+body[data-ff-admin] .form-group { margin-bottom: 18px; }
+
+body[data-ff-admin] .form-control,
+body[data-ff-admin] .form-select,
+body[data-ff-admin] .custom-select {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-base);
+  color: var(--ffa-text);
+  background-color: var(--ffa-surface);
+  border: 1px solid var(--ffa-border-strong);
+  border-radius: var(--ffa-r) !important;
+  min-height: var(--ffa-control-h);
+  padding: 8px 12px;
+  box-shadow: var(--ffa-shadow-xs);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+body[data-ff-admin] textarea.form-control { min-height: 88px; line-height: 1.5; }
+body[data-ff-admin] .form-control-sm,
+body[data-ff-admin] .form-select-sm {
+  min-height: var(--ffa-control-h-sm);
+  font-size: var(--ffa-text-sm);
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+body[data-ff-admin] .form-control::placeholder { color: var(--ffa-faint); opacity: 1; }
+body[data-ff-admin] .form-control:hover:not(:disabled):not([readonly]),
+body[data-ff-admin] .form-select:hover:not(:disabled) { border-color: #b8bfca; }
+body[data-ff-admin] .form-control:focus,
+body[data-ff-admin] .form-select:focus,
+body[data-ff-admin] .custom-select:focus {
+  border-color: var(--ffa-primary) !important;
+  box-shadow: 0 0 0 4px var(--ffa-ring) !important;
+  outline: none;
+}
+body[data-ff-admin] .form-control:disabled,
+body[data-ff-admin] .form-control[readonly],
+body[data-ff-admin] .form-select:disabled {
+  background-color: var(--ffa-surface-3);
+  color: var(--ffa-muted);
+  box-shadow: none;
+}
+body[data-ff-admin] .form-control.is-invalid,
+body[data-ff-admin] .form-select.is-invalid { border-color: var(--ffa-danger-solid) !important; }
+body[data-ff-admin] .form-control.is-invalid:focus { box-shadow: 0 0 0 4px rgba(217, 45, 32, 0.15) !important; }
+body[data-ff-admin] .invalid-feedback,
+body[data-ff-admin] .error-message { font-size: var(--ffa-text-xs); color: var(--ffa-danger) !important; margin-top: 4px; }
+body[data-ff-admin] .form-text,
+body[data-ff-admin] small.text-muted { font-size: var(--ffa-text-xs); color: var(--ffa-muted) !important; }
+
+/* Bootstrap 5 does not draw an arrow on <select class="form-control"> */
+body[data-ff-admin] select.form-control:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23667085' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+}
+body[data-ff-admin] .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23667085' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+  background-size: 14px 14px;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+body[data-ff-admin] select[multiple].form-control,
+body[data-ff-admin] select[size].form-control { padding: 6px; }
+
+/* Input groups */
+body[data-ff-admin] .input-group > .form-control:not(:last-child) { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+body[data-ff-admin] .input-group > .input-group-append > .btn,
+body[data-ff-admin] .input-group > .btn:last-child {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  min-height: var(--ffa-control-h);
+}
+body[data-ff-admin] .input-group-text {
+  background: var(--ffa-surface-2);
+  border-color: var(--ffa-border-strong);
+  color: var(--ffa-muted);
+  font-size: var(--ffa-text-base);
+}
+/* Password reveal toggle (registration) */
+body[data-ff-admin] #togglePassword.btn {
+  border: 1px solid var(--ffa-border-strong) !important;
+  border-left: 0 !important;
+  color: var(--ffa-muted) !important;
+  background: var(--ffa-surface) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+}
+body[data-ff-admin] #togglePassword.btn:hover { color: var(--ffa-text) !important; background: var(--ffa-surface-2) !important; }
+
+/* Checkboxes / radios / switches */
+body[data-ff-admin] .form-check-input {
+  border-color: var(--ffa-border-strong);
+  box-shadow: none;
+}
+body[data-ff-admin] .form-check-input:checked {
+  background-color: var(--ffa-primary);
+  border-color: var(--ffa-primary);
+}
+body[data-ff-admin] .form-check-input:focus { box-shadow: 0 0 0 4px var(--ffa-ring); border-color: var(--ffa-primary); }
+body[data-ff-admin] .custom-control-input:checked ~ .custom-control-label::before {
+  background-color: var(--ffa-primary);
+  border-color: var(--ffa-primary);
+}
+body[data-ff-admin] input[type="checkbox"],
+body[data-ff-admin] input[type="radio"] { accent-color: var(--ffa-primary); }
+
+/* File inputs */
+body[data-ff-admin] input[type="file"].form-control { padding: 6px; line-height: 1.6; }
+body[data-ff-admin] input[type="file"]::file-selector-button {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-sm);
+  font-weight: 600;
+  color: var(--ffa-text-2);
+  background: var(--ffa-surface-3);
+  border: 1px solid var(--ffa-border);
+  border-radius: var(--ffa-r-sm);
+  padding: 5px 12px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+body[data-ff-admin] input[type="file"]:hover::file-selector-button { background: var(--ffa-border); }
+
+/* Choices.js (multi-selects on configuration pages) */
+body[data-ff-admin] .choices { margin-bottom: 0; font-size: var(--ffa-text-base); }
+body[data-ff-admin] .choices__inner {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  border-radius: var(--ffa-r) !important;
+  min-height: var(--ffa-control-h);
+  padding: 5px 8px 3px !important;
+  font-size: var(--ffa-text-base);
+  box-shadow: var(--ffa-shadow-xs);
+}
+body[data-ff-admin] .choices.is-focused .choices__inner,
+body[data-ff-admin] .choices.is-open .choices__inner {
+  border-color: var(--ffa-primary) !important;
+  box-shadow: 0 0 0 4px var(--ffa-ring);
+}
+body[data-ff-admin] .choices__list--multiple .choices__item {
+  background-color: var(--ffa-primary-soft) !important;
+  border: 1px solid var(--ffa-primary-soft-2) !important;
+  color: var(--ffa-primary-text) !important;
+  border-radius: var(--ffa-r-sm) !important;
+  font-weight: 500;
+  font-size: var(--ffa-text-sm);
+  padding: 3px 8px;
+}
+body[data-ff-admin] .choices[data-type*="select-multiple"] .choices__button,
+body[data-ff-admin] .choices[data-type*="text"] .choices__button {
+  border-left-color: var(--ffa-primary-soft-2) !important;
+  filter: none;
+  opacity: 0.6;
+}
+body[data-ff-admin] .choices__list--dropdown,
+body[data-ff-admin] .choices__list[aria-expanded] {
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r) !important;
+  box-shadow: var(--ffa-shadow-md);
+  margin-top: 4px;
+}
+body[data-ff-admin] .choices__list--dropdown .choices__item--selectable.is-highlighted,
+body[data-ff-admin] .choices__list[aria-expanded] .choices__item--selectable.is-highlighted {
+  background-color: var(--ffa-primary-soft) !important;
+  color: var(--ffa-primary-text);
+}
+body[data-ff-admin] .choices__input { background-color: transparent !important; font-size: var(--ffa-text-base); }
+
+/* Choices.js instances configured with custom class names
+   (containerInner: choices-inner-foodflash, item: choices-item-foodflash) */
+body[data-ff-admin] .choices-inner-foodflash {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  border-radius: var(--ffa-r) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  min-height: var(--ffa-control-h);
+  padding: 6px 10px !important;
+  font-size: var(--ffa-text-base) !important;
+  color: var(--ffa-text) !important;
+}
+body[data-ff-admin] .choices.is-focused .choices-inner-foodflash,
+body[data-ff-admin] .choices.is-open .choices-inner-foodflash {
+  border-color: var(--ffa-primary) !important;
+  box-shadow: 0 0 0 4px var(--ffa-ring) !important;
+}
+body[data-ff-admin] .choices-item-foodflash {
+  font-size: var(--ffa-text-base) !important;
+  font-weight: 400;
+  box-shadow: none !important;
+  color: var(--ffa-text);
+}
+body[data-ff-admin] .choices__list--multiple .choices-item-foodflash {
+  background-color: var(--ffa-primary-soft) !important;
+  border: 1px solid var(--ffa-primary-soft-2) !important;
+  color: var(--ffa-primary-text) !important;
+  border-radius: var(--ffa-r-sm) !important;
+  font-size: var(--ffa-text-sm) !important;
+  font-weight: 500;
+  padding: 3px 4px 3px 8px !important;
+  margin: 2px 4px 2px 0 !important;
+}
+body[data-ff-admin] .choices__list--dropdown .choices-item-foodflash.is-highlighted,
+body[data-ff-admin] .choices__list[aria-expanded] .choices-item-foodflash.is-highlighted {
+  background-color: var(--ffa-primary-soft) !important;
+  color: var(--ffa-primary-text) !important;
+}
+body[data-ff-admin] .choices__button {
+  background-color: transparent !important;
+  color: var(--ffa-primary-text) !important;
+  border-radius: var(--ffa-r-sm) !important;
+  font-size: 0.9rem !important;
+}
+body[data-ff-admin] .choices[data-type*="select-one"]::after { border-top-color: var(--ffa-muted); }
+body[data-ff-admin] .choices[data-type*="select-one"] .choices__input {
+  border-bottom: 1px solid var(--ffa-border) !important;
+  padding: 10px 12px !important;
+}
+
+/* Form action rows */
+body[data-ff-admin] .form-actions {
+  border-top: 1px solid var(--ffa-border);
+  padding-top: var(--ffa-s5);
+  margin-top: var(--ffa-s2);
+  gap: var(--ffa-s3);
+}
+
+/* ==========================================================================
+   10. TABLES
+   ========================================================================== */
+
+body[data-ff-admin] .table {
+  color: var(--ffa-text-2);
+  font-size: var(--ffa-text-base);
+  margin-bottom: 0;
+  border-color: var(--ffa-border);
+  background: var(--ffa-surface);
+  --bs-table-bg: var(--ffa-surface);
+  --bs-table-hover-bg: var(--ffa-surface-2);
+  --bs-table-striped-bg: var(--ffa-surface-2);
+}
+body[data-ff-admin] .table.shadow-sm { box-shadow: none !important; }
+
+body[data-ff-admin] .table-responsive {
+  border: 1px solid var(--ffa-border);
+  border-radius: var(--ffa-r-lg);
+  background: var(--ffa-surface);
+}
+body[data-ff-admin] .table-responsive > .table,
+body[data-ff-admin] .table-responsive > .table-bordered { border: 0 !important; }
+body[data-ff-admin] .table > :not(:first-child) { border-top: 0 !important; }
+
+@media (min-width: 768px) {
+  body[data-ff-admin] .table > thead > tr > th,
+  body[data-ff-admin] .table thead th,
+  body[data-ff-admin] .table-header th {
+    background-color: var(--ffa-surface-2) !important;
+    color: var(--ffa-muted) !important;
+    font-size: 0.71875rem;   /* 11.5px */
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 16px;
+    border-top: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--ffa-border) !important;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  body[data-ff-admin] .table td,
+  body[data-ff-admin] .table-body-container td {
+    padding: 14px 16px;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-top: 0 !important;
+    border-bottom: 1px solid #eef0f3 !important;
+    vertical-align: middle !important;
+  }
+  body[data-ff-admin] .table tbody tr:last-child td { border-bottom: 0 !important; }
+  body[data-ff-admin] .table-bordered,
+  body[data-ff-admin] .table-bordered > :not(caption) > * > * { border-left-width: 0; border-right-width: 0; }
+  body[data-ff-admin] .table-hover > tbody > tr { transition: background-color 0.12s ease; }
+  body[data-ff-admin] .table-hover > tbody > tr:hover > * {
+    --bs-table-accent-bg: var(--ffa-surface-2);
+    background-color: var(--ffa-surface-2);
+  }
+  /* First column reads as the row's identity */
+  body[data-ff-admin] .table tbody td:first-child { color: var(--ffa-text); font-weight: 500; }
+}
+
+body[data-ff-admin] .table .name { color: var(--ffa-text); font-size: var(--ffa-text-base); letter-spacing: 0; }
+
+/* Empty / loading / error rows rendered by JS as a single spanning cell */
+body[data-ff-admin] .table td[colspan] {
+  padding: 40px 16px !important;
+  color: var(--ffa-muted) !important;
+  font-weight: 400 !important;
+  text-align: center;
+  background: var(--ffa-surface) !important;
+}
+body[data-ff-admin] .table td[colspan].text-danger { color: var(--ffa-danger) !important; }
+
+/* Mobile card-table (utils/css/tables.css) — refine look, keep its layout */
+@media (max-width: 767px) {
+  body[data-ff-admin] .table-responsive { border: 0; background: transparent; }
+  body[data-ff-admin] table tbody tr {
+    border: 1px solid var(--ffa-border) !important;
+    border-radius: var(--ffa-r-lg) !important;
+    box-shadow: var(--ffa-shadow-xs) !important;
+  }
+  body[data-ff-admin] .table,
+  body[data-ff-admin] .table-bordered { border: 0 !important; background: transparent; }
+  body[data-ff-admin] .card .table-responsive { margin: 0; }
+  body[data-ff-admin] table tbody td,
+  body[data-ff-admin] .table tbody td {
+    border-top: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid #eef0f3 !important;
+    font-size: var(--ffa-text-base);
+    background: transparent;
+  }
+  body[data-ff-admin] table tbody td:last-child { border-bottom: 0 !important; }
+  body[data-ff-admin] table tbody td::before {
+    color: var(--ffa-muted) !important;
+    font-weight: 500 !important;
+    font-size: var(--ffa-text-sm);
+  }
+}
+
+/* ==========================================================================
+   11. BADGES & STATUS
+   ========================================================================== */
+
+body[data-ff-admin] .badge {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-xs) !important;
+  font-weight: 600 !important;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  padding: 4px 9px !important;
+  border-radius: var(--ffa-r-pill) !important;
+  border: 1px solid var(--ffa-neutral-bd);
+  background-color: var(--ffa-neutral-bg) !important;
+  color: var(--ffa-neutral) !important;
+  vertical-align: middle;
+}
+/* Role chips in the users list carry inline var(--chip-hover-bg) — re-mapped above */
+body[data-ff-admin] .badge[style*="chip-hover-bg"] {
+  background-color: var(--ffa-primary-soft) !important;
+  border-color: var(--ffa-primary-soft-2);
+  color: var(--ffa-primary-text) !important;
+  border-radius: var(--ffa-r-sm) !important;
+  margin: 2px 4px 2px 0;
+}
+
+body[data-ff-admin] .badge.bg-success, body[data-ff-admin] .badge-success,
+body[data-ff-admin] .status-badge.active {
+  background-color: var(--ffa-success-bg) !important; border-color: var(--ffa-success-bd) !important; color: var(--ffa-success) !important;
+}
+body[data-ff-admin] .badge.bg-warning, body[data-ff-admin] .badge-warning {
+  background-color: var(--ffa-warning-bg) !important; border-color: var(--ffa-warning-bd) !important; color: var(--ffa-warning) !important;
+}
+body[data-ff-admin] .badge.bg-danger, body[data-ff-admin] .badge-danger,
+body[data-ff-admin] .status-badge.inactive {
+  background-color: var(--ffa-danger-bg) !important; border-color: var(--ffa-danger-bd) !important; color: var(--ffa-danger) !important;
+}
+body[data-ff-admin] .badge.bg-info, body[data-ff-admin] .badge-info,
+body[data-ff-admin] .badge.bg-primary, body[data-ff-admin] .badge-primary {
+  background-color: var(--ffa-info-bg) !important; border-color: var(--ffa-info-bd) !important; color: var(--ffa-info) !important;
+}
+body[data-ff-admin] .badge.bg-secondary, body[data-ff-admin] .badge-secondary,
+body[data-ff-admin] .badge.bg-light, body[data-ff-admin] .badge-light {
+  background-color: var(--ffa-neutral-bg) !important; border-color: var(--ffa-neutral-bd) !important; color: var(--ffa-neutral) !important;
+}
+
+/* Utilities / Menu / Departments status pill (has a ::before dot in page CSS) */
+body[data-ff-admin] .status-badge {
+  font-size: var(--ffa-text-xs) !important;
+  font-weight: 600 !important;
+  padding: 3px 9px !important;
+  border-radius: var(--ffa-r-pill) !important;
+  border: 1px solid transparent;
+  gap: 6px;
+}
+body[data-ff-admin] .token-mode-badge,
+body[data-ff-admin] .badge-priority,
+body[data-ff-admin] .badge-days-active {
+  font-size: var(--ffa-text-xs) !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: var(--ffa-r-sm) !important;
+  background-color: var(--ffa-info-bg) !important;
+  border: 1px solid var(--ffa-info-bd) !important;
+  color: var(--ffa-info) !important;
+}
+body[data-ff-admin] .token-mode-badge.utility-specific {
+  background-color: var(--ffa-primary-soft) !important;
+  border-color: var(--ffa-primary-soft-2) !important;
+  color: var(--ffa-primary-text) !important;
+}
+
+/* ==========================================================================
+   12. ALERTS
+   ========================================================================== */
+
+body[data-ff-admin] .alert {
+  border-radius: var(--ffa-r-lg) !important;
+  border: 1px solid var(--ffa-neutral-bd);
+  padding: 14px 16px;
+  font-size: var(--ffa-text-base);
+  box-shadow: none;
+}
+body[data-ff-admin] .alert-success { background: var(--ffa-success-bg) !important; border-color: var(--ffa-success-bd) !important; color: var(--ffa-success) !important; }
+body[data-ff-admin] .alert-warning { background: var(--ffa-warning-bg) !important; border-color: var(--ffa-warning-bd) !important; color: var(--ffa-warning) !important; }
+body[data-ff-admin] .alert-danger  { background: var(--ffa-danger-bg) !important;  border-color: var(--ffa-danger-bd) !important;  color: var(--ffa-danger) !important; }
+body[data-ff-admin] .alert-info    { background: var(--ffa-info-bg) !important;    border-color: var(--ffa-info-bd) !important;    color: var(--ffa-info) !important; }
+
+/* ==========================================================================
+   13. MODALS (Bootstrap) — presentation only; IDs, hooks and behaviour untouched
+   ========================================================================== */
+
+body[data-ff-admin] .modal-backdrop.show { opacity: 1; background-color: rgba(16, 24, 40, 0.48); }
+body[data-ff-admin] .modal-content {
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--ffa-shadow-lg) !important;
+  background-color: var(--ffa-surface) !important;
+  overflow: hidden;
+}
+body[data-ff-admin] .modal-header {
+  background-color: var(--ffa-surface) !important;
+  border-bottom: 1px solid var(--ffa-border) !important;
+  padding: 18px 24px;
+  align-items: center;
+}
+body[data-ff-admin] .modal-title {
+  font-size: 1.0625rem !important;
+  font-weight: 600 !important;
+  color: var(--ffa-text) !important;
+  letter-spacing: -0.01em;
+}
+body[data-ff-admin] .modal-body {
+  padding: 22px 24px;
+  color: var(--ffa-text-2);
+  font-size: var(--ffa-text-base);
+  line-height: 1.6;
+}
+body[data-ff-admin] .modal-footer {
+  border-top: 1px solid var(--ffa-border) !important;
+  background-color: var(--ffa-surface-2);
+  padding: 14px 24px;
+  gap: 8px;
+}
+body[data-ff-admin] .modal-footer > * { margin: 0; }
+
+/* Error modal (#errorModal carries inline colours) */
+body[data-ff-admin] #errorModal .modal-content { background-color: var(--ffa-surface) !important; border-radius: 16px !important; }
+body[data-ff-admin] #errorModal .modal-header {
+  background-color: var(--ffa-surface) !important;
+  border-bottom: 0 !important;
+  padding: 24px 24px 4px;
+}
+body[data-ff-admin] #errorModal .modal-title { display: flex; align-items: center; gap: 12px; }
+body[data-ff-admin] #errorModal .modal-title i {
+  color: var(--ffa-danger) !important;
+  background: var(--ffa-danger-bg);
+  border: 6px solid #fff5f4;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  margin-right: 0 !important;
+}
+body[data-ff-admin] #errorModal .modal-body { padding: 10px 24px 20px 82px; color: var(--ffa-muted) !important; }
+body[data-ff-admin] #errorModal .modal-footer { background: var(--ffa-surface-2); border-top: 1px solid var(--ffa-border) !important; }
+body[data-ff-admin] #errorModal .error-ok-btn {
+  background-color: var(--ffa-text) !important;
+  border: 1px solid var(--ffa-text) !important;
+  color: #fff !important;
+  border-radius: var(--ffa-r) !important;
+  padding: 9px 22px !important;
+  min-height: var(--ffa-control-h);
+}
+body[data-ff-admin] #errorModal .error-ok-btn:hover { background-color: #000 !important; }
+
+/* Success modal (shared; Food On Demand already uses a green treatment) */
+body[data-ff-admin] .success-modal-content { border-top: 0 !important; border-radius: 16px !important; background: var(--ffa-surface) !important; }
+body[data-ff-admin] .success-modal-header {
+  background-color: var(--ffa-surface) !important;
+  color: var(--ffa-text) !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  padding: 24px 24px 4px !important;
+}
+body[data-ff-admin] .success-modal-header .modal-title { display: flex; align-items: center; gap: 12px; }
+body[data-ff-admin] .success-icon {
+  color: var(--ffa-success) !important;
+  background: var(--ffa-success-bg);
+  border: 6px solid #f3fdf7;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  margin-right: 0 !important;
+}
+body[data-ff-admin] .success-modal-body { color: var(--ffa-muted) !important; padding: 10px 24px 20px 82px !important; font-size: var(--ffa-text-base) !important; }
+body[data-ff-admin] .success-modal-footer {
+  background: var(--ffa-surface-2);
+  border-top: 1px solid var(--ffa-border) !important;
+  border-radius: 0 !important;
+  padding: 14px 24px !important;
+}
+body[data-ff-admin] .success-ok-btn {
+  background-color: var(--ffa-success-solid) !important;
+  border: 1px solid var(--ffa-success-solid) !important;
+  color: #fff !important;
+  border-radius: var(--ffa-r) !important;
+  padding: 9px 22px !important;
+  min-height: var(--ffa-control-h);
+  font-weight: 600;
+}
+body[data-ff-admin] .success-ok-btn:hover { background-color: var(--ffa-success) !important; }
+
+/* Custom confirm dialog (.ff-modal toggled via .hidden by ConfirmModalService) */
+
+/* Some admin pages do not load a stylesheet defining `.hidden`, so the closed
+   dialog's text leaks onto the page. Food On Demand already ships this exact
+   guard inline (company/partials/modals.html); apply it to all three themed
+   products. Opening/closing logic is untouched — the service still just
+   removes/adds the `hidden` class. */
+body[data-ff-admin] .ff-modal.hidden { display: none !important; }
+body[data-ff-admin] .ff-modal {
+  background-color: rgba(16, 24, 40, 0.48) !important;
+  font-family: var(--ffa-font) !important;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+body[data-ff-admin] .ff-modal-content {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border);
+  border-radius: 16px !important;
+  box-shadow: var(--ffa-shadow-lg) !important;
+  padding: 24px !important;
+  max-width: 420px !important;
+  text-align: left !important;
+}
+body[data-ff-admin] .ff-modal-content::before {
+  content: "\f128"; /* question */
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  box-sizing: content-box;
+  border: 6px solid #fffaf0;
+  border-radius: 50%;
+  background: var(--ffa-warning-bg);
+  color: var(--ffa-warning);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+body[data-ff-admin] .ff-modal-title { font-size: var(--ffa-text-lg) !important; color: var(--ffa-text) !important; font-weight: 600 !important; }
+body[data-ff-admin] .ff-modal-content p,
+body[data-ff-admin] #confirmationMessage { color: var(--ffa-muted); font-size: var(--ffa-text-base); line-height: 1.6; margin: 0; }
+body[data-ff-admin] #confirmationMessage b,
+body[data-ff-admin] #confirmationMessage strong { color: var(--ffa-text); font-weight: 600; }
+body[data-ff-admin] .ff-modal-actions {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start !important;
+  gap: 10px;
+  margin-top: 22px !important;
+}
+body[data-ff-admin] .ff-btn {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-base) !important;
+  font-weight: 600;
+  min-height: var(--ffa-control-h);
+  padding: 9px 18px !important;
+  border-radius: var(--ffa-r) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  flex: 1 1 0;
+}
+body[data-ff-admin] .ff-btn.confirm {
+  background-color: var(--ffa-primary) !important;
+  border: 1px solid var(--ffa-primary) !important;
+  color: var(--ffa-on-primary) !important;
+}
+body[data-ff-admin] .ff-btn.confirm:hover { background-color: var(--ffa-primary-hover) !important; }
+body[data-ff-admin] .ff-btn.cancel {
+  background-color: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  color: var(--ffa-text-2) !important;
+}
+body[data-ff-admin] .ff-btn.cancel:hover { background-color: var(--ffa-surface-2) !important; }
+body[data-ff-admin] .ff-btn.danger {
+  background-color: var(--ffa-danger-solid) !important;
+  border: 1px solid var(--ffa-danger-solid) !important;
+  color: #fff !important;
+}
+
+/* Timeline modal (order / queue history) */
+body[data-ff-admin] .timeline-status { color: var(--ffa-text) !important; font-weight: 600; text-transform: capitalize; }
+body[data-ff-admin] .timeline-subtext { color: var(--ffa-muted) !important; font-size: var(--ffa-text-sm); }
+body[data-ff-admin] .timeline-dot { background: var(--ffa-primary) !important; box-shadow: 0 0 0 4px var(--ffa-primary-soft) !important; }
+
+/* ==========================================================================
+   14. FILTER BARS, SEARCH & PAGINATION
+   ========================================================================== */
+
+body[data-ff-admin] .utilities-control-bar,
+body[data-ff-admin] .config-control-bar {
+  background: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  padding: 12px !important;
+  margin-bottom: var(--ffa-s4) !important;
+}
+body[data-ff-admin] .search-item { position: relative; }
+body[data-ff-admin] .search-icon { color: var(--ffa-faint) !important; }
+
+body[data-ff-admin] .pagination { gap: 4px; }
+body[data-ff-admin] .page-link,
+body[data-ff-admin] .page-btn {
+  font-family: var(--ffa-font);
+  font-size: var(--ffa-text-sm) !important;
+  font-weight: 500;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ffa-text-2) !important;
+  background: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r) !important;
+  box-shadow: none !important;
+}
+body[data-ff-admin] .page-link:hover,
+body[data-ff-admin] .page-btn:hover:not(:disabled) { background: var(--ffa-surface-2) !important; color: var(--ffa-text) !important; }
+body[data-ff-admin] .page-item.active .page-link,
+body[data-ff-admin] .page-btn.active {
+  background: var(--ffa-text) !important;
+  border-color: var(--ffa-text) !important;
+  color: #fff !important;
+}
+body[data-ff-admin] .page-item.disabled .page-link,
+body[data-ff-admin] .page-btn:disabled { opacity: 0.45; }
+body[data-ff-admin] .pagination-container { color: var(--ffa-muted); font-size: var(--ffa-text-sm); }
+
+/* ==========================================================================
+   15. EMPTY & LOADING STATES
+   ========================================================================== */
+
+body[data-ff-admin] .empty-state,
+body[data-ff-admin] .empty-state-content {
+  color: var(--ffa-muted) !important;
+  font-size: var(--ffa-text-base);
+}
+body[data-ff-admin] .empty-state i,
+body[data-ff-admin] .empty-state-content i { color: var(--ffa-faint) !important; }
+body[data-ff-admin] .empty-state h3,
+body[data-ff-admin] .empty-state h4,
+body[data-ff-admin] .empty-state h5,
+body[data-ff-admin] .empty-state-content h3,
+body[data-ff-admin] .empty-state-content h4,
+body[data-ff-admin] .empty-state-content h5 { color: var(--ffa-text) !important; font-weight: 600; }
+
+body[data-ff-admin] .loader-overlay { background-color: rgba(245, 246, 248, 0.85) !important; }
+body[data-ff-admin] .loader-box {
+  border-radius: 16px !important;
+  border: 1px solid var(--ffa-border);
+  box-shadow: var(--ffa-shadow-lg) !important;
+}
+body[data-ff-admin] .spinner { border-color: var(--ffa-surface-3) !important; border-top-color: var(--ffa-primary) !important; }
+body[data-ff-admin] .loader-status { color: var(--ffa-text-2) !important; }
+body[data-ff-admin] .spinner-border { color: var(--ffa-primary); }
+body[data-ff-admin] .table-loading { color: var(--ffa-muted); }
+
+/* ==========================================================================
+   16. DASHBOARDS
+   ========================================================================== */
+
+/* --- Company dashboard KPI cards (markup built by dashboard.js) --- */
+body[data-ff-admin] #dashboard-metrics { row-gap: var(--ffa-s4); }
+body[data-ff-admin] #dashboard-metrics > [class*="col-"] > a { display: block; height: 100%; color: inherit; }
+body[data-ff-admin] .metric-card {
+  background: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  padding: 20px !important;
+  min-height: 0 !important;
+  text-align: left !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label icon" "value icon";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+body[data-ff-admin] .metric-card:hover {
+  transform: none !important;
+  border-color: var(--ffa-primary-soft-2) !important;
+  box-shadow: var(--ffa-shadow-md) !important;
+}
+body[data-ff-admin] .metric-card .icon-circle {
+  grid-area: icon;
+  align-self: start;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  border-radius: var(--ffa-r-lg) !important;
+  background: var(--ffa-primary-soft) !important;
+  color: var(--ffa-primary-text) !important;
+  font-size: 1.1rem !important;
+  box-shadow: none !important;
+}
+body[data-ff-admin] .metric-card .icon-circle.android-tvs { background: var(--ffa-info-bg) !important; color: var(--ffa-info) !important; }
+body[data-ff-admin] .metric-card .metric-label {
+  grid-area: label;
+  font-size: var(--ffa-text-sm) !important;
+  font-weight: 500 !important;
+  color: var(--ffa-muted) !important;
+  margin: 0 !important;
+}
+body[data-ff-admin] .metric-card .metric-value {
+  grid-area: value;
+  font-size: var(--ffa-text-2xl) !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ffa-text) !important;
+  font-variant-numeric: tabular-nums;
+}
+/* The dashboard wraps its KPI row in a card; let the KPI cards float on the page */
+body[data-ff-admin] .card:has(> .card-body > #dashboard-metrics) {
+  background: transparent;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body[data-ff-admin] .card > .card-body:has(> #dashboard-metrics) { padding: 0; }
+
+/* --- Total Orders / Total Bookings / Total Patients summary boxes --- */
+body[data-ff-admin] .custom-box {
+  background: var(--ffa-surface) !important;
+  color: var(--ffa-text) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  padding: 22px 24px !important;
+  position: relative;
+  overflow: hidden;
+  transform: none !important;
+}
+body[data-ff-admin] .custom-box:hover { box-shadow: var(--ffa-shadow-md) !important; transform: none !important; }
+body[data-ff-admin] .custom-box .inner { padding: 0 !important; }
+body[data-ff-admin] .custom-box .inner h3 {
+  font-size: 2rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em;
+  color: var(--ffa-text) !important;
+  margin: 0 0 4px !important;
+  font-variant-numeric: tabular-nums;
+}
+body[data-ff-admin] .custom-box .inner p { color: var(--ffa-muted) !important; font-size: var(--ffa-text-base) !important; font-weight: 500; margin: 0; }
+body[data-ff-admin] .custom-box .icon {
+  position: absolute;
+  top: 20px !important;
+  right: 20px !important;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ffa-r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem !important;
+  opacity: 1 !important;
+  background: var(--ffa-primary-soft);
+  color: var(--ffa-primary-text) !important;
+}
+body[data-ff-admin] .custom-box .icon i { font-size: 1.1rem !important; color: inherit !important; opacity: 1 !important; }
+body[data-ff-admin] .box-week .icon { background: var(--ffa-info-bg); color: var(--ffa-info) !important; }
+body[data-ff-admin] .box-month .icon { background: var(--ffa-success-bg); color: var(--ffa-success) !important; }
+body[data-ff-admin] .card:has(> .card-body > #order-summary) { background: transparent; border: 0 !important; box-shadow: none !important; }
+body[data-ff-admin] .card > .card-body:has(> #order-summary) { padding: 0; }
+
+/* --- Super Admin dashboard welcome card (header carries an inline gold style) --- */
+body[data-ff-admin] .content > .container-fluid > .card > .card-header[style] {
+  background: var(--ffa-surface) !important;
+  border-bottom: 0 !important;
+  padding: 28px 28px 0 !important;
+}
+body[data-ff-admin] .content > .container-fluid > .card > .card-header[style] .card-title {
+  font-size: var(--ffa-text-lg) !important;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+body[data-ff-admin] .content > .container-fluid > .card > .card-header[style] .card-title::before {
+  content: "\f3ed"; /* shield */
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+  font-weight: 900;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ffa-r-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: var(--ffa-primary-soft);
+  color: var(--ffa-primary-text);
+}
+body[data-ff-admin] .content > .container-fluid > .card > .card-header[style] + .card-body {
+  padding: 12px 28px 28px 80px !important;
+  color: var(--ffa-muted);
+}
+
+/* ==========================================================================
+   17. MANAGEMENT PAGES
+   ========================================================================== */
+
+/* --- Outlet / Branch tiles (company outlets.js) --- */
+body[data-ff-admin] .vendor-tile {
+  background: var(--ffa-surface) !important;
+  color: var(--ffa-text) !important;
+  border: 1px solid var(--ffa-border);
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transform: none !important;
+  height: 100%;
+}
+body[data-ff-admin] .vendor-tile:hover {
+  transform: none !important;
+  border-color: var(--ffa-primary-soft-2);
+  box-shadow: var(--ffa-shadow-md) !important;
+}
+body[data-ff-admin] .vendor-tile .inner { padding: 20px 20px 16px 76px !important; min-height: 92px; }
+body[data-ff-admin] .vendor-tile .inner h4 {
+  font-size: var(--ffa-text-md) !important;
+  font-weight: 600 !important;
+  color: var(--ffa-text) !important;
+  margin: 0 0 4px;
+  line-height: 1.35;
+}
+body[data-ff-admin] .vendor-tile .inner p { font-size: var(--ffa-text-sm) !important; color: var(--ffa-muted) !important; margin: 0 !important; }
+body[data-ff-admin] .vendor-tile .icon {
+  left: 20px !important;
+  right: auto !important;
+  top: 20px !important;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--ffa-r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem !important;
+  opacity: 1 !important;
+  background: var(--ffa-primary-soft);
+  color: var(--ffa-primary-text);
+}
+body[data-ff-admin] .vendor-tile .icon i { font-size: 1.05rem !important; color: inherit !important; }
+body[data-ff-admin] .vendor-tile .small-box-footer {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 20px !important;
+  background: var(--ffa-surface-2) !important;
+  color: var(--ffa-text-2) !important;
+  border-top: 1px solid var(--ffa-border);
+  font-size: var(--ffa-text-sm) !important;
+  font-weight: 600;
+  text-decoration: none !important;
+  border-radius: 0 0 var(--ffa-r-lg) var(--ffa-r-lg);
+}
+body[data-ff-admin] .vendor-tile:hover .small-box-footer { color: var(--ffa-primary-text) !important; }
+body[data-ff-admin] .vendor-tile .small-box-footer i { color: var(--ffa-faint); }
+body[data-ff-admin] .vendor-tile:hover .small-box-footer i { color: var(--ffa-primary-text); }
+
+/* --- Outlet list vendor ID (inline gold style from outletList.js) --- */
+body[data-ff-admin] #outletTableBody td[style*="d4af37"],
+body[data-ff-admin] td[style*="#d4af37"] {
+  color: var(--ffa-text) !important;
+  font-family: var(--ffa-font-mono);
+  font-size: var(--ffa-text-sm);
+  font-weight: 600 !important;
+}
+
+/* --- Action dropdown menus (utilities, TV configs) --- */
+body[data-ff-admin] .action-menu,
+body[data-ff-admin] .action-menu-list,
+body[data-ff-admin] .dropdown-menu {
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r) !important;
+  box-shadow: var(--ffa-shadow-md) !important;
+  padding: 4px !important;
+  background: var(--ffa-surface) !important;
+}
+body[data-ff-admin] .menu-item,
+body[data-ff-admin] .action-menu-item,
+body[data-ff-admin] .dropdown-item {
+  border-radius: var(--ffa-r-sm) !important;
+  font-size: var(--ffa-text-base) !important;
+  color: var(--ffa-text-2) !important;
+  padding: 8px 10px !important;
+}
+body[data-ff-admin] .menu-item:hover,
+body[data-ff-admin] .action-menu-item:hover,
+body[data-ff-admin] .dropdown-item:hover { background: var(--ffa-surface-3) !important; color: var(--ffa-text) !important; }
+
+/* --- Utilities / Menu / Departments: mobile card view (shown by page CSS < 768px) --- */
+body[data-ff-admin] .utility-card {
+  background: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+}
+body[data-ff-admin] .utility-card .card-label { color: var(--ffa-muted) !important; }
+body[data-ff-admin] .utility-card .card-value { color: var(--ffa-text) !important; }
+
+/* Table containers that page CSS styles as their own card */
+body[data-ff-admin] .utilities-table-container,
+body[data-ff-admin] .config-table-container,
+body[data-ff-admin] .table-wrapper {
+  background: var(--ffa-surface) !important;
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  overflow: hidden;
+}
+
+/* --- Banner tiles & banner profiles --- */
+body[data-ff-admin] .banner-tile,
+body[data-ff-admin] .image-box,
+body[data-ff-admin] .thumb-container {
+  border-radius: var(--ffa-r-lg) !important;
+  border: 1px solid var(--ffa-border) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+  overflow: hidden;
+}
+body[data-ff-admin] .profile-chip {
+  background: var(--ffa-surface-3) !important;
+  border: 1px solid var(--ffa-border) !important;
+  color: var(--ffa-text-2) !important;
+  border-radius: var(--ffa-r-sm) !important;
+  font-size: var(--ffa-text-sm);
+}
+
+/* --- Configuration / announcement cards --- */
+body[data-ff-admin] .announcement-type-card,
+body[data-ff-admin] .announcement-preview {
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  background: var(--ffa-surface) !important;
+  box-shadow: none !important;
+}
+body[data-ff-admin] .announcement-preview { background: var(--ffa-surface-2) !important; }
+
+/* --- Order details: buffet item breakdown --- */
+body[data-ff-admin] .buffet-utility-detail-card {
+  border: 1px solid var(--ffa-border) !important;
+  border-radius: var(--ffa-r-lg) !important;
+  box-shadow: none !important;
+  background: var(--ffa-surface) !important;
+}
+body[data-ff-admin] .buffet-utility-label { color: var(--ffa-muted) !important; }
+body[data-ff-admin] .buffet-utility-name { color: var(--ffa-text) !important; font-weight: 600; }
+body[data-ff-admin] .view-timeline-btn {
+  border-radius: var(--ffa-r) !important;
+  border: 1px solid var(--ffa-border-strong) !important;
+  background: var(--ffa-surface) !important;
+  color: var(--ffa-text-2) !important;
+  font-weight: 600;
+  font-size: var(--ffa-text-sm) !important;
+  box-shadow: var(--ffa-shadow-xs) !important;
+}
+body[data-ff-admin] .view-timeline-btn:hover { border-color: var(--ffa-primary) !important; color: var(--ffa-primary-text) !important; background: var(--ffa-primary-soft) !important; }
+
+/* ==========================================================================
+   18. RESPONSIVE REFINEMENT (admin only)
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+  body[data-ff-admin] .content-header { padding: 20px 4px 8px; }
+  body[data-ff-admin] .content { padding: 0 4px 72px; }
+  body[data-ff-admin] .card > .card-body { padding: var(--ffa-s4); }
+  body[data-ff-admin] .card-header { padding: 14px var(--ffa-s4); }
+}
+
+@media (max-width: 767.98px) {
+  body[data-ff-admin] .main-header.navbar { padding: 0 12px 0 6px; min-height: 56px; }
+  body[data-ff-admin].layout-navbar-fixed .wrapper .content-wrapper { margin-top: 57px; }
+  body[data-ff-admin] .content-header h1,
+  body[data-ff-admin] .content-header .page-title,
+  body[data-ff-admin] .page-title { font-size: 1.25rem !important; }
+  body[data-ff-admin] .customer-info:has(.customer-name, .license-expiry) { padding: 4px 10px 4px 4px; font-size: var(--ffa-text-sm); }
+  body[data-ff-admin] .customer-info:has(.customer-name, .license-expiry)::before { width: 22px; height: 22px; margin-right: 6px; }
+  body[data-ff-admin] .main-header .logout-link { padding: 6px 10px; }
+  body[data-ff-admin] .metric-card .metric-value { font-size: 1.5rem !important; }
+  body[data-ff-admin] .modal-header,
+  body[data-ff-admin] .modal-body,
+  body[data-ff-admin] .modal-footer { padding-left: 18px; padding-right: 18px; }
+  body[data-ff-admin] #errorModal .modal-body,
+  body[data-ff-admin] .success-modal-body { padding-left: 18px !important; }
+  body[data-ff-admin] .content > .container-fluid > .card > .card-header[style] + .card-body { padding: 12px 20px 24px !important; }
+  body[data-ff-admin] .icon-btn,
+  body[data-ff-admin] .action-btn { width: 40px; height: 40px; }
+}

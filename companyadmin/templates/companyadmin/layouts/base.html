@@ -27,9 +27,11 @@
   <link rel="stylesheet" href="{% static 'companyadmin/css/companyadmin.css' %}">
   <link rel="stylesheet" href="{% static 'utils/css/buttons.css' %}">
   {% block extra_css %}{% endblock %}
-</head>
+{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}  <!-- Modern admin theme: Dine Flash, Food On Demand (buffet) and Hospital Flash only -->
+  <link rel="stylesheet" href="{% static 'utils/css/admin_modern.css' %}?v={{ APP_VERSION }}">
+{% endif %}</head>
 
-<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed layout-footer-fixed">
+<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed layout-footer-fixed"{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %} data-ff-admin="modern" data-ff-flavour="{{ PROJECT_NAME }}"{% endif %}>
   <div class="wrapper">
 
     <!-- Navbar -->
