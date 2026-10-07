@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>{% block title %}Password Recovery{% endblock %} | {{ PROJECT_DISPLAY_NAME }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'orders/css/login.css' %}">
+  <link rel="stylesheet" href="{% static 'utils/css/form.css' %}">
+  <style>
+    .recovery-title { font-size: 1.15rem; font-weight: 600; text-align: center; margin-bottom: 0.75rem; }
+    .recovery-text { font-size: 0.95rem; text-align: center; }
+    .recovery-links { text-align: center; margin-top: 1rem; }
+    .recovery-brand { font-size: 1.5rem; font-weight: 700; text-align: center; }
+  </style>
+</head>
+
+<body class="hold-transition login-page"{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" %} style="background: #f9f4ed url('{% static 'utils/Images/dineflash-login-bg.webp' %}') no-repeat center center fixed; background-size: cover;"{% endif %}>
+  <div class="login-box">
+    <div class="card">
+      <div class="card-body login-card-body">
+        <div class="login-logo">
+          {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" %}
+          <img src="{% static 'company/images/dineflashlogo.webp' %}" alt="Logo" style="max-width: 200px;">
+          {% else %}
+          <div class="recovery-brand">{{ PROJECT_DISPLAY_NAME }}</div>
+          {% endif %}
+        </div>
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+  {% block extra_js %}{% endblock %}
+</body>
+
+</html>

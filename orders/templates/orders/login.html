@@ -54,6 +54,10 @@
 
         </form>
 
+        {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}
+        <p class="mb-0 mt-3 text-center"><a href="{% url 'forgot_password' %}" class="forgot-password-link">Forgot Password?</a></p>
+        {% endif %}
+
         {% if form.errors %}
         <p class="text-danger mt-3">Invalid username or password.</p>
         {% endif %}

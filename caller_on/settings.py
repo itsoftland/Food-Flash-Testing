@@ -393,6 +393,13 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        # Forgot Password: operational failures only (log files may be publicly readable,
+        # so nothing that identifies an account or its eligibility is logged).
+        "orders.password_recovery": {
+            "handlers": ["orders_file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
         "manager.views": {
             "handlers": ["managers_file"],
             "level": "DEBUG",
@@ -488,6 +495,26 @@ else:
 MEDIA_URL = "/"+PROJECT_NAME +'/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_URL = "/"+PROJECT_NAME +'/login/'
+
+
+# === OUTBOUND EMAIL ===
+# Used only by self-service Forgot Password (Dine Flash / Buffet / Hospital Flash).
+# Environment-driven; unset values fall back to Django's own defaults.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("true", "1", "yes")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+
+# === PASSWORD RESET ===
+# Reset-link lifetime in seconds (Django's default is 3 days).
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT_SECONDS", "1800"))
+# Public origin used in reset emails, e.g. https://example.com (falls back to the request host).
+PASSWORD_RESET_BASE_URL = os.getenv("PASSWORD_RESET_BASE_URL", "")
 
 
 # === DEFAULT PRIMARY KEY FIELD TYPE ===

@@ -2,6 +2,7 @@ from django.urls import path
 from .import views
 from . import buffet_views
 from . import hospital_views
+from . import password_recovery
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenRefreshView       # For refreshing access token
@@ -25,6 +26,9 @@ urlpatterns = [
     path('api/logout/', views.logout_api_view, name='logout_api_view'),
     path('login/', views.login_view, name='login_view'),
     path('logout/', views.logout_view, name='logout'),
+    # Forgot Password (Dine Flash / Buffet / Hospital Flash only; gated in the views)
+    path('forgot-password/', password_recovery.forgot_password_view, name='forgot_password'),
+    path('reset-password/', password_recovery.reset_password_view, name='reset_password'),
     path('outlet_dashboard/', views.outlet_dashboard, name='outlet_dashboard'),
     path('api/company-update/', views.update_admin_outlet, name='company_update_api'),
     path('api/webchat-messages/', views.webchat_messages, name='webchat_messages_api'),  # New endpoint for webchat messages
