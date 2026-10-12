@@ -20,24 +20,12 @@ document.addEventListener('DOMContentLoaded', async() => {
     });
 
     const userTableBody = document.getElementById('users-table-body');
-    const filterDropdown = document.getElementById('userFilter'); 
 
-    loadUsers('all');
+    loadUsers();
 
-    if (filterDropdown) {
-        filterDropdown.addEventListener('change', (e) => {
-        loadUsers(e.target.value);
-        });
-    }
-
-    async function loadUsers(filter = 'all') {
+    async function loadUsers() {
         try {
-        let url = API_ENDPOINTS.GET_USERS;
-        if (filter !== 'all') {
-            url += `?filter=${filter}`;
-        }
-
-        const response = await fetchWithAutoRefresh(url, { method: 'GET' });
+        const response = await fetchWithAutoRefresh(API_ENDPOINTS.GET_USERS, { method: 'GET' });
         if (!response.ok) throw new Error('Failed to fetch users');
 
         const data = await response.json();
@@ -123,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async() => {
                 return;
                 }
                 ModalService.showSuccess(`User ${username} unassigned successfully.`, () => {
-                loadUsers(filterDropdown?.value || 'all');
+                loadUsers();
                 });
             } catch (err) {
                 console.error('Error unassigning user:', err);
@@ -204,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async() => {
                 if (modalInstance) modalInstance.hide();
 
                 if (res.ok) {
-                ModalService.showSuccess(`User ${username} assigned successfully.`, () => loadUsers(filterDropdown?.value || 'all'));
+                ModalService.showSuccess(`User ${username} assigned successfully.`, () => loadUsers());
                 } else {
                 ModalService.showError(result?.error || 'Unable to assign user.', () => openAssignUserModal(userId, username));
                 }

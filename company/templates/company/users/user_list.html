@@ -24,6 +24,7 @@
   <div class="container-fluid">
     <div class="card shadow-sm border-0">
       <div class="card-body">
+        {% if PROJECT_NAME != "hospital_flash" and PROJECT_NAME != "dine_flash" and PROJECT_NAME != "dine_flash_buffet" %}
         <!-- Filter Dropdown -->
         <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
           <label for="deviceFilter" class="mb-0 me-2 fw-semibold">Filter by:</label>
@@ -33,6 +34,7 @@
             <option value="unmapped">Unmapped</option>
           </select>
         </div>
+        {% endif %}
 
         <!-- Device Table -->
         <div class="table-responsive">
