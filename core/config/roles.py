@@ -24,7 +24,7 @@ ROLES = {
     "dine_flash_buffet": {
         "admin_manager": "Admin Manager",
         "outlet_manager": "Outlet Manager",
-        "utility_user": "Utility User (Kitchen)",
+        "utility_user": "Kitchen Staff",
     },
     "hospital_flash": {
         "admin_manager": "Admin Manager",

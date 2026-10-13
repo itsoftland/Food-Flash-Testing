@@ -841,10 +841,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             return showInlineError('Uncheck "Remove all images" or clear removals and new files.');
           }
           if (newFiles.length > BUFFET_MAX_IMAGES) {
-            return showInlineError(`You can upload at most ${BUFFET_MAX_IMAGES} images per utility.`);
+            return showInlineError(`You can upload at most ${BUFFET_MAX_IMAGES} images per menu.`);
           }
           if (!clearEl?.checked && remainingAfterRemove + newFiles.length > BUFFET_MAX_IMAGES) {
-            return showInlineError(`At most ${BUFFET_MAX_IMAGES} images allowed per utility.`);
+            return showInlineError(`At most ${BUFFET_MAX_IMAGES} images allowed per menu.`);
           }
         }
 
@@ -969,6 +969,11 @@ document.addEventListener('DOMContentLoaded', async () => {
               ) {
                 updateError = 'Package code already exists for this branch';
               }
+            } else if (
+              isBuffet &&
+              result?.error === 'Utility name already exists for this vendor'
+            ) {
+              updateError = 'Menu name already exists for this outlet';
             }
             showInlineError(updateError);
           }
