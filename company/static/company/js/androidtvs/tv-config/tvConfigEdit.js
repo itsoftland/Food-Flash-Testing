@@ -333,6 +333,10 @@ async function openEditModal(id, ctx) {
             .join(', ');
           label = includes ? `${name} (Group: ${includes})` : `${name} (Group)`;
         }
+        // Hospital Flash: departments with the same name can exist in multiple branches.
+        if (isHospitalFlashList && u.vendor_name) {
+          label = `${label} — ${u.vendor_name}`;
+        }
         return `<option value="${u.id}">${escapeHtml(label)}</option>`;
       }).join('');
     }

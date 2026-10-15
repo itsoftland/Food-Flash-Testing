@@ -87,14 +87,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     ------------------------------------ */
     function formatUtilityOptionLabel(u) {
         const name = u.display_name || u.utility_name || u.name;
+        let label = name;
         if (isHospitalFlash && u.is_group_department && Array.isArray(u.group_departments) && u.group_departments.length) {
             const includes = u.group_departments
                 .map((d) => d.display_name || d.utility_name || d.name)
                 .filter(Boolean)
                 .join(', ');
-            return includes ? `${name} (Group: ${includes})` : `${name} (Group)`;
+            label = includes ? `${name} (Group: ${includes})` : `${name} (Group)`;
         }
-        return name;
+        // Hospital Flash: departments with the same name can exist in multiple branches.
+        if (isHospitalFlash && u.vendor_name) {
+            label = `${label} — ${u.vendor_name}`;
+        }
+        return label;
     }
 
     async function loadActiveUtilities() {
