@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function getTableColCount() {
     if (isDineFlashBuffet) return 6;
-    if (isDineFlash) return 8;
+    if (isDineFlash) return 6;
     if (isHospitalFlash) return 6;
     return 9;
   }
@@ -465,17 +465,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `<td>${order.table_booking_no || "N/A"}</td>`
         : "";
 
-      // Hospital Flash: status only (no Counter No). Dine Flash: status only. Default: status + counter.
-      const statusCells = isDineFlashBuffet
+      // Hospital Flash: status only (no Counter No). Dine Flash: neither. Default: status + counter.
+      const statusCells = (isDineFlashBuffet || isDineFlash)
         ? ""
-        : (isDineFlash || isHospitalFlash)
+        : isHospitalFlash
           ? `<td>${order.status}</td>`
           : `
         <td>${order.status}</td>
         <td>${order.counter_no}</td>
       `;
 
-      const deviceCell = (isDineFlashBuffet || isHospitalFlash)
+      const deviceCell = (isDineFlashBuffet || isDineFlash || isHospitalFlash)
         ? ""
         : `<td>${order.device_name || "Not Assigned"}</td>`;
 

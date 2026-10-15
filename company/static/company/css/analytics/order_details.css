@@ -99,7 +99,7 @@ html, body {
 
 /* -------------------------------------------------------------------------
    Dine Flash only: "Booking No" at position 3; no Counter No or Ready Time.
-   8-column layout. Scoped to .table-wrapper--dine-flash so Dine Flash
+   6-column layout (no Current Status or Device No). Scoped to .table-wrapper--dine-flash so Dine Flash
    Buffet, Airline Flash, Food Flash, Service Flash and CallerOn are unaffected.
    ------------------------------------------------------------------------- */
 /* Headers: wrap onto a new line at spaces (e.g. "Current Status" -> two
@@ -138,26 +138,16 @@ html, body {
 
 .table-wrapper--dine-flash .table-header th:nth-child(4),
 .table-wrapper--dine-flash .table-body-container td:nth-child(4) {
-    width: 90px; min-width: 90px; max-width: 90px;
-}   /* Current Status */
+    width: 220px; min-width: 220px; max-width: 220px;
+}   /* Outlet Name */
 
 .table-wrapper--dine-flash .table-header th:nth-child(5),
 .table-wrapper--dine-flash .table-body-container td:nth-child(5) {
-    width: 150px; min-width: 150px; max-width: 150px;
-}   /* Outlet Name */
+    width: 140px; min-width: 140px; max-width: 140px;
+}   /* Created Time */
 
 .table-wrapper--dine-flash .table-header th:nth-child(6),
 .table-wrapper--dine-flash .table-body-container td:nth-child(6) {
-    width: 160px; min-width: 160px; max-width: 160px;
-}   /* Device No */
-
-.table-wrapper--dine-flash .table-header th:nth-child(7),
-.table-wrapper--dine-flash .table-body-container td:nth-child(7) {
-    width: 120px; min-width: 120px; max-width: 120px;
-}   /* Created Time */
-
-.table-wrapper--dine-flash .table-header th:nth-child(8),
-.table-wrapper--dine-flash .table-body-container td:nth-child(8) {
     width: 100px; min-width: 100px; max-width: 100px;
 }   /* Order Details */
 

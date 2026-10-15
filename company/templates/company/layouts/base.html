@@ -147,7 +147,7 @@
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' or request.resolver_match.url_name == 'android_tv_config' or request.resolver_match.url_name == 'tv_config_list_page' or request.resolver_match.url_name == 'tv_configuration' %}active{% endif %}">
                 <i class="nav-icon fas fa-tv"></i>
                 <p>
-                  Android TV's
+                  Android TV{% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}'s{% endif %}
                   <i class="right fas fa-angle-down"></i> 
                 </p>
               </a>
@@ -155,7 +155,7 @@
                 <li class="nav-item">
                   <a href="{% url 'company:android_tvs' %}" class="nav-link {% if request.resolver_match.url_name == 'android_tvs' %}active{% endif %}">
                     <i class="far fa-circle nav-icon"></i>
-                    <p>Android TV's</p>
+                    <p>Android TV{% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}'s{% endif %}</p>
                   </a>
                 </li>
                 {% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "hospital_flash" %}
@@ -221,7 +221,7 @@
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'total_orders' or request.resolver_match.url_name == 'order_details' %}active{% endif %}">
                 <i class="nav-icon fas fa-chart-line"></i>
                 <p>
-                  Analytics(Dev)
+                  Analytics{% if PROJECT_NAME != "dine_flash" and PROJECT_NAME != "dine_flash_buffet" and PROJECT_NAME != "hospital_flash" %}(Dev){% endif %}
                   <i class="right fas fa-angle-down"></i> 
                 </p>
               </a>
