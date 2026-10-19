@@ -85,6 +85,8 @@ const RELATIVE_API_ENDPOINTS = {
   DELETE_AD_PROFILE: "company/api/delete_ad_profile/",
   AVAILABLE_PROFILES: "company/api/available_profiles/",
   GET_AD_PROFILES: "company/api/get_ad_profiles/",
+  GET_AD_PROFILE_DETAIL: "company/api/ad_profile_detail/{id}/",
+  UPDATE_AD_PROFILE: "company/api/ad_profile_update/{id}/",
   CREATE_UTILITY: "company/api/create_utility/",
   GET_UTILITIES: "company/api/get_utilities/",
   UPDATE_UTILITY_STATUS: "company/api/update_utility_status/",

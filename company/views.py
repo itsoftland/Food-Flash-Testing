@@ -63,6 +63,7 @@ from vendors.utils import (
 )
 from .serializer.vendor_config import (VendorVibrationConfigSerializer,
                                        VendorConfigUpdateSerializer)
+from .ad_profile_edit import ad_profile_edit_enabled_for_project
 from .tv_config_scope import dine_flash_exclusive_tv_device_policy_applies
 from .serializers import (VendorSerializer,
                           VendorDetailSerializer,
@@ -1448,6 +1449,94 @@ def get_advertisement_profiles(request):
         return Response({
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_ad_profile_for_admin_outlet(admin_outlet, profile_id):
+    if not profile_id:
+        return None
+    return admin_outlet.ad_profiles.filter(id=profile_id).first()
+
+
+def _ad_profile_edit_not_available_response():
+    return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_advertisement_profile_detail(request, profile_id):
+    try:
+        if not ad_profile_edit_enabled_for_project():
+            return _ad_profile_edit_not_available_response()
+
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if not admin_outlet:
+            return Response(
+                {'error': 'You do not have permission to view this profile.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        profile = _get_ad_profile_for_admin_outlet(admin_outlet, profile_id)
+        if not profile:
+            return Response(
+                {'error': 'Advertisement profile not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AdvertisementProfileSerializer(profile, context={'request': request})
+        return Response({
+            'message': 'Advertisement profile fetched successfully.',
+            'profile': serializer.data,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.exception("Error fetching advertisement profile detail.")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_advertisement_profile(request, profile_id):
+    try:
+        if not ad_profile_edit_enabled_for_project():
+            return _ad_profile_edit_not_available_response()
+
+        admin_outlet = getattr(request.user, 'admin_outlet', None)
+        if not admin_outlet:
+            return Response(
+                {'error': 'You do not have permission to update this profile.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        profile = _get_ad_profile_for_admin_outlet(admin_outlet, profile_id)
+        if not profile:
+            return Response(
+                {'error': 'Advertisement profile not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AdvertisementProfileSerializer(
+            profile,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
+        if serializer.is_valid():
+            updated = serializer.save()
+            response_data = AdvertisementProfileSerializer(updated, context={'request': request}).data
+            return Response({
+                'message': 'Advertisement profile updated successfully.',
+                'profile': response_data,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            'error': 'Invalid input.',
+            'details': serializer.errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        logger.exception("Error during Advertisement Profile update.")
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

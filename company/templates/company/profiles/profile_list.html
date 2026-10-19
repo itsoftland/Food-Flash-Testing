@@ -3,6 +3,9 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'utils/css/modals.css' %}">
 <link rel="stylesheet" href="{% static 'company/css/profiles_list.css' %}">
+{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}
+<link rel="stylesheet" href="{% static 'company/css/new_profile.css' %}">
+{% endif %}
 <link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
 {% endblock %}
 {% block title %}Banner Profiles{% endblock %}
@@ -42,9 +45,36 @@
     </div>
   </div>
 </section>
+{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+    <div class="modal-content border-0 rounded shadow">
+      <div class="modal-header">
+        <h5 class="modal-title text-golden" id="editProfileModalLabel">Edit Profile</h5>
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-profile-form" class="px-0 py-0 mx-auto">
+          {% include "company/profiles/_profile_form_fields.html" %}
+          <div class="text-center">
+            <button type="submit" class="btn btn-golden mt-1" id="edit-profile-save-btn">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% include "company/partials/modals.html" %}
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  window.AD_PROFILE_EDIT_ENABLED = {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %};
+</script>
 <script type="module" src="{% static 'company/js/profiles/profilesList.js' %}"></script>
 {% endblock %}

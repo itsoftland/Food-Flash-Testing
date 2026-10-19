@@ -147,21 +147,33 @@ export const ImageLibraryService = (() => {
     });
 
     confirmBtn.addEventListener('click', () => {
-      const selected = Array.from(selectedImageIds);
-      const preview = document.getElementById('selected-images-preview');
-      preview.innerHTML = '';
-
-      imageList
-        .filter(img => selected.includes(img.id))
-        .forEach(img => {
-          const thumb = document.createElement('img');
-          thumb.src = img.image_url;
-          thumb.className = 'preview-thumb';
-          preview.appendChild(thumb);
-        });
-
+      renderSelectedPreview();
       $('#imageLibraryModal').modal('hide');
     });
+  };
+
+  const renderSelectedPreview = (previewElementId = 'selected-images-preview') => {
+    const preview = document.getElementById(previewElementId);
+    if (!preview) return;
+    preview.innerHTML = '';
+
+    imageList
+      .filter(img => selectedImageIds.has(img.id))
+      .forEach(img => {
+        const thumb = document.createElement('img');
+        thumb.src = img.image_url;
+        thumb.className = 'preview-thumb';
+        preview.appendChild(thumb);
+      });
+  };
+
+  const setSelectedImageIds = (ids) => {
+    selectedImageIds = new Set((ids || []).map(id => Number(id)).filter(id => !Number.isNaN(id)));
+  };
+
+  const clearSelection = () => {
+    selectedImageIds.clear();
+    renderSelectedPreview();
   };
 
   const open = async (reset = false) => {
@@ -174,7 +186,10 @@ export const ImageLibraryService = (() => {
   return {
     init,
     open,
+    setSelectedImageIds,
+    clearSelection,
+    renderSelectedPreview,
     getSelectedImageIds: () => Array.from(selectedImageIds),
-    getSelectedImages: () => imageList.filter(img => selectedImageIds.has(img.id))
+    getSelectedImages: () => imageList.filter(img => selectedImageIds.has(img.id)),
   };
 })();

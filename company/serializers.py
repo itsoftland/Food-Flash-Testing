@@ -265,13 +265,13 @@ class AdvertisementImageSerializer(serializers.ModelSerializer):
 class AdvertisementProfileSerializer(serializers.ModelSerializer):
     image_ids = serializers.ListField(
         child=serializers.IntegerField(),
-        write_only=True
+        write_only=True,
     )
     time_slots = serializers.ListField(
         child=serializers.DictField(
             child=serializers.CharField()
         ),
-        write_only=True
+        write_only=True,
     )
     
     images = AdvertisementImageSerializer(many=True, read_only=True)
@@ -290,6 +290,17 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
             'created_at',
             'time_slots'
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['time_slots'] = [
+            {
+                'start': slot.start_time.strftime('%H:%M'),
+                'end': slot.end_time.strftime('%H:%M'),
+            }
+            for slot in instance.slots.order_by('start_time')
+        ]
+        return data
 
     def get_images(self, obj):
         return [img.id for img in obj.images.all()]
@@ -353,11 +364,38 @@ class AdvertisementProfileSerializer(serializers.ModelSerializer):
                 end_time=slot['end']
             )
         return profile
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        images = validated_data.pop('image_ids', None)
+        time_slots = validated_data.pop('time_slots', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if images is not None:
+            instance.images.set(images)
+
+        if time_slots is not None:
+            instance.slots.all().delete()
+            for slot in time_slots:
+                AdvertisementSlot.objects.create(
+                    profile=instance,
+                    start_time=slot['start'],
+                    end_time=slot['end'],
+                )
+
+        return instance
     
     def validate(self, attrs):
-        date_start = attrs.get('date_start')
-        date_end = attrs.get('date_end')
-        days_active = attrs.get('days_active')
+        instance = getattr(self, 'instance', None)
+        date_start = attrs.get('date_start', instance.date_start if instance else None)
+        date_end = attrs.get('date_end', instance.date_end if instance else None)
+        days_active = attrs.get(
+            'days_active',
+            instance.days_active if instance is not None else None,
+        )
 
         has_dates = date_start and date_end
         has_days = bool(days_active)
