@@ -76,5 +76,5 @@
 <script>
   window.AD_PROFILE_EDIT_ENABLED = {% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %};
 </script>
-<script type="module" src="{% static 'company/js/profiles/profilesList.js' %}"></script>
+<script type="module" src="{% static 'company/js/profiles/profilesList.js' %}?v={{ APP_VERSION }}"></script>
 {% endblock %}

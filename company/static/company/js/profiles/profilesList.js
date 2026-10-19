@@ -33,7 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!window.BASE) throw new Error('window.BASE is not defined');
 
   const authModule = await import(`${window.BASE}static/utils/js/services/authFetchService.js`);
-  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js`);
+  const apiVersion = window.APP_VERSION ? `?v=${encodeURIComponent(window.APP_VERSION)}` : '';
+  const apiModule = await import(`${window.BASE}static/utils/js/apiEndpoints.js${apiVersion}`);
   const modalModule = await import(`${window.BASE}static/utils/js/services/modalService.js`);
 
   fetchWithAutoRefreshRef = authModule.fetchWithAutoRefresh;
