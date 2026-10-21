@@ -900,10 +900,30 @@ def save_server_chat_message(payload, vendor,subscription,sequence_code=None):
         return None
 
 
+_IDEMPOTENT_AUTO_CLEAR_ARCHIVAL_FLAVOURS = frozenset(
+    {
+        "dine_flash",
+        "dine_flash_buffet",
+        "hospital_flash",
+    }
+)
+
+
+def idempotent_auto_clear_archival_enabled():
+    """Stage A duplicate-safe auto-clear archival applies only on these server flavours."""
+    project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
+    return project in _IDEMPOTENT_AUTO_CLEAR_ARCHIVAL_FLAVOURS
+
+
 def archive_order(order):
+    if idempotent_auto_clear_archival_enabled():
+        return _archive_order_idempotent(order)
+    _archive_order_legacy(order)
+
+
+def _archive_order_legacy(order):
     try:
         with transaction.atomic():
-            # Step 1: Create archived order
             archived_order = ArchivedOrder.objects.create(
                 original_order_id=order.id,
                 vendor=order.vendor,
@@ -921,7 +941,6 @@ def archive_order(order):
                 registration_batch_id=order.registration_batch_id,
             )
 
-            # Step 2: Copy status history
             histories = order.status_history.all()
             if histories.exists():
                 bulk_data = [
@@ -930,20 +949,95 @@ def archive_order(order):
                         previous_status=h.previous_status,
                         new_status=h.new_status,
                         changed_by=h.changed_by,
-                        changed_at=h.changed_at
+                        changed_at=h.changed_at,
                     )
                     for h in histories
                 ]
                 ArchivedOrderStatusHistory.objects.bulk_create(bulk_data)
-                logger.info(f"Archived {len(bulk_data)} status history records for Order {order.token_no}")
-
+                logger.info(
+                    "Archived %s status history records for Order %s",
+                    len(bulk_data),
+                    order.token_no,
+                )
             else:
-                logger.info(f"No status history found for Order {order.token_no}")
+                logger.info("No status history found for Order %s", order.token_no)
 
-            logger.info(f"Successfully archived Order {order.token_no} (Vendor ID {order.vendor_id})")
+            logger.info(
+                "Successfully archived Order %s (Vendor ID %s)",
+                order.token_no,
+                order.vendor_id,
+            )
 
     except Exception as e:
-        logger.error(f"Error archiving order {order.id} (token {order.token_no}): {e}")
+        logger.error(
+            "Error archiving order %s (token %s): %s",
+            order.id,
+            order.token_no,
+            e,
+        )
+
+
+def _archive_order_idempotent(order):
+    """
+    Create an archived snapshot for an active order when none exists yet.
+
+    Callers must invoke this inside the same ``transaction.atomic()`` block as
+    active-order deletion. Does not open its own transaction boundary.
+    """
+    existing = ArchivedOrder.objects.filter(original_order_id=order.id).first()
+    if existing:
+        logger.info(
+            "Reusing existing archive for Order %s (original_order_id=%s, Vendor ID %s)",
+            order.token_no,
+            order.id,
+            order.vendor_id,
+        )
+        return existing
+
+    archived_order = ArchivedOrder.objects.create(
+        original_order_id=order.id,
+        vendor=order.vendor,
+        device=order.device,
+        user_profile=order.user_profile,
+        token_no=order.token_no,
+        status=order.status,
+        counter_no=order.counter_no,
+        shown_on_tv=order.shown_on_tv,
+        notified_at=order.notified_at,
+        updated_by=order.updated_by,
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+        created_date=order.created_date,
+        registration_batch_id=order.registration_batch_id,
+    )
+
+    histories = order.status_history.all()
+    if histories.exists():
+        bulk_data = [
+            ArchivedOrderStatusHistory(
+                archived_order=archived_order,
+                previous_status=h.previous_status,
+                new_status=h.new_status,
+                changed_by=h.changed_by,
+                changed_at=h.changed_at,
+            )
+            for h in histories
+        ]
+        ArchivedOrderStatusHistory.objects.bulk_create(bulk_data)
+        logger.info(
+            "Archived %s status history records for Order %s",
+            len(bulk_data),
+            order.token_no,
+        )
+    else:
+        logger.info("No status history found for Order %s", order.token_no)
+
+    logger.info(
+        "Successfully archived Order %s (Vendor ID %s)",
+        order.token_no,
+        order.vendor_id,
+    )
+    return archived_order
 
 def _append_tv_ad_details(payload, tv_config, request):
     """Append advertisement settings shared by Dine Flash and Hospital Flash TV payloads."""

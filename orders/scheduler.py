@@ -1,13 +1,54 @@
 import logging
 from datetime import timedelta
-from django.db import connection, models
+from django.db import connection, models, transaction
 from django.utils import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from vendors.models import Order, PushSubscription
-from vendors.utils import archive_order
+from vendors.utils import archive_order, idempotent_auto_clear_archival_enabled
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+
+def _archive_and_delete_eligible_order(order_id, vendor, delete_threshold):
+    """
+    Archive (if needed), detach push subscriptions, and delete one active order.
+
+    Must run inside transaction.atomic(); re-fetches and locks the order row.
+    """
+    order = (
+        Order.objects.select_for_update()
+        .filter(pk=order_id, vendor=vendor)
+        .first()
+    )
+    if order is None:
+        logger.info(
+            "Skipping auto-clear for order id=%s — order no longer exists (vendor %s)",
+            order_id,
+            vendor.id,
+        )
+        return
+
+    if not (
+        order.updated_at < delete_threshold or order.created_at < delete_threshold
+    ):
+        return
+
+    token_no = order.token_no
+    logger.info(
+        "Archiving and deleting Order %s (order id=%s, Vendor ID %s)",
+        token_no,
+        order.id,
+        vendor.id,
+    )
+
+    archive_order(order)
+
+    for sub in order.pushsubscription_set.all():
+        sub.tokens.remove(order)
+
+    order.delete()
+
 
 def auto_clear_orders():
     try:
@@ -63,17 +104,38 @@ def auto_clear_orders():
                         f"(Outlet: {admin_outlet.customer_name}, Vendor ID: {vendor.id})"
                     )
 
-                    for order in orders_to_delete:
-                        logger.info(f"Archiving and deleting Order {order.token_no} (Vendor ID {vendor.id})")
+                    if idempotent_auto_clear_archival_enabled():
+                        order_ids = list(
+                            orders_to_delete.values_list("pk", flat=True)
+                        )
+                        for order_id in order_ids:
+                            try:
+                                with transaction.atomic():
+                                    _archive_and_delete_eligible_order(
+                                        order_id, vendor, delete_threshold
+                                    )
+                            except Exception as e:
+                                logger.error(
+                                    "Failed to archive/delete order id=%s (Vendor ID %s): %s",
+                                    order_id,
+                                    vendor.id,
+                                    e,
+                                    exc_info=True,
+                                )
+                    else:
+                        for order in orders_to_delete:
+                            logger.info(
+                                "Archiving and deleting Order %s (Vendor ID %s)",
+                                order.token_no,
+                                vendor.id,
+                            )
 
-                        # Archive logic (if implemented)
-                        archive_order(order)
+                            archive_order(order)
 
-                        # Remove from all subscriptions
-                        for sub in order.pushsubscription_set.all():
-                            sub.tokens.remove(order)
+                            for sub in order.pushsubscription_set.all():
+                                sub.tokens.remove(order)
 
-                        order.delete()
+                            order.delete()
 
         # 5️⃣ Remove orphaned PushSubscriptions
         orphaned_subs = PushSubscription.objects.annotate(
