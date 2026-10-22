@@ -511,6 +511,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const customerNameEl = document.getElementById("customer_name");
         const guestsEl = document.getElementById("no_of_packs");
         const notesEl = document.getElementById("remarks");
+        const phoneNumberEl = document.getElementById("phone_number");
         const selectedItem = document.querySelector(".utility-item.selected");
 
         let utilityId = null;
@@ -525,6 +526,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             customer_name: customerNameEl ? customerNameEl.value.trim() : "",
             no_of_guests: guestsEl ? parseInt(guestsEl.value, 10) || 0 : 0,
             special_notes: notesEl ? notesEl.value.trim() : "",
+            phone_number: phoneNumberEl ? phoneNumberEl.value.trim() : "",
             utility_id: utilityId,
             // Dine Flash QR gate: carry opaque qr_session so user can't tamper.
             qr_session: qrSession,
