@@ -905,35 +905,47 @@ class AdvertisementProfile(models.Model):
     def is_active_now(self, vendor):
         """
         Checks if the profile is active for the given vendor at the vendor's local time.
-        - Date range: if both start/end are None → all dates allowed
-        - Days active: must match vendor's weekday or 'All'
-        - Time slots: if slots exist, current time must be within at least one slot
+
+        Scheduling uses vendor-local date and time (via get_vendor_current_time).
+
+        - Complete date range (both date_start and date_end set): today must fall within
+          the inclusive range. With an empty days_active list, the profile is eligible on
+          every calendar day in that range (date-only mode).
+        - Weekdays (non-empty days_active): today's weekday must appear in days_active or
+          days_active must include 'All'. With no complete date range, weekday-only mode
+          applies (partial start/end dates are not evaluated).
+        - Date range and weekdays together: both conditions must pass (AND).
+        - Neither a complete date range nor configured weekdays: inactive.
+        - Partial date range (only one of start/end) with no weekdays: inactive.
+        - Time slots: when any slot exists, current local time must fall within at least
+          one slot (inclusive boundaries). With no slots, the day is unrestricted by time.
         """
-        # 🌍 Vendor local datetime
         now = get_vendor_current_time(vendor)
         today = now.date()
         weekday = now.strftime('%A')
         current_time = now.time()
 
-        # 🗓 Date range
-        if self.date_start and self.date_end:
+        has_complete_date_range = (
+            self.date_start is not None and self.date_end is not None
+        )
+        days = self.days_active or []
+        has_weekday_config = bool(days)
+
+        if not has_complete_date_range and not has_weekday_config:
+            return False
+
+        if has_complete_date_range:
             if not (self.date_start <= today <= self.date_end):
                 return False
 
-        # 📅 Days active
-        days = self.days_active or []
-        if not days:
-            return False  # inactive if empty list
-        if 'All' not in days and weekday not in days:
-            return False
+        if has_weekday_config:
+            if 'All' not in days and weekday not in days:
+                return False
 
-        # ⏰ Time slots
         slots = self.slots.all()
-        # If no slots defined → full day active
         if slots.exists():
             if not any(slot.start_time <= current_time <= slot.end_time for slot in slots):
                 return False
-
 
         return True
     
