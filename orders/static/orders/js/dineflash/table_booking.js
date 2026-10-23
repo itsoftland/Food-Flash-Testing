@@ -684,6 +684,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         return "";
     }
 
+    const DINE_FLASH_TABLE_BOOKING_PHONE_ERROR =
+        "Please enter a valid 10-digit mobile number, or leave the field blank.";
+
+    function isDineFlashTableBookingPhoneValidationActive() {
+        if (window.DINE_FLASH_TABLE_BOOKING !== true) {
+            return false;
+        }
+        const path = window.location.pathname || "";
+        return path.includes("/dine_flash/table_booking");
+    }
+
+    /**
+     * Optional phone: blank after trim is valid; non-empty must be exactly 10 ASCII digits.
+     * @returns {{ valid: boolean, normalized: string }}
+     */
+    function validateOptionalPhoneNumber(rawValue) {
+        const trimmed = (rawValue ?? "").trim();
+        if (!trimmed) {
+            return { valid: true, normalized: "" };
+        }
+        if (/^[0-9]{10}$/.test(trimmed)) {
+            return { valid: true, normalized: trimmed };
+        }
+        return { valid: false, normalized: trimmed };
+    }
+
     // --------------------------
     // client-side validation
     // --------------------------
@@ -744,6 +770,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (payload.special_notes && payload.special_notes.length > 200) {
             ModalService.showError("Special instructions cannot exceed 200 characters.");
             return false;
+        }
+
+        // ------------------------------
+        // 5. Optional Phone Number (Dine Flash table booking page only)
+        // ------------------------------
+        if (isDineFlashTableBookingPhoneValidationActive()) {
+            const phoneResult = validateOptionalPhoneNumber(payload.phone_number);
+            if (!phoneResult.valid) {
+                ModalService.showError(DINE_FLASH_TABLE_BOOKING_PHONE_ERROR);
+                return false;
+            }
+            payload.phone_number = phoneResult.normalized;
         }
 
         return true;

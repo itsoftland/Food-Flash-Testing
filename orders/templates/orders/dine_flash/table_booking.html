@@ -92,7 +92,8 @@
                 <div class="col-12">
                     <label class="form-label">Phone Number</label>
                     <input type="text" id="phone_number" class="form-control premium-input"
-                        placeholder="Enter phone number">
+                        placeholder="Enter phone number" inputmode="numeric" maxlength="10" autocomplete="tel">
+                    <div class="form-text">Optional. Enter a 10-digit mobile number.</div>
                 </div>
             </div>
             {% endif %}
@@ -186,6 +187,7 @@
 <script>
     window.UTILITIES_ENABLED = "{{ UTILITIES_ENABLED|lower }}";
     {% if IS_DINE_FLASH %}
+    window.DINE_FLASH_TABLE_BOOKING = true;
     window.RESOLVED_VENDOR_ID = "{{ vendor_id|default:'' }}";
     window.QR_EXPIRY_MINUTES = {{ QR_EXPIRY_MINUTES|default:0 }};
     window.QR_DATE = "{{ QR_DATE }}";
