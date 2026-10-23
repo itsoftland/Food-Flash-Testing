@@ -129,6 +129,11 @@ def _order_in_current_business_day(order: Order) -> bool:
     return start_dt <= order.created_at <= end_dt
 
 
+def buffet_order_in_current_business_day(order: Order) -> bool:
+    """Public API for Buffet customer flows (e.g. check_status reply gating)."""
+    return _order_in_current_business_day(order)
+
+
 def resolve_buffet_order_lookup(
     *,
     order_lookup_id: Any,
@@ -160,7 +165,7 @@ def resolve_buffet_order_lookup(
         )
 
     order = mapping.order
-    if not _order_in_current_business_day(order):
+    if not buffet_order_in_current_business_day(order):
         logger.info(
             "[buffet] resolve_order_lookup not_found_or_stale order_lookup_id=%s "
             "order_id=%s token_no=%s",

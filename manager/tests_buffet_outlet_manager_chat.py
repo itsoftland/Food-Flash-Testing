@@ -44,6 +44,8 @@ def _buffet_vendor(pk=1, vendor_id=960001, name="Buffet Outlet"):
             vibration_duration=None,
             tv_communication_mode="MQTT",
             mqtt_mode=True,
+            timezone="UTC",
+            business_day_start_hour=datetime.strptime("00:00:00", "%H:%M:%S").time(),
         ),
     )
 
@@ -72,6 +74,7 @@ def _order(vendor, token_no=42, order_id=100):
     order.counter_no = 1
     order.status = "created"
     order.vendor = vendor
+    order.created_at = timezone.now()
     order.notified_at = None
     order.customer_name = "Guest"
     order.phone_number = None

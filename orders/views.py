@@ -50,6 +50,7 @@ from .dine_flash.booking_lookup import (
     resolve_dine_flash_booking_lookup,
     upsert_dine_flash_booking_lookup,
 )
+from .buffet.order_lookup import buffet_order_in_current_business_day
 from .dine_flash.qr_crypto import (
     _DINE_FLASH_QR_SCAN_GRACE_SECONDS,
     decrypt_qr_from_request,
@@ -1419,6 +1420,20 @@ def check_status(request):
 
 
         if reply_text:
+            if (
+                project_name == "dine_flash_buffet"
+                and not buffet_order_in_current_business_day(order)
+            ):
+                return Response(
+                    {
+                        "error": (
+                            "This order is no longer eligible for replies. "
+                            "Please message the kitchen from today's order."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             data['message'] = "Reply message sent to managers."
             data['type'] = 'user_reply'
             data['reply_status'] = reply_text

@@ -1,9 +1,12 @@
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import AnonymousUser
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
+from rest_framework import status as http_status
 from rest_framework.test import APIRequestFactory
 
 from orders.utils import (
@@ -18,7 +21,13 @@ from orders.views import (
     book_table,
     check_status,
 )
-from vendors.models import Order
+from orders.buffet.order_lookup import (
+    buffet_order_in_current_business_day,
+    resolve_buffet_order_lookup,
+    upsert_buffet_order_lookup,
+    BuffetOrderLookupResolveStatus,
+)
+from vendors.models import AdminOutlet, ChatMessage, Order, Vendor, VendorConfig
 
 _DINE_FLASH_STATUS_CHOICES = [
     ("created", "Request Created"),
@@ -49,6 +58,198 @@ class BuffetCheckStatusTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("Invalid token", response.data["error"])
         mock_serializer.assert_not_called()
+
+
+@override_settings(PROJECT_NAME="dine_flash_buffet")
+class BuffetCheckStatusBusinessDayReplyTests(TestCase):
+    """check_status reply gating vs status-only for prior business-day orders."""
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.outlet = AdminOutlet.objects.create(
+            customer_name="Buffet Check Status Co",
+            customer_id=92001,
+            authentication_status="Approve",
+        )
+        self.vendor = Vendor.objects.create(
+            admin_outlet=self.outlet,
+            name="Buffet Outlet",
+            alias_name="BO",
+            location="City",
+            place_id="place-cs-1",
+            vendor_id=920001,
+            location_id="LOC-CS1",
+            menus="[]",
+        )
+        VendorConfig.objects.create(
+            vendor=self.vendor,
+            business_day_start_hour="00:00:00",
+            timezone="UTC",
+        )
+        self.order = Order.objects.create(
+            vendor=self.vendor,
+            token_no=55,
+            counter_no=1,
+            updated_by="customer",
+            status="created",
+            customer_name="Guest",
+        )
+
+    def _post_check_status(self, body):
+        request = self.factory.post("/check-status/", body, format="json")
+        return check_status(request)
+
+    @patch("orders.views._send_to_managers_async")
+    @patch("orders.views.VendorLogoSerializer")
+    @patch("orders.views.project_name", "dine_flash_buffet")
+    def test_stale_reply_returns_400_without_chat_or_fcm(
+        self, mock_logo, mock_fcm
+    ):
+        mock_logo.return_value.data = {"logo_url": ""}
+        Order.objects.filter(pk=self.order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        self.order.refresh_from_db()
+
+        with patch.object(ChatMessage.objects, "create") as mock_create:
+            response = self._post_check_status(
+                {
+                    "token_no": self.order.token_no,
+                    "vendor_id": self.vendor.vendor_id,
+                    "reply_text": "Hello kitchen",
+                }
+            )
+
+        self.assertEqual(response.status_code, http_status.HTTP_400_BAD_REQUEST)
+        self.assertIn("eligible", response.data["error"].lower())
+        mock_create.assert_not_called()
+        mock_fcm.assert_not_called()
+
+    @patch("orders.views._send_to_managers_async")
+    @patch("orders.views.VendorLogoSerializer")
+    @patch("orders.views.project_name", "dine_flash_buffet")
+    def test_current_business_day_reply_succeeds(
+        self, mock_logo, mock_fcm
+    ):
+        mock_logo.return_value.data = {"logo_url": ""}
+
+        response = self._post_check_status(
+            {
+                "token_no": self.order.token_no,
+                "vendor_id": self.vendor.vendor_id,
+                "reply_text": "On my way",
+            }
+        )
+
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "user_reply")
+        self.assertTrue(
+            ChatMessage.objects.filter(
+                vendor=self.vendor,
+                token_no=self.order.token_no,
+                sender="user",
+                message_text="On my way",
+            ).exists()
+        )
+        mock_fcm.assert_called_once()
+
+    @patch("orders.views._send_to_managers_async")
+    @patch("orders.views.VendorLogoSerializer")
+    @patch("orders.views.project_name", "dine_flash_buffet")
+    def test_status_only_stale_order_still_returns_200(
+        self, mock_logo, mock_fcm
+    ):
+        mock_logo.return_value.data = {"logo_url": ""}
+        Order.objects.filter(pk=self.order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+
+        with patch.object(ChatMessage.objects, "create") as mock_create:
+            response = self._post_check_status(
+                {
+                    "token_no": self.order.token_no,
+                    "vendor_id": self.vendor.vendor_id,
+                }
+            )
+
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "buffetstatus")
+        mock_create.assert_not_called()
+        mock_fcm.assert_called_once()
+
+    def test_stale_order_matches_lookup_helper_semantics(self):
+        key = "check-status-stale-key"
+        upsert_buffet_order_lookup(order_lookup_id=key, order=self.order)
+        Order.objects.filter(pk=self.order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        self.order.refresh_from_db()
+
+        self.assertFalse(buffet_order_in_current_business_day(self.order))
+        lookup = resolve_buffet_order_lookup(order_lookup_id=key)
+        self.assertEqual(
+            lookup.status,
+            BuffetOrderLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+
+
+class DineFlashCheckStatusReplyUnaffectedTests(SimpleTestCase):
+    @patch("orders.views._send_to_managers_async")
+    @patch("orders.views.VendorLogoSerializer")
+    @patch("orders.views.ChatMessage.objects.create")
+    @patch("orders.views.buffet_order_in_current_business_day", return_value=False)
+    @patch.object(Order.objects, "get")
+    @patch("orders.views.project_name", "dine_flash")
+    def test_dine_flash_reply_not_blocked_by_buffet_helper(
+        self,
+        mock_get,
+        mock_buffet_day,
+        mock_create,
+        mock_logo,
+        mock_fcm,
+    ):
+        vendor = SimpleNamespace(
+            id=1,
+            name="Table",
+            alias_name="Table",
+            vendor_id=501,
+            location_id="L1",
+            config=SimpleNamespace(vibration_pattern=None, vibration_duration=None),
+        )
+        order = MagicMock()
+        order.id = 99
+        order.token_no = 1
+        order.table_booking_no = "B-1"
+        order.status = "waiting"
+        order.vendor = vendor
+        order.counter_no = 1
+        order.device = None
+        order.user_profile = None
+        order.updated_by = "customer"
+        order.customer_name = "Guest"
+        order.no_of_packs = 1
+        order.seat_no = "1"
+        order.utility = SimpleNamespace(display_name="Table")
+        order.remarks = None
+        mock_get.return_value = order
+        mock_logo.return_value.data = {"logo_url": ""}
+        mock_create.return_value = MagicMock(id=1)
+
+        factory = APIRequestFactory()
+        request = factory.post(
+            "/check-status/",
+            {
+                "booking_id": 99,
+                "vendor_id": 501,
+                "reply_text": "Hello",
+            },
+            format="json",
+        )
+        response = check_status(request)
+
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        mock_buffet_day.assert_not_called()
+        mock_create.assert_called_once()
 
 
 class DineFlashBookingCreatedFcmUtilsTests(SimpleTestCase):
