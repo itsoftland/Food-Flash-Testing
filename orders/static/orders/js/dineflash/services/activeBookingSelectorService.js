@@ -1,12 +1,12 @@
 // Dine Flash ONLY — Active Booking Selector.
 
-import { getSelectedBooking, setSelectedBooking } from "./selectedBookingService.js";
-import { isMultiBookingMode } from "./multiBookingModeService.js";
+import { getSelectedBooking, setSelectedBooking } from "./selectedBookingService.js?v=20261027_1";
+import { isMultiBookingMode } from "./multiBookingModeService.js?v=20261027_1";
 import {
     hasUnseen,
     clearUnseen,
     pruneToActiveBookingIds,
-} from "./bookingUnseenUpdateService.js";
+} from "./bookingUnseenUpdateService.js?v=20261027_1";
 
 const SELECTOR_ROOT_ID = "dine-flash-active-booking-selector";
 const FETCHED_FLAG = "__dineFlashActiveBookingSelectorFetched";
@@ -18,9 +18,13 @@ let selectionInFlight = false;
 
 async function loadDependencies() {
     const base = window.BASE || "/caller_on/";
+    const apiVersion =
+        typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+            ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+            : "";
     const [authModule, apiModule] = await Promise.all([
         import(`${base}static/utils/js/services/authFetchService.js`),
-        import(`${base}static/utils/js/apiEndpoints.js`),
+        import(`${base}static/utils/js/apiEndpoints.js${apiVersion}`),
     ]);
     return {
         fetchWithAutoRefresh: authModule.fetchWithAutoRefresh,

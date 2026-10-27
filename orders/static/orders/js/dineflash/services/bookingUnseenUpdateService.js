@@ -1,6 +1,6 @@
 // Dine Flash ONLY — booking-level unseen indicator for Multi-Booking Mode.
 
-import { isMultiBookingMode } from "./multiBookingModeService.js";
+import { isMultiBookingMode } from "./multiBookingModeService.js?v=20261027_1";
 
 const STORAGE_KEY = "booking_unseen_updates";
 

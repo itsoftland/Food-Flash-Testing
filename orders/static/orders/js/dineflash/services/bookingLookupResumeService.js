@@ -12,8 +12,8 @@
 import {
     resolveBookingLookupForRelaunch,
     getTempLastHttpStatus,
-} from "./bookingLookupService.js";
-import BookingMappingService from "./bookingMappingService.js";
+} from "./bookingLookupService.js?v=20261027_1";
+import BookingMappingService from "./bookingMappingService.js?v=20261027_1";
 
 let listenersBound = false;
 /** True only after we have observed visibilityState === "hidden" on this page. */
@@ -258,7 +258,7 @@ async function readLocationId() {
 async function tryMultiBookingSelectedResume() {
     let multiMod;
     try {
-        multiMod = await import("./multiBookingModeService.js");
+        multiMod = await import("./multiBookingModeService.js?v=20261027_1");
     } catch (e) {
         return false;
     }
@@ -269,7 +269,7 @@ async function tryMultiBookingSelectedResume() {
 
     let restoreMod;
     try {
-        restoreMod = await import("./selectedBookingRestoreService.js");
+        restoreMod = await import("./selectedBookingRestoreService.js?v=20261027_1");
     } catch (e) {
         return false;
     }

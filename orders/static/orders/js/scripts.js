@@ -1,5 +1,5 @@
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
-import { AddOutletService } from "./services/addOutletService.js?v=20260923_1";
+import { AddOutletService } from "./services/addOutletService.js?v=20261027_1";
 import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js?v=20260821_2";
 import { PermissionService } from "./services/permissionService.js";
@@ -8,12 +8,12 @@ import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./servic
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260821_2";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js?v=20260824_1";
-import { ChatSyncService } from "./services/chatSyncService.js?v=20260824_1";
+import { ChatSyncService } from "./services/chatSyncService.js?v=20261027_1";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260910_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
 import { savePassengerInfo, getPassengerName } from './services/passengerInfoService.js';
-import BookingMappingService from "./dineflash/services/bookingMappingService.js";
+import BookingMappingService from "./dineflash/services/bookingMappingService.js?v=20261027_1";
 import {
     getStoredBatchId,
     saveBatchId,
@@ -131,7 +131,7 @@ onDOMReady(async function () {
         if (!isDineFlashTableBookingSurface) return true;
         try {
             const mod = await import(
-                "./dineflash/services/selectedBookingConversationService.js"
+                "./dineflash/services/selectedBookingConversationService.js?v=20261027_1"
             );
             if (typeof mod.shouldPaintPushMessage === "function") {
                 return Boolean(mod.shouldPaintPushMessage(pushData));
@@ -146,7 +146,7 @@ onDOMReady(async function () {
         if (!isDineFlashTableBookingSurface) return true;
         try {
             const mod = await import(
-                "./dineflash/services/multiBookingPushCompatibilityService.js"
+                "./dineflash/services/multiBookingPushCompatibilityService.js?v=20261027_1"
             );
             if (typeof mod.shouldApplyPushHomeContext === "function") {
                 return Boolean(mod.shouldApplyPushHomeContext(pushData));
@@ -159,7 +159,7 @@ onDOMReady(async function () {
 
     function handleDineFlashActiveBookingLifecyclePush(pushData, messageType) {
         if (!isDineFlashTableBookingSurface) return;
-        import("./dineflash/services/multiBookingPushCompatibilityService.js")
+        import("./dineflash/services/multiBookingPushCompatibilityService.js?v=20261027_1")
             .then((mod) => {
                 if (typeof mod.handleDineFlashActiveBookingLifecyclePush === "function") {
                     return mod.handleDineFlashActiveBookingLifecyclePush(
@@ -296,7 +296,9 @@ onDOMReady(async function () {
     const { initNotificationModal, showNotificationModal } = notificationModule;
 
     // ✅ Import endpoints dynamically
-    const endpointsModule = await import(`${base}static/utils/js/apiEndpoints.js`);
+    const endpointsModule = await import(
+        `${base}static/utils/js/apiEndpoints.js${appVersion ? `?v=${encodeURIComponent(appVersion)}` : ""}`
+    );
     apiEndpoints = endpointsModule.API_ENDPOINTS;
 
     // ✅ Your entire existing logic continues here ↓↓↓
@@ -783,7 +785,7 @@ onDOMReady(async function () {
             reason: "dynamic_import_resume_service",
             standalone: Boolean(window.navigator.standalone),
         });
-        import("./dineflash/services/bookingLookupResumeService.js")
+        import("./dineflash/services/bookingLookupResumeService.js?v=20261027_1")
             .then((mod) => {
                 if (mod && typeof mod.init === "function") {
                     mod.init();
@@ -813,7 +815,7 @@ onDOMReady(async function () {
             if (!id) return null;
             try {
                 const convMod = await import(
-                    "./dineflash/services/selectedBookingConversationService.js"
+                    "./dineflash/services/selectedBookingConversationService.js?v=20261027_1"
                 );
                 if (typeof convMod.rebuildVisibleConversation === "function") {
                     await convMod.rebuildVisibleConversation(id);
@@ -831,7 +833,7 @@ onDOMReady(async function () {
         const skipMultiBookingRestore =
             bookingIdfromQR != null && String(bookingIdfromQR).trim() !== "";
         if (!skipMultiBookingRestore) {
-            import("./dineflash/services/selectedBookingRestoreService.js")
+            import("./dineflash/services/selectedBookingRestoreService.js?v=20261027_1")
                 .then(async (restoreMod) => {
                     if (
                         !restoreMod ||
@@ -893,7 +895,7 @@ onDOMReady(async function () {
                         return;
                     }
                     const lookupMod = await import(
-                        "./dineflash/services/bookingLookupService.js"
+                        "./dineflash/services/bookingLookupService.js?v=20261027_1"
                     );
                     if (
                         !lookupMod ||
@@ -936,7 +938,7 @@ onDOMReady(async function () {
                     console.warn("[dine_flash] selected_booking refresh restore failed:", e);
                 });
         } else {
-            import("./dineflash/services/selectedBookingRestoreService.js")
+            import("./dineflash/services/selectedBookingRestoreService.js?v=20261027_1")
                 .then((restoreMod) => {
                     if (restoreMod && typeof restoreMod.markRestoreSettled === "function") {
                         restoreMod.markRestoreSettled();
@@ -945,7 +947,7 @@ onDOMReady(async function () {
                 .catch(() => {});
         }
 
-        import("./dineflash/services/activeBookingSelectorService.js")
+        import("./dineflash/services/activeBookingSelectorService.js?v=20261027_1")
             .then((mod) => {
                 if (mod && typeof mod.initActiveBookingSelector === "function") {
                     return mod.initActiveBookingSelector();
@@ -1415,13 +1417,13 @@ onDOMReady(async function () {
                             if (!paintDine) {
                                 try {
                                     const unseenMod = await import(
-                                        "./dineflash/services/bookingUnseenUpdateService.js"
+                                        "./dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
                                     );
                                     if (typeof unseenMod.markUnseen === "function") {
                                         unseenMod.markUnseen(pushData.booking_id);
                                     }
                                     const selectorMod = await import(
-                                        "./dineflash/services/activeBookingSelectorService.js"
+                                        "./dineflash/services/activeBookingSelectorService.js?v=20261027_1"
                                     );
                                     if (
                                         typeof selectorMod.repaintActiveBookingSelector ===

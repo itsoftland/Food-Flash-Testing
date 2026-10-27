@@ -1,7 +1,7 @@
 // Dine Flash ONLY — Multi-Booking push compatibility.
 
-import { getSelectedBooking } from "./selectedBookingService.js";
-import { isMultiBookingMode } from "./multiBookingModeService.js";
+import { getSelectedBooking } from "./selectedBookingService.js?v=20261027_1";
+import { isMultiBookingMode } from "./multiBookingModeService.js?v=20261027_1";
 
 const TERMINAL_DINE_STATUSES = new Set(["booking_cancelled", "operation_closed"]);
 
@@ -44,11 +44,11 @@ async function handleDineFlashActiveBookingLifecyclePush(pushData, messageType) 
     const bookingHint = normalizeId(pushData && pushData.booking_id);
 
     try {
-        const restoreMod = await import("./selectedBookingRestoreService.js");
+        const restoreMod = await import("./selectedBookingRestoreService.js?v=20261027_1");
         if (typeof restoreMod.reactIfSelectedBookingInactive === "function") {
             await restoreMod.reactIfSelectedBookingInactive({ bookingHint });
         }
-        const selectorMod = await import("./activeBookingSelectorService.js");
+        const selectorMod = await import("./activeBookingSelectorService.js?v=20261027_1");
         if (typeof selectorMod.refreshActiveBookingSelector === "function") {
             await selectorMod.refreshActiveBookingSelector();
         }

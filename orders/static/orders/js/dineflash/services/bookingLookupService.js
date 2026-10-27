@@ -19,9 +19,13 @@ function bookingLookupDiag(step, fields) {
 
 async function loadDependencies() {
     const base = window.BASE || "/caller_on/";
+    const apiVersion =
+        typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+            ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+            : "";
     const [authModule, apiModule] = await Promise.all([
         import(`${base}static/utils/js/services/authFetchService.js`),
-        import(`${base}static/utils/js/apiEndpoints.js`),
+        import(`${base}static/utils/js/apiEndpoints.js${apiVersion}`),
     ]);
     return {
         fetchWithAutoRefresh: authModule.fetchWithAutoRefresh,

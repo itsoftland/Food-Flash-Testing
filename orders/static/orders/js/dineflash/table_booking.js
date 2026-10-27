@@ -69,6 +69,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // console.log("UTILITY ENABLED:",window.UTILITIES_ENABLED);
     const base = window.BASE || "/caller_on/";
+    const apiVersion =
+        typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+            ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+            : "";
 
     // ⚠️ TEMP DIAGNOSTIC — prove AppUtils state at Book click (remove after investigation).
     // Prefer AppUtils.handoffDiag; if AppUtils is missing, POST the endpoint directly
@@ -142,7 +146,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --------------------------
     try {
         const [endpointsModule, modalServiceModule, vendorStore, permissionModule] = await Promise.all([
-            import(`${base}static/utils/js/apiEndpoints.js`),
+            import(`${base}static/utils/js/apiEndpoints.js${apiVersion}`),
             import(`${base}static/utils/js/services/modalService.js`),
             import(`${base}static/orders/js/config/vendorStore.js`),
             import(`${base}static/orders/js/services/permissionService.js`),
@@ -459,7 +463,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let multiBookingModeModule = null;
     try {
         multiBookingModeModule = await import(
-            `${base}static/orders/js/dineflash/services/multiBookingModeService.js`
+            `${base}static/orders/js/dineflash/services/multiBookingModeService.js?v=20261027_1`
         );
     } catch (e) {
         multiBookingModeModule = null;
@@ -927,7 +931,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 : "";
                         if (orderLookupId && bookingId && bookingNo && payload.vendor_id) {
                             const selectedMod = await import(
-                                `${base}static/orders/js/dineflash/services/selectedBookingService.js`
+                                `${base}static/orders/js/dineflash/services/selectedBookingService.js?v=20261027_1`
                             );
                             if (selectedMod && typeof selectedMod.setSelectedBooking === "function") {
                                 selectedMod.setSelectedBooking({

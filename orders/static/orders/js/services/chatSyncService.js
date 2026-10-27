@@ -609,7 +609,7 @@ export const ChatSyncService = (() => {
                 if (isDineFlashTableBookingSurface()) {
                     try {
                         const convMod = await import(
-                            "../dineflash/services/selectedBookingConversationService.js"
+                            "../dineflash/services/selectedBookingConversationService.js?v=20261027_1"
                         );
                         if (typeof convMod.shouldPaintHistoryMessage === "function") {
                             paintMessage = Boolean(convMod.shouldPaintHistoryMessage(msg));
@@ -626,14 +626,14 @@ export const ChatSyncService = (() => {
                     ) {
                         try {
                             const unseenMod = await import(
-                                "../dineflash/services/bookingUnseenUpdateService.js"
+                                "../dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
                             );
                             const bookingId = resolveBookingId(msg);
                             if (typeof unseenMod.markUnseen === "function") {
                                 unseenMod.markUnseen(bookingId);
                             }
                             const selectorMod = await import(
-                                "../dineflash/services/activeBookingSelectorService.js"
+                                "../dineflash/services/activeBookingSelectorService.js?v=20261027_1"
                             );
                             if (
                                 typeof selectorMod.repaintActiveBookingSelector === "function"

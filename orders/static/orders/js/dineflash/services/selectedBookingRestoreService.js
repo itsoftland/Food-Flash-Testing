@@ -1,7 +1,7 @@
 // Dine Flash ONLY — Selected Booking restore for Multi-Booking Mode.
 
-import { getSelectedBooking, setSelectedBooking, clearSelectedBooking } from "./selectedBookingService.js";
-import { isMultiBookingMode } from "./multiBookingModeService.js";
+import { getSelectedBooking, setSelectedBooking, clearSelectedBooking } from "./selectedBookingService.js?v=20261027_1";
+import { isMultiBookingMode } from "./multiBookingModeService.js?v=20261027_1";
 
 const ACTIVE_DINE_BOOKING_KEY = "activeDineBookingId";
 
@@ -38,9 +38,13 @@ export function whenRestoreSettled() {
 
 async function loadDependencies() {
     const base = window.BASE || "/caller_on/";
+    const apiVersion =
+        typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+            ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+            : "";
     const [authModule, apiModule] = await Promise.all([
         import(`${base}static/utils/js/services/authFetchService.js`),
-        import(`${base}static/utils/js/apiEndpoints.js`),
+        import(`${base}static/utils/js/apiEndpoints.js${apiVersion}`),
     ]);
     return {
         fetchWithAutoRefresh: authModule.fetchWithAutoRefresh,
@@ -223,7 +227,7 @@ async function reactIfSelectedBookingInactive({ bookingHint } = {}) {
     }
 
     try {
-        const lookupMod = await import("./bookingLookupService.js");
+        const lookupMod = await import("./bookingLookupService.js?v=20261027_1");
         if (typeof lookupMod.resolveBookingLookupForRelaunch !== "function") {
             return { outcome: "fallback_failed", reason: "no_resolve" };
         }

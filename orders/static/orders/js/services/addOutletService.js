@@ -1,5 +1,9 @@
 const base = AppUtils.getStartUrl();
-const apiModulePath = `${base}static/utils/js/apiEndpoints.js`;
+const apiVersion =
+    typeof window.APP_VERSION === "string" && window.APP_VERSION.trim() !== ""
+        ? `?v=${encodeURIComponent(window.APP_VERSION.trim())}`
+        : "";
+const apiModulePath = `${base}static/utils/js/apiEndpoints.js${apiVersion}`;
 let apiEndpoints;
 
 try {
@@ -141,7 +145,7 @@ export const AddOutletService = (() => {
             return;
         }
         try {
-            const mod = await import("../dineflash/services/multiBookingModeService.js");
+            const mod = await import("../dineflash/services/multiBookingModeService.js?v=20261027_1");
             if (!mod || typeof mod.markAdditionalBookingIntent !== "function") {
                 AppUtils.showToast("Unable to start another booking. Please try again.");
                 return;
