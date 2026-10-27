@@ -753,6 +753,160 @@ class DineFlashHomeTrackingTokenTests(SimpleTestCase):
         self.assertIn(b"Invalid tracking link", response.content)
 
 
+class DineFlashBareHomeReopenTests(SimpleTestCase):
+    """Dine Flash bare /home/ reload after client URL strip (Change A)."""
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_bare_home_renders_page_shell(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("orders/js/scripts.js", content)
+        self.assertIn("window.BUSINESS_DAY_START_HOUR", content)
+        self.assertNotIn("DINE_FLASH_TRACKING_BOOTSTRAP", content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_bare_home_allows_benign_query_params(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get(
+            "/dine_flash/home/?location_id=KZ01&standalone=true&v=1.0.0"
+        )
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_empty_vendor_id_param_rejected(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?vendor_id=")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Vendor ID is required", response.content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    @patch("orders.views._is_dine_flash_order_tracking_link", return_value=False)
+    @patch("orders.views._is_manager_created_booking_link", return_value=False)
+    def test_vendor_id_without_session_or_fallback_rejected(
+        self, _mock_manager, _mock_tracking
+    ):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?vendor_id=108029")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Invalid QR link", response.content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_booking_id_without_vendor_rejected(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?booking_id=99")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Vendor ID is required", response.content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_token_no_without_vendor_rejected(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?token_no=147")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Vendor ID is required", response.content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    def test_empty_tracking_token_param_rejected(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash/home/?t=")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Invalid tracking link", response.content)
+
+    @override_settings(PROJECT_NAME="dine_flash")
+    @patch("orders.views._dine_flash_business_day_start_hour", return_value="06:00:00")
+    @patch("orders.views._validate_dine_flash_qr_session", return_value=(True, None))
+    def test_valid_qr_session_path_unchanged(self, _mock_validate, _mock_hour):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get(
+            "/dine_flash/home/?vendor_id=108029&qr_session=abc123"
+        )
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+        _mock_validate.assert_called_once()
+
+    @override_settings(PROJECT_NAME="food_flash")
+    def test_food_flash_bare_home_unchanged(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/food_flash/home/")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(PROJECT_NAME="dine_flash_buffet")
+    def test_buffet_bare_home_unchanged(self):
+        from django.test import RequestFactory
+
+        from orders.views import home
+
+        request = RequestFactory().get("/dine_flash_buffet/home/")
+        request.user = AnonymousUser()
+
+        response = home(request)
+
+        self.assertEqual(response.status_code, 200)
+
+
 def _encrypt_qr_payload_for_test(params, *, iv=None, secret=None):
     import base64
 

@@ -514,6 +514,36 @@ def _dine_flash_business_day_start_hour(vendor_id):
     return ""
 
 
+# Query keys that imply a parameterized Dine Flash Home link (not a bare reload).
+_DINE_FLASH_HOME_NON_VENDOR_TRACKING_KEYS = (
+    "qr_session",
+    "booking_id",
+    "booking_no",
+    "token_no",
+    "sequence_code",
+    "qr_date",
+    "qr_time",
+)
+
+
+def _dine_flash_home_has_non_vendor_tracking_params(request):
+    """True when tracking/QR params appear without treating empty vendor_id as bare."""
+    return any(key in request.GET for key in _DINE_FLASH_HOME_NON_VENDOR_TRACKING_KEYS)
+
+
+def _dine_flash_home_is_bare_reopen(request):
+    """
+    Pathname-only /home/ reload after client history.replaceState (no tracking query).
+
+    Benign params (location_id, standalone, v, from_push) are allowed.
+    """
+    if "vendor_id" in request.GET:
+        return False
+    if _dine_flash_home_has_non_vendor_tracking_params(request):
+        return False
+    return True
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def dine_flash_qr_exchange(request):
@@ -786,7 +816,12 @@ def outlet_selection(request):
 
 def home(request):
     if project_name == "dine_flash":
-        tracking_token = request.GET.get("t")
+        if "t" in request.GET:
+            tracking_token = (request.GET.get("t") or "").strip()
+            if not tracking_token:
+                return HttpResponseBadRequest("Invalid tracking link.")
+        else:
+            tracking_token = None
         if tracking_token:
             payload = unsign_dine_flash_tracking_token(tracking_token)
             if not payload:
@@ -807,9 +842,21 @@ def home(request):
                 },
             )
 
-        vendor_id = request.GET.get("vendor_id")
-        if not vendor_id:
+        if "vendor_id" in request.GET:
+            vendor_id = (request.GET.get("vendor_id") or "").strip()
+            if not vendor_id:
+                return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+        elif _dine_flash_home_has_non_vendor_tracking_params(request):
             return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+        elif _dine_flash_home_is_bare_reopen(request):
+            return render(
+                request,
+                "orders/index.html",
+                {"BUSINESS_DAY_START_HOUR": ""},
+            )
+        else:
+            return HttpResponseBadRequest("Invalid QR link. Vendor ID is required.")
+
         qr_session = request.GET.get("qr_session")
         fallback_ok = (
             _is_manager_created_booking_link(request, vendor_id)
