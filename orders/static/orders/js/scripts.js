@@ -947,7 +947,7 @@ onDOMReady(async function () {
                 .catch(() => {});
         }
 
-        import("./dineflash/services/activeBookingSelectorService.js?v=20261027_1")
+        import("./dineflash/services/activeBookingSelectorService.js?v=20261027_2")
             .then((mod) => {
                 if (mod && typeof mod.initActiveBookingSelector === "function") {
                     return mod.initActiveBookingSelector();
@@ -1423,7 +1423,7 @@ onDOMReady(async function () {
                                         unseenMod.markUnseen(pushData.booking_id);
                                     }
                                     const selectorMod = await import(
-                                        "./dineflash/services/activeBookingSelectorService.js?v=20261027_1"
+                                        "./dineflash/services/activeBookingSelectorService.js?v=20261027_2"
                                     );
                                     if (
                                         typeof selectorMod.repaintActiveBookingSelector ===

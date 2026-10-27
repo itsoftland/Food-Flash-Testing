@@ -48,7 +48,7 @@ async function handleDineFlashActiveBookingLifecyclePush(pushData, messageType) 
         if (typeof restoreMod.reactIfSelectedBookingInactive === "function") {
             await restoreMod.reactIfSelectedBookingInactive({ bookingHint });
         }
-        const selectorMod = await import("./activeBookingSelectorService.js?v=20261027_1");
+        const selectorMod = await import("./activeBookingSelectorService.js?v=20261027_2");
         if (typeof selectorMod.refreshActiveBookingSelector === "function") {
             await selectorMod.refreshActiveBookingSelector();
         }

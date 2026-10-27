@@ -633,7 +633,7 @@ export const ChatSyncService = (() => {
                                 unseenMod.markUnseen(bookingId);
                             }
                             const selectorMod = await import(
-                                "../dineflash/services/activeBookingSelectorService.js?v=20261027_1"
+                                "../dineflash/services/activeBookingSelectorService.js?v=20261027_2"
                             );
                             if (
                                 typeof selectorMod.repaintActiveBookingSelector === "function"
