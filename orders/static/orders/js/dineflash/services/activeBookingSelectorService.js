@@ -216,7 +216,11 @@ async function handleBookingSelect(booking) {
 
 function buildItemElement(booking, { currentBookingId }) {
     const bookingId = booking.booking_id;
-    const bookingNo = booking.booking_no;
+    const bookingNoRaw = booking.booking_no;
+    const bookingNo =
+        bookingNoRaw !== null && bookingNoRaw !== undefined
+            ? String(bookingNoRaw).trim()
+            : "";
     const isCurrent = idsMatch(bookingId, currentBookingId);
     const createdLabel = formatCreatedAt(booking.created_at);
     const showUnseen = !isCurrent && hasUnseen(bookingId);
@@ -233,12 +237,18 @@ function buildItemElement(booking, { currentBookingId }) {
     }
     item.setAttribute("aria-pressed", isCurrent ? "true" : "false");
 
+    const accessibleLabel = bookingNo ? `Booking ${bookingNo}` : "Booking";
+    item.setAttribute("aria-label", accessibleLabel);
+    if (bookingNo) {
+        item.title = accessibleLabel;
+    }
+
     const body = document.createElement("span");
     body.className = "buffet-aos-body";
 
     const title = document.createElement("span");
     title.className = "buffet-aos-title";
-    title.textContent = bookingNo ? `Booking ${bookingNo}` : "Booking";
+    title.textContent = bookingNo || "Booking";
     body.appendChild(title);
 
     if (createdLabel) {

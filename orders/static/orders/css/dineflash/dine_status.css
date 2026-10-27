@@ -314,3 +314,14 @@
   color: #607d8b;
   line-height: 1.2;
 }
+
+/* Dine Flash active-booking selector only — room for booking_no on narrow viewports */
+#dine-flash-active-booking-selector .buffet-aos-item {
+  width: auto;
+  min-width: 5.5rem;
+  max-width: 9rem;
+}
+
+#dine-flash-active-booking-selector .buffet-aos-title {
+  max-width: 100%;
+}
