@@ -74,6 +74,11 @@ urlpatterns = [
         buffet_views.list_active_orders,
         name='buffet_active_orders',
     ),
+    path(
+        'api/dine_flash/active_bookings/',
+        views.list_active_dine_flash_bookings,
+        name='dine_flash_active_bookings',
+    ),
     path('api/buffet/utility-login/', buffet_views.buffet_utility_login, name='buffet_utility_login'),
     path(
         'api/buffet/outlet-manager-login/',

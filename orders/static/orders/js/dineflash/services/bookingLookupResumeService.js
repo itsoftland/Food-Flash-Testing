@@ -239,6 +239,75 @@ async function applyAndRedirect(resolved) {
     window.location.replace(newUrl.toString());
 }
 
+async function readLocationId() {
+    if (typeof AppUtils !== "undefined" && typeof AppUtils.get === "function") {
+        try {
+            return normalizeId(await AppUtils.get());
+        } catch (e) {
+            return "";
+        }
+    }
+    return normalizeId(AppUtils?.storageGet?.("activeLocation"));
+}
+
+/**
+ * Multi-Booking warm resume: restore Selected Booking when still valid or
+ * unvalidated (API failure). Stops Latest lookup from overriding additional
+ * bookings. Returns true when handled (caller skips Latest path).
+ */
+async function tryMultiBookingSelectedResume() {
+    let multiMod;
+    try {
+        multiMod = await import("./multiBookingModeService.js");
+    } catch (e) {
+        return false;
+    }
+    if (!multiMod || typeof multiMod.isMultiBookingMode !== "function") {
+        return false;
+    }
+    if (!multiMod.isMultiBookingMode()) return false;
+
+    let restoreMod;
+    try {
+        restoreMod = await import("./selectedBookingRestoreService.js");
+    } catch (e) {
+        return false;
+    }
+    if (restoreMod && typeof restoreMod.whenRestoreSettled === "function") {
+        await restoreMod.whenRestoreSettled();
+    }
+
+    if (!restoreMod || typeof restoreMod.tryRestoreSelectedBooking !== "function") {
+        return false;
+    }
+
+    const restoreResult = await restoreMod.tryRestoreSelectedBooking();
+
+    if (restoreResult.outcome === "restored" && restoreResult.order) {
+        const selectedAsResolved = {
+            booking_id: restoreResult.order.booking_id,
+            booking_no: restoreResult.order.booking_no,
+            vendor_id: restoreResult.order.vendor_id,
+            location_id: await readLocationId(),
+        };
+        const current = await readCurrentBookingIdentity();
+        if (identitiesMatch(current, selectedAsResolved)) {
+            return true;
+        }
+        await applyAndRedirect(selectedAsResolved);
+        return true;
+    }
+
+    if (
+        restoreResult.outcome === "fallback" &&
+        restoreResult.reason === "selected_not_active"
+    ) {
+        return false;
+    }
+
+    return false;
+}
+
 async function handleGenuineResume() {
     try {
         bookingLookupTimingDiag(
@@ -346,6 +415,11 @@ async function handleGenuineResume() {
         standalone: true,
     });
     try {
+        const handledBySelected = await tryMultiBookingSelectedResume();
+        if (handledBySelected) {
+            return;
+        }
+
         try {
             bookingLookupTimingDiag("BOOKING_LOOKUP_REQUEST_START", {
                 order_lookup_id: String(orderLookupId),

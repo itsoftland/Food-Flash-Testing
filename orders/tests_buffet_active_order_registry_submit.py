@@ -139,7 +139,7 @@ class BuffetSubmitActiveOrderRegistryTests(TestCase):
 
     def test_registry_failure_does_not_change_http_success(self):
         with patch(
-            "orders.buffet_views.register_buffet_active_order",
+            "orders.buffet.order_create.register_buffet_active_order",
             side_effect=RuntimeError("registry down"),
         ):
             resp = self._submit({"order_lookup_id": "fail-key"})

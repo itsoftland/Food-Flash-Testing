@@ -88,6 +88,40 @@ def _dine_flash_book_table_encrypted_tracking_url(vendor, order, request):
     return build_dine_flash_encrypted_tracking_url(vendor, order, request)
 
 
+def _sync_dine_flash_registry_after_lifecycle(order):
+    """Dine Flash only: drop inactive bookings from Active Booking Registry."""
+    if project_name != "dine_flash":
+        return
+    if order is None or getattr(order, "pk", None) is None:
+        return
+    order_id = order.pk
+
+    def _run():
+        try:
+            from orders.dine_flash.active_booking_registry import (
+                sync_dine_flash_active_booking_lifecycle,
+            )
+
+            fresh = Order.objects.filter(pk=order_id).select_related("vendor").first()
+            if fresh is None:
+                return
+            removed = sync_dine_flash_active_booking_lifecycle(order=fresh)
+            if removed:
+                logger.info(
+                    "[dine_flash] registry lifecycle removed order_id=%s booking_no=%s status=%s",
+                    fresh.pk,
+                    fresh.table_booking_no,
+                    fresh.status,
+                )
+        except Exception:
+            logger.exception(
+                "[dine_flash] registry lifecycle sync failed order_id=%s",
+                order_id,
+            )
+
+    transaction.on_commit(_run)
+
+
 def _resolve_vendor_for_manager(request):
     """
     For Dine Flash deployments, resolve vendor in one DB round-trip.
@@ -2242,6 +2276,8 @@ def manager_booking_update(request):
 
             # Optionally update status if client provided a status that should apply
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
+            if project_name == "dine_flash" and updated_booking:
+                _sync_dine_flash_registry_after_lifecycle(updated_booking)
 
             new_booking_status = (updated_booking.status or "").strip().lower()
 
@@ -2388,6 +2424,8 @@ def manager_booking_update(request):
             status_to_update = "occupied"  # Enforce correct state
             payload["status"] = "occupied" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
+            if project_name == "dine_flash" and updated_booking:
+                _sync_dine_flash_registry_after_lifecycle(updated_booking)
             new_booking_status = (updated_booking.status or "").strip().lower()
             if should_notify_dine_flash_booking_status_transition(previous_booking_status, new_booking_status):
                 schedule_dine_flash_booking_status_fcm(vendor.id, booking.id, new_booking_status)
@@ -2403,6 +2441,8 @@ def manager_booking_update(request):
             status_to_update = "booking_cancelled"  # Enforce correct state
             payload["status"] = "booking_cancelled" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update,manager)
+            if project_name == "dine_flash" and updated_booking:
+                _sync_dine_flash_registry_after_lifecycle(updated_booking)
             new_booking_status = (updated_booking.status or "").strip().lower()
             if should_notify_dine_flash_booking_status_transition(previous_booking_status, new_booking_status):
                 schedule_dine_flash_booking_status_fcm(vendor.id, booking.id, new_booking_status)
@@ -2419,6 +2459,8 @@ def manager_booking_update(request):
             status_to_update = "operation_closed"  # Enforce correct state
             payload["status"] = "operation_closed" # Enforce payload string
             updated_booking = update_booking_status_by_dinemanager(booking, status_to_update, manager)
+            if project_name == "dine_flash" and updated_booking:
+                _sync_dine_flash_registry_after_lifecycle(updated_booking)
             new_booking_status = (updated_booking.status or "").strip().lower()
             if should_notify_dine_flash_booking_status_transition(previous_booking_status, new_booking_status):
                 schedule_dine_flash_booking_status_fcm(vendor.id, booking.id, new_booking_status)

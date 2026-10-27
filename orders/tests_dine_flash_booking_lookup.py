@@ -8,7 +8,7 @@ Independent from Buffet order_lookup tests.
 """
 from unittest.mock import MagicMock, patch
 
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, User
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
@@ -24,6 +24,7 @@ from vendors.models import (
     AdminOutlet,
     DineFlashBookingLookup,
     Order,
+    UserProfile,
     Vendor,
     VendorConfig,
 )
@@ -216,16 +217,17 @@ class DineFlashBookTableLookupTests(TestCase):
         self.assertEqual(DineFlashBookingLookup.objects.count(), 0)
 
     def test_manager_created_booking_skips_lookup_upsert(self):
-        manager_user = MagicMock()
-        manager_user.is_authenticated = True
-        manager_profile = MagicMock()
-        manager_profile.id = 99
-        manager_profile.vendor = self.vendor
-        profile_qs = MagicMock()
-        profile_qs.select_related.return_value.order_by.return_value.first.return_value = (
-            manager_profile
+        manager_user = User.objects.create_user(
+            username="dine_lookup_mgr",
+            password="test-pass",
         )
-        manager_user.profile_roles = profile_qs
+        UserProfile.objects.create(
+            user=manager_user,
+            name="Walk-in Manager",
+            role="manager",
+            admin_outlet=self.outlet,
+            vendor=self.vendor,
+        )
 
         resp = self._post_book_table(
             {

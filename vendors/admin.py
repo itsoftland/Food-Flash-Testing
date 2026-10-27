@@ -26,6 +26,7 @@ from .models import (
     BuffetOrderLookup,
     BuffetActiveOrder,
     DineFlashBookingLookup,
+    DineFlashActiveBooking,
 )
 
 #
@@ -151,6 +152,22 @@ class BuffetActiveOrderAdmin(admin.ModelAdmin):
     search_fields = ('order_lookup_id', 'token_no', 'vendor_id')
     list_filter = ('vendor_id',)
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(DineFlashActiveBooking)
+class DineFlashActiveBookingAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order_lookup_id",
+        "table_booking_no",
+        "vendor_id",
+        "order",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = ("order_lookup_id", "table_booking_no", "vendor_id")
+    list_filter = ("vendor_id",)
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(DineFlashBookingLookup)

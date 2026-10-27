@@ -207,3 +207,110 @@
   font-size: 13px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
+
+/* Active booking selector (Multi-Booking Mode) — shared card layout with Buffet selector */
+.buffet-active-order-selector[hidden] {
+  display: none !important;
+}
+
+.buffet-aos-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 4px 10px 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #1565c0;
+}
+
+.buffet-aos-heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1565c0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+.buffet-aos-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.buffet-aos-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: calc((100% - 24px) / 3.5);
+  min-width: 5.5rem;
+  max-width: 7.5rem;
+  text-align: left;
+  padding: 4px 10px;
+  background: #f7f9fb;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  color: #222;
+  cursor: pointer;
+}
+
+.buffet-aos-item.is-current {
+  background: #eef5fc;
+  border-color: #90caf9;
+}
+
+.buffet-aos-item.is-highlighted {
+  border-color: #1565c0;
+  background: #e3eefb;
+}
+
+.buffet-aos-item.has-unseen {
+  position: relative;
+}
+
+.buffet-aos-item.has-unseen::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1565c0;
+  box-shadow: 0 0 0 1.5px #ffffff;
+  pointer-events: none;
+}
+
+.buffet-aos-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.buffet-aos-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0d3f69;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.buffet-aos-meta {
+  font-size: 0.7rem;
+  color: #607d8b;
+  line-height: 1.2;
+}

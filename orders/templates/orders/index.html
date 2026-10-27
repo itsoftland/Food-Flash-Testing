@@ -45,6 +45,9 @@
     {# Phase 4: Active Order Selector. First flex child so it sits above chat without fighting fixed header/ads. #}
     <div id="buffet-active-order-selector" class="buffet-active-order-selector" hidden aria-hidden="true"></div>
     {% endif %}
+    {% if PROJECT_NAME == 'dine_flash' %}
+    <div id="dine-flash-active-booking-selector" class="buffet-active-order-selector" hidden aria-hidden="true"></div>
+    {% endif %}
 
     <!-- Header with Toggle Button -->
     <div class="chat-header">

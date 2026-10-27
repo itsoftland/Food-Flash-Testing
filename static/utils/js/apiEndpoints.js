@@ -126,6 +126,7 @@ const RELATIVE_API_ENDPOINTS = {
   DINE_FLASH_RESOLVE_ORDER_LOOKUP: "api/dine_flash/resolve_order_lookup/",
   BUFFET_RESOLVE_ORDER_LOOKUP: "api/buffet/resolve_order_lookup/",
   BUFFET_ACTIVE_ORDERS: "api/buffet/active_orders/",
+  DINE_FLASH_ACTIVE_BOOKINGS: "api/dine_flash/active_bookings/",
   GENERATE_BUFFET_TABLE_QR: "company/api/generate_buffet_table_qr/",
   BUFFET_SAVED_TABLE_QRS: "company/api/buffet_saved_table_qrs/",
   GENERATE_HOSPITAL_BRANCH_QR: "company/api/generate_hospital_branch_qr/",

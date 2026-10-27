@@ -606,6 +606,46 @@ export const ChatSyncService = (() => {
                     }
                 }
 
+                if (isDineFlashTableBookingSurface()) {
+                    try {
+                        const convMod = await import(
+                            "../dineflash/services/selectedBookingConversationService.js"
+                        );
+                        if (typeof convMod.shouldPaintHistoryMessage === "function") {
+                            paintMessage = Boolean(convMod.shouldPaintHistoryMessage(msg));
+                        }
+                    } catch (e) {
+                        paintMessage = true;
+                    }
+
+                    if (
+                        !paintMessage &&
+                        allowBuffetUnseenMark &&
+                        historySeeded === true &&
+                        window.isRestoringHistory !== true
+                    ) {
+                        try {
+                            const unseenMod = await import(
+                                "../dineflash/services/bookingUnseenUpdateService.js"
+                            );
+                            const bookingId = resolveBookingId(msg);
+                            if (typeof unseenMod.markUnseen === "function") {
+                                unseenMod.markUnseen(bookingId);
+                            }
+                            const selectorMod = await import(
+                                "../dineflash/services/activeBookingSelectorService.js"
+                            );
+                            if (
+                                typeof selectorMod.repaintActiveBookingSelector === "function"
+                            ) {
+                                await selectorMod.repaintActiveBookingSelector();
+                            }
+                        } catch (e) {
+                            console.warn("[dine_flash] ChatSync unseen mark failed:", e);
+                        }
+                    }
+                }
+
                 const messageType = resolveMessageType(msg);
                 const appendKey = resolveAppendKey(msg);
 

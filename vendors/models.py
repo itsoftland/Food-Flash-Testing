@@ -1268,3 +1268,42 @@ class DineFlashBookingLookup(models.Model):
 
     def __str__(self):
         return f"DineFlashBookingLookup {self.order_lookup_id} → Order {self.order_id}"
+
+
+class DineFlashActiveBooking(models.Model):
+    """
+    Dine Flash only — Active Booking Registry entry.
+
+    Tracks concurrently active table bookings for an opaque order_lookup_id.
+    Additive to DineFlashBookingLookup (Latest Booking Wins).
+    """
+
+    order_lookup_id = models.CharField(max_length=255, db_index=True)
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="dine_flash_active_booking",
+    )
+    table_booking_no = models.CharField(max_length=64)
+    vendor_id = models.IntegerField(db_index=True)
+    token_no = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["order_lookup_id", "vendor_id"],
+                name="dine_flash_act_vendor_idx",
+            ),
+        ]
+
+    @property
+    def booking_id(self):
+        return self.order_id
+
+    def __str__(self):
+        return (
+            f"DineFlashActiveBooking lookup={self.order_lookup_id} "
+            f"booking_no={self.table_booking_no} order_id={self.order_id}"
+        )

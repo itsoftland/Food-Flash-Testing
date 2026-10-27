@@ -126,6 +126,52 @@ onDOMReady(async function () {
         }
         return true;
     }
+
+    async function shouldPaintDineFlashPushMessage(pushData) {
+        if (!isDineFlashTableBookingSurface) return true;
+        try {
+            const mod = await import(
+                "./dineflash/services/selectedBookingConversationService.js"
+            );
+            if (typeof mod.shouldPaintPushMessage === "function") {
+                return Boolean(mod.shouldPaintPushMessage(pushData));
+            }
+        } catch (e) {
+            console.warn("[dine_flash] multi-booking conversation paint gate failed:", e);
+        }
+        return true;
+    }
+
+    async function shouldApplyDineFlashPushHomeContext(pushData) {
+        if (!isDineFlashTableBookingSurface) return true;
+        try {
+            const mod = await import(
+                "./dineflash/services/multiBookingPushCompatibilityService.js"
+            );
+            if (typeof mod.shouldApplyPushHomeContext === "function") {
+                return Boolean(mod.shouldApplyPushHomeContext(pushData));
+            }
+        } catch (e) {
+            console.warn("[dine_flash] multi-booking push home-context gate failed:", e);
+        }
+        return true;
+    }
+
+    function handleDineFlashActiveBookingLifecyclePush(pushData, messageType) {
+        if (!isDineFlashTableBookingSurface) return;
+        import("./dineflash/services/multiBookingPushCompatibilityService.js")
+            .then((mod) => {
+                if (typeof mod.handleDineFlashActiveBookingLifecyclePush === "function") {
+                    return mod.handleDineFlashActiveBookingLifecyclePush(
+                        pushData,
+                        messageType
+                    );
+                }
+            })
+            .catch((e) => {
+                console.warn("[dine_flash] lifecycle push handler failed:", e);
+            });
+    }
     const inferProjectFromPath = () => {
         const path = (window.location?.pathname || '').toLowerCase();
         if (path.includes('/airline_flash') || path.includes('/airlineflash')) return 'airline_flash';
@@ -755,6 +801,159 @@ onDOMReady(async function () {
                     error: e && e.message ? String(e.message) : String(e),
                 });
             });
+
+        window.__dineFlashApplySelectedBookingHomeView = async function (
+            bookingId,
+            bookingNo
+        ) {
+            const id =
+                bookingId !== null && bookingId !== undefined
+                    ? String(bookingId).trim()
+                    : "";
+            if (!id) return null;
+            try {
+                const convMod = await import(
+                    "./dineflash/services/selectedBookingConversationService.js"
+                );
+                if (typeof convMod.rebuildVisibleConversation === "function") {
+                    await convMod.rebuildVisibleConversation(id);
+                }
+            } catch (e) {
+                console.warn("[dine_flash] selected_booking conversation rebuild failed:", e);
+            }
+            const token =
+                bookingNo !== null && bookingNo !== undefined
+                    ? String(bookingNo).trim()
+                    : "";
+            return fetchOrderStatusOnce(token || null, null, id, { manualEntry: true });
+        };
+
+        const skipMultiBookingRestore =
+            bookingIdfromQR != null && String(bookingIdfromQR).trim() !== "";
+        if (!skipMultiBookingRestore) {
+            import("./dineflash/services/selectedBookingRestoreService.js")
+                .then(async (restoreMod) => {
+                    if (
+                        !restoreMod ||
+                        typeof restoreMod.resetRestoreSettledCycle !== "function" ||
+                        typeof restoreMod.tryRestoreSelectedBooking !== "function"
+                    ) {
+                        return;
+                    }
+                    restoreMod.resetRestoreSettledCycle();
+                    const multiFlag =
+                        typeof AppUtils.storageGet === "function"
+                            ? AppUtils.storageGet("multi_booking_mode")
+                            : null;
+                    const inMultiBookingMode =
+                        multiFlag === "1" || multiFlag === "true";
+                    if (!inMultiBookingMode) {
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+
+                    const restoreResult = await restoreMod.tryRestoreSelectedBooking();
+                    if (restoreResult && restoreResult.outcome === "restored") {
+                        const order = restoreResult.order || {};
+                        const id = String(order.booking_id || "").trim();
+                        const no = String(order.booking_no || "").trim();
+                        if (
+                            id &&
+                            typeof window.__dineFlashApplySelectedBookingHomeView ===
+                                "function"
+                        ) {
+                            try {
+                                await window.__dineFlashApplySelectedBookingHomeView(id, no);
+                            } catch (e) {
+                                console.warn(
+                                    "[dine_flash] selected_booking home refresh failed:",
+                                    e
+                                );
+                            }
+                        }
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+
+                    if (
+                        !restoreResult ||
+                        restoreResult.outcome !== "fallback" ||
+                        restoreResult.reason !== "selected_not_active"
+                    ) {
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+
+                    const orderLookupId =
+                        typeof AppUtils.getOrderLookupId === "function"
+                            ? AppUtils.getOrderLookupId()
+                            : null;
+                    if (!orderLookupId) {
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+                    const lookupMod = await import(
+                        "./dineflash/services/bookingLookupService.js"
+                    );
+                    if (
+                        !lookupMod ||
+                        typeof lookupMod.resolveBookingLookupForRelaunch !== "function"
+                    ) {
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+                    const lookupResult = await lookupMod.resolveBookingLookupForRelaunch({
+                        order_lookup_id: orderLookupId,
+                    });
+                    if (lookupResult.outcome !== "found" || !lookupResult.booking) {
+                        restoreMod.markRestoreSettled();
+                        return;
+                    }
+                    if (typeof restoreMod.applyLatestBookingIdentity === "function") {
+                        await restoreMod.applyLatestBookingIdentity(lookupResult.booking);
+                    }
+                    const latestId = String(lookupResult.booking.booking_id || "").trim();
+                    const latestNo = String(lookupResult.booking.booking_no || "").trim();
+                    if (
+                        latestId &&
+                        typeof window.__dineFlashApplySelectedBookingHomeView === "function"
+                    ) {
+                        try {
+                            await window.__dineFlashApplySelectedBookingHomeView(
+                                latestId,
+                                latestNo
+                            );
+                        } catch (e) {
+                            console.warn(
+                                "[dine_flash] latest fallback home refresh failed:",
+                                e
+                            );
+                        }
+                    }
+                    restoreMod.markRestoreSettled();
+                })
+                .catch((e) => {
+                    console.warn("[dine_flash] selected_booking refresh restore failed:", e);
+                });
+        } else {
+            import("./dineflash/services/selectedBookingRestoreService.js")
+                .then((restoreMod) => {
+                    if (restoreMod && typeof restoreMod.markRestoreSettled === "function") {
+                        restoreMod.markRestoreSettled();
+                    }
+                })
+                .catch(() => {});
+        }
+
+        import("./dineflash/services/activeBookingSelectorService.js")
+            .then((mod) => {
+                if (mod && typeof mod.initActiveBookingSelector === "function") {
+                    return mod.initActiveBookingSelector();
+                }
+            })
+            .catch((e) => {
+                console.warn("[dine_flash] active booking selector init failed:", e);
+            });
     }
 
     const isAndroid = /Android/i.test(navigator.userAgent);
@@ -1020,7 +1219,12 @@ onDOMReady(async function () {
                     return;
                 }
                 // Phase 8: do not steal Home vendor context for a non-Selected order.
-                const applyPushHomeContext = await shouldApplyBuffetPushHomeContext(pushData);
+                let applyPushHomeContext = await shouldApplyBuffetPushHomeContext(pushData);
+                if (applyPushHomeContext && isDineFlashTableBookingSurface) {
+                    applyPushHomeContext = await shouldApplyDineFlashPushHomeContext(
+                        pushData
+                    );
+                }
                 if (applyPushHomeContext) {
                     updateChatOnPush(pushData.vendor_id, pushData.logo_url, pushData.name);
                 }
@@ -1205,6 +1409,32 @@ onDOMReady(async function () {
                         }
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
+                        handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
+                        {
+                            const paintDine = await shouldPaintDineFlashPushMessage(pushData);
+                            if (!paintDine) {
+                                try {
+                                    const unseenMod = await import(
+                                        "./dineflash/services/bookingUnseenUpdateService.js"
+                                    );
+                                    if (typeof unseenMod.markUnseen === "function") {
+                                        unseenMod.markUnseen(pushData.booking_id);
+                                    }
+                                    const selectorMod = await import(
+                                        "./dineflash/services/activeBookingSelectorService.js"
+                                    );
+                                    if (
+                                        typeof selectorMod.repaintActiveBookingSelector ===
+                                        "function"
+                                    ) {
+                                        await selectorMod.repaintActiveBookingSelector();
+                                    }
+                                } catch (e) {
+                                    console.warn("[dine_flash] push unseen mark failed:", e);
+                                }
+                                break;
+                            }
+                        }
                         dineFlashDiag("PUSH dinestatus APPENDING card", {
                             booking_id: pushData.booking_id,
                             message_id: pushData.message_id,
@@ -1221,7 +1451,10 @@ onDOMReady(async function () {
                     case 'thankyou' :
                         AppUtils.notifyOrderReady(pushData);
                         await showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                        handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
+                        if (await shouldPaintDineFlashPushMessage(pushData)) {
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                        }
                         break;
 
                     case 'hospitalstatus':

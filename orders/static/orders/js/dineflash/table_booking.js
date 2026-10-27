@@ -453,6 +453,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     const successModal = getModal("successModal");
     const duplicateModal = getModal("duplicateModal");
     let bookingBlinkInterval = null;
+    let submitInFlight = false;
+
+    const isAdditionalBookingPage = Boolean(window.IS_ADDITIONAL_BOOKING);
+    let multiBookingModeModule = null;
+    try {
+        multiBookingModeModule = await import(
+            `${base}static/orders/js/dineflash/services/multiBookingModeService.js`
+        );
+    } catch (e) {
+        multiBookingModeModule = null;
+    }
+    const shouldSubmitAsAdditional =
+        multiBookingModeModule &&
+        typeof multiBookingModeModule.shouldSubmitAsAdditionalBooking === "function"
+            ? multiBookingModeModule.shouldSubmitAsAdditionalBooking()
+            : false;
+    if (isAdditionalBookingPage && !shouldSubmitAsAdditional) {
+        const registerBtnGate = document.getElementById("register-btn");
+        if (registerBtnGate) {
+            registerBtnGate.disabled = true;
+            registerBtnGate.title = "Start another booking using the + button on Home.";
+        }
+    }
 
     function stopBookingIdentifierBlink() {
         if (bookingBlinkInterval) {
@@ -795,6 +818,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function submitBooking() {
         const registerBtn = document.getElementById("register-btn");
         if (!registerBtn) return;
+        if (submitInFlight) return;
+        submitInFlight = true;
+
+        const submitAsAdditional =
+            multiBookingModeModule &&
+            typeof multiBookingModeModule.shouldSubmitAsAdditionalBooking === "function"
+                ? multiBookingModeModule.shouldSubmitAsAdditionalBooking()
+                : false;
 
         // disable & show spinner
         registerBtn.disabled = true;
@@ -802,12 +833,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         registerBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Processing...`;
 
         try {
-            await exchangeQrToSession();
-            if ((qrDate && qrTime || (window.QR_DATE && window.QR_TIME)) && !qrSession) {
-                ModalService.showError(
-                    "Unable to verify your QR session. Check your connection, refresh the page, or scan the TV code again."
-                );
-                return;
+            if (!submitAsAdditional) {
+                await exchangeQrToSession();
+                if ((qrDate && qrTime || (window.QR_DATE && window.QR_TIME)) && !qrSession) {
+                    ModalService.showError(
+                        "Unable to verify your QR session. Check your connection, refresh the page, or scan the TV code again."
+                    );
+                    return;
+                }
             }
 
             const payloadPreTs = Date.now();
@@ -850,6 +883,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
+            if (submitAsAdditional) {
+                if (!payload.order_lookup_id) {
+                    ModalService.showError(
+                        "Unable to link this booking to your session. Refresh Home and try again from +."
+                    );
+                    return;
+                }
+                payload.is_additional_booking = true;
+                delete payload.qr_session;
+            }
+
             const resp = await fetch(apiEndpoints.TABLE_BOOKING, {
                 method: "POST",
                 headers: {
@@ -864,6 +908,40 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (resp.status === 201) {
                 stopQrExpiryCountdown();
+                if (submitAsAdditional && multiBookingModeModule) {
+                    try {
+                        if (typeof multiBookingModeModule.enableMultiBookingMode === "function") {
+                            multiBookingModeModule.enableMultiBookingMode();
+                        }
+                        if (typeof multiBookingModeModule.clearAdditionalBookingIntent === "function") {
+                            multiBookingModeModule.clearAdditionalBookingIntent();
+                        }
+                        const orderLookupId = payload.order_lookup_id
+                            ? String(payload.order_lookup_id)
+                            : null;
+                        const bookingId =
+                            data.id != null ? String(data.id) : "";
+                        const bookingNo =
+                            data.table_booking_no != null
+                                ? String(data.table_booking_no)
+                                : "";
+                        if (orderLookupId && bookingId && bookingNo && payload.vendor_id) {
+                            const selectedMod = await import(
+                                `${base}static/orders/js/dineflash/services/selectedBookingService.js`
+                            );
+                            if (selectedMod && typeof selectedMod.setSelectedBooking === "function") {
+                                selectedMod.setSelectedBooking({
+                                    order_lookup_id: orderLookupId,
+                                    vendor_id: String(payload.vendor_id),
+                                    booking_id: bookingId,
+                                    booking_no: bookingNo,
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        /* mode latch must not block redirect */
+                    }
+                }
                 if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
                     AppUtils.handoffDiag("DINE_FLASH_TABLE_BOOKING_API_SUCCESS", {
                         page: "table_booking",
@@ -940,10 +1018,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Network error:", err);
             ModalService.showError("Network error. Please try again.");
         } finally {
+            submitInFlight = false;
             // restore button state
             const registerBtnFinal = document.getElementById("register-btn");
             if (registerBtnFinal) {
-                registerBtnFinal.disabled = false;
+                const keepDisabled =
+                    isAdditionalBookingPage && !shouldSubmitAsAdditional;
+                registerBtnFinal.disabled = keepDisabled;
                 registerBtnFinal.innerHTML = originalHTML || `<i class="fas fa-user-plus me-2"></i> Book Table`;
             }
         }

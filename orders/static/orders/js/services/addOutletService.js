@@ -66,6 +66,9 @@ export const AddOutletService = (() => {
     const isDineFlashBuffet = () =>
         String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash_buffet";
 
+    const isDineFlash = () =>
+        String(window.PROJECT_NAME || "").trim().toLowerCase() === "dine_flash";
+
     /**
      * Dine Flash Buffet ONLY: Home "+" → Multi-Order additional-order funnel.
      *
@@ -124,6 +127,35 @@ export const AddOutletService = (() => {
         window.location.href = `${base}buffet/table_booking/?vendor_id=${vendorId}`;
     };
 
+    const startDineFlashAdditionalBooking = async (event) => {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const vendorId =
+            typeof AppUtils.storageGet === "function"
+                ? AppUtils.storageGet("activeVendor")
+                : null;
+        if (!vendorId) {
+            AppUtils.showToast("Vendor is missing. Please start from your active booking on Home.");
+            return;
+        }
+        try {
+            const mod = await import("../dineflash/services/multiBookingModeService.js");
+            if (!mod || typeof mod.markAdditionalBookingIntent !== "function") {
+                AppUtils.showToast("Unable to start another booking. Please try again.");
+                return;
+            }
+            mod.markAdditionalBookingIntent();
+        } catch (err) {
+            console.error("[dine_flash] markAdditionalBookingIntent failed:", err);
+            AppUtils.showToast("Unable to start another booking. Please try again.");
+            return;
+        }
+        window.location.href =
+            `${base}table_booking/?vendor_id=${vendorId}&is_additional_booking=true`;
+    };
+
     const openModal = async () => {
         locationId = await AppUtils.get(); // from utils.js
     
@@ -157,6 +189,10 @@ export const AddOutletService = (() => {
             await startBuffetAdditionalOrder(event);
             return;
         }
+        if (isDineFlash()) {
+            await startDineFlashAdditionalBooking(event);
+            return;
+        }
         await openModal();
     };
     
@@ -167,7 +203,7 @@ export const AddOutletService = (() => {
         if (addBtn && addBtn.dataset.addOutletBound !== "1") {
             addBtn.dataset.addOutletBound = "1";
             // Buffet: strip Bootstrap modal attrs so data-api cannot open Add Outlet.
-            if (isDineFlashBuffet()) {
+            if (isDineFlashBuffet() || isDineFlash()) {
                 addBtn.removeAttribute("data-bs-toggle");
                 addBtn.removeAttribute("data-bs-target");
             }

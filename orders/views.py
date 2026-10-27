@@ -50,6 +50,12 @@ from .dine_flash.booking_lookup import (
     resolve_dine_flash_booking_lookup,
     upsert_dine_flash_booking_lookup,
 )
+from .dine_flash.active_booking_registry import (
+    latest_dine_flash_booking_id_for_lookup,
+    list_selectable_dine_flash_active_bookings,
+    register_dine_flash_active_booking,
+    serialize_dine_flash_active_booking_for_selector,
+)
 from .buffet.order_lookup import buffet_order_in_current_business_day
 from .dine_flash.qr_crypto import (
     _DINE_FLASH_QR_SCAN_GRACE_SECONDS,
@@ -629,6 +635,45 @@ def resolve_booking(request):
         )
 
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_active_dine_flash_bookings(request):
+    """
+    Dine Flash only: Active Booking Selector data API.
+    """
+    if project_name != "dine_flash":
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    order_lookup_id = request.query_params.get("order_lookup_id")
+    normalized = normalize_order_lookup_id(order_lookup_id)
+    if normalized is None:
+        logger.info(
+            "[dine_flash] list_active_bookings invalid_input | order_lookup_id_present=%s",
+            order_lookup_id is not None and str(order_lookup_id).strip() != "",
+        )
+        return Response(
+            {"status": "invalid_input"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    latest_order_id = latest_dine_flash_booking_id_for_lookup(order_lookup_id=normalized)
+    entries = list_selectable_dine_flash_active_bookings(order_lookup_id=normalized)
+    payload = [
+        serialize_dine_flash_active_booking_for_selector(
+            entry,
+            is_latest=(latest_order_id is not None and entry.order_id == latest_order_id),
+        )
+        for entry in entries
+    ]
+    logger.info(
+        "[dine_flash] list_active_bookings ok | order_lookup_id=%s count=%s latest_order_id=%s",
+        normalized,
+        len(payload),
+        latest_order_id,
+    )
+    return Response(payload, status=status.HTTP_200_OK)
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def resolve_order_lookup(request):
@@ -828,13 +873,27 @@ def table_booking(request):
     resolved_qr_time = ""
     resolved_qr_expiry_minutes = 0
 
+    is_additional_booking_get = (
+        project_name == "dine_flash"
+        and request.GET.get("is_additional_booking") == "true"
+    )
     if project_name == "dine_flash":
         vendor_id_from_qr = request.GET.get("vendor_id")
         qr_date = request.GET.get("qr_date")
         qr_time = request.GET.get("qr_time")
         qr_session = request.GET.get("qr_session")
 
-        if not qr_session:
+        if is_additional_booking_get:
+            if not vendor_id_from_qr:
+                return HttpResponseBadRequest(
+                    "Vendor ID is required for additional booking."
+                )
+            vendor_prefetch = Vendor.objects.select_related("config").filter(
+                vendor_id=vendor_id_from_qr
+            ).first()
+            if not vendor_prefetch:
+                return HttpResponseBadRequest("Vendor not found.")
+        elif not qr_session:
             scanned_url = request.GET.get("url", "")
             data_value = extract_data_param(scanned_url) if scanned_url else extract_data_param(request)
             if data_value:
@@ -887,14 +946,15 @@ def table_booking(request):
                     vendor_id_from_qr, vendor_prefetched=vendor_prefetch
                 ),
             )
-        if qr_session:
-            ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id_from_qr)
-        else:
-            ok, msg = _validate_dine_flash_qr_time(
-                qr_date, qr_time, vendor_id_from_qr, expiry_minutes=qr_expiry_minutes
-            )
-        if not ok:
-            return HttpResponseBadRequest(msg)
+        if not is_additional_booking_get:
+            if qr_session:
+                ok, msg = _validate_dine_flash_qr_session(qr_session, vendor_id_from_qr)
+            else:
+                ok, msg = _validate_dine_flash_qr_time(
+                    qr_date, qr_time, vendor_id_from_qr, expiry_minutes=qr_expiry_minutes
+                )
+            if not ok:
+                return HttpResponseBadRequest(msg)
 
     if project_name == "dine_flash" and vendor_id_from_qr:
         vendor_id = vendor_id_from_qr
@@ -934,7 +994,10 @@ def table_booking(request):
             }
         )
     context["IS_DINE_FLASH"] = project_name == "dine_flash"
-    if project_name == "dine_flash":
+    context["IS_ADDITIONAL_BOOKING"] = (
+        project_name == "dine_flash" and is_additional_booking_get
+    )
+    if project_name == "dine_flash" and not is_additional_booking_get:
         qr_session_ctx = request.GET.get("qr_session") or ""
         qr_expires_epoch = 0
         if qr_session_ctx:
@@ -2452,6 +2515,10 @@ def book_table(request):
             project_name,
         )
 
+    is_additional_booking = False
+    if project_name == "dine_flash":
+        is_additional_booking = data.get("is_additional_booking") is True
+
     # --------------------------------------------------------
     # 1. Validate required base fields (vendor-independent)
     # --------------------------------------------------------
@@ -2493,7 +2560,11 @@ def book_table(request):
         logger.warning("[book_table] Vendor not found | vendor_id=%s ", vendor_id)
         return Response({"error": "Vendor not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    if project_name == "dine_flash" and not is_manager_created_booking:
+    if (
+        project_name == "dine_flash"
+        and not is_manager_created_booking
+        and not is_additional_booking
+    ):
         ok, msg = _validate_dine_flash_qr_session(qr_session, vendor.vendor_id)
         if not ok:
             return Response({"error": msg}, status=status.HTTP_400_BAD_REQUEST)
@@ -2633,6 +2704,7 @@ def book_table(request):
             if (
                 project_name == "dine_flash"
                 and not is_manager_created_booking
+                and not is_additional_booking
                 and order_lookup_id
             ):
                 logger.info(
@@ -2681,6 +2753,32 @@ def book_table(request):
                     booking_obj.id,
                     booking_no,
                 )
+
+            if (
+                project_name == "dine_flash"
+                and not is_manager_created_booking
+                and order_lookup_id
+            ):
+                order_pk = booking_obj.pk
+                registry_lookup_id = order_lookup_id
+
+                def _register_dine_flash_active_booking_after_commit():
+                    try:
+                        order_obj = Order.objects.select_related("vendor").get(pk=order_pk)
+                        register_dine_flash_active_booking(
+                            order_lookup_id=registry_lookup_id,
+                            order=order_obj,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "[book_table] active_booking_registry failed | "
+                            "order_lookup_id=%s order_id=%s is_additional_booking=%s",
+                            registry_lookup_id,
+                            order_pk,
+                            is_additional_booking,
+                        )
+
+                transaction.on_commit(_register_dine_flash_active_booking_after_commit)
 
             if project_name == "dine_flash" and not is_manager_created_booking:
                 fcm_payload = _build_dine_flash_booking_created_manager_payload(
