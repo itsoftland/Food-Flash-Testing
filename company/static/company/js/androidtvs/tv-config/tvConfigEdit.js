@@ -955,7 +955,7 @@ function buildDetailEntries(config, utilityLookup = {}) {
       ['Show Customer Name', escapeHtml(formatBool(config.show_customer_name))],
       ['Show Phone Number', escapeHtml(formatBool(config.show_phone_number))],
       ['Show Partially Masked Phone Number', escapeHtml(formatBool(config.show_partially_masked_phone_number))],
-      ['Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
+      [isDineFlash ? 'Show Guest Count' : 'Show No of Packs', escapeHtml(formatBool(config.show_no_of_packs ?? config.show_order_details))],
     ]),
     ['Audio Enabled', escapeHtml(formatBool(config.audio_enabled))],
     ['Announcement Language', escapeHtml(config.announcement_language || '-')],
