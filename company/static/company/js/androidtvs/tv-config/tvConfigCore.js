@@ -198,7 +198,9 @@ function rowTemplate(c) {
         </span>
       </td>
   `;
-  const utilitiesColumn = hideHospitalOnlyColumns ? '' : `
+  const hideUtilitiesColumn =
+    hideHospitalOnlyColumns || useMacFirstColumnForTvConfigList();
+  const utilitiesColumn = hideUtilitiesColumn ? '' : `
       <td>
         <span class="utilities-count">
           ${getDineFlashUtilitiesCount(c.utilities)}

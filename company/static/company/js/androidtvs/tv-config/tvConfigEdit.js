@@ -8,7 +8,7 @@ export function initEditHandlers(ctx) {
   });
 }
 
-import { loadConfigurations } from './tvConfigCore.js?v=20260819_1';
+import { loadConfigurations } from './tvConfigCore.js?v=20261028_1';
 
 function isTvConfigListDineFlash() {
   const el = document.getElementById('tv-config-list-page-flags');
@@ -899,6 +899,7 @@ function formatList(values, formatter = (v) => v) {
 
 function buildDetailEntries(config, utilityLookup = {}) {
   const isHospitalFlash = isTvConfigListHospitalFlash();
+  const isDineFlash = isTvConfigListDineFlash();
   const utilities = normalizeTvConfigUtilities(config.utilities, utilityLookup);
   const utilitiesLabel = isHospitalFlash ? 'Departments' : 'Utilities';
   const advertisements = (config.advertisements || []).map((ad) => ad.title || `Ad #${ad.id}`);
@@ -932,7 +933,7 @@ function buildDetailEntries(config, utilityLookup = {}) {
     ['Screen Orientation', escapeHtml(formatField(config.screen_orientation || '-'))],
     [itemsToShowLabel, escapeHtml(itemsToShowValue)],
     [utilityNameModeLabel, escapeHtml(formatField(config.utility_name_mode || '-'))],
-    [utilitiesLabel, formatList(utilities)],
+    ...(isDineFlash ? [] : [[utilitiesLabel, formatList(utilities)]]),
     ['Display Rows', escapeHtml(String(config.display_rows ?? '-'))],
     ['Display Columns', escapeHtml(String(config.display_columns ?? '-'))],
     ['Token Font Size', escapeHtml(formatField(config.token_font_size || '-'))],
