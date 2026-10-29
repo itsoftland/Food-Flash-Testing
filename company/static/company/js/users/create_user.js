@@ -13,6 +13,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ModalService = modalModule.ModalService;
     const getFriendlyFieldLabels = labelModule.default;
 
+    const dineFlashErrorModule =
+        window.PROJECT_NAME === 'dine_flash'
+            ? await import(`${window.BASE}static/company/js/users/createUserErrorMessage.js`)
+            : null;
+    const resolveDineFlashCreateUserErrorMessage =
+        dineFlashErrorModule?.resolveDineFlashCreateUserErrorMessage ?? null;
+
     /** DRF 400 bodies are nested objects; buffet shows these instead of a blank legacy parser result */
     function flattenDrfErrorPayload(payload) {
         if (!payload || typeof payload !== 'object') return '';
@@ -148,6 +155,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (window.PROJECT_NAME === 'dine_flash_buffet') {
                     userFriendlyMessage =
                         flattenDrfErrorPayload(resData) || getFriendlyFieldLabels(resData);
+                } else if (window.PROJECT_NAME === 'dine_flash') {
+                    userFriendlyMessage =
+                        resolveDineFlashCreateUserErrorMessage(resData) ||
+                        getFriendlyFieldLabels(resData);
                 } else {
                     userFriendlyMessage = getFriendlyFieldLabels(resData);
                 }
