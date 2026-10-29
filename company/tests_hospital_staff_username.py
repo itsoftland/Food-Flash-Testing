@@ -273,7 +273,7 @@ class HospitalStaffUsernameTests(TestCase):
 
 
 @override_settings(PROJECT_NAME="dine_flash")
-class NonHospitalStaffCreationUnchangedTests(TestCase):
+class NonHospitalStaffCreationUsesDineFlashPrefixTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.admin = User.objects.create_user(username="dfadmin", password="pass1234", is_staff=True)
@@ -292,13 +292,15 @@ class NonHospitalStaffCreationUnchangedTests(TestCase):
         VendorConfig.objects.create(vendor=self.vendor)
         self.client.force_authenticate(user=self.admin)
 
-    def test_global_username_uniqueness_still_applies(self):
-        User.objects.create_user(username="shared", password="p1")
+    def test_dine_flash_create_uses_df_prefix_not_hf(self):
+        from vendors.dine_flash_staff_username import build_dine_flash_internal_username
+        from vendors.hospital_staff_username import build_internal_username
+
         resp = self.client.post(
             reverse("company:create_user"),
             {
                 "name": "Staff",
-                "username": "shared",
+                "username": "ram",
                 "password": "secret123",
                 "confirm_password": "secret123",
                 "role": "utility_user",
@@ -307,4 +309,8 @@ class NonHospitalStaffCreationUnchangedTests(TestCase):
             },
             format="json",
         )
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            User.objects.filter(username=build_dine_flash_internal_username(self.outlet.id, "ram")).exists()
+        )
+        self.assertFalse(User.objects.filter(username=build_internal_username(self.outlet.id, "ram")).exists())

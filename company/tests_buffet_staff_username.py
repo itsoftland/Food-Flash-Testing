@@ -624,8 +624,7 @@ class NonBuffetStaffCreationUnchangedTests(TestCase):
         VendorConfig.objects.create(vendor=self.vendor)
         self.client.force_authenticate(user=self.admin)
 
-    def test_global_username_uniqueness_still_applies(self):
-        User.objects.create_user(username="shared", password="p1")
+    def test_dine_flash_does_not_use_buffet_prefix(self):
         resp = self.client.post(
             reverse("company:create_user"),
             {
@@ -639,9 +638,14 @@ class NonBuffetStaffCreationUnchangedTests(TestCase):
             },
             format="json",
         )
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertFalse(
             User.objects.filter(username=build_buffet_internal_username(self.outlet.id, "shared")).exists()
+        )
+        from vendors.dine_flash_staff_username import build_dine_flash_internal_username
+
+        self.assertTrue(
+            User.objects.filter(username=build_dine_flash_internal_username(self.outlet.id, "shared")).exists()
         )
 
 

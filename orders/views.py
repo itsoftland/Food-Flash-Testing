@@ -30,6 +30,10 @@ from vendors.hospital_staff_username import (
     display_staff_username,
     resolve_hospital_staff_user,
 )
+from vendors.dine_flash_staff_username import (
+    display_dine_flash_staff_username,
+    resolve_dine_flash_staff_profile,
+)
 from vendors.utils import buffet_utility_image_absolute_url, hospital_utility_payload
 from vendors.serializers import OrdersSerializer
 
@@ -1918,6 +1922,96 @@ def login_api_view(request):
                 'manager_name': profile.name,
             }
         }, status=status.HTTP_200_OK)
+
+    # Classic Dine Flash staff login: customer_id + business username + password + role
+    if requested_role and project == "dine_flash":
+        customer_id = request.data.get("customer_id")
+        if customer_id in (None, ""):
+            return Response(
+                {"error": "customer_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            customer_id = int(customer_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid customer_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resolution = resolve_dine_flash_staff_profile(customer_id, username)
+        if resolution.reason == "invalid_customer_id":
+            return Response(
+                {"error": "Invalid customer_id."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if resolution.reason == "ambiguous":
+            logger.warning(
+                "Dine Flash staff login ambiguous for username: %s customer_id: %s from IP: %s",
+                username,
+                customer_id,
+                request.META.get("REMOTE_ADDR"),
+            )
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if resolution.reason == "not_found" or resolution.profile is None:
+            logger.warning(
+                "Dine Flash staff authentication failed for username: %s customer_id: %s from IP: %s",
+                username,
+                customer_id,
+                request.META.get("REMOTE_ADDR"),
+            )
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        profile = resolution.profile
+        user = profile.user
+        if not user.check_password(password):
+            logger.warning(
+                "Dine Flash staff authentication failed for username: %s customer_id: %s from IP: %s",
+                username,
+                customer_id,
+                request.META.get("REMOTE_ADDR"),
+            )
+            return Response(
+                {"error": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if profile.role != requested_role:
+            return Response(
+                {"error": f"This user does not have the '{requested_role}' role."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        login(request, user)
+        refresh = RefreshToken.for_user(user)
+        role_display = MANAGER_ROLE_MAP.get(profile.role, profile.role)
+        display_username = display_dine_flash_staff_username(
+            user.username, profile.admin_outlet_id
+        )
+        return Response(
+            {
+                "message": "Login successful",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "username": display_username,
+                    "role": role_display,
+                    "vendor_id": profile.vendor.id if profile.vendor else None,
+                    "vendor_name": profile.vendor.name if profile.vendor else None,
+                    "customer_id": profile.admin_outlet.customer_id if profile.admin_outlet else None,
+                    "outlet_name": profile.admin_outlet.customer_name if profile.admin_outlet else None,
+                    "manager_id": profile.id,
+                    "manager_name": profile.name,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
     user = authenticate(username=username, password=password)
 

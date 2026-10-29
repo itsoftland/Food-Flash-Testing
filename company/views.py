@@ -640,6 +640,12 @@ def create_user(request):
                 return display_buffet_staff_username(
                     profile.user.username, profile.admin_outlet_id
                 )
+            if project == "dine_flash":
+                from vendors.dine_flash_staff_username import display_dine_flash_staff_username
+
+                return display_dine_flash_staff_username(
+                    profile.user.username, profile.admin_outlet_id
+                )
             return profile.user.username
 
         # If multiple profiles (i.e., role == 'both')

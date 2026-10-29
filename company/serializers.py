@@ -30,6 +30,12 @@ from vendors.buffet_staff_username import (
     display_buffet_staff_username,
     is_dine_flash_buffet_project,
 )
+from vendors.dine_flash_staff_username import (
+    build_dine_flash_internal_username,
+    dine_flash_business_username_exists_for_company,
+    display_dine_flash_staff_username,
+    is_dine_flash_project,
+)
 
 start_url = getattr(settings, "PROJECT_NAME", "calleron")
 
@@ -657,6 +663,9 @@ class UserProfileCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"username": ["A user with this username already exists in this company."]}
                 )
+        elif is_dine_flash_project():
+            if dine_flash_business_username_exists_for_company(admin_outlet, business_username):
+                raise serializers.ValidationError("Username already exists.")
         elif User.objects.filter(username=business_username).exists():
             raise serializers.ValidationError("Username already exists.")
 
@@ -677,7 +686,7 @@ class UserProfileCreateSerializer(serializers.Serializer):
             data['validated_utilities'] = utilities
 
         project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-        if project in ("dine_flash_buffet", "hospital_flash"):
+        if project in ("dine_flash_buffet", "hospital_flash", "dine_flash"):
             role = data.get("role")
             vendor = data.get("vendor")
             admin_outlet = data.get("admin_outlet")
@@ -704,11 +713,20 @@ class UserProfileCreateSerializer(serializers.Serializer):
             django_username = build_internal_username(admin_outlet.id, business_username)
         elif is_dine_flash_buffet_project():
             django_username = build_buffet_internal_username(admin_outlet.id, business_username)
+        elif is_dine_flash_project():
+            django_username = build_dine_flash_internal_username(admin_outlet.id, business_username)
         else:
             django_username = business_username
 
         # Create the user only after validation
-        user = User.objects.create_user(username=django_username, password=password)
+        from django.db import IntegrityError
+
+        try:
+            user = User.objects.create_user(username=django_username, password=password)
+        except IntegrityError as exc:
+            if is_dine_flash_project():
+                raise serializers.ValidationError("Username already exists.") from exc
+            raise
 
         # Decide roles to create
         requested_roles = ['manager', 'web'] if role == 'both' else [role]
@@ -760,6 +778,8 @@ class UserListDetailSerializer(serializers.ModelSerializer):
             return display_staff_username(raw, obj.admin_outlet_id)
         if is_dine_flash_buffet_project():
             return display_buffet_staff_username(raw, obj.admin_outlet_id)
+        if is_dine_flash_project():
+            return display_dine_flash_staff_username(raw, obj.admin_outlet_id)
         return raw
 
     def get_assigned_utilities(self, obj):
