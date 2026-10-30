@@ -4,7 +4,16 @@
 
 // ✅ Import IndexedDB helper (for caching small key-value pairs)
 import { get as idbGet, set as idbSet } from "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js";
-import { HOSPITAL_MANAGER_PUSH_TYPE } from "./hospital/hospitalCommon.js";
+import {
+    HOSPITAL_MANAGER_PUSH_TYPE,
+    isHospitalFlashProject,
+    normalizeRegistrationBatchId,
+    normalizeHospitalBookingId,
+    saveBatchId,
+    saveBookingId,
+    clearHospitalTrackingIds,
+    clearStoredBookingId,
+} from "./hospital/hospitalCommon.js";
 
 // ⚠️ TEMP DIAGNOSTIC — prove AppUtils availability at Book click (remove after investigation).
 // Posts directly to dine_flash_client_diag so breadcrumbs reach orders.log even before
@@ -783,7 +792,9 @@ window.AppUtils = {
      * Safari-only: persist a short-lived handoff cookie so the installed PWA
      * can adopt this order session on next open. Callers gate by project.
      */
-    writePendingHandoff: function (token, vendorId, locationId) {
+    writePendingHandoff: function (token, vendorId, locationId, options) {
+        const handoffOptions = options && typeof options === "object" ? options : {};
+        const includeOrderLookupId = handoffOptions.includeOrderLookupId !== false;
         const standalone = Boolean(window.navigator.standalone);
         this.handoffDiag("HANDOFF_WRITE_ENTER", {
             standalone,
@@ -832,14 +843,27 @@ window.AppUtils = {
             payload.location_id = String(locationId).trim();
         }
 
+        const registrationBatchId = normalizeRegistrationBatchId(
+            handoffOptions.registration_batch_id
+        );
+        if (registrationBatchId) {
+            payload.registration_batch_id = registrationBatchId;
+        }
+        const hospitalBookingId = normalizeHospitalBookingId(handoffOptions.booking_id);
+        if (hospitalBookingId) {
+            payload.booking_id = hospitalBookingId;
+        }
+
         // Buffet recovery key: prefer permanently stored order_lookup_id, else
         // current surface browser_id value (Safari S). Never overwrites browser_id.
-        const orderLookupId =
-            (typeof this.getOrderLookupId === "function" && this.getOrderLookupId()) ||
-            (typeof this.getBrowserId === "function" && this.getBrowserId()) ||
-            null;
-        if (orderLookupId) {
-            payload.order_lookup_id = String(orderLookupId).trim();
+        if (includeOrderLookupId) {
+            const orderLookupId =
+                (typeof this.getOrderLookupId === "function" && this.getOrderLookupId()) ||
+                (typeof this.getBrowserId === "function" && this.getBrowserId()) ||
+                null;
+            if (orderLookupId) {
+                payload.order_lookup_id = String(orderLookupId).trim();
+            }
         }
 
         this.handoffDiag("HANDOFF_WRITE_PAYLOAD", {
@@ -1085,6 +1109,22 @@ window.AppUtils = {
                         order_lookup_id: orderLookupId,
                         page: "outlet_selection",
                     });
+                }
+                if (isHospitalFlashProject()) {
+                    const adoptedBatchId = normalizeRegistrationBatchId(
+                        payload.registration_batch_id
+                    );
+                    const adoptedBookingId = normalizeHospitalBookingId(payload.booking_id);
+                    if (adoptedBatchId) {
+                        saveBatchId(adoptedBatchId);
+                        if (adoptedBookingId) {
+                            saveBookingId(adoptedBookingId);
+                        } else {
+                            clearStoredBookingId();
+                        }
+                    } else {
+                        clearHospitalTrackingIds();
+                    }
                 }
             } catch (e) {
                 // Retain cookie so adoption can retry after a transient storage failure.

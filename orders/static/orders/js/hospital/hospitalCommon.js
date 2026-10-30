@@ -1,14 +1,23 @@
 export const HOSPITAL_DRAFT_KEY = "hospital_registration_draft";
 export const HOSPITAL_RESULT_KEY = "hospital_registration_result";
 export const HOSPITAL_TRACKING_BATCH_KEY = "hospital_registration_batch_id";
+export const HOSPITAL_TRACKING_BOOKING_KEY = "hospital_active_booking_id";
 
 /** Hospital Flash push `type` for manager → patient chat (not status updates). */
 export const HOSPITAL_MANAGER_PUSH_TYPE = "hospital_manager";
+
+const UUID_V4ish =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function hospitalOnly() {
     const project = String(window.PROJECT_NAME || "").toLowerCase();
     const path = String(window.location?.pathname || "").toLowerCase();
     return project === "hospital_flash" || path.includes("/hospital_flash/");
+}
+
+/** Same gate as hospitalOnly — used from shared utilities for flavour checks. */
+export function isHospitalFlashProject() {
+    return hospitalOnly();
 }
 
 export function getParam(key) {
@@ -110,28 +119,157 @@ export function loadResult() {
     }
 }
 
+function appUtils() {
+    return typeof window !== "undefined" ? window.AppUtils : null;
+}
+
+function prefixedStorageKey(logicalKey) {
+    const utils = appUtils();
+    if (utils && typeof utils.getPrefixedKey === "function") {
+        return utils.getPrefixedKey(logicalKey);
+    }
+    const project = String(window.PROJECT_NAME || "hospital_flash").toLowerCase().trim();
+    return `${project}:${logicalKey}`;
+}
+
+function persistTrackingId(logicalKey, value) {
+    const text = value != null ? String(value).trim() : "";
+    if (!text) return;
+
+    const utils = appUtils();
+    if (utils && typeof utils.storageSet === "function") {
+        utils.storageSet(logicalKey, text);
+    }
+    if (utils && typeof utils.setCookie === "function") {
+        utils.setCookie(prefixedStorageKey(logicalKey), text);
+    }
+}
+
+function readPersistentTrackingId(logicalKey) {
+    const utils = appUtils();
+    if (utils && typeof utils.storageGet === "function") {
+        const fromStorage = utils.storageGet(logicalKey);
+        if (fromStorage != null && String(fromStorage).trim()) {
+            return String(fromStorage).trim();
+        }
+    }
+    if (utils && typeof utils.getCookie === "function") {
+        const fromCookie = utils.getCookie(prefixedStorageKey(logicalKey));
+        if (fromCookie != null && String(fromCookie).trim()) {
+            const text = String(fromCookie).trim();
+            if (utils.storageSet) {
+                utils.storageSet(logicalKey, text);
+            }
+            return text;
+        }
+    }
+    return null;
+}
+
+function clearPersistentTrackingId(logicalKey) {
+    const utils = appUtils();
+    if (utils && typeof utils.storageRemove === "function") {
+        utils.storageRemove(logicalKey);
+    }
+    if (utils && typeof utils.setCookie === "function") {
+        utils.setCookie(prefixedStorageKey(logicalKey), "", -1);
+    }
+}
+
+export function normalizeRegistrationBatchId(value) {
+    if (value == null) return null;
+    const text = String(value).trim();
+    if (!text || !UUID_V4ish.test(text)) return null;
+    return text;
+}
+
+export function normalizeHospitalBookingId(value) {
+    if (value == null) return null;
+    const text = String(value).trim();
+    if (!/^\d+$/.test(text)) return null;
+    const n = parseInt(text, 10);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return String(n);
+}
+
 export function clearHospitalSession() {
     sessionStorage.removeItem(HOSPITAL_DRAFT_KEY);
     sessionStorage.removeItem(HOSPITAL_RESULT_KEY);
     sessionStorage.removeItem(HOSPITAL_TRACKING_BATCH_KEY);
+    sessionStorage.removeItem(HOSPITAL_TRACKING_BOOKING_KEY);
+    clearPersistentTrackingId(HOSPITAL_TRACKING_BATCH_KEY);
+    clearPersistentTrackingId(HOSPITAL_TRACKING_BOOKING_KEY);
 }
 
 export function getStoredBatchId() {
     try {
-        const value = sessionStorage.getItem(HOSPITAL_TRACKING_BATCH_KEY);
-        return value && String(value).trim() ? String(value).trim() : null;
+        const persistent = readPersistentTrackingId(HOSPITAL_TRACKING_BATCH_KEY);
+        if (persistent) {
+            return normalizeRegistrationBatchId(persistent);
+        }
+        const legacy = sessionStorage.getItem(HOSPITAL_TRACKING_BATCH_KEY);
+        const normalized = normalizeRegistrationBatchId(legacy);
+        if (normalized) {
+            persistTrackingId(HOSPITAL_TRACKING_BATCH_KEY, normalized);
+            return normalized;
+        }
+        return null;
     } catch {
         return null;
     }
 }
 
 export function saveBatchId(batchId) {
-    if (!batchId) return;
+    const normalized = normalizeRegistrationBatchId(batchId);
+    if (!normalized) return;
     try {
-        sessionStorage.setItem(HOSPITAL_TRACKING_BATCH_KEY, String(batchId));
+        sessionStorage.setItem(HOSPITAL_TRACKING_BATCH_KEY, normalized);
+        persistTrackingId(HOSPITAL_TRACKING_BATCH_KEY, normalized);
     } catch (err) {
         console.warn("Hospital batch id storage failed:", err);
     }
+}
+
+export function getStoredBookingId() {
+    try {
+        const persistent = readPersistentTrackingId(HOSPITAL_TRACKING_BOOKING_KEY);
+        if (persistent) {
+            return normalizeHospitalBookingId(persistent);
+        }
+        const legacy = sessionStorage.getItem(HOSPITAL_TRACKING_BOOKING_KEY);
+        const normalized = normalizeHospitalBookingId(legacy);
+        if (normalized) {
+            persistTrackingId(HOSPITAL_TRACKING_BOOKING_KEY, normalized);
+            return normalized;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveBookingId(bookingId) {
+    const normalized = normalizeHospitalBookingId(bookingId);
+    if (!normalized) return;
+    try {
+        sessionStorage.setItem(HOSPITAL_TRACKING_BOOKING_KEY, normalized);
+        persistTrackingId(HOSPITAL_TRACKING_BOOKING_KEY, normalized);
+    } catch (err) {
+        console.warn("Hospital booking id storage failed:", err);
+    }
+}
+
+export function clearHospitalTrackingIds() {
+    sessionStorage.removeItem(HOSPITAL_TRACKING_BATCH_KEY);
+    sessionStorage.removeItem(HOSPITAL_TRACKING_BOOKING_KEY);
+    clearPersistentTrackingId(HOSPITAL_TRACKING_BATCH_KEY);
+    clearPersistentTrackingId(HOSPITAL_TRACKING_BOOKING_KEY);
+}
+
+/** Clear persisted booking pointer only (batch-first handoff without booking_id). */
+export function clearStoredBookingId() {
+    sessionStorage.removeItem(HOSPITAL_TRACKING_BOOKING_KEY);
+    clearPersistentTrackingId(HOSPITAL_TRACKING_BOOKING_KEY);
 }
 
 export function isHospitalBatchPayload(payload) {

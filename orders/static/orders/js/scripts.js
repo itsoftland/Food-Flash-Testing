@@ -16,7 +16,12 @@ import { savePassengerInfo, getPassengerName } from './services/passengerInfoSer
 import BookingMappingService from "./dineflash/services/bookingMappingService.js?v=20261027_1";
 import {
     getStoredBatchId,
+    getStoredBookingId,
     saveBatchId,
+    saveBookingId,
+    clearHospitalTrackingIds,
+    normalizeRegistrationBatchId,
+    normalizeHospitalBookingId,
     isHospitalBatchPayload,
     HOSPITAL_MANAGER_PUSH_TYPE,
 } from "./hospital/hospitalCommon.js";
@@ -454,16 +459,26 @@ onDOMReady(async function () {
     }
     // Safari post-order/booking handoff for the installed PWA.
     // Surface gate (!standalone) lives inside writePendingHandoff.
-    // Buffet and Dine Flash table-booking only — other flavours unchanged.
+    // Dine Flash, Dine Flash Buffet, and Hospital Flash (batch id required).
     {
+        const hospitalHandoffEligible =
+            isHospitalFlashSurface &&
+            tokenFromQR &&
+            vendorFromQR &&
+            registrationBatchIdFromQR &&
+            !isOpenedFromPush;
         const willWrite =
-            (isDineFlashBuffetSurface || isDineFlashTableBookingSurface) &&
+            (isDineFlashBuffetSurface || isDineFlashTableBookingSurface || hospitalHandoffEligible) &&
             tokenFromQR &&
             !isOpenedFromPush;
         AppUtils.handoffDiag("HANDOFF_WRITE_CALLER", {
             page: "home",
             reason: !(isDineFlashBuffetSurface || isDineFlashTableBookingSurface)
-                ? "not_buffet_or_dine_flash_surface"
+                ? hospitalHandoffEligible
+                    ? "hospital_will_write"
+                    : isHospitalFlashSurface
+                        ? "hospital_missing_batch_or_vendor"
+                        : "not_buffet_or_dine_flash_surface"
                 : !tokenFromQR
                     ? "no_token_from_qr"
                     : isOpenedFromPush
@@ -493,11 +508,32 @@ onDOMReady(async function () {
                     standalone: Boolean(window.navigator.standalone),
                 });
             }
-            AppUtils.writePendingHandoff(tokenFromQR, vendorFromQR, locationId);
+            const handoffOptions = {};
+            if (hospitalHandoffEligible) {
+                handoffOptions.registration_batch_id = registrationBatchIdFromQR;
+                handoffOptions.booking_id = bookingIdfromQR;
+                handoffOptions.includeOrderLookupId = false;
+                hospitalFlashClientDiag("HANDOFF_WRITE_CALLER", {
+                    page: "home",
+                    token_no: String(tokenFromQR),
+                    vendor_id: String(vendorFromQR),
+                    registration_batch_id: String(registrationBatchIdFromQR),
+                    booking_id: bookingIdfromQR != null ? String(bookingIdfromQR) : "",
+                });
+            }
+            AppUtils.writePendingHandoff(
+                tokenFromQR,
+                vendorFromQR,
+                locationId,
+                Object.keys(handoffOptions).length ? handoffOptions : undefined
+            );
         }
     }
     if (registrationBatchIdFromQR && isHospitalFlashSurface) {
         saveBatchId(registrationBatchIdFromQR);
+    }
+    if (bookingIdfromQR && isHospitalFlashSurface) {
+        saveBookingId(bookingIdfromQR);
     }
     if (tokenFromQR && passengerName) {
         await savePassengerInfo(tokenFromQR, passengerName);
@@ -1710,20 +1746,44 @@ onDOMReady(async function () {
                 }
             })();
         }
-        if (isHospitalFlashSurface && tokenFromQR && bookingIdfromQR) {
+        const hospitalRestoreBatchId =
+            registrationBatchIdFromQR || getStoredBatchId();
+        if (
+            isHospitalFlashSurface &&
+            tokenFromQR &&
+            hospitalRestoreBatchId
+        ) {
             hospitalUserTokenShown = true;
+            const hospitalRestoreBookingId =
+                bookingIdfromQR || getStoredBookingId();
             hospitalStatusFetchPromise = (async () => {
                 try {
                     await showChatWindow({});
-                    appendMessage(tokenFromQR, "user", "", "chat", bookingIdfromQR);
+                    appendMessage(
+                        tokenFromQR,
+                        "user",
+                        "",
+                        "chat",
+                        hospitalRestoreBookingId || hospitalRestoreBatchId
+                    );
                     try {
-                        await saveChat(tokenFromQR, "user", "chat", bookingIdfromQR);
+                        await saveChat(
+                            tokenFromQR,
+                            "user",
+                            "chat",
+                            hospitalRestoreBookingId || hospitalRestoreBatchId
+                        );
                     } catch (chatErr) {
                         console.warn("Hospital early chat save:", chatErr);
                     }
-                    return await fetchOrderStatusOnce(tokenFromQR, null, bookingIdfromQR, {
-                        registrationBatchId: registrationBatchIdFromQR || getStoredBatchId(),
-                    });
+                    return await fetchOrderStatusOnce(
+                        tokenFromQR,
+                        null,
+                        hospitalRestoreBookingId,
+                        {
+                            registrationBatchId: hospitalRestoreBatchId,
+                        }
+                    );
                 } catch (err) {
                     console.warn("Hospital early chat bootstrap failed:", err);
                     hospitalStatusFetchPromise = null;
@@ -1816,17 +1876,22 @@ onDOMReady(async function () {
                         });
                         await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
                         // await PushSubscriptionService.subscribe(bookingId, vendorId);
-                    } else if (isHospitalFlashSurface && bookingIdfromQR) {
+                    } else if (isHospitalFlashSurface && (bookingIdfromQR || getStoredBookingId())) {
+                        const hospitalSubscribeBookingId =
+                            bookingIdfromQR || getStoredBookingId();
                         // hospital_flash: post-permission subscribe with booking_id (order PK).
                         // Server expands to all orders sharing registration_batch_id.
                         console.info("[hospital_flash] handleToken calling subscribe", {
-                            booking_id: bookingIdfromQR,
+                            booking_id: hospitalSubscribeBookingId,
                             booking_no: tokenFromQR,
                             vendor_id: vendorId,
                             notification_permission: Notification.permission,
                             url: window.location?.href,
                         });
-                        await PushSubscriptionService.subscribe(bookingIdfromQR, vendorId);
+                        await PushSubscriptionService.subscribe(
+                            hospitalSubscribeBookingId,
+                            vendorId
+                        );
                     } else if (!isHospitalFlashSurface) {
                         await PushSubscriptionService.subscribe(tokenFromQR, vendorId);
                     }
@@ -2280,9 +2345,106 @@ onDOMReady(async function () {
 
     function getHospitalBatchIdFromContext(options = {}) {
         if (options.registrationBatchId) {
-            return String(options.registrationBatchId).trim();
+            return normalizeRegistrationBatchId(options.registrationBatchId);
         }
         return getStoredBatchId();
+    }
+
+    function captureHospitalStatusRequestContext(payload, options, bookingIdParam, activeVendor) {
+        const batchId =
+            payload.registration_batch_id != null
+                ? normalizeRegistrationBatchId(payload.registration_batch_id)
+                : null;
+        let reqBookingId = null;
+        if (payload.booking_id != null) {
+            reqBookingId = normalizeHospitalBookingId(payload.booking_id);
+        } else if (
+            bookingIdParam != null &&
+            /^\d+$/.test(String(bookingIdParam).trim())
+        ) {
+            reqBookingId = normalizeHospitalBookingId(bookingIdParam);
+        }
+        const vendorId =
+            activeVendor != null && String(activeVendor).trim() !== ""
+                ? String(activeVendor).trim()
+                : "";
+        return { batchId, bookingId: reqBookingId, vendorId };
+    }
+
+    async function hospitalRequestStillOwnsStoredTracking(context) {
+        if (!context) return false;
+        if (!context.batchId && !context.bookingId) {
+            return false;
+        }
+
+        const storedBatch = getStoredBatchId();
+        const storedBooking = getStoredBookingId();
+        if (context.batchId) {
+            if (storedBatch && storedBatch !== context.batchId) {
+                return false;
+            }
+        } else if (context.bookingId) {
+            if (storedBooking && storedBooking !== context.bookingId) {
+                return false;
+            }
+        }
+
+        const activeVendor = await AppUtils.getActiveVendor();
+        const currentVendor =
+            activeVendor != null && String(activeVendor).trim() !== ""
+                ? String(activeVendor).trim()
+                : "";
+        if (
+            context.vendorId &&
+            currentVendor &&
+            context.vendorId !== currentVendor
+        ) {
+            return false;
+        }
+        return true;
+    }
+
+    function shouldPersistHospitalStatusTracking(context, data) {
+        if (!context || (!context.batchId && !context.bookingId)) {
+            return false;
+        }
+        const storedBatch = getStoredBatchId();
+        const storedBooking = getStoredBookingId();
+        const responseBatch = normalizeRegistrationBatchId(
+            data?.registration_batch_id
+        );
+
+        if (context.batchId) {
+            if (storedBatch && storedBatch !== context.batchId) {
+                return false;
+            }
+            if (responseBatch && responseBatch !== context.batchId) {
+                return false;
+            }
+        } else if (context.bookingId) {
+            if (storedBooking && storedBooking !== context.bookingId) {
+                return false;
+            }
+        }
+
+        if (responseBatch && storedBatch && responseBatch !== storedBatch) {
+            return false;
+        }
+        return true;
+    }
+
+    async function shouldApplyHospitalFetchStatusUi(context, data, options = {}) {
+        const manualEntry = options.manualEntry === true;
+        if (manualEntry && !context?.batchId && !context?.bookingId) {
+            return true;
+        }
+        if (!context?.batchId && !context?.bookingId) {
+            return true;
+        }
+        return (
+            (await hospitalRequestStillOwnsStoredTracking(context)) &&
+            shouldPersistHospitalStatusTracking(context, data)
+        );
     }
 
     function rememberHospitalBatchPayload(data) {
@@ -2467,6 +2629,7 @@ onDOMReady(async function () {
                 }
             } else {
                 const batchId = getHospitalBatchIdFromContext(options);
+                const manualEntry = options.manualEntry === true;
                 if (batchId) {
                     payload = {
                         registration_batch_id: batchId,
@@ -2474,8 +2637,13 @@ onDOMReady(async function () {
                     };
                 } else if (bookingId) {
                     payload = { booking_id: bookingId, vendor_id: activeVendor };
-                } else {
+                } else if (manualEntry) {
                     payload = { booking_no: token, vendor_id: activeVendor };
+                } else {
+                    console.warn(
+                        "[hospital_flash] Skipping automatic status fetch: missing registration batch."
+                    );
+                    return null;
                 }
             }
             type = 'hospitalstatus';
@@ -2485,6 +2653,16 @@ onDOMReady(async function () {
             type = 'foodstatus';
         }
         if (replyText) payload.reply_text = replyText;
+
+        let hospitalRequestContext = null;
+        if (type === "hospitalstatus" && path.includes("/hospital_flash/")) {
+            hospitalRequestContext = captureHospitalStatusRequestContext(
+                payload,
+                options,
+                bookingId,
+                activeVendor
+            );
+        }
 
         AppUtils.handoffDiag("HANDOFF_CHECK_STATUS", {
             page: "home",
@@ -2518,17 +2696,44 @@ onDOMReady(async function () {
 
             if (!resp.ok) {
                 const err = data.error || "Unknown server error";
+                if (type === "hospitalstatus" && path.includes("/hospital_flash/")) {
+                    if (
+                        await hospitalRequestStillOwnsStoredTracking(
+                            hospitalRequestContext
+                        )
+                    ) {
+                        clearHospitalTrackingIds();
+                    }
+                }
                 appendMessage(`❌ ${err}`, 'server', null);
                 throw new Error(err);
             }
             if (type === 'dinestatus' && data?.logo_url) {
                 AppUtils.storageSet("activeVendorLogo", String(data.logo_url));
             }
-            if (type === 'hospitalstatus' && data?.logo_url) {
+            let mayApplyHospitalStatusFetchUpdate = true;
+            if (type === "hospitalstatus" && path.includes("/hospital_flash/")) {
+                mayApplyHospitalStatusFetchUpdate =
+                    await shouldApplyHospitalFetchStatusUi(
+                        hospitalRequestContext,
+                        data,
+                        options
+                    );
+            }
+            if (
+                type === "hospitalstatus" &&
+                mayApplyHospitalStatusFetchUpdate &&
+                data?.logo_url
+            ) {
                 AppUtils.storageSet("activeVendorLogo", String(data.logo_url));
             }
-            if (type === 'hospitalstatus' && data?.registration_batch_id) {
-                saveBatchId(data.registration_batch_id);
+            if (type === "hospitalstatus" && mayApplyHospitalStatusFetchUpdate) {
+                if (data?.registration_batch_id) {
+                    saveBatchId(data.registration_batch_id);
+                }
+                if (data?.departments?.[0]?.booking_id != null) {
+                    saveBookingId(data.departments[0].booking_id);
+                }
             }
 
             if (buffetEarlyPushLink && data?.vendor_id != null) {
@@ -2624,15 +2829,26 @@ onDOMReady(async function () {
                         await saveChat(data, 'server', renderType, bookingId);
                     }
                     else if (renderType === 'hospitalstatus') {
-                        await renderHospitalStatusCard(data, { bookingId, manualEntry: options.manualEntry === true });
+                        if (mayApplyHospitalStatusFetchUpdate) {
+                            await renderHospitalStatusCard(data, {
+                                bookingId,
+                                manualEntry: options.manualEntry === true,
+                            });
+                        }
                     }
                     else {
                         appendMessage(messageHTML, 'server', null, renderType, data.token_no);
                         await saveChat(data, 'server', renderType, data.token_no);
                     }
                 }
-                await showNotificationModal(data, 'usercheck');
-                AppUtils.notifyOrderReady(data);
+                const skipHospitalFetchUserNotify =
+                    type === "hospitalstatus" &&
+                    path.includes("/hospital_flash/") &&
+                    !mayApplyHospitalStatusFetchUpdate;
+                if (!skipHospitalFetchUserNotify) {
+                    await showNotificationModal(data, 'usercheck');
+                    AppUtils.notifyOrderReady(data);
+                }
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 console.info("[dine_flash] fetchOrderStatusOnce calling subscribe", {

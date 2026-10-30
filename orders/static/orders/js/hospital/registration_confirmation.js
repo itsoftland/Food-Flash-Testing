@@ -7,6 +7,8 @@ import {
     clearHospitalSession,
     patientRegistrationUrl,
     trackingUrlFromResult,
+    saveBatchId,
+    saveBookingId,
 } from "./hospitalCommon.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -62,6 +64,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!trackingUrl) {
             window.location.href = patientRegistrationUrl(vendorId);
             return;
+        }
+        if (result.registration_batch_id) {
+            saveBatchId(result.registration_batch_id);
+        }
+        const primary = Array.isArray(result.departments) ? result.departments[0] : null;
+        if (primary?.order_id != null) {
+            saveBookingId(primary.order_id);
         }
         window.location.href = trackingUrl;
     });

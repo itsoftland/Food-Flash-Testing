@@ -3,6 +3,11 @@ import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchServi
 import { resolveBookingLookupForRelaunch } from './dineflash/services/bookingLookupService.js';
 import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js?v=20260824_2';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
+import {
+    getStoredBatchId,
+    getStoredBookingId,
+} from './hospital/hospitalCommon.js';
+import { hospitalFlashClientDiag } from './hospital/hospitalFlashDiag.js?v=20260910_1';
 
 // ─────────────────────────────────────
 // Base URL Setup
@@ -19,6 +24,15 @@ function isDineFlashTableBooking() {
 function isDineFlashBuffet() {
     const name = (window.PROJECT_NAME || '').trim().toLowerCase();
     return name === 'dine_flash_buffet';
+}
+
+/** Hospital Flash only. */
+function isHospitalFlash() {
+    const name = (window.PROJECT_NAME || '').trim().toLowerCase();
+    if (name === 'hospital_flash') return true;
+    return String(window.location?.pathname || '')
+        .toLowerCase()
+        .includes('/hospital_flash');
 }
 
 // ─────────────────────────────────────
@@ -402,6 +416,20 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                 });
             }
         }
+    } else if (isHospitalFlash()) {
+        hospitalFlashClientDiag("HANDOFF_ADOPT_CALLER", {
+            page: "outlet_selection",
+            branch: "hospital_adopt_before_storage_read",
+            standalone,
+            launch_mode: launchMode,
+        });
+        const adopted = await AppUtils.adoptPendingHandoffIfPresent();
+        hospitalFlashClientDiag("HANDOFF_ADOPT_CALLER_RESULT", {
+            page: "outlet_selection",
+            branch: adopted ? "adopted" : "not_adopted",
+            standalone,
+            launch_mode: launchMode,
+        });
     } else {
         if (typeof AppUtils !== "undefined" && typeof AppUtils.handoffDiag === "function") {
             AppUtils.handoffDiag("HANDOFF_ADOPT_CALLER_SKIP", {
@@ -562,6 +590,49 @@ const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
                         ? relaunchResult.reason || "preserve"
                         : "no_resolvable_booking",
             });
+            return;
+        }
+
+        if (isHospitalFlash()) {
+            const batchId = getStoredBatchId();
+            const bookingId = getStoredBookingId();
+            if (!batchId) {
+                hospitalFlashClientDiag("HANDOFF_OUTLET_REDIRECT_SKIP", {
+                    page: "outlet_selection",
+                    reason: "missing_registration_batch_id",
+                    has_vendor: Boolean(hasVendorId),
+                    has_token: Boolean(hasTokenNo),
+                });
+                return;
+            }
+            const newUrl = new URL(`${window.location.origin}${base}home/`);
+            if (locationId) {
+                newUrl.searchParams.set("location_id", locationId);
+            }
+            if (hasVendorId) {
+                newUrl.searchParams.set("vendor_id", hasVendorId);
+            }
+            if (hasTokenNo) {
+                newUrl.searchParams.set("booking_no", hasTokenNo);
+            }
+            newUrl.searchParams.set("registration_batch_id", batchId);
+            if (bookingId) {
+                newUrl.searchParams.set("booking_id", bookingId);
+            }
+            if (urlParams.has("from_push")) {
+                newUrl.searchParams.set("from_push", urlParams.get("from_push"));
+            }
+            hospitalFlashClientDiag("HANDOFF_OUTLET_REDIRECT_HOME", {
+                page: "outlet_selection",
+                branch: "hospital_batch_restore",
+                vendor_id: hasVendorId != null ? String(hasVendorId) : "",
+                booking_no: hasTokenNo != null ? String(hasTokenNo) : "",
+                registration_batch_id: batchId,
+                booking_id: bookingId != null ? String(bookingId) : "",
+                location_id: locationId != null ? String(locationId) : "",
+            });
+            dineFlashRedirecting = true;
+            window.location.replace(newUrl.toString());
             return;
         }
 
