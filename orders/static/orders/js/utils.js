@@ -13,7 +13,7 @@ import {
     saveBookingId,
     clearHospitalTrackingIds,
     clearStoredBookingId,
-} from "./hospital/hospitalCommon.js";
+} from "./hospital/hospitalCommon.js?v=20261030_1";
 
 // ⚠️ TEMP DIAGNOSTIC — prove AppUtils availability at Book click (remove after investigation).
 // Posts directly to dine_flash_client_diag so breadcrumbs reach orders.log even before

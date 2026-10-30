@@ -6,7 +6,7 @@ import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 import {
     getStoredBatchId,
     getStoredBookingId,
-} from './hospital/hospitalCommon.js';
+} from './hospital/hospitalCommon.js?v=20261030_1';
 import { hospitalFlashClientDiag } from './hospital/hospitalFlashDiag.js?v=20260910_1';
 
 // ─────────────────────────────────────

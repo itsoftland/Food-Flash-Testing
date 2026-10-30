@@ -9,7 +9,7 @@ import {
     trackingUrlFromResult,
     saveBatchId,
     saveBookingId,
-} from "./hospitalCommon.js";
+} from "./hospitalCommon.js?v=20261030_1";
 
 document.addEventListener("DOMContentLoaded", async () => {
     if (!hospitalOnly()) return;

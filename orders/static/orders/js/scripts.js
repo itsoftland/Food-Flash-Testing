@@ -24,7 +24,7 @@ import {
     normalizeHospitalBookingId,
     isHospitalBatchPayload,
     HOSPITAL_MANAGER_PUSH_TYPE,
-} from "./hospital/hospitalCommon.js";
+} from "./hospital/hospitalCommon.js?v=20261030_1";
 import { hospitalFlashClientDiag } from "./hospital/hospitalFlashDiag.js?v=20260910_1";
 
 
