@@ -1364,6 +1364,23 @@ window.AppUtils = {
 
         if (!chatResponse) return;
 
+        const project = String(window.PROJECT_NAME || projectName || '')
+            .toLowerCase()
+            .trim();
+
+        if (project === 'dine_flash') {
+            if (!chatFooter) return;
+
+            const availableHeight =
+                chatFooter.getBoundingClientRect().top -
+                chatResponse.getBoundingClientRect().top;
+
+            chatResponse.style.maxHeight =
+                `${Math.max(0, Math.floor(availableHeight))}px`;
+            chatResponse.style.paddingBottom = '12px';
+            return;
+        }
+
         const chatFooterHeight = chatFooter?.offsetHeight || 0;
         const premiumFooterHeight = premiumFooter?.offsetHeight || 0;
 

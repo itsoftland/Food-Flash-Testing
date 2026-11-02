@@ -294,6 +294,11 @@ input[type="text"] {
     background-color: #f4f4f8;
 }
 
+/* Dine Flash table-booking home only (#dine-flash-active-booking-selector is flavour-specific markup). */
+#dine-flash-active-booking-selector ~ .chat-response {
+    flex: 1 1 0%;
+}
+
 /* Message Styles */
 .message-row {
     display: flex;
