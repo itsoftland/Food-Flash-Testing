@@ -121,6 +121,45 @@ function initBuffetRelaunchUI() {
 const buffetRelaunchUI = isDineFlashBuffet() ? initBuffetRelaunchUI() : null;
 
 // ─────────────────────────────────────
+// Hospital Flash relaunch loading state (hospital_flash only)
+// ─────────────────────────────────────
+// Cosmetic only. While the relaunch IIFE decides whether to redirect to /home/,
+// hide the outlet-selection UI and show "Restoring your session...". When no
+// relaunch redirect occurs, hide() restores the normal outlet page. No relaunch,
+// redirect, or storage logic is involved here.
+function initHospitalRelaunchUI() {
+    const outletList = document.getElementById("outlet-list");
+    const continueBtn = document.getElementById("continue-btn");
+    const title = document.querySelector(".container .title");
+    const hidden = [outletList, continueBtn, title];
+
+    hidden.forEach((el) => {
+        if (el) el.style.display = "none";
+    });
+
+    const container = document.querySelector(".container") || document.body;
+    const status = document.createElement("div");
+    status.id = "hospital-relaunch-status";
+    status.className = "text-center py-5";
+    status.innerHTML = `
+        <div class="spinner-border text-warning" role="status" aria-hidden="true"></div>
+        <p class="mt-3 mb-0">Restoring your session...</p>
+    `;
+    container.appendChild(status);
+
+    return {
+        hide() {
+            status.remove();
+            hidden.forEach((el) => {
+                if (el) el.style.display = "";
+            });
+        },
+    };
+}
+
+const hospitalRelaunchUI = isHospitalFlash() ? initHospitalRelaunchUI() : null;
+
+// ─────────────────────────────────────
 // Early Redirect: Ensure ?location_id is in URL
 // ─────────────────────────────────────
 const dineFlashRelaunchFlow = (async function redirectIfMissingLocationId() {
@@ -730,6 +769,17 @@ if (isDineFlashBuffet()) {
     dineFlashRelaunchFlow.finally(() => {
         if (!dineFlashRedirecting) {
             buffetRelaunchUI?.hide();
+        }
+    });
+}
+
+// Hospital Flash only: when the relaunch IIFE settles WITHOUT redirecting,
+// hide the "Restoring your session..." loading state and reveal the normal
+// outlet-selection page. When a redirect is in flight leave the overlay up.
+if (isHospitalFlash()) {
+    dineFlashRelaunchFlow.finally(() => {
+        if (!dineFlashRedirecting) {
+            hospitalRelaunchUI?.hide();
         }
     });
 }
