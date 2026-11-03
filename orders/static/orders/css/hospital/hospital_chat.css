@@ -3,6 +3,11 @@
    Loaded only when PROJECT_NAME == hospital_flash.
    ===================================================== */
 
+/* Home chat scroll region (same flex basis as Dine Flash booking-selector rule). */
+.page-wrapper > .chat-response {
+    flex: 1 1 0%;
+}
+
 @keyframes hospital-called-pulse {
     0%,
     100% {

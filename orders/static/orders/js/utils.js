@@ -1368,7 +1368,7 @@ window.AppUtils = {
             .toLowerCase()
             .trim();
 
-        if (project === 'dine_flash') {
+        if (project === 'dine_flash' || project === 'hospital_flash') {
             if (!chatFooter) return;
 
             const availableHeight =
