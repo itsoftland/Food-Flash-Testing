@@ -785,6 +785,17 @@ def resolve_order_lookup(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if result.status == DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE:
+            logger.info(
+                "[dine_flash] resolve_order_lookup response | status=not_found_or_stale "
+                "http_status=404 order_lookup_id=%s",
+                normalize_order_lookup_id(order_lookup_id) or "",
+            )
+            return Response(
+                {"status": DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE.value},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         logger.exception(
             "[dine_flash] resolve_order_lookup unhandled status | status=%s",
             result.status,

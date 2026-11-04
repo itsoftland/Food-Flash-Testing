@@ -17,6 +17,7 @@ from typing import Any, Mapping, Optional
 
 from django.db import transaction
 
+from static.utils.functions.utils import get_vendor_business_day_range
 from vendors.models import DineFlashBookingLookup, Order
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class DineFlashBookingLookupResolveStatus(str, Enum):
 
     FOUND = "found"
     NOT_FOUND = "not_found"
+    NOT_FOUND_OR_STALE = "not_found_or_stale"
     INVALID_INPUT = "invalid_input"
 
 
@@ -156,6 +158,19 @@ def upsert_dine_flash_booking_lookup(
     return mapping
 
 
+def dine_flash_booking_in_current_business_day(order: Order) -> bool:
+    """
+    Same business-day window as Dine Flash Active Booking Selector
+    (get_vendor_business_day_range). Prior-day bookings remain in the DB but are
+    not recoverable as the customer's current Latest Booking via order_lookup_id.
+    """
+    vendor = getattr(order, "vendor", None)
+    if vendor is None or order.created_at is None:
+        return False
+    start_dt, end_dt = get_vendor_business_day_range(vendor)
+    return start_dt <= order.created_at <= end_dt
+
+
 def _build_resolve_success_payload(order: Order) -> dict[str, Any]:
     vendor = order.vendor
     return {
@@ -190,7 +205,7 @@ def resolve_dine_flash_booking_lookup(
 
     mapping = (
         DineFlashBookingLookup.objects.filter(order_lookup_id=normalized)
-        .select_related("order", "order__vendor")
+        .select_related("order", "order__vendor", "order__vendor__config")
         .first()
     )
     if mapping is None or mapping.order_id is None:
@@ -206,7 +221,25 @@ def resolve_dine_flash_booking_lookup(
             status=DineFlashBookingLookupResolveStatus.NOT_FOUND,
         )
 
-    payload = _build_resolve_success_payload(mapping.order)
+    order = mapping.order
+    if not dine_flash_booking_in_current_business_day(order):
+        logger.info(
+            "[dine_flash] resolve_order_lookup not_found_or_stale order_lookup_id=%s "
+            "order_id=%s booking_no=%s",
+            normalized,
+            order.pk,
+            order.table_booking_no,
+        )
+        logger.info(
+            "[dine_flash] booking_lookup resolve_stale | order_lookup_id=%s order_id=%s",
+            normalized,
+            order.pk,
+        )
+        return DineFlashBookingLookupResolveResult(
+            status=DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+
+    payload = _build_resolve_success_payload(order)
     logger.info(
         "[dine_flash] booking_lookup resolve_found | order_lookup_id=%s "
         "booking_id=%s booking_no=%s vendor_id=%s location_id=%s",

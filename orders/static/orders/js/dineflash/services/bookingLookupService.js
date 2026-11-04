@@ -4,6 +4,9 @@
 // PWA can refresh booking/vendor/location before the existing relaunch flow
 // continues. Does not touch browser_id, PushSubscription, or Chat.
 // Never throws; always returns a typed outcome.
+// On not_found_or_stale (prior business day), clears customer-facing booking
+// identity so leftover token/active booking cannot drive automatic restore.
+// Never clears order_lookup_id.
 // Independent from Buffet orderLookupService.js.
 
 let dependenciesPromise = null;
@@ -49,6 +52,59 @@ function preserve(reason) {
     return { outcome: "preserve", reason };
 }
 
+const TOKEN_KEY = "token";
+const ACTIVE_DINE_BOOKING_KEY = "activeDineBookingId";
+
+/**
+ * Clear customer-facing booking identity after a prior-business-day Latest resolve.
+ * Keeps order_lookup_id (handoff / recovery key). Dine Flash only.
+ */
+async function clearStaleDineFlashCustomerBookingIdentity() {
+    if (typeof AppUtils === "undefined") return;
+
+    if (typeof AppUtils.storageRemove === "function") {
+        AppUtils.storageRemove(TOKEN_KEY);
+        AppUtils.storageRemove(ACTIVE_DINE_BOOKING_KEY);
+    }
+
+    const tokenKey =
+        typeof AppUtils.getPrefixedKey === "function"
+            ? AppUtils.getPrefixedKey(TOKEN_KEY)
+            : null;
+    if (tokenKey) {
+        try {
+            const { set: idbSet } = await import(
+                "https://cdnjs.cloudflare.com/ajax/libs/idb-keyval/6.2.1/index.min.js"
+            );
+            await idbSet(tokenKey, null);
+        } catch (e) {
+            // Non-fatal — localStorage clear still applied.
+        }
+        if (typeof AppUtils.setCookie === "function") {
+            try {
+                AppUtils.setCookie(tokenKey, "", -1);
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    try {
+        const selectedMod = await import("./selectedBookingService.js");
+        if (selectedMod && typeof selectedMod.clearSelectedBooking === "function") {
+            selectedMod.clearSelectedBooking();
+        }
+    } catch (e) {
+        // Non-fatal
+    }
+
+    bookingLookupDiag("DINE_FLASH_BOOKING_LOOKUP_STALE_CLEARED", {
+        page: "booking_lookup_service",
+        outcome: "stale",
+        lookup_status: "not_found_or_stale",
+    });
+}
+
 function buildRequestBody({ order_lookup_id } = {}) {
     const body = {};
     if (
@@ -61,7 +117,7 @@ function buildRequestBody({ order_lookup_id } = {}) {
     return body;
 }
 
-function mapResolvePayload(data) {
+async function mapResolvePayload(data) {
     if (!data || typeof data !== "object") {
         return preserve("invalid_payload");
     }
@@ -91,6 +147,11 @@ function mapResolvePayload(data) {
                 location_id: data.location_id,
             },
         };
+    }
+
+    if (status === "not_found_or_stale") {
+        await clearStaleDineFlashCustomerBookingIdentity();
+        return { outcome: "stale" };
     }
 
     if (status === "not_found") {
@@ -123,6 +184,7 @@ function mapResolvePayload(data) {
  * @returns {Promise<
  *   | { outcome: "found", booking: { booking_id, booking_no, vendor_id, location_id } }
  *   | { outcome: "not_found" }
+ *   | { outcome: "stale" }
  *   | { outcome: "preserve", reason: string }
  * >}
  */
@@ -204,7 +266,7 @@ async function resolveBookingLookupForRelaunch({ order_lookup_id } = {}) {
         return preserve("json_parse_failure");
     }
 
-    return mapResolvePayload(data);
+    return await mapResolvePayload(data);
 }
 
 /** ⚠️ TEMP DIAG — read last HTTP status after resolveBookingLookupForRelaunch. */
@@ -216,4 +278,9 @@ function getTempLastHttpStatus() {
     }
 }
 
-export { resolveBookingLookupForRelaunch, getTempLastHttpStatus };
+export {
+    resolveBookingLookupForRelaunch,
+    getTempLastHttpStatus,
+    clearStaleDineFlashCustomerBookingIdentity,
+};
+export { mapResolvePayload as __testMapResolvePayloadForHarness };

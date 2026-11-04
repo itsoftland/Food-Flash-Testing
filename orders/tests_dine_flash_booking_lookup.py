@@ -6,7 +6,10 @@ manager skip, CASCADE cleanup, and non–dine_flash flavour gating.
 Does not exercise PushSubscription / Chat / browser_id generation.
 Independent from Buffet order_lookup tests.
 """
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
+
+from django.utils import timezone
 
 from django.contrib.auth.models import AnonymousUser, User
 from django.test import TestCase
@@ -46,6 +49,11 @@ class DineFlashBookingLookupHelperTests(TestCase):
             vendor_id=920001,
             location_id="LOC-D1",
             menus="[]",
+        )
+        VendorConfig.objects.create(
+            vendor=self.vendor,
+            business_day_start_hour="00:00:00",
+            timezone="UTC",
         )
 
     def _make_booking(self, token_no, booking_no):
@@ -108,6 +116,58 @@ class DineFlashBookingLookupHelperTests(TestCase):
             resolve_dine_flash_booking_lookup(order_lookup_id=None).status,
             DineFlashBookingLookupResolveStatus.INVALID_INPUT,
         )
+
+    @patch("orders.dine_flash.booking_lookup.get_vendor_business_day_range")
+    def test_respects_configured_business_day_window(self, mock_range):
+        order = self._make_booking(9, "WIN-9")
+        key = "window-key"
+        upsert_dine_flash_booking_lookup(order_lookup_id=key, order=order)
+        now = timezone.now()
+        mock_range.return_value = (now + timedelta(hours=1), now + timedelta(hours=2))
+        result = resolve_dine_flash_booking_lookup(order_lookup_id=key)
+        self.assertEqual(
+            result.status,
+            DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+
+    def test_resolve_prior_business_day_is_stale_and_keeps_lookup_row(self):
+        order = self._make_booking(8, "STALE-8")
+        key = "stale-key"
+        upsert_dine_flash_booking_lookup(order_lookup_id=key, order=order)
+        Order.objects.filter(pk=order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+
+        result = resolve_dine_flash_booking_lookup(order_lookup_id=key)
+        self.assertEqual(
+            result.status,
+            DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+        self.assertIsNone(result.data)
+        self.assertTrue(
+            DineFlashBookingLookup.objects.filter(order_lookup_id=key, order=order).exists(),
+            "stale resolve must not delete DineFlashBookingLookup or the Order",
+        )
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    def test_fresh_booking_after_stale_updates_lookup(self):
+        old = self._make_booking(1, "OLD-1")
+        key = "reuse-key"
+        upsert_dine_flash_booking_lookup(order_lookup_id=key, order=old)
+        Order.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        self.assertEqual(
+            resolve_dine_flash_booking_lookup(order_lookup_id=key).status,
+            DineFlashBookingLookupResolveStatus.NOT_FOUND_OR_STALE,
+        )
+
+        new = self._make_booking(2, "NEW-2")
+        upsert_dine_flash_booking_lookup(order_lookup_id=key, order=new)
+        found = resolve_dine_flash_booking_lookup(order_lookup_id=key)
+        self.assertEqual(found.status, DineFlashBookingLookupResolveStatus.FOUND)
+        self.assertEqual(found.data["booking_id"], new.id)
+        self.assertEqual(found.data["booking_no"], "NEW-2")
 
     def test_cascade_on_order_delete(self):
         order = self._make_booking(3, "3")
@@ -260,6 +320,11 @@ class DineFlashResolveOrderLookupApiTests(TestCase):
             location_id="LOC-D3",
             menus="[]",
         )
+        VendorConfig.objects.create(
+            vendor=self.vendor,
+            business_day_start_hour="00:00:00",
+            timezone="UTC",
+        )
         self.order = Order.objects.create(
             vendor=self.vendor,
             token_no=42,
@@ -293,6 +358,18 @@ class DineFlashResolveOrderLookupApiTests(TestCase):
         resp = self._post({"order_lookup_id": "missing"})
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(resp.data["status"], "not_found")
+
+    @patch("orders.views.project_name", "dine_flash")
+    def test_resolve_not_found_or_stale(self):
+        Order.objects.filter(pk=self.order.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        resp = self._post({"order_lookup_id": "api-key"})
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.data["status"], "not_found_or_stale")
+        self.assertTrue(
+            DineFlashBookingLookup.objects.filter(order_lookup_id="api-key").exists()
+        )
 
     @patch("orders.views.project_name", "dine_flash")
     def test_resolve_invalid_input(self):
