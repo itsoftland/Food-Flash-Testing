@@ -931,7 +931,7 @@ onDOMReady(async function () {
                         return;
                     }
                     const lookupMod = await import(
-                        "./dineflash/services/bookingLookupService.js?v=20261027_1"
+                        "./dineflash/services/bookingLookupService.js?v=20261104_1"
                     );
                     if (
                         !lookupMod ||

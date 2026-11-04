@@ -12,7 +12,7 @@
 import {
     resolveBookingLookupForRelaunch,
     getTempLastHttpStatus,
-} from "./bookingLookupService.js?v=20261027_1";
+} from "./bookingLookupService.js?v=20261104_1";
 import BookingMappingService from "./bookingMappingService.js?v=20261027_1";
 
 let listenersBound = false;

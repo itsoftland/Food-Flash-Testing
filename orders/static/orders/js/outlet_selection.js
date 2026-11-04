@@ -1,6 +1,6 @@
 import BookingMappingService from './dineflash/services/bookingMappingService.js';
 import { resolveBookingForRelaunch } from './dineflash/services/pwaRelaunchService.js';
-import { resolveBookingLookupForRelaunch } from './dineflash/services/bookingLookupService.js';
+import { resolveBookingLookupForRelaunch } from './dineflash/services/bookingLookupService.js?v=20261104_1';
 import { resolveOrderLookupForRelaunch } from './buffet/services/orderLookupService.js?v=20260824_2';
 import { IosPwaInstallService } from './services/iosPwaInstallService.js';
 import {

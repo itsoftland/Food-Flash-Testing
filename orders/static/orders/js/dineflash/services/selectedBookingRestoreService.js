@@ -227,7 +227,7 @@ async function reactIfSelectedBookingInactive({ bookingHint } = {}) {
     }
 
     try {
-        const lookupMod = await import("./bookingLookupService.js?v=20261027_1");
+        const lookupMod = await import("./bookingLookupService.js?v=20261104_1");
         if (typeof lookupMod.resolveBookingLookupForRelaunch !== "function") {
             return { outcome: "fallback_failed", reason: "no_resolve" };
         }
