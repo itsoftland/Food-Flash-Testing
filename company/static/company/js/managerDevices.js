@@ -23,6 +23,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isHospitalFlash = projectName === 'hospital_flash';
   const showReleaseDevice =
     projectName === 'dine_flash' || isBuffetProject || isHospitalFlash;
+  const userColumnDataLabel = isHospitalFlash ? 'User' : 'Manager Name';
+
+  /** Hospital Flash: role labels from core/config/roles.py via template json_script. */
+  function getHospitalRoleLabels() {
+    if (!isHospitalFlash) return null;
+    const el = document.getElementById('hospital-role-labels');
+    if (!el?.textContent) return null;
+    try {
+      return JSON.parse(el.textContent);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Hospital dropdown label: "Name — Role". When roles.length === 1, the role matches
+   * the profile id returned by get_users. With multiple roles on one auth user, the API
+   * does not expose which role belongs to that profile id — show name only.
+   */
+  function formatHospitalUserOptionLabel(user, roleLabels) {
+    const name = user?.name ?? '';
+    const roles = Array.isArray(user?.roles) ? user.roles : [];
+    if (!roleLabels || roles.length === 0) return name;
+    if (roles.length === 1) {
+      const roleKey = roles[0];
+      const roleLabel = roleLabels[roleKey] || roleKey;
+      return `${name} — ${roleLabel}`;
+    }
+    return name;
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
   // Hospital Flash only: map_manager_devices checks manager.admin_outlet (not Vendor/Branch).
   function mapHospitalManagerDevicesError(message) {
@@ -90,7 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <tr>
             <td class="text-muted text-center" data-label="ID">${Id}</td>
             <td class="name" data-label="MAC Address">${device.mac_address}</td>
-            <td class="${outletClass}" data-label="Manager Name">${managerName}</td>
+            <td class="${outletClass}" data-label="${userColumnDataLabel}">${managerName}</td>
             <td class="text-muted" data-label="Created Time">${createdTime}</td>
             <td class="text-center" data-label="Actions">
               <button class="icon-btn icon-link-toggle ${isMapped ? 'linked' : 'unlinked'}"
@@ -193,12 +231,16 @@ function attachActionListeners() {
   }
 
   async function openMapDeviceModal(deviceId, macAddress) {
+    const chooseUserLabel = isHospitalFlash ? 'Choose User' : 'Choose Manager';
+    const loadingUsersText = isHospitalFlash ? 'Loading users...' : 'Loading managers...';
+    const modalTitle = isHospitalFlash ? 'Link Device to User' : 'Link Device to Manager';
+
     const modalBodyHTML = `
       <form id="map-device-form" class="px-4 py-3 mx-auto" style="max-width: 600px;">
         <div class="form-group col-md-12 col-12">
-          <label for="manager-select">Choose Manager</label>
+          <label for="manager-select">${chooseUserLabel}</label>
           <select id="manager-select" name="manager_id" class="form-control">
-            <option disabled selected>Loading managers...</option>
+            <option disabled selected>${loadingUsersText}</option>
           </select>
         </div>
 
@@ -211,10 +253,14 @@ function attachActionListeners() {
     `;
 
     ModalService.showCustom({
-      title: 'Link Device to Manager',
+      title: modalTitle,
       body: modalBodyHTML,
       onShown: async () => {
         const managerSelect = document.getElementById('manager-select');
+        const hospitalRoleLabels = getHospitalRoleLabels();
+        const noUsersText = isHospitalFlash ? 'No users available' : 'No managers available';
+        const errorLoadingText = isHospitalFlash ? 'Error loading users' : 'Error loading managers';
+
         try {
           const res = await fetchWithAutoRefresh(API_ENDPOINTS.GET_USERS);
           const data = await res.json();
@@ -227,14 +273,19 @@ function attachActionListeners() {
           }
 
           if (!managers.length) {
-            managerSelect.innerHTML = `<option disabled>No managers available</option>`;
+            managerSelect.innerHTML = `<option disabled>${noUsersText}</option>`;
           } else {
             managerSelect.innerHTML = managers
-              .map(v => `<option value="${v.id}">${v.name}</option>`)
+              .map((v) => {
+                const label = isHospitalFlash
+                  ? formatHospitalUserOptionLabel(v, hospitalRoleLabels)
+                  : v.name;
+                return `<option value="${v.id}">${escapeHtml(label)}</option>`;
+              })
               .join('');
           }
         } catch (err) {
-          managerSelect.innerHTML = `<option disabled>Error loading managers</option>`;
+          managerSelect.innerHTML = `<option disabled>${errorLoadingText}</option>`;
         }
 
         // Handle form submission
@@ -243,7 +294,7 @@ function attachActionListeners() {
 
           const managerId = managerSelect.value;
           if (!managerId) {
-            ModalService.showError('Please select a manager.');
+            ModalService.showError(isHospitalFlash ? 'Please select a user.' : 'Please select a manager.');
             return;
           }
 
@@ -261,8 +312,11 @@ function attachActionListeners() {
             if (modalInstance) modalInstance.hide();
 
             if (res.ok) {
+              const linkSuccessText = isHospitalFlash
+                ? `Device #${macAddress} linked to selected user.`
+                : `Device #${macAddress} linked to selected manager.`;
               setTimeout(() => {
-                ModalService.showSuccess(`Device #${macAddress} linked to selected manager.`, () => {
+                ModalService.showSuccess(linkSuccessText, () => {
                   location.reload(); // Or call loadDevices()
                 });
               }, 300);
