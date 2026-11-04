@@ -72,22 +72,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     nameInput.addEventListener("input", validatePatientName);
 
+    const phoneEl = document.getElementById("phone_number");
+    const phoneEnabled =
+        window.PHONE_NUMBER_ENABLED === true || window.PHONE_NUMBER_ENABLED === "true";
+
+    function validatePhoneNumber() {
+        if (!phoneEnabled || !phoneEl) return true;
+        const value = phoneEl.value.trim();
+        if (!value) {
+            phoneEl.classList.remove("is-invalid");
+            return true;
+        }
+        if (!/^\d{10}$/.test(value)) {
+            phoneEl.classList.add("is-invalid");
+            ModalService.showError("Please enter a valid 10-digit phone number.");
+            return false;
+        }
+        phoneEl.classList.remove("is-invalid");
+        return true;
+    }
+
     continueBtn.addEventListener("click", () => {
         if (!validatePatientName()) return;
+        if (!validatePhoneNumber()) return;
 
         const patientName = cleanAndFormatName(nameInput.value);
-        const phoneEl = document.getElementById("phone_number");
         const mrEl = document.getElementById("mr_number");
         const billEl = document.getElementById("bill_number");
         const remarksEl = document.getElementById("remarks");
 
-        const phoneEnabled =
-            window.PHONE_NUMBER_ENABLED === true || window.PHONE_NUMBER_ENABLED === "true";
         let phoneNumber = phoneEl ? phoneEl.value.trim() : "";
-        if (phoneEnabled && phoneNumber && phoneNumber.length > 20) {
-            ModalService.showError("Phone number is too long.");
-            return;
-        }
         if (!phoneEnabled) phoneNumber = "";
 
         const mrEnabled =
