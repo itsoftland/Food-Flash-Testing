@@ -21,7 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const projectName = (window.PROJECT_NAME || '').trim().toLowerCase();
   const isBuffetProject = projectName === 'dine_flash_buffet';
   const isHospitalFlash = projectName === 'hospital_flash';
-  const showReleaseDevice = projectName === 'dine_flash' || isBuffetProject;
+  const showReleaseDevice =
+    projectName === 'dine_flash' || isBuffetProject || isHospitalFlash;
 
   // Hospital Flash only: map_manager_devices checks manager.admin_outlet (not Vendor/Branch).
   function mapHospitalManagerDevicesError(message) {

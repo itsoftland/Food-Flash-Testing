@@ -819,7 +819,7 @@ def unmap_utility_user_devices(request, device_id):
 @permission_classes([IsAuthenticated])
 def release_android_apk(request, device_id):
     project = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower()
-    if project not in ("dine_flash", "dine_flash_buffet"):
+    if project not in ("dine_flash", "dine_flash_buffet", "hospital_flash"):
         return Response({"error": "Not available for this project."}, status=status.HTTP_403_FORBIDDEN)
 
     admin_outlet = getattr(request.user, 'admin_outlet', None)

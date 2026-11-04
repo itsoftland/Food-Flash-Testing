@@ -358,3 +358,103 @@ class AndroidApkReleaseTests(TestCase):
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    @override_settings(PROJECT_NAME="dine_flash_buffet")
+    def test_release_android_apk_works_for_buffet_project(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data.get("message"), "Device released successfully.")
+        self.assertFalse(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+
+class _AndroidApkReleaseTestMixin:
+    """Shared fixtures for release_android_apk flavour tests."""
+
+    def _create_release_fixtures(self):
+        self.user = User.objects.create_user(username="release_admin", password="pass1234")
+        self.client = APIClient()
+        self.client.login(username="release_admin", password="pass1234")
+
+        self.admin_outlet = AdminOutlet.objects.create(
+            user=self.user,
+            customer_name="Release Test Co",
+            customer_id=601,
+            locations=[{"CityA": "C1"}],
+            authentication_status="Approve",
+            product_to_date=timezone.now() + timezone.timedelta(days=30),
+        )
+
+        self.other_user = User.objects.create_user(username="release_other", password="pass1234")
+        self.other_outlet = AdminOutlet.objects.create(
+            user=self.other_user,
+            customer_name="Other Release Co",
+            customer_id=602,
+            locations=[{"CityB": "C2"}],
+            authentication_status="Approve",
+            product_to_date=timezone.now() + timezone.timedelta(days=30),
+        )
+
+        self.manager_profile = UserProfile.objects.create(
+            user=self.user,
+            name="Outlet Manager",
+            role="outlet_manager",
+            admin_outlet=self.admin_outlet,
+        )
+
+        self.apk_device = AndroidAPK.objects.create(
+            token="tok-apk-hospital",
+            mac_address="11:22:33:44:55:66",
+            apk_version="1.0.0",
+            admin_outlet=self.admin_outlet,
+            user_profile=self.manager_profile,
+        )
+
+
+@override_settings(PROJECT_NAME="hospital_flash")
+class HospitalFlashAndroidApkReleaseTests(_AndroidApkReleaseTestMixin, TestCase):
+    def setUp(self):
+        self._create_release_fixtures()
+
+    def test_release_android_apk_deletes_owned_device(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data.get("message"), "Device released successfully.")
+        self.assertFalse(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    def test_release_android_apk_rejects_other_outlet(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        other_client = APIClient()
+        other_client.login(username="release_other", password="pass1234")
+        resp = other_client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    def test_release_android_apk_not_found_for_invalid_id(self):
+        url = reverse("company:release_android_apk", args=[999999])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.data.get("error"), "Android APK device not found.")
+
+    def test_release_android_apk_rejects_unauthenticated(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        anon_client = APIClient()
+        resp = anon_client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    def test_unmap_manager_devices_does_not_delete_apk(self):
+        url = reverse("company:unmap_manager_devices", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.apk_device.refresh_from_db()
+        self.assertIsNone(self.apk_device.user_profile)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
+
+    @override_settings(PROJECT_NAME="food_flash")
+    def test_release_android_apk_rejects_unrelated_flavours(self):
+        url = reverse("company:release_android_apk", args=[self.apk_device.id])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(AndroidAPK.objects.filter(id=self.apk_device.id).exists())
