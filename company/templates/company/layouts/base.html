@@ -92,7 +92,7 @@
               <a href="#" class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                 <i class="nav-icon fas fa-users"></i>
                 <p>
-                  {% if PROJECT_NAME == "hospital_flash" %}Users{% else %}Users(Dev){% endif %}
+                  {% if PROJECT_NAME == "hospital_flash" or PROJECT_NAME == "dine_flash" %}Users{% else %}Users(Dev){% endif %}
                   <i class="right fas fa-angle-down"></i> 
                 </p>
               </a>
@@ -128,7 +128,7 @@
             <li class="nav-item">
               <a href="{% url 'company:manager_devices' %}" class="nav-link {% if request.resolver_match.url_name == 'manager_devices' %}active{% endif %}">
                 <i class="nav-icon fas fa-mobile-retro"></i>
-                <p>{% if PROJECT_NAME == "hospital_flash" %}Devices{% else %}Manager Devices(Dev){% endif %}</p>
+                <p>{% if PROJECT_NAME == "hospital_flash" %}Devices{% elif PROJECT_NAME == "dine_flash" %}Manager Devices{% else %}Manager Devices(Dev){% endif %}</p>
               </a>
             </li>
             {% endif %}
