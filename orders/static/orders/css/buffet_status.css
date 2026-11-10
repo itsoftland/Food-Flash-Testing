@@ -193,6 +193,11 @@
     font-size: 0.9rem;
 }
 
+/* Home chat scroll region (same flex basis as Dine Flash / Hospital Flash layout fix). */
+.page-wrapper > .chat-response {
+    flex: 1 1 0%;
+}
+
 /* ===========================================
    Phase 4 — Active Order Selector (display only)
    Shown only when GET active_orders returns 2+.
