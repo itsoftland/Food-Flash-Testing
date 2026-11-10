@@ -154,7 +154,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function showLicenseDates() {
   const project = (window.PROJECT_NAME || '').toLowerCase().trim();
-  return project === 'dine_flash' || project === 'dine_flash_buffet';
+  return project === 'dine_flash' || project === 'dine_flash_buffet' || project === 'hospital_flash';
 }
 
 function getTableColspan() {
