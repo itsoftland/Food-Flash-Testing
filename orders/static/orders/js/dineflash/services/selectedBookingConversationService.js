@@ -1,7 +1,7 @@
 // Dine Flash ONLY — per-booking conversation isolation in Multi-Booking Mode.
 
 import { ChatHistoryService } from "../../services/chatHistoryService.js";
-import { ChatSyncService } from "../../services/chatSyncService.js?v=20261027_1";
+import { ChatSyncService } from "../../services/chatSyncService.js?v=20261110_1";
 import { appendMessage } from "../../services/chatService.js";
 import { WelcomeMessageService } from "../../services/welcomeMessageService.js";
 import { getSelectedBooking } from "./selectedBookingService.js?v=20261027_1";

@@ -13,7 +13,7 @@
 //   - ChatHistoryService.load + appendMessage + WelcomeMessageService (render)
 
 import { ChatHistoryService } from "../../services/chatHistoryService.js?v=20260821_2";
-import { ChatSyncService } from "../../services/chatSyncService.js?v=20260824_1";
+import { ChatSyncService } from "../../services/chatSyncService.js?v=20261110_1";
 import { appendMessage } from "../../services/chatService.js?v=20260821_2";
 import { WelcomeMessageService } from "../../services/welcomeMessageService.js";
 import { getSelectedOrder } from "./selectedOrderService.js";

@@ -428,12 +428,6 @@ function passesDineFlashBookingGuard(msg) {
     return incoming === active;
 }
 
-function passesRecoveryGuard(msg) {
-    if (!passesBuffetQrTokenGuard(msg)) return false;
-    if (!passesDineFlashBookingGuard(msg)) return false;
-    return true;
-}
-
 export const ChatSyncService = (() => {
     let handledFingerprints = new Set();
     let activeVendorId = null;
@@ -444,6 +438,42 @@ export const ChatSyncService = (() => {
     // since last resetForVendor. Empty history still counts as a completed seed.
     // Independent of handledFingerprints / isRestoringHistory.
     let historySeeded = false;
+
+    async function tryMarkDineFlashBookingUnseenFromSync(
+        msg,
+        allowUnseenMark,
+        paintMessage
+    ) {
+        if (!isDineFlashTableBookingSurface()) return false;
+        if (paintMessage) return false;
+        if (
+            !allowUnseenMark ||
+            historySeeded !== true ||
+            window.isRestoringHistory === true
+        ) {
+            return false;
+        }
+
+        try {
+            const unseenMod = await import(
+                "../dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
+            );
+            const bookingId = resolveBookingId(msg);
+            if (typeof unseenMod.markUnseen === "function") {
+                unseenMod.markUnseen(bookingId);
+            }
+            const selectorMod = await import(
+                "../dineflash/services/activeBookingSelectorService.js?v=20261027_2"
+            );
+            if (typeof selectorMod.repaintActiveBookingSelector === "function") {
+                await selectorMod.repaintActiveBookingSelector();
+            }
+        } catch (e) {
+            console.warn("[dine_flash] ChatSync unseen mark failed:", e);
+            return false;
+        }
+        return true;
+    }
 
     function isAlreadyHandled(source, fallbackVendorId) {
         if (!isEnabled()) return false;
@@ -537,30 +567,24 @@ export const ChatSyncService = (() => {
 
                 const recoverable = isRecoverableMessage(msg);
 
-                let recoveryGuard = false;
-                let alreadyHandled = false;
+                if (!recoverable) continue;
 
-                if (recoverable) {
-                    recoveryGuard = passesRecoveryGuard(msg);
-
-                    if (recoveryGuard) {
-                        alreadyHandled = isAlreadyHandled(msg, vendorId);
-                    }
-                }
+                const qrGuard = passesBuffetQrTokenGuard(msg);
+                const bookingGuard = passesDineFlashBookingGuard(msg);
+                const alreadyHandled = isAlreadyHandled(msg, vendorId);
 
                 dineFlashClientDiag("SYNC_CHECK", {
                     booking_id: resolveBookingId(msg),
                     token_no: msg.token_no,
                     type: resolveMessageType(msg),
                     recoverable,
-                    qr_guard: recoveryGuard,
+                    qr_guard: qrGuard,
+                    booking_guard: bookingGuard,
                     already_handled: alreadyHandled,
                     project: currentProject(),
                 });
 
-                if (!recoverable) continue;
-                if (!recoveryGuard) continue;
-                if (alreadyHandled) continue;
+                if (!qrGuard) continue;
 
                 // Phase 9: Buffet Multi-Order — do not paint non-Selected
                 // tokens into the visible conversation. Still mark handled
@@ -577,33 +601,6 @@ export const ChatSyncService = (() => {
                     } catch (e) {
                         paintMessage = true;
                     }
-
-                    // Order-level unseen indicator (Buffet Multi-Order only).
-                    // Requires historySeeded; never marks from seedFromMessages.
-                    // Does not change append / registerPushDelivered behaviour.
-                    if (
-                        !paintMessage &&
-                        allowBuffetUnseenMark &&
-                        historySeeded === true &&
-                        window.isRestoringHistory !== true
-                    ) {
-                        try {
-                            const unseenMod = await import(
-                                "../buffet/services/orderUnseenUpdateService.js?v=20260824_1"
-                            );
-                            if (typeof unseenMod.markUnseen === "function") {
-                                unseenMod.markUnseen(msg.token_no);
-                            }
-                            const selectorMod = await import(
-                                "../buffet/services/activeOrderSelectorService.js?v=20260824_1"
-                            );
-                            if (typeof selectorMod.repaintActiveOrderSelector === "function") {
-                                await selectorMod.repaintActiveOrderSelector();
-                            }
-                        } catch (e) {
-                            console.warn("[buffet] ChatSync unseen mark failed:", e);
-                        }
-                    }
                 }
 
                 if (isDineFlashTableBookingSurface()) {
@@ -617,32 +614,52 @@ export const ChatSyncService = (() => {
                     } catch (e) {
                         paintMessage = true;
                     }
+                }
 
-                    if (
-                        !paintMessage &&
-                        allowBuffetUnseenMark &&
-                        historySeeded === true &&
-                        window.isRestoringHistory !== true
-                    ) {
-                        try {
-                            const unseenMod = await import(
-                                "../dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
-                            );
-                            const bookingId = resolveBookingId(msg);
-                            if (typeof unseenMod.markUnseen === "function") {
-                                unseenMod.markUnseen(bookingId);
-                            }
-                            const selectorMod = await import(
-                                "../dineflash/services/activeBookingSelectorService.js?v=20261027_2"
-                            );
-                            if (
-                                typeof selectorMod.repaintActiveBookingSelector === "function"
-                            ) {
-                                await selectorMod.repaintActiveBookingSelector();
-                            }
-                        } catch (e) {
-                            console.warn("[dine_flash] ChatSync unseen mark failed:", e);
+                // Dine Flash table booking: booking-level unseen recovery is
+                // independent of the selected-booking append guard.
+                if (
+                    isDineFlashTableBookingSurface() &&
+                    !paintMessage &&
+                    !alreadyHandled
+                ) {
+                    const markedUnseen = await tryMarkDineFlashBookingUnseenFromSync(
+                        msg,
+                        allowBuffetUnseenMark,
+                        paintMessage
+                    );
+                    if (markedUnseen) {
+                        registerPushDelivered(msg, vendorId);
+                    }
+                    if (!bookingGuard) continue;
+                }
+
+                if (!bookingGuard) continue;
+                if (alreadyHandled) continue;
+
+                // Order-level unseen indicator (Buffet Multi-Order only).
+                if (
+                    isDineFlashBuffetSurface() &&
+                    !paintMessage &&
+                    allowBuffetUnseenMark &&
+                    historySeeded === true &&
+                    window.isRestoringHistory !== true
+                ) {
+                    try {
+                        const unseenMod = await import(
+                            "../buffet/services/orderUnseenUpdateService.js?v=20260824_1"
+                        );
+                        if (typeof unseenMod.markUnseen === "function") {
+                            unseenMod.markUnseen(msg.token_no);
                         }
+                        const selectorMod = await import(
+                            "../buffet/services/activeOrderSelectorService.js?v=20260824_1"
+                        );
+                        if (typeof selectorMod.repaintActiveOrderSelector === "function") {
+                            await selectorMod.repaintActiveOrderSelector();
+                        }
+                    } catch (e) {
+                        console.warn("[buffet] ChatSync unseen mark failed:", e);
                     }
                 }
 

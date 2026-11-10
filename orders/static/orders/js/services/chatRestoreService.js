@@ -1,6 +1,6 @@
 // orders/static/orders/js/services/chatRestoreService.js
 import { ChatHistoryService } from "./chatHistoryService.js?v=20260821_2";
-import { ChatSyncService } from "./chatSyncService.js?v=20260824_1";
+import { ChatSyncService } from "./chatSyncService.js?v=20261110_1";
 import { appendMessage } from "./chatService.js?v=20260910_1";
 import { WelcomeMessageService } from "./welcomeMessageService.js";
 import { HOSPITAL_MANAGER_PUSH_TYPE } from "../hospital/hospitalCommon.js";
@@ -25,6 +25,12 @@ function isDineFlashBuffetRestoreSurface() {
   if (base.includes("/dine_flash_buffet/")) return true;
   const path = (window.location?.pathname || "").toLowerCase();
   return path.includes("/dine_flash_buffet") || path.includes("/dineflashbuffet");
+}
+
+function isDineFlashTableBookingRestoreSurface() {
+  const base = window.BASE || "";
+  if (!base.includes("/dine_flash/")) return false;
+  return !base.includes("/dine_flash_buffet/");
 }
 
 function isHospitalFlashRestoreSurface() {
@@ -171,7 +177,27 @@ export const ChatRestoreService = (() => {
         if (!cachedMessages) {
           cachedMessages = (await ChatHistoryService.load(vendorId, browserId)) || [];
         }
-        ChatSyncService.seedFromMessages(cachedMessages, vendorId);
+
+        let deferDineMultiBookingSyncSeed = false;
+        if (isDineFlashTableBookingRestoreSurface()) {
+          try {
+            const multiMod = await import(
+              "../dineflash/services/multiBookingModeService.js?v=20261027_1"
+            );
+            if (
+              typeof multiMod.isMultiBookingMode === "function" &&
+              multiMod.isMultiBookingMode()
+            ) {
+              deferDineMultiBookingSyncSeed = true;
+            }
+          } catch (e) {
+            deferDineMultiBookingSyncSeed = false;
+          }
+        }
+        if (!deferDineMultiBookingSyncSeed) {
+          ChatSyncService.seedFromMessages(cachedMessages, vendorId);
+        }
+
         const chatContainer = document.getElementById("chat-container");
 
         if (!chatContainer) {
@@ -260,11 +286,48 @@ export const ChatRestoreService = (() => {
             appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.token_no);
           });
         } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
-          cachedMessages.forEach(msg => {
-          // console.log(msg)
-          // console.log("Chat History booking_id",msg.booking_id)
-          appendMessage(msg.rendered, msg.sender, msg.timestamp, msg.type, msg.booking_id);
+          let selectedBookingFilter = null;
+          if (deferDineMultiBookingSyncSeed) {
+            try {
+              const { getSelectedBooking } = await import(
+                "../dineflash/services/selectedBookingService.js?v=20261027_1"
+              );
+              const selected = getSelectedBooking();
+              if (selected && selected.booking_id) {
+                selectedBookingFilter = String(selected.booking_id).trim();
+              }
+            } catch (e) {
+              selectedBookingFilter = null;
+            }
+          }
+
+          const messageMatchesSelectedBooking = (msg) => {
+            if (!selectedBookingFilter) return true;
+            const msgBookingId =
+              msg.booking_id === null || msg.booking_id === undefined
+                ? ""
+                : String(msg.booking_id).trim();
+            if (!msgBookingId) return true;
+            return msgBookingId === selectedBookingFilter;
+          };
+
+          const paintedForSyncSeed = [];
+          cachedMessages.forEach((msg) => {
+            if (!messageMatchesSelectedBooking(msg)) return;
+            appendMessage(
+              msg.rendered,
+              msg.sender,
+              msg.timestamp,
+              msg.type,
+              msg.booking_id
+            );
+            if (deferDineMultiBookingSyncSeed) {
+              paintedForSyncSeed.push(msg);
+            }
           });
+          if (deferDineMultiBookingSyncSeed) {
+            ChatSyncService.seedFromMessages(paintedForSyncSeed, vendorId);
+          }
         } else if (isHospitalFlashRestoreSurface()) {
           cachedMessages.forEach((msg) => {
             appendMessage(
