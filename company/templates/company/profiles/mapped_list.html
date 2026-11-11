@@ -6,6 +6,13 @@
 <link rel="stylesheet" href="{% static 'utils/css/choices.css' %}">
 <link rel="stylesheet" href="{% static 'company/css/confirm_dialogue.css' %}">
 <link rel="stylesheet" href="{% static 'company/css/mapped_list.css' %}">
+{% if PROJECT_NAME == "dine_flash" or PROJECT_NAME == "dine_flash_buffet" or PROJECT_NAME == "hospital_flash" %}
+<style>
+  #outletAccordion .assign-profile {
+    display: none !important;
+  }
+</style>
+{% endif %}
 {% endblock %}
 {% block title %}Mapped List{% endblock %}
 {% block content %}
