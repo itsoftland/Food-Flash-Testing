@@ -11,7 +11,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     const callProductAuthAPI = productAuthModule.callProductAuthAPI;
 
     const displayElement = document.getElementById('customer_info');
-    const customerIdRaw = AppUtils.getCustomerId();
+
+    const project = (window.PROJECT_NAME || 'default').toLowerCase().trim();
+    let customerIdRaw = null;
+    if (project) {
+        customerIdRaw = localStorage.getItem(`${project}:customer_id`);
+    }
+    if (!customerIdRaw) {
+        customerIdRaw = AppUtils.getCustomerId();
+    }
+
     const customerName = AppUtils.getCustomerName();
 
     if (!displayElement || !customerIdRaw) return;
@@ -19,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const customerId = parseInt(customerIdRaw, 10);
     const paddedId = !isNaN(customerId) ? customerId.toString().padStart(4, '0') : "Invalid";
 
-    const authResult = await callProductAuthAPI();
+    const authResult = await callProductAuthAPI(customerIdRaw);
     console.log('Auth check result on page load:', authResult);
     console.log(authResult.status, authResult.expiryDays);
 
