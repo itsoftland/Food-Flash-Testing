@@ -50,11 +50,19 @@ function getRoot() {
     return document.getElementById(SELECTOR_ROOT_ID);
 }
 
+function adjustChatResponsePadding() {
+    if (typeof AppUtils === "undefined" || typeof AppUtils.adjustChatResponsePadding !== "function") {
+        return;
+    }
+    AppUtils.adjustChatResponsePadding();
+}
+
 function hideSelector(root) {
     if (!root) return;
     root.hidden = true;
     root.innerHTML = "";
     root.setAttribute("aria-hidden", "true");
+    adjustChatResponsePadding();
 }
 
 function readOrderLookupId() {
@@ -387,6 +395,7 @@ function renderSelector(root, orders, currentToken) {
     root.appendChild(panel);
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
+    adjustChatResponsePadding();
 }
 
 /**

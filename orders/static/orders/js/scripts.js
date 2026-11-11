@@ -560,6 +560,7 @@ onDOMReady(async function () {
             toggleBtn.classList.remove("rotated");
         }
         isAdVisible = !isAdVisible;
+        AppUtils.adjustChatResponsePadding();
     });
 
     MenuModalService.init();
