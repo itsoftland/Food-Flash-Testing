@@ -171,6 +171,110 @@ class BuffetManagerOrderUpdateMessageTests(SimpleTestCase):
 
 
 @override_settings(PROJECT_NAME="dine_flash_buffet")
+class BuffetManagerOrderUpdateCallTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.vendor = _buffet_vendor()
+        self.user, self.profile = _manager_user(self.vendor)
+        self.order = _order(self.vendor)
+        self.order.status = "preparing"
+
+    def _call_action(self, body, project="dine_flash_buffet"):
+        from manager import views as manager_views
+
+        request = self.factory.patch(
+            "/manager/api/manager_order_update/",
+            body,
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        with patch.object(manager_views, "project_name", project), patch(
+            "manager.views.get_vendor_business_day_range",
+            return_value=(timezone.now() - timedelta(hours=1), timezone.now() + timedelta(hours=1)),
+        ), patch(
+            "manager.views.Order.objects.filter"
+        ) as mock_filter, patch(
+            "manager.views.update_existing_order_by_manager"
+        ) as mock_update, patch(
+            "manager.views.notify_web_push"
+        ) as mock_push, patch(
+            "manager.views.notify_android_tv"
+        ) as mock_tv, patch(
+            "manager.views.send_order_update"
+        ) as mock_mqtt, patch(
+            "manager.views.ChatMessage.objects.create"
+        ) as mock_chat, patch(
+            "manager.views.VendorLogoSerializer"
+        ) as mock_logo:
+            mock_filter.return_value.first.return_value = self.order
+            mock_logo.return_value.data = {"logo_url": ""}
+            response = manager_views.manager_order_update(request)
+            return response, mock_update, mock_push, mock_tv, mock_mqtt, mock_chat
+
+    def test_call_action_returns_200_and_leaves_order_unchanged(self):
+        original_status = self.order.status
+        response, mock_update, mock_push, mock_tv, mock_mqtt, mock_chat = self._call_action(
+            {"token_no": 42, "action": "call", "status": "call"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["token_no"], 42)
+        self.assertEqual(self.order.status, original_status)
+        mock_update.assert_not_called()
+        mock_push.assert_not_called()
+        mock_tv.assert_not_called()
+        mock_mqtt.assert_not_called()
+        mock_chat.assert_not_called()
+
+    def test_call_rejected_on_non_buffet_flavour(self):
+        from manager import views as manager_views
+
+        request = self.factory.patch(
+            "/manager/api/manager_order_update/",
+            {"token_no": 42, "action": "call", "status": "call"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        with patch.object(manager_views, "project_name", "food_flash"):
+            response = manager_views.manager_order_update(request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid action", response.data["message"])
+
+    def test_call_invalid_token_returns_404(self):
+        from manager import views as manager_views
+
+        request = self.factory.patch(
+            "/manager/api/manager_order_update/",
+            {"token_no": 99, "action": "call", "status": "call"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        with patch.object(manager_views, "project_name", "dine_flash_buffet"), patch(
+            "manager.views.get_vendor_business_day_range",
+            return_value=(timezone.now() - timedelta(hours=1), timezone.now() + timedelta(hours=1)),
+        ), patch(
+            "manager.views.Order.objects.filter"
+        ) as mock_filter:
+            mock_filter.return_value.first.return_value = None
+            response = manager_views.manager_order_update(request)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_call_missing_required_fields_returns_400(self):
+        from manager import views as manager_views
+
+        request = self.factory.patch(
+            "/manager/api/manager_order_update/",
+            {"token_no": 42, "action": "call"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user)
+        with patch.object(manager_views, "project_name", "dine_flash_buffet"):
+            response = manager_views.manager_order_update(request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Missing fields", response.data["message"])
+
+
+@override_settings(PROJECT_NAME="dine_flash_buffet")
 class BuffetChatHistoryTests(SimpleTestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
@@ -494,6 +598,32 @@ class BuffetOutletManagerChatIntegrationTests(TestCase):
         )
         self.assertEqual(chat_tokens, {"om-fcm"})
         self.assertNotIn("kitchen-fcm", chat_tokens)
+
+    @patch("manager.views.project_name", "dine_flash_buffet")
+    @patch("manager.views.notify_web_push", return_value=[])
+    def test_manager_call_action_does_not_mutate_order_or_chat(self, _mock_push):
+        before = Order.objects.get(pk=self.order.pk)
+        url = reverse("manager:manager_order_update")
+        with patch(
+            "manager.views.get_vendor_business_day_range",
+            return_value=(
+                timezone.now() - timedelta(hours=12),
+                timezone.now() + timedelta(hours=12),
+            ),
+        ):
+            resp = self.client.patch(
+                url,
+                {"token_no": 42, "action": "call", "status": "call"},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
+        self.assertTrue(resp.data["success"])
+        after = Order.objects.get(pk=self.order.pk)
+        self.assertEqual(after.status, before.status)
+        self.assertFalse(
+            ChatMessage.objects.filter(vendor=self.vendor, token_no=42).exists()
+        )
+        _mock_push.assert_not_called()
 
     @patch("manager.views.project_name", "dine_flash_buffet")
     @patch("manager.views.notify_web_push", return_value=[])

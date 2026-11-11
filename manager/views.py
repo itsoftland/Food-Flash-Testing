@@ -1731,6 +1731,7 @@ def manager_order_update(request):
         - "delivered": Marks order delivered, updates DB & sends web push.
         - "cancelled": Cancels order, updates DB & sends web push.
         - "message": Sends a custom manager message to customer via web push.
+        - "call" (dine_flash_buffet only): Acknowledges a manager call action; no DB/status/push side effects.
     """
 
     try:
@@ -1757,7 +1758,10 @@ def manager_order_update(request):
 
         status_to_update = data['status']
         action = request.data.get("action", "").lower()
-        if action not in ["ready", "message", "delivered", "cancelled"]:
+        allowed_actions = ["ready", "message", "delivered", "cancelled"]
+        if project_name == "dine_flash_buffet":
+            allowed_actions.append("call")
+        if action not in allowed_actions:
             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
         action_type = action
 
@@ -1784,6 +1788,21 @@ def manager_order_update(request):
         if not order:
             logger.warning("❌ No order found for token_no %s today.", token_no)
             return Response({"message": f"Order with token_no {token_no} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if action_type == "call":
+            if project_name != "dine_flash_buffet":
+                return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
+            logger.info("📞 Call action for order token %s by manager %s", token_no, manager.name)
+            return Response({
+                "success": True,
+                "message": "Call action processed successfully.",
+                "token_no": token_no,
+                "android_tv": None,
+                "android_tv_info": None,
+                "web_push": True,
+                "web_push_info": [],
+                "mqtt": None,
+            }, status=status.HTTP_200_OK)
 
         # === Step 5: Serialize vendor logo ===
         # Buffet freeform chat (action=message) must not hard-fail when the
