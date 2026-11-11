@@ -653,7 +653,7 @@ export const ChatSyncService = (() => {
                             unseenMod.markUnseen(msg.token_no);
                         }
                         const selectorMod = await import(
-                            "../buffet/services/activeOrderSelectorService.js?v=20260824_1"
+                            "../buffet/services/activeOrderSelectorService.js?v=20261111_1"
                         );
                         if (typeof selectorMod.repaintActiveOrderSelector === "function") {
                             await selectorMod.repaintActiveOrderSelector();

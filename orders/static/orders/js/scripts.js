@@ -797,7 +797,7 @@ onDOMReady(async function () {
             }
         }
 
-        import("./buffet/services/activeOrderSelectorService.js?v=20260824_1")
+        import("./buffet/services/activeOrderSelectorService.js?v=20261111_1")
             .then((mod) => {
                 if (mod && typeof mod.initActiveOrderSelector === "function") {
                     return mod.initActiveOrderSelector();
@@ -1300,7 +1300,7 @@ onDOMReady(async function () {
                                 unseenMod.markUnseen(tokenNo);
                             }
                             return import(
-                                "./buffet/services/activeOrderSelectorService.js?v=20260824_1"
+                                "./buffet/services/activeOrderSelectorService.js?v=20261111_1"
                             );
                         })
                         .then((selectorMod) => {
