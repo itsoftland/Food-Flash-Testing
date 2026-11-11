@@ -21,7 +21,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         customerIdRaw = AppUtils.getCustomerId();
     }
 
-    const customerName = AppUtils.getCustomerName();
+    let customerName = null;
+    if (project) {
+        customerName = localStorage.getItem(`${project}:customer_name`);
+    }
+    if (!customerName) {
+        customerName = AppUtils.getCustomerName();
+    }
 
     if (!displayElement || !customerIdRaw) return;
 
