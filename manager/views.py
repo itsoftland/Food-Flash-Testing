@@ -20,7 +20,14 @@ from orders.hospital.api_helpers import build_hospital_tracking_url
 from orders.serializers import VendorLogoSerializer
 from orders.utils import send_to_managers
 
-from vendors.models import ChatMessage, Order, Utility, OrderStatusHistory, Vendor
+from vendors.models import (
+    BuffetOrderItem,
+    ChatMessage,
+    Order,
+    OrderStatusHistory,
+    Utility,
+    Vendor,
+)
 from vendors.serializers import OrdersSerializer
 from vendors.services.order_service import send_order_update
 from vendors.utils import notify_web_push
@@ -175,6 +182,50 @@ def _build_unread_notifications_map_by_sequence(vendor, sequence_codes):
         .annotate(unread_count=Count("id"))
     )
     return {row["sequence_code"]: row["unread_count"] for row in unread_rows}
+
+
+def _buffet_item_detail_for_today_orders(item):
+    """Flat BuffetOrderItem payload for get_today_orders (dine_flash_buffet only)."""
+    from manager.buffet_views import _buffet_line_details
+
+    customizations, remarks = _buffet_line_details(item)
+    utility = item.utility
+    return {
+        "item_id": item.id,
+        "utility_id": item.utility_id,
+        "utility_name": utility.display_name if utility else "Unknown",
+        "status": item.status,
+        "quantity": item.quantity,
+        "customizations": customizations,
+        "remarks": remarks,
+    }
+
+
+def _build_buffet_items_by_order_id(order_ids):
+    """Single batched query: order_id -> list of flat buffet item dicts."""
+    if not order_ids:
+        return {}
+    items_by_order = {oid: [] for oid in order_ids}
+    qs = (
+        BuffetOrderItem.objects.filter(order_id__in=order_ids)
+        .select_related("utility")
+        .order_by("order_id", "utility_id", "id")
+    )
+    for item in qs:
+        items_by_order[item.order_id].append(_buffet_item_detail_for_today_orders(item))
+    return items_by_order
+
+
+def _attach_buffet_items_to_order_detail(serialized_orders, order_ids):
+    """Merge buffet_items into each serialized order row (buffet flavour only)."""
+    if not serialized_orders or not order_ids:
+        return
+    items_by_order = _build_buffet_items_by_order_id(order_ids)
+    for row in serialized_orders:
+        oid = row.get("id")
+        if oid is None:
+            continue
+        row["buffet_items"] = items_by_order.get(int(oid), [])
 
 
 def _booking_list_serializer_context(request, unread_map):
@@ -910,6 +961,10 @@ def get_today_orders(request):
         if unread_map is not None:
             serializer_context["unread_notifications_map"] = unread_map
         data = OrdersSerializer(order_list, many=True, context=serializer_context).data
+        if project_name == "dine_flash_buffet" and order_list:
+            _attach_buffet_items_to_order_detail(
+                data, [order.id for order in order_list]
+            )
         t_serialize_ms = (time.perf_counter() - t2) * 1000
         logger.debug(
             "[get_today_orders] Serialized orders | vendor_id=%s | serialized_count=%s",
