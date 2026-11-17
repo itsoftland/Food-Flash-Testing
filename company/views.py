@@ -705,7 +705,7 @@ def get_users(request):
             instance = data['instance']
             serializer = UserListDetailSerializer(instance, context={'request': request}).data
             serializer['roles'] = list(set(data['roles']))  # Remove duplicates if any
-            if settings.PROJECT_NAME == "hospital_flash":
+            if settings.PROJECT_NAME in ("hospital_flash", "dine_flash_buffet"):
                 serializer['vendor'] = instance.vendor_id
             serialized_data.append(serializer)
 

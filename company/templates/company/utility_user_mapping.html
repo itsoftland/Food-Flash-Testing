@@ -38,6 +38,7 @@
 <script>
     const IS_HOSPITAL_FLASH = {% if PROJECT_NAME == "hospital_flash" %}true{% else %}false{% endif %};
     const IS_BUFFET = {% if PROJECT_NAME == "dine_flash_buffet" %}true{% else %}false{% endif %};
+    const FILTER_UTILITIES_BY_USER_VENDOR = IS_HOSPITAL_FLASH || IS_BUFFET;
     const MAPPING_LABELS = IS_HOSPITAL_FLASH ? {
         selectUser: '-- Select Department User --',
         noEntities: 'No departments exist. Please create them first.',
@@ -50,6 +51,10 @@
         noEntities: {% if PROJECT_NAME == "dine_flash_buffet" %}'No menus exist. Please create them first.'{% else %}'No food counters exist. Please create them first.'{% endif %},
         selectFirst: {% if PROJECT_NAME == "dine_flash_buffet" %}'Select a user first to view and assign menu.'{% else %}'Select a user first to view and assign counters.'{% endif %},
         saved: {% if PROJECT_NAME == "dine_flash_buffet" %}'Menu mapping saved successfully.'{% else %}'Utility mapping saved successfully.'{% endif %},
+        {% if PROJECT_NAME == "dine_flash_buffet" %}
+        noVendor: 'This user is not assigned to an outlet.',
+        noOutletMenus: 'No menus exist for this user\'s outlet.',
+        {% endif %}
     };
 
     const HOSPITAL_ERROR_DISPLAY = {
@@ -121,7 +126,7 @@
                 select.innerHTML = `<option value="">${MAPPING_LABELS.selectUser}</option>`;
                 const users = data.users || data;
 
-                if (IS_HOSPITAL_FLASH) {
+                if (FILTER_UTILITIES_BY_USER_VENDOR) {
                     userVendorById = {};
                 }
                 
@@ -131,7 +136,7 @@
                         opt.value = user.id;
                         opt.text = (user.name || "").trim() || user.username || "Unnamed User";
                         opt.dataset.assigned = JSON.stringify(user.assigned_utilities || []);
-                        if (IS_HOSPITAL_FLASH) {
+                        if (FILTER_UTILITIES_BY_USER_VENDOR) {
                             userVendorById[user.id] = user.vendor ?? null;
                         }
                         select.appendChild(opt);
@@ -158,7 +163,7 @@
     }
 
     function getUtilitiesForUser(vendorPk) {
-        if (!IS_HOSPITAL_FLASH || activeUtilitiesUrl !== COMPANY_UTILITIES_URL) {
+        if (!FILTER_UTILITIES_BY_USER_VENDOR || activeUtilitiesUrl !== COMPANY_UTILITIES_URL) {
             return allUtilities;
         }
         if (vendorPk == null) {
@@ -171,7 +176,7 @@
         const container = document.getElementById("utilities-list");
         container.innerHTML = "";
 
-        if (IS_HOSPITAL_FLASH && activeUtilitiesUrl === COMPANY_UTILITIES_URL && vendorPk == null) {
+        if (FILTER_UTILITIES_BY_USER_VENDOR && activeUtilitiesUrl === COMPANY_UTILITIES_URL && vendorPk == null) {
             container.innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.noVendor}</div>`;
             return;
         }
@@ -183,8 +188,9 @@
 
         const utilitiesToRender = getUtilitiesForUser(vendorPk);
 
-        if (IS_HOSPITAL_FLASH && activeUtilitiesUrl === COMPANY_UTILITIES_URL && utilitiesToRender.length === 0) {
-            container.innerHTML = `<div class="text-muted text-center py-4">${MAPPING_LABELS.noOutletDepartments}</div>`;
+        if (FILTER_UTILITIES_BY_USER_VENDOR && activeUtilitiesUrl === COMPANY_UTILITIES_URL && utilitiesToRender.length === 0) {
+            const emptyOutletMsg = IS_HOSPITAL_FLASH ? MAPPING_LABELS.noOutletDepartments : MAPPING_LABELS.noOutletMenus;
+            container.innerHTML = `<div class="text-muted text-center py-4">${emptyOutletMsg}</div>`;
             return;
         }
         
@@ -207,10 +213,14 @@
             try {
                 const assigned = JSON.parse(selectedOpt.dataset.assigned);
                 const assignedIds = assigned.map(a => a.id);
-                const vendorPk = IS_HOSPITAL_FLASH ? (userVendorById[selectedOpt.value] ?? null) : null;
+                const vendorPk = FILTER_UTILITIES_BY_USER_VENDOR
+                    ? (userVendorById[selectedOpt.value] ?? null)
+                    : null;
                 renderUtilityCheckboxes(assignedIds, vendorPk);
             } catch (err) {
-                const vendorPk = IS_HOSPITAL_FLASH ? (userVendorById[selectedOpt.value] ?? null) : null;
+                const vendorPk = FILTER_UTILITIES_BY_USER_VENDOR
+                    ? (userVendorById[selectedOpt.value] ?? null)
+                    : null;
                 renderUtilityCheckboxes([], vendorPk);
             }
         } else {
