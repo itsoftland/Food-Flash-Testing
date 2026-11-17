@@ -110,7 +110,11 @@
                 <table class="table table-bordered bg-light-gray mb-0">
                     <thead class="thead-light">
                         <tr>
+                            {% if PROJECT_NAME == "dine_flash_buffet" %}
+                            <th>Sr. No.</th>
+                            {% else %}
                             <th>Id</th>
+                            {% endif %}
                             <th>Token No</th>
                             {% if PROJECT_NAME == "dine_flash" %}
                             <th>Booking No</th>

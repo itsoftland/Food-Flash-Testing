@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const meta = data.meta || {};
       const orders = data.orders || data.data || [];
-      renderTable(orders);
+      renderTable(orders, meta);
 
       if (meta.page != null) {
         currentPage = meta.page;
@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 9;
   }
 
-  function renderTable(orders) {
+  function renderTable(orders, meta = {}) {
     tableBody.innerHTML = "";
 
     const colCount = getTableColCount();
@@ -553,6 +553,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       tableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center">${emptyMessage}</td></tr>`;
       return;
     }
+
+    const buffetPage = Number(meta.page) || 1;
+    const buffetPageSize = Number(meta.page_size) || 25;
 
     orders.forEach((order, index) => {
       const createdDate = new Date(order.created_at);
@@ -585,9 +588,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? (order.table_booking_no || "N/A")
         : order.token_no;
 
+      const rowNumber = isDineFlashBuffet
+        ? (buffetPage - 1) * buffetPageSize + index + 1
+        : index + 1;
+
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td>${index + 1}</td>
+        <td>${rowNumber}</td>
         <td>${tokenNoDisplay}</td>
         ${bookingCell}
         ${statusCells}
