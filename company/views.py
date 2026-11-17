@@ -1937,8 +1937,30 @@ def order_counts_summary(request):
     if not admin_outlet:
         return Response({'error': 'No admin outlet found for this user.'}, status=403)
 
-    vendors = admin_outlet.vendors.all()
-    
+    vendors = admin_outlet.vendors.select_related('config')
+    is_buffet = (getattr(settings, "PROJECT_NAME", "") or "").strip().lower() == "dine_flash_buffet"
+
+    if is_buffet:
+        now_utc = timezone.now()
+
+        def count_buffet_range(date_range):
+            date_q = _buffet_vendor_calendar_date_q(
+                vendors,
+                outlet_id=None,
+                date_range=date_range,
+                now_utc=now_utc,
+            )
+            return (
+                Order.objects.filter(vendor__in=vendors).filter(date_q).count()
+                + ArchivedOrder.objects.filter(vendor__in=vendors).filter(date_q).count()
+            )
+
+        return Response({
+            "orders_today": count_buffet_range("today"),
+            "orders_this_week": count_buffet_range("this_week"),
+            "orders_this_month": count_buffet_range("this_month"),
+        })
+
     start_today, start_week, start_month = get_time_ranges()
 
     def count_orders_for_range(start_time):
@@ -2034,6 +2056,8 @@ def _buffet_vendor_calendar_date_q(
     date_range="today",
     from_date=None,
     to_date=None,
+    *,
+    now_utc=None,
 ):
     """
     Dine Flash Buffet company order details: OR per-vendor calendar windows in
@@ -2042,7 +2066,8 @@ def _buffet_vendor_calendar_date_q(
     vendors = vendors_qs
     if outlet_id:
         vendors = vendors.filter(id=outlet_id)
-    now_utc = timezone.now()
+    if now_utc is None:
+        now_utc = timezone.now()
     clauses = []
     for vendor in vendors:
         bounds = _buffet_vendor_calendar_bounds_utc(
