@@ -1,6 +1,9 @@
 import json
 import logging
 import random
+from datetime import datetime, timedelta, time
+
+import pytz
 
 from django.db import transaction
 from django.db.models import Max, Q
@@ -13,6 +16,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from itertools import chain
 from operator import attrgetter
 from collections import defaultdict
@@ -38,7 +42,6 @@ from static.utils.functions.validation import validate_fields
 from static.utils.functions.utils import (
     get_time_ranges,
     get_filtered_date_range,
-    get_vendor_business_day_range,
 )
 from static.utils.functions.pagination import get_paginated_data
 from vendors.dine_flash_tv_fcm import schedule_dine_flash_configuration_updated_for_vendors
@@ -1951,19 +1954,108 @@ def order_counts_summary(request):
     })
 
 
-def _buffet_business_day_date_q(vendors_qs, outlet_id=None):
+def _resolve_buffet_vendor_tz(vendor):
     """
-    Dine Flash Buffet: match kitchen/manager "today" using each vendor's business day
-    window (timezone + business_day_start_hour), not calendar midnight UTC.
+    Dine Flash Buffet company reporting: resolve vendor timezone with the same
+    fallbacks as get_vendor_current_time / get_vendor_business_day_range.
+    """
+    vendor_tz = "UTC"
+    try:
+        config = vendor.config
+    except Exception:
+        logger.warning(
+            "[buffet_calendar_filter] no VendorConfig for vendor pk=%s; using UTC",
+            getattr(vendor, "pk", None),
+        )
+        config = None
+    if config is not None:
+        vendor_tz = getattr(config, "timezone", None) or "UTC"
+        if not str(vendor_tz).strip():
+            vendor_tz = "UTC"
+    try:
+        return pytz.timezone(vendor_tz)
+    except pytz.UnknownTimeZoneError:
+        logger.warning(
+            "[buffet_calendar_filter] Invalid timezone %r for vendor_id=%s; using UTC",
+            vendor_tz,
+            getattr(vendor, "id", None),
+        )
+        return pytz.UTC
+
+
+def _buffet_vendor_calendar_bounds_utc(
+    vendor,
+    date_range,
+    from_date_str=None,
+    to_date_str=None,
+    *,
+    now_utc,
+):
+    """
+    Calendar-day window for one vendor in VendorConfig.timezone, returned as UTC bounds.
+    """
+    tz = _resolve_buffet_vendor_tz(vendor)
+    now_local = now_utc.astimezone(tz)
+
+    if date_range == "today":
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_local = start_local + timedelta(days=1)
+        return start_local.astimezone(pytz.UTC), end_local.astimezone(pytz.UTC)
+
+    if date_range == "this_week":
+        start_local = now_local - timedelta(days=now_local.weekday())
+        start_local = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start_local.astimezone(pytz.UTC), now_utc
+
+    if date_range == "this_month":
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return start_local.astimezone(pytz.UTC), now_utc
+
+    if date_range == "custom":
+        if not from_date_str or not to_date_str:
+            return None
+        try:
+            from_d = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+            to_d = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return None
+        if to_d < from_d:
+            return None
+        start_local = tz.localize(datetime.combine(from_d, time.min))
+        end_local = tz.localize(datetime.combine(to_d + timedelta(days=1), time.min))
+        return start_local.astimezone(pytz.UTC), end_local.astimezone(pytz.UTC)
+
+    return None
+
+
+def _buffet_vendor_calendar_date_q(
+    vendors_qs,
+    outlet_id=None,
+    date_range="today",
+    from_date=None,
+    to_date=None,
+):
+    """
+    Dine Flash Buffet company order details: OR per-vendor calendar windows in
+    vendor timezone (not operational business-day boundaries).
     """
     vendors = vendors_qs
     if outlet_id:
         vendors = vendors.filter(id=outlet_id)
+    now_utc = timezone.now()
     clauses = []
     for vendor in vendors:
-        start, end = get_vendor_business_day_range(vendor)
-        if start and end:
-            clauses.append(Q(vendor=vendor, created_at__gte=start, created_at__lt=end))
+        bounds = _buffet_vendor_calendar_bounds_utc(
+            vendor,
+            date_range,
+            from_date,
+            to_date,
+            now_utc=now_utc,
+        )
+        if not bounds:
+            continue
+        start, end = bounds
+        clauses.append(Q(vendor=vendor, created_at__gte=start, created_at__lt=end))
     if not clauses:
         return Q(pk__in=[])
     date_q = clauses[0]
@@ -2036,8 +2128,14 @@ def filtered_orders(request):
     to_date = request.GET.get('to')
 
     buffet_date_q = None
-    if is_buffet and date_range == 'today':
-        buffet_date_q = _buffet_business_day_date_q(vendors_qs, outlet_id)
+    if is_buffet:
+        buffet_date_q = _buffet_vendor_calendar_date_q(
+            vendors_qs,
+            outlet_id,
+            date_range,
+            from_date,
+            to_date,
+        )
     else:
         start, end = get_filtered_date_range(date_range, from_date, to_date)
         if start and end:
