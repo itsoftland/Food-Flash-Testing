@@ -41,25 +41,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   const prevBtn = document.getElementById("prev-page");
   const nextBtn = document.getElementById("next-page");
   const pageInfo = document.getElementById("current-page-info");
+  const tableBodyContainer = document.querySelector(".table-body-container");
+
+  let ordersLoadRequestId = 0;
+  let ordersLoadAbortController = null;
+  let isOrdersLoading = false;
+  let lastSuccessfulMeta = {
+    page: 1,
+    has_previous: false,
+    has_next: false,
+  };
+
+  if (customRangeDiv && rangeSelect) {
+    customRangeDiv.style.display = rangeSelect.value === "custom" ? "block" : "none";
+  }
 
   rangeSelect.addEventListener("change", () => {
     customRangeDiv.style.display = rangeSelect.value === "custom" ? "block" : "none";
   });
 
+  function setOrdersLoading(loading) {
+    isOrdersLoading = loading;
+    if (applyBtn) applyBtn.disabled = loading;
+    if (resetBtn) resetBtn.disabled = loading;
+    if (loading) {
+      if (prevBtn) prevBtn.disabled = true;
+      if (nextBtn) nextBtn.disabled = true;
+      if (pageInfo) pageInfo.textContent = "Loading…";
+      if (tableBodyContainer) tableBodyContainer.classList.add("orders-table-loading");
+    } else {
+      if (applyBtn) applyBtn.disabled = false;
+      if (resetBtn) resetBtn.disabled = false;
+      if (tableBodyContainer) tableBodyContainer.classList.remove("orders-table-loading");
+      updatePagination(lastSuccessfulMeta);
+    }
+  }
+
   applyBtn.addEventListener("click", () => {
     currentPage = 1;
-    loadFilteredOrders();
+    loadFilteredOrders({ restart: true });
   });
 
   resetBtn.addEventListener("click", () => {
     document.getElementById("order-filter-form").reset();
     customRangeDiv.style.display = "none";
     currentPage = 1;
-    loadFilteredOrders();
+    loadFilteredOrders({ restart: true });
   });
 
   if (prevBtn) {
     prevBtn.addEventListener("click", () => {
+      if (isOrdersLoading) return;
+      if (!lastSuccessfulMeta.has_previous && currentPage <= 1) return;
       if (currentPage > 1) {
         currentPage--;
         loadFilteredOrders();
@@ -69,6 +102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
+      if (isOrdersLoading) return;
+      if (!lastSuccessfulMeta.has_next) return;
       currentPage++;
       loadFilteredOrders();
     });
@@ -95,18 +130,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     return params.toString();
   }
 
-  async function loadFilteredOrders() {
+  async function loadFilteredOrders({ restart = false } = {}) {
+    if (isOrdersLoading && !restart) {
+      return;
+    }
+
+    if (ordersLoadAbortController) {
+      ordersLoadAbortController.abort();
+    }
+    ordersLoadAbortController = new AbortController();
+    const { signal } = ordersLoadAbortController;
+    const requestId = ++ordersLoadRequestId;
+
     const query = buildQueryParams();
-    // console.log("Query Params:", query); // Debugging line
     const url = `${API_ENDPOINTS.FILTERED_ORDERS}?${query}`;
 
+    setOrdersLoading(true);
+
     try {
-      const res = await fetchWithAutoRefresh(url);
+      const res = await fetchWithAutoRefresh(url, { signal });
+
+      if (requestId !== ordersLoadRequestId) {
+        return;
+      }
+
+      if (!res) {
+        currentPage = lastSuccessfulMeta.page ?? 1;
+        return;
+      }
+
+      if (!res.ok) {
+        console.error(
+          "Failed to load orders:",
+          res.status,
+          res.statusText,
+          url.split("?")[0]
+        );
+        currentPage = lastSuccessfulMeta.page ?? 1;
+        return;
+      }
+
       const data = await res.json();
-      renderTable(data.orders || data.data || []);
-      updatePagination(data.meta || {});
+      if (requestId !== ordersLoadRequestId) {
+        return;
+      }
+
+      const meta = data.meta || {};
+      const orders = data.orders || data.data || [];
+      renderTable(orders);
+
+      if (meta.page != null) {
+        currentPage = meta.page;
+      }
+
+      lastSuccessfulMeta = {
+        page: meta.page ?? currentPage,
+        has_previous: Boolean(meta.has_previous),
+        has_next: Boolean(meta.has_next),
+        total: meta.total,
+        page_size: meta.page_size,
+      };
+      updatePagination(lastSuccessfulMeta);
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
+      if (requestId !== ordersLoadRequestId) {
+        return;
+      }
       console.error("Failed to load orders:", error);
+      currentPage = lastSuccessfulMeta.page ?? 1;
+    } finally {
+      if (requestId === ordersLoadRequestId) {
+        setOrdersLoading(false);
+      }
     }
   }
 
@@ -524,12 +621,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updatePagination(meta) {
     if (!pageInfo || !prevBtn || !nextBtn) return;
+    if (isOrdersLoading) return;
 
-    if (meta.page) {
-      pageInfo.textContent = `Page ${meta.page}`;
-    } else {
-      pageInfo.textContent = `Page ${currentPage}`;
-    }
+    const pageNum = meta.page ?? currentPage;
+    pageInfo.textContent = `Page ${pageNum}`;
 
     prevBtn.disabled = !meta.has_previous;
     nextBtn.disabled = !meta.has_next;
