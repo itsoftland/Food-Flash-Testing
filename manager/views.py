@@ -1783,6 +1783,7 @@ def manager_order_update(request):
     API endpoint: Allows a manager to update an order status or send a custom message.
     Actions supported:
         - "ready": Marks order ready, updates DB, notifies Android TV & web push.
+        - "preparing" (dine_flash_buffet only): Marks overall order preparing, updates DB & sends web push.
         - "delivered": Marks order delivered, updates DB & sends web push.
         - "cancelled": Cancels order, updates DB & sends web push.
         - "message": Sends a custom manager message to customer via web push.
@@ -1816,6 +1817,7 @@ def manager_order_update(request):
         allowed_actions = ["ready", "message", "delivered", "cancelled"]
         if project_name == "dine_flash_buffet":
             allowed_actions.append("call")
+            allowed_actions.append("preparing")
         if action not in allowed_actions:
             return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
         action_type = action
@@ -1883,18 +1885,25 @@ def manager_order_update(request):
         payload = {
             "title": "Order Update by Manager",
             "body": f"Your order {token_no} status: {status_to_update.capitalize()}" if action_type == "ready"
+                    else f"Your order {token_no} status: Preparing." if action_type == "preparing"
                     else f"Your order {token_no} has an update from the manager." if action_type == "message"
                     else f"Your order {token_no} has been delivered." if action_type == "delivered"
                     else f"Your order {token_no} has been cancelled.",
             "token_no": token_no,
-            "status": status_to_update.lower(),
+            "status": "preparing" if action_type == "preparing" else status_to_update.lower(),
             "counter_no": order.counter_no,
             "name": vendor.name,
             'alias_name': buffet_alias,
             "vendor_id": vendor.vendor_id,
             "location_id": vendor.location_id,
             "logo_url": logo_url,
-            "type": status_push_type if action_type in ["ready", "delivered", "cancelled"] else manager_push_type,
+            "type": (
+                "buffet_item_preparing"
+                if is_buffet_project and action_type == "preparing"
+                else status_push_type
+                if action_type in ["ready", "delivered", "cancelled"]
+                else manager_push_type
+            ),
             "message_id": None,
             "vibration_pattern":vendor.config.vibration_pattern,
             "vibration_duration":vendor.config.vibration_duration
@@ -1907,7 +1916,8 @@ def manager_order_update(request):
         # === Step 7: Handle different action types ===
         if action_type == "ready":
             # FCM push notifications if TV communication mode is not MQTT
-            if vendor.config.tv_communication_mode == "Firebase":
+            # Dine Flash Buffet has no TV/MQTT path — customer notification is web push only.
+            if not is_buffet_project and vendor.config.tv_communication_mode == "Firebase":
                 # 1. Notify Android TV
                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
@@ -1918,11 +1928,11 @@ def manager_order_update(request):
                 logger.warning("❌ Failed to update order %s", token_no)
                 return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             logger.info("✅ Order %s updated to %s", updated_order.token_no, status_to_update)
-            if vendor.config.tv_communication_mode == "AZURE_IOT":
+            if not is_buffet_project and vendor.config.tv_communication_mode == "AZURE_IOT":
                 logger.info(f"[update_order] Azure IoT communication mode detected for vendor {vendor.vendor_id}")
                 azure_iot = get_azure_devices(vendor)
                 logger.info(f"[update_order] Azure IoT messages sent: {azure_iot}")
-            if vendor.config.tv_communication_mode == "MQTT":
+            if not is_buffet_project and vendor.config.tv_communication_mode == "MQTT":
                 # 3. Send MQTT update
                 logger.info(f"📡 Sending MQTT update for vendor {vendor.vendor_id} with token {token_no}")
                 if not hasattr(vendor, 'config') or not vendor.config.mqtt_mode:
@@ -1947,6 +1957,28 @@ def manager_order_update(request):
                 logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
             else:
                 logger.info("⏳ Cooldown active. Skipping web push for %s", token_no)
+
+        elif action_type == "preparing":
+            if not is_buffet_project:
+                return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
+            if (status_to_update or "").strip().lower() != "preparing":
+                return Response(
+                    {"message": "status must be preparing when action is preparing."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            logger.info("🔔 Preparing order %s by manager %s", token_no, manager.name)
+            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            if not updated_order:
+                logger.warning("❌ Failed to update order %s", token_no)
+                return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            payload["title"] = "Order Preparing"
+            payload["type"] = "buffet_item_preparing"
+            payload["status"] = "preparing"
+            push_errors = notify_web_push(order, vendor, payload)
+            order.refresh_from_db()
+            order.notified_at = timezone.now()
+            order.save(update_fields=["notified_at"])
+            logger.info("🕒 Order %s marked as notified at %s", token_no, order.notified_at)
 
         elif action_type in ["delivered", "cancelled"]:
             logger.info("🔔 %s order %s by manager %s", action_type.capitalize(), token_no, manager.name)
