@@ -447,50 +447,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  async function showBuffetOrderUtilities(orderId, currentOrderStatus = "") {
-    const utilitiesUrl = buffetOrderUtilitiesUrl(orderId);
-
+  // Never throws: item lookup failures (e.g. 404 for archived orders whose
+  // BuffetOrderItem rows were deleted) must not block the status history.
+  async function fetchBuffetOrderUtilities(orderId) {
+    const url = buffetOrderUtilitiesUrl(orderId);
     try {
-      const [utilitiesRes, timeline] = await Promise.all([
-        fetchWithAutoRefresh(utilitiesUrl),
+      const res = await fetchWithAutoRefresh(url);
+      if (!res) {
+        return { payload: null, utilities: [], message: "Failed to load order items. Please try again." };
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        console.error("Expected JSON from buffet order utilities API, got:", contentType, url);
+        return { payload: null, utilities: [], message: "Failed to load order items. Please try again." };
+      }
+      const payload = await res.json();
+      if (!res.ok) {
+        if (res.status !== 404) {
+          console.error("Failed to load order items:", res.status, payload);
+          return { payload: null, utilities: [], message: "Failed to load order items. Please try again." };
+        }
+        return { payload: null, utilities: [], message: "Item details are no longer available for this archived order." };
+      }
+      const utilities = Array.isArray(payload.utilities) ? payload.utilities : [];
+      return {
+        payload,
+        utilities,
+        message: utilities.length ? "" : "No order items found for this order.",
+      };
+    } catch (error) {
+      console.error("Failed to load order items:", error);
+      return { payload: null, utilities: [], message: "Failed to load order items. Please try again." };
+    }
+  }
+
+  async function showBuffetOrderUtilities(orderId, currentOrderStatus = "", fallbackTokenNo = "") {
+    try {
+      const [itemsResult, timeline] = await Promise.all([
+        fetchBuffetOrderUtilities(orderId),
         fetchOrderStatusTimeline(orderId),
       ]);
-
-      if (!utilitiesRes) {
-        alert("Failed to load order items. Please try again.");
-        return;
-      }
-
-      const contentType = utilitiesRes.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        console.error("Expected JSON from buffet order utilities API, got:", contentType, utilitiesUrl);
-        alert("Failed to load order items. Please try again.");
-        return;
-      }
-
-      const payload = await utilitiesRes.json();
-
-      if (!utilitiesRes.ok) {
-        const rawDetail = payload.detail;
-        const detail =
-          rawDetail === "No utilities found for this order."
-            ? "No order items found for this order."
-            : rawDetail;
-        alert(detail || "No order items found for this order.");
-        return;
-      }
-
-      const utilities = Array.isArray(payload.utilities) ? payload.utilities : [];
-      if (!utilities.length) {
-        alert("No order items found for this order.");
-        return;
-      }
+      const payload = itemsResult.payload || {};
+      const utilities = itemsResult.utilities;
 
       const modal = document.getElementById('timelineModal');
       modal.querySelector('.modal-dialog').classList.remove('custom-timeline-modal');
       modal.querySelector('.modal-dialog').style.width = '';
 
-      const titleParts = [`Order #${payload.token_no ?? ""}`];
+      const titleParts = [`Order #${payload.token_no ?? fallbackTokenNo ?? ""}`];
       if (payload.table_booking_no) {
         titleParts.push(`Table ${payload.table_booking_no}`);
       }
@@ -530,7 +534,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           ${orderStatusHtml}
           <section class="buffet-order-items-section">
             <div class="buffet-order-items-section-title">Buffet Order Items</div>
-            <div class="buffet-order-utilities-list">${cardsHtml}</div>
+            ${utilities.length
+              ? `<div class="buffet-order-utilities-list">${cardsHtml}</div>`
+              : `<div class="buffet-order-status-empty">${itemsResult.message}</div>`}
           </section>
         </div>
       `;
@@ -681,7 +687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const row = document.createElement("tr");
       const orderStatusAttr = isDineFlashBuffet
-        ? ` data-order-status="${order.status || ""}"`
+        ? ` data-order-status="${order.status || ""}" data-token-no="${order.token_no ?? ""}"`
         : "";
       row.innerHTML = `
         <td>${rowNumber}</td>
@@ -708,7 +714,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const orderId = e.currentTarget.dataset.orderId;
         if (isDineFlashBuffet) {
           const currentOrderStatus = e.currentTarget.dataset.orderStatus || "";
-          await showBuffetOrderUtilities(orderId, currentOrderStatus);
+          const tokenNo = e.currentTarget.dataset.tokenNo || "";
+          await showBuffetOrderUtilities(orderId, currentOrderStatus, tokenNo);
         } else {
           await showOrderTimeline(orderId);
         }
