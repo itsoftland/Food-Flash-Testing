@@ -377,21 +377,100 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${base}${orderId}/`;
   }
 
-  async function showBuffetOrderUtilities(orderId) {
-    const url = buffetOrderUtilitiesUrl(orderId);
+  function orderStatusTimelineUrl(orderId) {
+    return `${API_ENDPOINTS.ORDER_TIMELINE}${orderId}/`;
+  }
 
+  function formatStatusLabel(status) {
+    if (!status) return "Unknown";
+    return String(status).replace(/_/g, " ").toUpperCase();
+  }
+
+  function renderBuffetOrderStatusSection(timeline, fallbackCurrentStatus) {
+    const history = Array.isArray(timeline) ? timeline : [];
+    const latestStatus = history.length
+      ? history[history.length - 1].new_status
+      : fallbackCurrentStatus;
+    const currentStatusLabel = formatStatusLabel(latestStatus || fallbackCurrentStatus || "unknown");
+
+    const historyHtml = history.length
+      ? history.map((item) => {
+          const previous = item.previous_status
+            ? formatStatusLabel(item.previous_status)
+            : "—";
+          const next = formatStatusLabel(item.new_status);
+          return `
+            <div class="buffet-order-status-history-row">
+              <div class="buffet-order-status-transition">${previous} → ${next}</div>
+              <div class="buffet-order-status-time">${formatDateTime(item.changed_at)}</div>
+            </div>
+          `;
+        }).join("")
+      : `<div class="buffet-order-status-empty">No order status history found.</div>`;
+
+    return `
+      <section class="buffet-order-status-section">
+        <div class="buffet-order-status-section-title">Order Status</div>
+        <div class="buffet-utility-detail-row">
+          <span class="buffet-utility-label">Current Overall Status</span>
+          <span class="buffet-utility-status">${currentStatusLabel}</span>
+        </div>
+        <div class="buffet-order-status-history">
+          <div class="buffet-order-status-history-title">Status History</div>
+          ${historyHtml}
+        </div>
+      </section>
+    `;
+  }
+
+  async function fetchOrderStatusTimeline(orderId) {
+    const url = orderStatusTimelineUrl(orderId);
     try {
       const res = await fetchWithAutoRefresh(url);
+      if (!res) return [];
       const contentType = res.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
-        console.error("Expected JSON from buffet order utilities API, got:", contentType, url);
+        console.error("Expected JSON from order status timeline API, got:", contentType, url);
+        return [];
+      }
+      const payload = await res.json();
+      if (!res.ok) {
+        if (res.status !== 404) {
+          console.error("Failed to load order status timeline:", res.status, payload);
+        }
+        return [];
+      }
+      return Array.isArray(payload) ? payload : [];
+    } catch (error) {
+      console.error("Failed to load order status timeline:", error);
+      return [];
+    }
+  }
+
+  async function showBuffetOrderUtilities(orderId, currentOrderStatus = "") {
+    const utilitiesUrl = buffetOrderUtilitiesUrl(orderId);
+
+    try {
+      const [utilitiesRes, timeline] = await Promise.all([
+        fetchWithAutoRefresh(utilitiesUrl),
+        fetchOrderStatusTimeline(orderId),
+      ]);
+
+      if (!utilitiesRes) {
         alert("Failed to load order items. Please try again.");
         return;
       }
 
-      const payload = await res.json();
+      const contentType = utilitiesRes.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        console.error("Expected JSON from buffet order utilities API, got:", contentType, utilitiesUrl);
+        alert("Failed to load order items. Please try again.");
+        return;
+      }
 
-      if (!res.ok) {
+      const payload = await utilitiesRes.json();
+
+      if (!utilitiesRes.ok) {
         const rawDetail = payload.detail;
         const detail =
           rawDetail === "No utilities found for this order."
@@ -415,7 +494,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (payload.table_booking_no) {
         titleParts.push(`Table ${payload.table_booking_no}`);
       }
-      modal.querySelector('.modal-title').textContent = `Order Items — ${titleParts.join(" · ")}`;
+      modal.querySelector('.modal-title').textContent = `Order Details — ${titleParts.join(" · ")}`;
+
+      const orderStatusHtml = renderBuffetOrderStatusSection(timeline, currentOrderStatus);
 
       const cardsHtml = utilities.map((utility) => {
         const status = (utility.status || "unknown").toUpperCase();
@@ -445,7 +526,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).join("");
 
       modal.querySelector('.modal-body').innerHTML = `
-        <div class="buffet-order-utilities-list">${cardsHtml}</div>
+        <div class="buffet-order-details-modal">
+          ${orderStatusHtml}
+          <section class="buffet-order-items-section">
+            <div class="buffet-order-items-section-title">Buffet Order Items</div>
+            <div class="buffet-order-utilities-list">${cardsHtml}</div>
+          </section>
+        </div>
       `;
 
       const utilitiesModal = bootstrap.Modal.getOrCreateInstance(modal, {
@@ -593,6 +680,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         : index + 1;
 
       const row = document.createElement("tr");
+      const orderStatusAttr = isDineFlashBuffet
+        ? ` data-order-status="${order.status || ""}"`
+        : "";
       row.innerHTML = `
         <td>${rowNumber}</td>
         <td>${tokenNoDisplay}</td>
@@ -603,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${createdDate.toLocaleDateString()}<br>${createdDate.toLocaleTimeString()}</td>
         ${readyCell}
         <td>
-          <button class="icon-btn view-timeline-btn" title="${isHospitalFlash ? "View queue timeline" : "View Order Details"}" data-order-id="${order.id}">
+          <button class="icon-btn view-timeline-btn" title="${isHospitalFlash ? "View queue timeline" : "View Order Details"}" data-order-id="${order.id}"${orderStatusAttr}>
             <i class="fa-regular fa-eye"></i>
           </button>
         </td>
@@ -617,7 +707,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.addEventListener("click", async (e) => {
         const orderId = e.currentTarget.dataset.orderId;
         if (isDineFlashBuffet) {
-          await showBuffetOrderUtilities(orderId);
+          const currentOrderStatus = e.currentTarget.dataset.orderStatus || "";
+          await showBuffetOrderUtilities(orderId, currentOrderStatus);
         } else {
           await showOrderTimeline(orderId);
         }

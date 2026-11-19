@@ -2199,18 +2199,25 @@ def filtered_orders(request):
 def order_status_timeline(request, order_id):
     """
     Returns the complete status history (timeline) for a given order.
+    - Scoped to vendors belonging to the authenticated user's admin_outlet.
     - Checks if the order exists in active or archived table.
     - Fetches the timeline from the relevant source.
     - If the order was archived, also includes its active history (if any) before archiving.
     """
+    try:
+        admin_outlet = request.user.admin_outlet
+    except AttributeError:
+        return Response({"error": "Admin outlet not linked to this user."}, status=403)
 
-    # ✅ Step 1: Try to find order in active table
-    active_order = Order.objects.filter(id=order_id).first()
+    vendors_qs = admin_outlet.vendors.all()
+
+    # ✅ Step 1: Try to find order in active table (admin-outlet scoped)
+    active_order = Order.objects.filter(id=order_id, vendor__in=vendors_qs).first()
     archived_order = None
 
-    # ✅ Step 2: If not found, try archived table
+    # ✅ Step 2: If not found, try archived table (same outlet scope)
     if not active_order:
-        archived_order = ArchivedOrder.objects.filter(id=order_id).first()
+        archived_order = ArchivedOrder.objects.filter(id=order_id, vendor__in=vendors_qs).first()
         if not archived_order:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 

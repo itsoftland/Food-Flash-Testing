@@ -120,11 +120,17 @@ class CompanyViewsAPITests(TestCase):
 
     # 5. order_status_timeline should combine active and archived histories
     def test_order_status_timeline_combines_histories(self):
-        # Active order with history
+        # Keep the active Order so OrderStatusHistory remains queryable by original_order_id.
         order = Order.objects.create(vendor=self.vendor, token_no=1, status="preparing")
-        OrderStatusHistory.objects.create(order=order, previous_status=None, new_status="preparing")
+        OrderStatusHistory.objects.filter(order=order).delete()
+        OrderStatusHistory.objects.create(
+            order=order,
+            previous_status=None,
+            new_status="preparing",
+            changed_by="manager",
+            changed_at=timezone.now() - timezone.timedelta(minutes=2),
+        )
 
-        # Archived order with its own history
         arch = ArchivedOrder.objects.create(
             original_order_id=order.id,
             vendor=self.vendor,
@@ -139,15 +145,93 @@ class CompanyViewsAPITests(TestCase):
             created_at=timezone.now(),
             updated_at=timezone.now(),
         )
-        ArchivedOrderStatusHistory.objects.create(archived_order=arch, previous_status="preparing", new_status="ready", changed_by="manager", changed_at=timezone.now())
+        ArchivedOrderStatusHistory.objects.create(
+            archived_order=arch,
+            previous_status="preparing",
+            new_status="ready",
+            changed_by="manager",
+            changed_at=timezone.now(),
+        )
 
-        url = reverse("order_status_timeline", args=[order.id])
+        # Archived list-row ids merge archived history + prior active history.
+        url = reverse("company:order_status_timeline", args=[arch.id])
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         timeline = resp.json()
-        # should contain at least two entries from both sources
         self.assertTrue(any(item.get("new_status") == "preparing" for item in timeline))
         self.assertTrue(any(item.get("new_status") == "ready" for item in timeline))
+        self.assertEqual([item["new_status"] for item in timeline], ["preparing", "ready"])
+
+    def test_order_status_timeline_rejects_other_admin_outlet(self):
+        """Admins must not read order history for vendors outside their outlet."""
+        other_user = User.objects.create_user(username="other-admin", password="pass1234")
+        other_outlet = AdminOutlet.objects.create(
+            user=other_user,
+            customer_name="Other Co",
+            customer_id=101,
+            locations=[{"CityA": "C1"}],
+            authentication_status="Approve",
+            product_to_date=timezone.now() + timezone.timedelta(days=30),
+        )
+        other_vendor = Vendor.objects.create(
+            admin_outlet=other_outlet,
+            name="Other Outlet",
+            alias_name="OX",
+            location="CityA",
+            place_id="place-other",
+            vendor_id=999001,
+            location_id="L-other",
+            menus="[]",
+        )
+        foreign_order = Order.objects.create(vendor=other_vendor, token_no=9, status="preparing")
+        OrderStatusHistory.objects.filter(order=foreign_order).delete()
+        OrderStatusHistory.objects.create(
+            order=foreign_order,
+            previous_status=None,
+            new_status="preparing",
+            changed_by="manager",
+        )
+
+        url = reverse("company:order_status_timeline", args=[foreign_order.id])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.json().get("detail"), "Order not found.")
+
+    def test_order_status_timeline_active_order_for_own_outlet(self):
+        order = Order.objects.create(vendor=self.vendor, token_no=2, status="created")
+        OrderStatusHistory.objects.filter(order=order).delete()
+        OrderStatusHistory.objects.create(
+            order=order,
+            previous_status=None,
+            new_status="created",
+            changed_by="customer",
+            changed_at=timezone.now() - timezone.timedelta(minutes=5),
+        )
+        OrderStatusHistory.objects.create(
+            order=order,
+            previous_status="created",
+            new_status="preparing",
+            changed_by="manager",
+            changed_at=timezone.now() - timezone.timedelta(minutes=3),
+        )
+        OrderStatusHistory.objects.create(
+            order=order,
+            previous_status="preparing",
+            new_status="ready",
+            changed_by="manager",
+            changed_at=timezone.now() - timezone.timedelta(minutes=1),
+        )
+
+        url = reverse("company:order_status_timeline", args=[order.id])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        timeline = resp.json()
+        self.assertEqual(
+            [item["new_status"] for item in timeline],
+            ["created", "preparing", "ready"],
+        )
+        self.assertEqual(timeline[1]["previous_status"], "created")
+        self.assertEqual(timeline[1]["new_status"], "preparing")
 
     # 6. update_outlet_settings should validate vendor_id and update allowed fields
     def test_update_outlet_settings_validation_and_update(self):

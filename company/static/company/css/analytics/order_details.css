@@ -251,13 +251,68 @@ html, body {
     width: 100px; min-width: 100px; max-width: 100px;
 }   /* Order Details */
 
-/* Buffet order utilities detail modal */
+/* Buffet order details modal (order-level status + item cards) */
+.buffet-order-details-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.buffet-order-status-section,
+.buffet-order-items-section {
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: #fff;
+}
+
+.buffet-order-status-section-title,
+.buffet-order-items-section-title,
+.buffet-order-status-history-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.buffet-order-status-history {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e5e5;
+}
+
+.buffet-order-status-history-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 0.92rem;
+}
+
+.buffet-order-status-transition {
+    font-weight: 600;
+    color: #333;
+}
+
+.buffet-order-status-time {
+    color: #555;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.buffet-order-status-empty {
+    font-size: 0.9rem;
+    color: #777;
+}
+
 .buffet-order-utilities-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: 70vh;
-    overflow-y: auto;
 }
 
 .buffet-utility-detail-card {
