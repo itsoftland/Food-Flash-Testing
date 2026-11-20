@@ -151,6 +151,9 @@ class BuffetManagerOrderUpdatePreparingTests(SimpleTestCase):
         self.assertIn("Preparing", payload["body"])
         self.assertNotIn("item_id", payload)
         self.assertNotIn("item_name", payload)
+        self.assertEqual(payload["message"], "Your order 42 is now preparing.")
+        self.assertEqual(payload["name"], "Test Outlet")
+        self.assertEqual(payload["alias_name"], "Alias")
 
     def test_buffet_preparing_skips_tv_mqtt_azure_and_chat(self):
         ctx = _call_preparing(tv_mode="Firebase")

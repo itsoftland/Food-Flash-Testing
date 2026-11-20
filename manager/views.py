@@ -1910,6 +1910,10 @@ def manager_order_update(request):
         }
         if is_buffet_project:
             payload["booking_id"] = order.id
+            # Order-level status: customer chat shows token-based wording instead of
+            # falling back to the outlet name (`name`) as the item label.
+            if action_type in ["ready", "preparing", "delivered", "cancelled"]:
+                payload["message"] = f"Your order {token_no} is now {payload['status']}."
 
         android_tv_success, android_tv_info, mqtt_success, push_errors = None, None,None ,[]
 

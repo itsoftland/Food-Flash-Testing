@@ -146,6 +146,9 @@ class BuffetManagerOrderUpdateMessageTests(SimpleTestCase):
         mock_push.assert_called_once()
         push_payload = mock_push.call_args.args[2]
         self.assertEqual(push_payload["type"], "buffet_manager")
+        # Manager-typed text stays in `status`; order-level token wording is not added.
+        self.assertEqual(push_payload["status"], "Your table is ready")
+        self.assertNotIn("message", push_payload)
 
     def test_message_still_rejects_when_order_missing_for_vendor(self):
         from manager import views as manager_views

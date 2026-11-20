@@ -177,6 +177,18 @@ class BuffetManagerOrderUpdateReadyTests(SimpleTestCase):
         self.assertEqual(payload["booking_id"], ctx["order"].id)
         self.assertIsNone(response.data["mqtt"])
 
+    def test_buffet_ready_payload_has_token_message_and_keeps_outlet_fields(self):
+        ctx = _call_ready("dine_flash_buffet", tv_mode="MQTT")
+        payload = ctx["mock_push"].call_args.args[2]
+        self.assertEqual(payload["message"], "Your order 42 is now ready.")
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["token_no"], 42)
+        self.assertEqual(payload["name"], "Test Outlet")
+        self.assertEqual(payload["alias_name"], "Alias")
+        self.assertEqual(payload["title"], "Order Update by Manager")
+        self.assertEqual(payload["body"], "Your order 42 status: Ready")
+        self.assertNotIn("item_name", payload)
+
     def test_buffet_ready_firebase_skips_tv_web_push_called(self):
         ctx = _call_ready("dine_flash_buffet", tv_mode="Firebase")
         self.assertEqual(ctx["response"].status_code, status.HTTP_200_OK)
@@ -217,6 +229,13 @@ class BuffetManagerOrderUpdateReadyTests(SimpleTestCase):
                 mock_push.assert_called_once()
                 mock_mqtt.assert_not_called()
                 self.assertIsNone(response.data["mqtt"])
+                payload = mock_push.call_args.args[2]
+                self.assertEqual(payload["type"], "buffet_item_ready")
+                self.assertEqual(payload["status"], action)
+                self.assertEqual(payload["message"], f"Your order 42 is now {action}.")
+                self.assertEqual(payload["name"], "Test Outlet")
+                self.assertEqual(payload["alias_name"], "Alias")
+                self.assertEqual(payload["title"], f"Order {action.capitalize()}")
 
 
 @override_settings(PROJECT_NAME="food_flash", PUSH_COOLDOWN_SECONDS=1)
@@ -227,6 +246,25 @@ class FoodFlashManagerOrderUpdateReadyRegressionTests(SimpleTestCase):
         ctx["mock_mqtt"].assert_called_once()
         ctx["mock_push"].assert_not_called()
 
+    def test_food_flash_ready_payload_has_no_buffet_message(self):
+        ctx = _call_ready("food_flash", tv_mode="Firebase", mqtt_return=True)
+        self.assertEqual(ctx["response"].status_code, status.HTTP_200_OK)
+        payload = ctx["mock_push"].call_args.args[2]
+        self.assertEqual(payload["type"], "foodstatus")
+        self.assertNotIn("message", payload)
+        self.assertNotIn("booking_id", payload)
+
+    def test_food_flash_delivered_and_cancelled_have_no_buffet_message(self):
+        for action in ("delivered", "cancelled"):
+            with self.subTest(action=action):
+                response, _mock_update, mock_push, _mock_mqtt = _call_status_action(
+                    "food_flash", action
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                payload = mock_push.call_args.args[2]
+                self.assertEqual(payload["type"], "foodstatus")
+                self.assertNotIn("message", payload)
+
 
 @override_settings(PROJECT_NAME="dine_flash", PUSH_COOLDOWN_SECONDS=1)
 class DineFlashManagerOrderUpdateReadyRegressionTests(SimpleTestCase):
@@ -236,3 +274,6 @@ class DineFlashManagerOrderUpdateReadyRegressionTests(SimpleTestCase):
         ctx["mock_tv"].assert_called_once()
         ctx["mock_mqtt"].assert_not_called()
         ctx["mock_push"].assert_called_once()
+        payload = ctx["mock_push"].call_args.args[2]
+        self.assertEqual(payload["type"], "foodstatus")
+        self.assertNotIn("message", payload)
