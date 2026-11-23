@@ -15,6 +15,7 @@ const RECOVERABLE_TYPES = new Set([
     "item_cancelled",
     "item_delivered",
     "item_operation_closed",
+    "buffet_item_preparing",
     "buffet_item_ready",
     "buffet_manager",
     "buffet_utilities_status",
