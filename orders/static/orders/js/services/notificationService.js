@@ -318,25 +318,30 @@ async function showNotificationModal(pushData, source) {
             : `Your order <strong>${token}</strong> is <strong>${distance}</strong> ${
                 Number(distance) === 1 ? "place" : "places"
               } away.`;
-      } else {
-        const isReadyLike =
-          statusKey.includes("ready") ||
-          typeKey.includes("ready");
+      } else if (modalPayload.token_no != null && String(modalPayload.token_no) !== "") {
+        const outlet =
+          (typeof modalPayload.alias_name === "string" && modalPayload.alias_name.trim() !== ""
+            ? modalPayload.alias_name.trim()
+            : null) ||
+          (typeof modalPayload.name === "string" && modalPayload.name.trim() !== ""
+            ? modalPayload.name.trim()
+            : null) ||
+          "the outlet";
 
-        if (isReadyLike && modalPayload.token_no != null && String(modalPayload.token_no) !== "") {
-          // Prefer item name first so buffet ready copy matches other status wording.
-          const itemLabel =
-            (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
-              ? modalPayload.item_name.trim()
-              : null) ||
-            (typeof modalPayload.name === "string" && modalPayload.name.trim() !== ""
-              ? modalPayload.name.trim()
-              : null) ||
-            (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
-              ? modalPayload.utility_name.trim()
-              : null) ||
-            "your item";
+        const itemLabel =
+          (typeof modalPayload.item_name === "string" && modalPayload.item_name.trim() !== ""
+            ? modalPayload.item_name.trim()
+            : null) ||
+          (typeof modalPayload.utility_name === "string" && modalPayload.utility_name.trim() !== ""
+            ? modalPayload.utility_name.trim()
+            : null) ||
+          outlet;
 
+        if (statusKey === "delivered" && typeKey === "buffet_item_ready") {
+          messageHtml = `Your Order <strong>${modalPayload.token_no}</strong> for <strong>${outlet}</strong> has been delivered.`;
+        } else if (statusKey === "cancelled" && typeKey === "buffet_item_ready") {
+          messageHtml = `Your Order <strong>${modalPayload.token_no}</strong> for <strong>${outlet}</strong> has been cancelled.`;
+        } else if (statusKey.includes("ready")) {
           messageHtml = `
           Your Order <strong>${modalPayload.token_no}</strong> for <strong>${itemLabel}</strong> is now <strong>ready</strong>.<br>
           Please collect it.`;
