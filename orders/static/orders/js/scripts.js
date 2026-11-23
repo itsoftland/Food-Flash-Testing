@@ -8,7 +8,7 @@ import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./servic
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260821_2";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js?v=20261110_1";
-import { ChatSyncService } from "./services/chatSyncService.js?v=20261110_1";
+import { ChatSyncService } from "./services/chatSyncService.js?v=20261123_1";
 import { hydrateServerLogoElement } from "./services/welcomeMessageService.js";
 import { ChatTemplateService } from "./services/chatTemplateService.js?v=20260910_1";
 import { maskSequenceCode } from "./services/clipBoardService.js"
