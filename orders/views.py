@@ -44,6 +44,7 @@ from manager.utils.utils import reset_counters_if_new_business_day
 
 from .models import DineFlashQrSession
 from .dine_flash_tracking_token import unsign_dine_flash_tracking_token
+from .buffet.buffet_tracking_token import unsign_buffet_tracking_token
 from .dine_flash.booking_resolve import (
     DineFlashBookingResolveStatus,
     resolve_dine_flash_booking,
@@ -494,6 +495,18 @@ def _dine_flash_order_tracking_exists(vendor_id, booking_id=None, booking_no=Non
     return qs.filter(table_booking_no=str(booking_no)).exists()
 
 
+def _buffet_order_tracking_exists(vendor_id, token_no):
+    """Return True when a Buffet order exists for the given vendor and token_no."""
+    if not vendor_id or not token_no:
+        return False
+
+    qs = Order.objects.filter(vendor__vendor_id=str(vendor_id).strip())
+    try:
+        return qs.filter(token_no=int(token_no)).exists()
+    except (TypeError, ValueError):
+        return qs.filter(token_no=str(token_no).strip()).exists()
+
+
 def _is_dine_flash_order_tracking_link(request, vendor_id):
     """
     Dine Flash: allow opening tracking home with booking id/no (no QR session).
@@ -896,6 +909,33 @@ def home(request):
             'orders/index.html',
             {"BUSINESS_DAY_START_HOUR": _dine_flash_business_day_start_hour(vendor_id)},
         )
+
+    if project_name == "dine_flash_buffet":
+        if "t" in request.GET:
+            tracking_token = (request.GET.get("t") or "").strip()
+            if not tracking_token:
+                return HttpResponseBadRequest("Invalid tracking link.")
+            payload = unsign_buffet_tracking_token(tracking_token)
+            if not payload:
+                return HttpResponseBadRequest("Invalid tracking link.")
+            vendor_id = payload["vendor_id"]
+            token_no = payload["token_no"]
+            try:
+                get_vendor(vendor_id)
+            except Exception:
+                return HttpResponseBadRequest("Invalid tracking link.")
+
+            if not _buffet_order_tracking_exists(vendor_id, token_no):
+                return HttpResponseBadRequest("Invalid tracking link.")
+
+            return render(
+                request,
+                "orders/index.html",
+                {
+                    "BUFFET_TRACKING_BOOTSTRAP_JSON": json.dumps(payload),
+                },
+            )
+
     return render(request, 'orders/index.html')
 
 def vibration_test(request):

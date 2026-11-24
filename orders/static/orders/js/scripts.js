@@ -4,7 +4,7 @@ import { MenuModalService } from './services/menuModalService.js';
 import { FeedbackService } from "./services/feedBackService.js?v=20260821_2";
 import { PermissionService } from "./services/permissionService.js";
 import { VendorUIService } from "./services/vendorUIService.js?v=20260824_1";
-import { updateChatOnPush,appendMessage,clearReplyMode,saveChat } from "./services/chatService.js?v=20260910_1";
+import { updateChatOnPush, appendMessage, clearReplyMode, saveChat } from "./services/chatService.js?v=20260910_1";
 import { PushSubscriptionService } from "./services/pushSubscriptionService.js?v=20260821_2";
 import { PushHealthMonitorService } from "./services/pushHealthMonitorService.js";
 import { ChatRestoreService } from "./services/chatRestoreService.js?v=20261110_1";
@@ -243,7 +243,7 @@ onDOMReady(async function () {
                     timestamp: Date.now(),
                     ...data,
                 }),
-            }).catch(() => {});
+            }).catch(() => { });
         } catch (e) {
             // Diagnostics must never break the page.
         }
@@ -311,19 +311,30 @@ onDOMReady(async function () {
     AppUtils.initPaddingAdjustmentListeners();
     const notificationModal = new bootstrap.Modal(document.getElementById('notificationModal'), {
         backdrop: 'static',
-        keyboard: false      
-    });    
+        keyboard: false
+    });
     const chatInput = document.getElementById('chat-input');
     const sendButton = document.getElementById('send-button');
     const urlParams = new URLSearchParams(window.location.search);
     const dineFlashBootstrap =
         window.DINE_FLASH_TRACKING_BOOTSTRAP &&
-        typeof window.DINE_FLASH_TRACKING_BOOTSTRAP === "object"
+            typeof window.DINE_FLASH_TRACKING_BOOTSTRAP === "object"
             ? window.DINE_FLASH_TRACKING_BOOTSTRAP
             : null;
+    const buffetTrackingBootstrap =
+        isDineFlashBuffetSurface &&
+            window.BUFFET_TRACKING_BOOTSTRAP &&
+            typeof window.BUFFET_TRACKING_BOOTSTRAP === "object"
+            ? window.BUFFET_TRACKING_BOOTSTRAP
+            : null;
     let locationId = dineFlashBootstrap?.location_id ?? urlParams.get("location_id");
-    const vendorFromQR = dineFlashBootstrap?.vendor_id ?? urlParams.get('vendor_id');
-    const tokenFromQR = dineFlashBootstrap?.booking_no
+    const vendorFromQR =
+        dineFlashBootstrap?.vendor_id
+        ?? buffetTrackingBootstrap?.vendor_id
+        ?? urlParams.get('vendor_id');
+    const tokenFromQR =
+        dineFlashBootstrap?.booking_no
+        ?? buffetTrackingBootstrap?.token_no
         ?? urlParams.get('token_no')
         ?? urlParams.get('sequence_code')
         ?? urlParams.get('booking_no');
@@ -400,7 +411,7 @@ onDOMReady(async function () {
         // 2️⃣ Fallback to localStorage
         locationId = AppUtils.get();
 
-        if (!locationId )  {
+        if (!locationId) {
             // For Dine Flash / Dine Flash Buffet home, do not force-redirect on missing location.
             // Requirement: stay on .../home/ when navigating back (same-origin kiosk browsers).
             if (!isDineFlashHomePage && !isDineFlashBuffetHomePage && !isHospitalFlashHomePage) {
@@ -503,7 +514,7 @@ onDOMReady(async function () {
                             : "",
                     has_order_lookup_id: Boolean(
                         typeof AppUtils.getOrderLookupId === "function" &&
-                            AppUtils.getOrderLookupId()
+                        AppUtils.getOrderLookupId()
                     ),
                     standalone: Boolean(window.navigator.standalone),
                 });
@@ -540,17 +551,17 @@ onDOMReady(async function () {
     }
     if (window.BASE && window.BASE.includes('/dine_flash/')) {
         // console.log("Initializing Booking Mapping Service for Dine Flash...");
-        BookingMappingService.processBookingFromQR(tokenFromQR,bookingIdfromQR);
+        BookingMappingService.processBookingFromQR(tokenFromQR, bookingIdfromQR);
         setActiveDineBookingId(bookingIdfromQR);
     }
-    
+
     // Initialize the ad slider visibility 
     toggleBtn.addEventListener("click", function () {
         const sliderWrapper = document.getElementById('ad-slider-wrapper');
 
         if (isAdVisible) {
             sliderWrapper.classList.add("slide-up");
-            pageWrapper.style.top = "119px"; 
+            pageWrapper.style.top = "119px";
             pageWrapper.style.borderTop = "1px solid #fdbf50";
             toggleBtn.classList.add("rotated");
         } else {
@@ -632,26 +643,26 @@ onDOMReady(async function () {
         }
     }
     await resumePushSubscriptionIfNeeded();
-    
+
     // Register Service Worker early so push subscription can bind sooner on cold starts.
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register(`${base}service-worker.js`, { scope: base })
-        .then((registration) => {
-              if (registration.active) {
-                registration.active.postMessage({
-                type: "SET_BASE_URL",
-                baseUrl: window.location.origin + base,
-                });
+            .then((registration) => {
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: "SET_BASE_URL",
+                        baseUrl: window.location.origin + base,
+                    });
 
-                registration.active.postMessage({
-                type: "UPDATE_LAST_PAGE",
-                url: window.location.href,
-                });
-            }
-        })
-        .catch((error) => {
-            console.error("Service Worker Registration Failed:", error);
-        });
+                    registration.active.postMessage({
+                        type: "UPDATE_LAST_PAGE",
+                        url: window.location.href,
+                    });
+                }
+            })
+            .catch((error) => {
+                console.error("Service Worker Registration Failed:", error);
+            });
     }
 
     // Example usage: Get the last active vendor ID
@@ -659,7 +670,7 @@ onDOMReady(async function () {
     const vendorIdsString = AppUtils.storageGet("selectedVendors");
     if (vendorIdsString) {
         const vendorIdsArray = JSON.parse(vendorIdsString);
-    
+
         const vendorIds = vendorIdsArray
             .map(id => parseInt(id))
             .filter(id => Number.isInteger(id) && !isNaN(id));
@@ -899,7 +910,7 @@ onDOMReady(async function () {
                         if (
                             id &&
                             typeof window.__dineFlashApplySelectedBookingHomeView ===
-                                "function"
+                            "function"
                         ) {
                             try {
                                 await window.__dineFlashApplySelectedBookingHomeView(id, no);
@@ -981,7 +992,7 @@ onDOMReady(async function () {
                         restoreMod.markRestoreSettled();
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         import("./dineflash/services/activeBookingSelectorService.js?v=20261027_2")
@@ -1003,7 +1014,7 @@ onDOMReady(async function () {
     }
     window.addEventListener('resize', setDynamicVH);
     setDynamicVH();
-    
+
     // 1) Try the official Brave check
     let braveDetected = false;
     if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
@@ -1042,22 +1053,22 @@ onDOMReady(async function () {
         // update the service worker with the current page URL if needed
         navigator.serviceWorker.ready.then((registration) => {
             if (registration.active) {
-            registration.active.postMessage({
-                type: "UPDATE_LAST_PAGE",
-                url: window.location.href,
-            });
+                registration.active.postMessage({
+                    type: "UPDATE_LAST_PAGE",
+                    url: window.location.href,
+                });
             }
         });
 
         // Optionally, you can listen for navigation events (if using a SPA or similar)
         window.addEventListener("popstate", () => {
             navigator.serviceWorker.ready.then((registration) => {
-            if (registration.active) {
-                registration.active.postMessage({
-                type: "UPDATE_LAST_PAGE",
-                url: window.location.href,
-                });
-            }
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: "UPDATE_LAST_PAGE",
+                        url: window.location.href,
+                    });
+                }
             });
         });
 
@@ -1114,7 +1125,7 @@ onDOMReady(async function () {
                     return;
                 }
                 // Call a function to display or refresh the chat view
-                await showChatWindow(event.data.payload);   
+                await showChatWindow(event.data.payload);
             }
             if (event.data?.type === 'PUSH_RECEIVED') {
                 PushHealthMonitorService.recordPushReceived();
@@ -1315,258 +1326,258 @@ onDOMReady(async function () {
 
                 // Handle different message types
                 try {
-                switch (messageType) {
-                    case 'offers':
-                        AppUtils.playNotificationSound(pushData.vibration_pattern,pushData.vibration_duration);
-                        appendMessage(messageHTML, 'server', null, 'offers', '', pushData.message_id);
-                        break;
+                    switch (messageType) {
+                        case 'offers':
+                            AppUtils.playNotificationSound(pushData.vibration_pattern, pushData.vibration_duration);
+                            appendMessage(messageHTML, 'server', null, 'offers', '', pushData.message_id);
+                            break;
 
-                    case 'manager':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'notification');
-                        appendMessage(messageHTML, 'server', null, 'manager', pushData.token_no, pushData.message_id);
-                        break;
-                    case 'airline_manager':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'notification');
-                        appendMessage(messageHTML, 'server', null, 'manager', pushData.sequence_code, pushData.message_id);
-                        break;
-                    case 'dine_manager':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'notification');
-                        appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
-                        break;
-                    case HOSPITAL_MANAGER_PUSH_TYPE:
-                        if (isHospitalFlashSurface) {
+                        case 'manager':
                             AppUtils.notifyOrderReady(pushData);
                             await showNotificationModal(pushData, 'notification');
-                            appendMessage(
-                                messageHTML,
-                                'server',
-                                null,
-                                HOSPITAL_MANAGER_PUSH_TYPE,
-                                pushData.booking_id,
-                                pushData.message_id
-                            );
-                            tagLatestHospitalServerBubble({
-                                utilityName: pushData.utility_name,
-                            });
-                            await saveChat(
-                                pushData,
-                                'server',
-                                HOSPITAL_MANAGER_PUSH_TYPE,
-                                pushData.booking_id
-                            );
+                            appendMessage(messageHTML, 'server', null, 'manager', pushData.token_no, pushData.message_id);
                             break;
-                        }
-                        console.warn(`Ignoring ${HOSPITAL_MANAGER_PUSH_TYPE} on non-hospital surface`);
-                        break;
-                    case 'buffet_manager':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'notification');
-                        dineFlashDiag("PUSH buffet_manager APPENDING card", {
-                            token_no: pushData.token_no,
-                            message_id: pushData.message_id,
-                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
-                            is_restoring_history: Boolean(window.isRestoringHistory),
-                            paint_selected: paintBuffetPush,
-                        });
-                        if (paintBuffetPush) {
-                            appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
-                        }
-                        dineFlashDiag("PUSH buffet_manager APPENDED card", {
-                            token_no: pushData.token_no,
-                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
-                            painted: paintBuffetPush,
-                        });
-                        break;
-                    case 'item_preparing':
-                    case 'item_ready':
-                    case 'item_cancelled':
-                    case 'item_delivered':
-                    case 'item_operation_closed':
-                    case 'buffet_item_preparing':
-                    case 'buffet_item_ready':
-                    case 'buffet_item_cancelled':
-                    case 'buffet_item_delivered':
-                    case 'buffet_utilities_status':
-                    case 'buffet_utilities_ready':
-                    case 'buffet_pre_announcement':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        dineFlashDiag("PUSH buffet item/status APPENDING card", {
-                            type: messageType,
-                            token_no: pushData.token_no,
-                            message_id: pushData.message_id,
-                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
-                            is_restoring_history: Boolean(window.isRestoringHistory),
-                            paint_selected: paintBuffetPush,
-                        });
-                        if (paintBuffetPush) {
-                            appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
-                        }
-                        dineFlashDiag("PUSH buffet item/status APPENDED card", {
-                            type: messageType,
-                            token_no: pushData.token_no,
-                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
-                            painted: paintBuffetPush,
-                        });
-                        // Pre-announcement is informational only — do not drive
-                        // active-order lifecycle the way terminal item statuses do.
-                        if (messageType !== 'buffet_pre_announcement') {
-                            handleBuffetActiveOrderLifecyclePush(pushData, messageType);
-                        }
-                        break;
-                    case 'order_delivered':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        if (paintBuffetPush) {
-                            appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
-                        }
-                        handleBuffetActiveOrderLifecyclePush(pushData, messageType);
-                        break;
-                    case 'foodstatus':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
-                        break;
-                    case 'flightstatus':
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
-                        break;
-                    case 'dinestatus':
-                        if (
-                            window.BASE?.includes('/dine_flash/') &&
-                            !window.BASE?.includes('/dine_flash_buffet/')
-                        ) {
-                            console.info("[dine_flash] PUSH_STATUS_UPDATE dinestatus", {
-                                booking_id: pushData.booking_id,
-                                status: pushData.status,
-                                utility_name: pushData.utility_name,
-                            });
-                        }
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
-                        {
-                            const paintDine = await shouldPaintDineFlashPushMessage(pushData);
-                            if (!paintDine) {
-                                try {
-                                    const unseenMod = await import(
-                                        "./dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
-                                    );
-                                    if (typeof unseenMod.markUnseen === "function") {
-                                        unseenMod.markUnseen(pushData.booking_id);
-                                    }
-                                    const selectorMod = await import(
-                                        "./dineflash/services/activeBookingSelectorService.js?v=20261027_2"
-                                    );
-                                    if (
-                                        typeof selectorMod.repaintActiveBookingSelector ===
-                                        "function"
-                                    ) {
-                                        await selectorMod.repaintActiveBookingSelector();
-                                    }
-                                } catch (e) {
-                                    console.warn("[dine_flash] push unseen mark failed:", e);
-                                }
+                        case 'airline_manager':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'notification');
+                            appendMessage(messageHTML, 'server', null, 'manager', pushData.sequence_code, pushData.message_id);
+                            break;
+                        case 'dine_manager':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'notification');
+                            appendMessage(messageHTML, 'server', null, 'manager', pushData.booking_id, pushData.message_id);
+                            break;
+                        case HOSPITAL_MANAGER_PUSH_TYPE:
+                            if (isHospitalFlashSurface) {
+                                AppUtils.notifyOrderReady(pushData);
+                                await showNotificationModal(pushData, 'notification');
+                                appendMessage(
+                                    messageHTML,
+                                    'server',
+                                    null,
+                                    HOSPITAL_MANAGER_PUSH_TYPE,
+                                    pushData.booking_id,
+                                    pushData.message_id
+                                );
+                                tagLatestHospitalServerBubble({
+                                    utilityName: pushData.utility_name,
+                                });
+                                await saveChat(
+                                    pushData,
+                                    'server',
+                                    HOSPITAL_MANAGER_PUSH_TYPE,
+                                    pushData.booking_id
+                                );
                                 break;
                             }
-                        }
-                        dineFlashDiag("PUSH dinestatus APPENDING card", {
-                            booking_id: pushData.booking_id,
-                            message_id: pushData.message_id,
-                            chat_children_before: document.getElementById('chat-container')?.childElementCount,
-                            is_restoring_history: Boolean(window.isRestoringHistory),
-                        });
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
-                        dineFlashDiag("PUSH dinestatus APPENDED card", {
-                            booking_id: pushData.booking_id,
-                            chat_children_after: document.getElementById('chat-container')?.childElementCount,
-                        });
-                        break;
-                    
-                    case 'thankyou' :
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
-                        if (await shouldPaintDineFlashPushMessage(pushData)) {
-                            appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
-                        }
-                        break;
-
-                    case 'hospitalstatus':
-                        if (isHospitalFlashSurface) {
-                            hospitalFlashClientDiag("HOSPITALSTATUS_HANDLER_REACHED", {
-                                message_id: pushData?.message_id,
-                                booking_id: pushData?.booking_id,
-                                token_no: pushData?.token_no,
+                            console.warn(`Ignoring ${HOSPITAL_MANAGER_PUSH_TYPE} on non-hospital surface`);
+                            break;
+                        case 'buffet_manager':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'notification');
+                            dineFlashDiag("PUSH buffet_manager APPENDING card", {
+                                token_no: pushData.token_no,
+                                message_id: pushData.message_id,
+                                chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                                is_restoring_history: Boolean(window.isRestoringHistory),
+                                paint_selected: paintBuffetPush,
+                            });
+                            if (paintBuffetPush) {
+                                appendMessage(messageHTML, 'server', null, 'buffet_manager', pushData.token_no, pushData.message_id);
+                            }
+                            dineFlashDiag("PUSH buffet_manager APPENDED card", {
+                                token_no: pushData.token_no,
+                                chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                                painted: paintBuffetPush,
+                            });
+                            break;
+                        case 'item_preparing':
+                        case 'item_ready':
+                        case 'item_cancelled':
+                        case 'item_delivered':
+                        case 'item_operation_closed':
+                        case 'buffet_item_preparing':
+                        case 'buffet_item_ready':
+                        case 'buffet_item_cancelled':
+                        case 'buffet_item_delivered':
+                        case 'buffet_utilities_status':
+                        case 'buffet_utilities_ready':
+                        case 'buffet_pre_announcement':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            dineFlashDiag("PUSH buffet item/status APPENDING card", {
                                 type: messageType,
-                                status: pushData?.status,
+                                token_no: pushData.token_no,
+                                message_id: pushData.message_id,
+                                chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                                is_restoring_history: Boolean(window.isRestoringHistory),
+                                paint_selected: paintBuffetPush,
                             });
-                            const hasBatchDepartments =
-                                Array.isArray(pushData?.departments) && pushData.departments.length > 0;
-                            if (hasBatchDepartments) {
-                                await renderHospitalStatusCard(pushData);
+                            if (paintBuffetPush) {
+                                appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                            }
+                            dineFlashDiag("PUSH buffet item/status APPENDED card", {
+                                type: messageType,
+                                token_no: pushData.token_no,
+                                chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                                painted: paintBuffetPush,
+                            });
+                            // Pre-announcement is informational only — do not drive
+                            // active-order lifecycle the way terminal item statuses do.
+                            if (messageType !== 'buffet_pre_announcement') {
+                                handleBuffetActiveOrderLifecyclePush(pushData, messageType);
+                            }
+                            break;
+                        case 'order_delivered':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            if (paintBuffetPush) {
+                                appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                            }
+                            handleBuffetActiveOrderLifecyclePush(pushData, messageType);
+                            break;
+                        case 'foodstatus':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.token_no, pushData.message_id);
+                            break;
+                        case 'flightstatus':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.sequence_code, pushData.message_id);
+                            break;
+                        case 'dinestatus':
+                            if (
+                                window.BASE?.includes('/dine_flash/') &&
+                                !window.BASE?.includes('/dine_flash_buffet/')
+                            ) {
+                                console.info("[dine_flash] PUSH_STATUS_UPDATE dinestatus", {
+                                    booking_id: pushData.booking_id,
+                                    status: pushData.status,
+                                    utility_name: pushData.utility_name,
+                                });
+                            }
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
+                            {
+                                const paintDine = await shouldPaintDineFlashPushMessage(pushData);
+                                if (!paintDine) {
+                                    try {
+                                        const unseenMod = await import(
+                                            "./dineflash/services/bookingUnseenUpdateService.js?v=20261027_1"
+                                        );
+                                        if (typeof unseenMod.markUnseen === "function") {
+                                            unseenMod.markUnseen(pushData.booking_id);
+                                        }
+                                        const selectorMod = await import(
+                                            "./dineflash/services/activeBookingSelectorService.js?v=20261027_2"
+                                        );
+                                        if (
+                                            typeof selectorMod.repaintActiveBookingSelector ===
+                                            "function"
+                                        ) {
+                                            await selectorMod.repaintActiveBookingSelector();
+                                        }
+                                    } catch (e) {
+                                        console.warn("[dine_flash] push unseen mark failed:", e);
+                                    }
+                                    break;
+                                }
+                            }
+                            dineFlashDiag("PUSH dinestatus APPENDING card", {
+                                booking_id: pushData.booking_id,
+                                message_id: pushData.message_id,
+                                chat_children_before: document.getElementById('chat-container')?.childElementCount,
+                                is_restoring_history: Boolean(window.isRestoringHistory),
+                            });
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                            dineFlashDiag("PUSH dinestatus APPENDED card", {
+                                booking_id: pushData.booking_id,
+                                chat_children_after: document.getElementById('chat-container')?.childElementCount,
+                            });
+                            break;
+
+                        case 'thankyou':
+                            AppUtils.notifyOrderReady(pushData);
+                            await showNotificationModal(pushData, 'push');
+                            handleDineFlashActiveBookingLifecyclePush(pushData, messageType);
+                            if (await shouldPaintDineFlashPushMessage(pushData)) {
+                                appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
+                            }
+                            break;
+
+                        case 'hospitalstatus':
+                            if (isHospitalFlashSurface) {
+                                hospitalFlashClientDiag("HOSPITALSTATUS_HANDLER_REACHED", {
+                                    message_id: pushData?.message_id,
+                                    booking_id: pushData?.booking_id,
+                                    token_no: pushData?.token_no,
+                                    type: messageType,
+                                    status: pushData?.status,
+                                });
+                                const hasBatchDepartments =
+                                    Array.isArray(pushData?.departments) && pushData.departments.length > 0;
+                                if (hasBatchDepartments) {
+                                    await renderHospitalStatusCard(pushData);
+                                    break;
+                                }
+                                AppUtils.notifyOrderReady(pushData);
+                                await showNotificationModal(pushData, 'push');
+                                appendMessage(
+                                    messageHTML,
+                                    'server',
+                                    null,
+                                    messageType,
+                                    pushData.booking_id,
+                                    pushData.message_id
+                                );
+                                tagLatestHospitalServerBubble({
+                                    utilityName: pushData.utility_name,
+                                });
+                                await saveChat(pushData, 'server', 'hospitalstatus', pushData.booking_id);
                                 break;
                             }
                             AppUtils.notifyOrderReady(pushData);
                             await showNotificationModal(pushData, 'push');
-                            appendMessage(
-                                messageHTML,
-                                'server',
-                                null,
-                                messageType,
-                                pushData.booking_id,
-                                pushData.message_id
-                            );
-                            tagLatestHospitalServerBubble({
-                                utilityName: pushData.utility_name,
-                            });
-                            await saveChat(pushData, 'server', 'hospitalstatus', pushData.booking_id);
+                            appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
                             break;
-                        }
-                        AppUtils.notifyOrderReady(pushData);
-                        await showNotificationModal(pushData, 'push');
-                        appendMessage(messageHTML, 'server', null, messageType, pushData.booking_id, pushData.message_id);
-                        break;
 
-                    case 'hospital_pre_announcement':
-                        if (isHospitalFlashSurface) {
-                            AppUtils.notifyOrderReady(pushData);
-                            await showNotificationModal(pushData, 'push');
-                            appendMessage(
-                                messageHTML,
-                                'server',
-                                null,
-                                messageType,
-                                pushData.booking_id,
-                                pushData.message_id
-                            );
-                            await saveChat(
-                                pushData,
-                                'server',
-                                'hospital_pre_announcement',
-                                pushData.booking_id
-                            );
+                        case 'hospital_pre_announcement':
+                            if (isHospitalFlashSurface) {
+                                AppUtils.notifyOrderReady(pushData);
+                                await showNotificationModal(pushData, 'push');
+                                appendMessage(
+                                    messageHTML,
+                                    'server',
+                                    null,
+                                    messageType,
+                                    pushData.booking_id,
+                                    pushData.message_id
+                                );
+                                await saveChat(
+                                    pushData,
+                                    'server',
+                                    'hospital_pre_announcement',
+                                    pushData.booking_id
+                                );
+                                break;
+                            }
+                            console.warn("Ignoring hospital_pre_announcement on non-hospital surface");
                             break;
-                        }
-                        console.warn("Ignoring hospital_pre_announcement on non-hospital surface");
-                        break;
 
-                    default:
-                        console.warn("Unhandled push message type:", messageType);
-                }
-                dineFlashClientDiag("UI_APPENDED", {
-                    message_id: pushData?.message_id,
-                    booking_id: pushData?.booking_id,
-                    token_no: pushData?.token_no,
-                    browser_id: pushData?.browser_id,
-                    type: messageType,
-                    project: currentProject(),
-                });
-                ChatSyncService.registerPushDelivered(pushData);
+                        default:
+                            console.warn("Unhandled push message type:", messageType);
+                    }
+                    dineFlashClientDiag("UI_APPENDED", {
+                        message_id: pushData?.message_id,
+                        booking_id: pushData?.booking_id,
+                        token_no: pushData?.token_no,
+                        browser_id: pushData?.browser_id,
+                        type: messageType,
+                        project: currentProject(),
+                    });
+                    ChatSyncService.registerPushDelivered(pushData);
                 } catch (uiErr) {
                     dineFlashClientDiag("UI_APPEND_FAILED", {
                         message_id: pushData?.message_id,
@@ -1610,7 +1621,7 @@ onDOMReady(async function () {
         }
     });
 
-    chatInput.addEventListener("keydown", function(event) {
+    chatInput.addEventListener("keydown", function (event) {
         if (AppUtils.isReplyMode) {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -1648,9 +1659,9 @@ onDOMReady(async function () {
         }
     });
 
-    
+
     // Sanitize input on any indirect changes (e.g. autocomplete)
-    chatInput.addEventListener("input", function(event) {
+    chatInput.addEventListener("input", function (event) {
         if (AppUtils.isReplyMode || base === '/airline_flash/') return;
 
         if (isDineFlashBuffetSurface) {
@@ -1679,14 +1690,14 @@ onDOMReady(async function () {
 
         if (selectedMessage) {
             chatInput.type = "text";
-            chatInput.placeholder = "Type your message..."; 
+            chatInput.placeholder = "Type your message...";
         } else {
             chatInput.type = "tel";
             // console.log(base)
-            if (base == '/airline_flash/'){
-                chatInput.placeholder = "Enter your Sequence Code..."; 
+            if (base == '/airline_flash/') {
+                chatInput.placeholder = "Enter your Sequence Code...";
             }
-            else if (base == '/dine_flash/'){
+            else if (base == '/dine_flash/') {
                 chatInput.placeholder = "Enter your Booking No...";
             }
             else if (isDineFlashBuffetSurface) {
@@ -1695,9 +1706,9 @@ onDOMReady(async function () {
             else if (isHospitalFlashSurface) {
                 chatInput.placeholder = "Enter your department token...";
             }
-            else{
+            else {
                 chatInput.placeholder = "Enter your Order No...";
-            } 
+            }
         }
     });
 
@@ -1833,7 +1844,7 @@ onDOMReady(async function () {
                         // console.log("Passenger:", storedName);
                         // Append masked token in chat for Airline Flash
                         displayToken = maskSequenceCode(displayToken);
-                        appendMessage(displayToken, 'user', "", 'chat',"",storedName);
+                        appendMessage(displayToken, 'user', "", 'chat', "", storedName);
                     } else if (isDineFlashBuffetSurface) {
                         ChatRestoreService.ensureBuffetQrTokenVisible(String(tokenFromQR));
                     } else {
@@ -1929,7 +1940,7 @@ onDOMReady(async function () {
                         // Saved during early chat bootstrap.
                     } else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                         await saveChat(tokenFromQR, 'user', 'chat', bookingIdfromQR);
-                    }else{
+                    } else {
                         await saveChat(tokenFromQR, 'user', 'chat', tokenFromQR);
                     }
                     // console.log("💾 Chat saved successfully");
@@ -2084,7 +2095,7 @@ onDOMReady(async function () {
         const selectedMessage = document.querySelector(".message-bubble.server.selected");
 
         if (selectedMessage) {
-            console.log(" 💬 Selected message has token number:",selectedMessage.dataset.tokenNo)
+            console.log(" 💬 Selected message has token number:", selectedMessage.dataset.tokenNo)
             const tokenNo = selectedMessage.dataset.tokenNo;
             if (isDineFlashBuffetSurface && !tokenNo) {
                 appendMessage(
@@ -2098,13 +2109,13 @@ onDOMReady(async function () {
             }
             if (tokenNo) {
                 // This is a reply to a message with tokenNo
-                await fetchOrderStatusOnce(tokenNo,message,tokenNo); // Attach token + reply inside this function
+                await fetchOrderStatusOnce(tokenNo, message, tokenNo); // Attach token + reply inside this function
             } else {
                 console.warn("Selected message has no token number.");
             }
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
                 storedName = await getPassengerName(tokenNo);
-                appendMessage(message, 'user', "","chat",tokenNo,storedName);
+                appendMessage(message, 'user', "", "chat", tokenNo, storedName);
             } else if (isDineFlashBuffetSurface) {
                 appendMessage(message, 'user', "", "chat", tokenNo);
             } else if (isHospitalFlashSurface) {
@@ -2123,16 +2134,16 @@ onDOMReady(async function () {
             } else {
                 appendMessage(message, 'user', null);
             }
-            
+
             if (!isHospitalFlashSurface) {
-                await saveChat(message, 'user', 'chat',tokenNo);
+                await saveChat(message, 'user', 'chat', tokenNo);
             }
         } else {
             // No message selected → assume user typed token number directly
             if (window.BASE && window.BASE.includes('/airline_flash/')) {
                 storedName = await getPassengerName(message);
-                appendMessage(message, 'user', "","chat",message,storedName);
-            } 
+                appendMessage(message, 'user', "", "chat", message, storedName);
+            }
             else if (window.BASE && window.BASE.includes('/dine_flash/')) {
                 bookingNo = BookingMappingService.getBookingNo(message);
                 bookingId = BookingMappingService.getBookingId(message);
@@ -2184,20 +2195,20 @@ onDOMReady(async function () {
                 appendMessage(message, 'user', null);
             }
             if (window.BASE && window.BASE.includes('/dine_flash/')) {
-                bookingId = BookingMappingService.getBookingId(message); 
+                bookingId = BookingMappingService.getBookingId(message);
                 setActiveDineBookingId(bookingId);
-                await saveChat(bookingNo, 'user', 'chat',bookingId);
+                await saveChat(bookingNo, 'user', 'chat', bookingId);
                 await fetchOrderStatusOnce(bookingNo, null, bookingId); // Pass booking_id so payload uses it (not booking_no)
             } else if (!isDineFlashBuffetSurface && !isHospitalFlashSurface) {
-                await saveChat(message, 'user', 'chat',message);
+                await saveChat(message, 'user', 'chat', message);
                 await fetchOrderStatusOnce(message); // Use message as tokenNo  
             }
-             
+
         }
 
         // ✅ Clear input
         chatInput.value = '';
-        clearReplyMode(); 
+        clearReplyMode();
     });
 
     function appendChoiceOptions(bookingList) {
@@ -2213,7 +2224,7 @@ onDOMReady(async function () {
         logoImg.className = "server-logo";
         hydrateServerLogoElement(logoImg);
         messageRow.appendChild(logoImg);
-        
+
         // Clear input
         chatInput.value = '';
         // Chat bubble
@@ -2236,7 +2247,7 @@ onDOMReady(async function () {
 
             // Outer container (no more button-inside-button issue)
             const wrapper = document.createElement("div");
-            wrapper.className = "choice-option-btn";  
+            wrapper.className = "choice-option-btn";
             wrapper.dataset.bookingId = item.booking_id;
             wrapper.dataset.trimmedNo = trimmed;
 
@@ -2892,7 +2903,7 @@ onDOMReady(async function () {
 
     async function showChatWindow(data) {
         const chatContainer = document.getElementById('chat-container');
-        const chatInput = document.getElementById('chat-input'); 
+        const chatInput = document.getElementById('chat-input');
 
         if (!chatContainer || !chatInput) return;
         await VendorUIService.ready();
@@ -2908,9 +2919,9 @@ onDOMReady(async function () {
 
         if (!browser_id) {
             console.warn("No browser ID, skipping restore wait.");
-        }else {
+        } else {
             await ChatRestoreService.restore(vendorId);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
-    } 
+    }
 });

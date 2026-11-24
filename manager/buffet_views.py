@@ -22,6 +22,7 @@ from static.utils.functions.utils import (
     get_vendor_current_date,
 )
 from orders.buffet.api_helpers import build_buffet_tracking_url
+from orders.buffet.buffet_tracking_token import build_buffet_encrypted_tracking_url
 from orders.buffet.order_create import (
     BuffetOrderCreateStatus,
     create_buffet_order,
@@ -248,6 +249,9 @@ def buffet_create_order(request):
             "table_number": table_number,
             "items_count": len(created_items),
             "tracking_url": build_buffet_tracking_url(
+                request, vendor, order.token_no
+            ),
+            "encrypted_tracking_url": build_buffet_encrypted_tracking_url(
                 request, vendor, order.token_no
             ),
         },
@@ -580,6 +584,9 @@ def _buffet_all_assigned_tokens_response(vendor, user_profile, hide_delivered, r
                 "table_no": order.table_booking_no,
                 "submitted_at": order.created_at.isoformat(),
                 "tracking_url": build_buffet_tracking_url(
+                    request, vendor, order.token_no
+                ),
+                "encrypted_tracking_url": build_buffet_encrypted_tracking_url(
                     request, vendor, order.token_no
                 ),
                 "unread_message_count": unread_map.get(order.id, 0),
@@ -1162,6 +1169,9 @@ def _build_buffet_conversation_orders_response(vendor, request):
                 "latest_message_at": latest.created_at.isoformat(),
                 "unread_message_count": unread_map.get(order.id, 0),
                 "tracking_url": build_buffet_tracking_url(
+                    request, vendor, order.token_no
+                ),
+                "encrypted_tracking_url": build_buffet_encrypted_tracking_url(
                     request, vendor, order.token_no
                 ),
             }

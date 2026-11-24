@@ -119,9 +119,16 @@
     window.BUSINESS_DAY_START_HOUR = "{{ BUSINESS_DAY_START_HOUR|default:'' }}";
     {% if DINE_FLASH_TRACKING_BOOTSTRAP_JSON %}
     // Signed-token home links (?t=...) — same bootstrap as legacy query params.
-    window.DINE_FLASH_TRACKING_BOOTSTRAP = {{ DINE_FLASH_TRACKING_BOOTSTRAP_JSON|safe }};
+    window.DINE_FLASH_TRACKING_BOOTSTRAP = {{ DINE_FLASH_TRACKING_BOOTSTRAP_JSON | safe }};
+    {% endif %}
+</script>
+{% elif PROJECT_NAME == 'dine_flash_buffet' %}
+<script>
+    {% if BUFFET_TRACKING_BOOTSTRAP_JSON %}
+    // Dine Flash Buffet only: signed-token home links (?t=...) bootstrap.
+    window.BUFFET_TRACKING_BOOTSTRAP = {{ BUFFET_TRACKING_BOOTSTRAP_JSON | safe }};
     {% endif %}
 </script>
 {% endif %}
-<script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}&cb=20260824_2"></script>
+<script type="module" src="{% static 'orders/js/scripts.js' %}?v={{ APP_VERSION }}&cb=20261124_1"></script>
 {% endblock %}

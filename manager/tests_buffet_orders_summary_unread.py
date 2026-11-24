@@ -182,6 +182,7 @@ class BuffetOrdersSummaryUnreadCountTests(SimpleTestCase):
                 "table_no",
                 "submitted_at",
                 "tracking_url",
+                "encrypted_tracking_url",
                 "unread_message_count",
                 "utilities",
             },

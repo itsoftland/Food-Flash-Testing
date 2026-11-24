@@ -128,6 +128,12 @@ class BuffetCreateOrderTrackingUrlTests(SimpleTestCase):
         self.assertEqual(data["table_number"], "5")
         self.assertEqual(data["items_count"], 2)
         self.assertEqual(data["tracking_url"], EXPECTED_TRACKING_URL)
+        self.assertIn("encrypted_tracking_url", data)
+        self.assertTrue(
+            data["encrypted_tracking_url"].startswith(
+                "http://testserver/dine_flash_buffet/home/?t="
+            )
+        )
         mock_create.assert_called_once()
         args, _kwargs = mock_build.call_args
         self.assertIs(args[1], vendor)
@@ -247,6 +253,12 @@ class BuffetUtilitiesOrdersSummaryTrackingUrlTests(SimpleTestCase):
         self.assertEqual(row["table_no"], "5")
         self.assertEqual(row["submitted_at"], "2026-09-29T10:00:00")
         self.assertEqual(row["tracking_url"], EXPECTED_TRACKING_URL)
+        self.assertIn("encrypted_tracking_url", row)
+        self.assertTrue(
+            row["encrypted_tracking_url"].startswith(
+                "https://example.test/dine_flash_buffet/home/?t="
+            )
+        )
         self.assertEqual(row["unread_message_count"], 2)
         self.assertEqual(
             row["utilities"],
