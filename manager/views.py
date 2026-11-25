@@ -1850,10 +1850,13 @@ def manager_order_update(request):
             if project_name != "dine_flash_buffet":
                 return Response({"message": "Invalid action type."}, status=status.HTTP_400_BAD_REQUEST)
             logger.info("📞 Call action for order token %s by manager %s", token_no, manager.name)
+            Order.objects.filter(pk=order.pk).update(call_count=F("call_count") + 1)
+            order.refresh_from_db(fields=["call_count"])
             return Response({
                 "success": True,
                 "message": "Call action processed successfully.",
                 "token_no": token_no,
+                "call_count": order.call_count,
                 "android_tv": None,
                 "android_tv_info": None,
                 "web_push": True,

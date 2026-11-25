@@ -81,6 +81,7 @@ def _order(vendor, token_no=42, order_id=100):
     order.device = None
     order.user_profile = None
     order.updated_by = "customer"
+    order.call_count = 0
     order.buffet_items = MagicMock()
     order.buffet_items.exclude.return_value = []
     order.buffet_items.select_related.return_value.all.return_value.order_by.return_value = []
@@ -191,6 +192,18 @@ class BuffetManagerOrderUpdateCallTests(SimpleTestCase):
             format="json",
         )
         force_authenticate(request, user=self.user)
+
+        def mock_update_filter(*args, **kwargs):
+            filter_mock = MagicMock()
+            if kwargs.get("pk") == self.order.pk:
+                def fake_update(**update_kwargs):
+                    if "call_count" in update_kwargs:
+                        self.order.call_count += 1
+                filter_mock.update.side_effect = fake_update
+            return filter_mock
+
+        self.order.refresh_from_db = MagicMock()
+
         with patch.object(manager_views, "project_name", project), patch(
             "manager.views.get_vendor_business_day_range",
             return_value=(timezone.now() - timedelta(hours=1), timezone.now() + timedelta(hours=1)),
@@ -209,25 +222,62 @@ class BuffetManagerOrderUpdateCallTests(SimpleTestCase):
         ) as mock_chat, patch(
             "manager.views.VendorLogoSerializer"
         ) as mock_logo:
-            mock_filter.return_value.first.return_value = self.order
+            def filter_side_effect(*args, **kwargs):
+                if "pk" in kwargs:
+                    return mock_update_filter(*args, **kwargs)
+                m = MagicMock()
+                m.first.return_value = self.order
+                return m
+
+            mock_filter.side_effect = filter_side_effect
             mock_logo.return_value.data = {"logo_url": ""}
             response = manager_views.manager_order_update(request)
             return response, mock_update, mock_push, mock_tv, mock_mqtt, mock_chat
 
-    def test_call_action_returns_200_and_leaves_order_unchanged(self):
+    def test_call_action_returns_200_increments_call_count_and_leaves_order_unchanged(self):
         original_status = self.order.status
+        self.assertEqual(self.order.call_count, 0)
         response, mock_update, mock_push, mock_tv, mock_mqtt, mock_chat = self._call_action(
             {"token_no": 42, "action": "call", "status": "call"},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["token_no"], 42)
+        self.assertEqual(response.data["call_count"], 1)
+        self.assertEqual(self.order.call_count, 1)
         self.assertEqual(self.order.status, original_status)
+        self.assertIsNone(response.data["android_tv"])
+        self.assertIsNone(response.data["android_tv_info"])
+        self.assertTrue(response.data["web_push"])
+        self.assertEqual(response.data["web_push_info"], [])
+        self.assertIsNone(response.data["mqtt"])
+        self.order.refresh_from_db.assert_called_with(fields=["call_count"])
         mock_update.assert_not_called()
         mock_push.assert_not_called()
         mock_tv.assert_not_called()
         mock_mqtt.assert_not_called()
         mock_chat.assert_not_called()
+
+    def test_repeated_calls_increment_call_count_sequentially(self):
+        self.assertEqual(self.order.call_count, 0)
+
+        # Call 1
+        resp1, _, _, _, _, _ = self._call_action({"token_no": 42, "action": "call", "status": "call"})
+        self.assertEqual(resp1.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp1.data["call_count"], 1)
+        self.assertEqual(self.order.call_count, 1)
+
+        # Call 2
+        resp2, _, _, _, _, _ = self._call_action({"token_no": 42, "action": "call", "status": "call"})
+        self.assertEqual(resp2.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp2.data["call_count"], 2)
+        self.assertEqual(self.order.call_count, 2)
+
+        # Call 3
+        resp3, _, _, _, _, _ = self._call_action({"token_no": 42, "action": "call", "status": "call"})
+        self.assertEqual(resp3.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp3.data["call_count"], 3)
+        self.assertEqual(self.order.call_count, 3)
 
     def test_call_rejected_on_non_buffet_flavour(self):
         from manager import views as manager_views
@@ -261,6 +311,8 @@ class BuffetManagerOrderUpdateCallTests(SimpleTestCase):
             mock_filter.return_value.first.return_value = None
             response = manager_views.manager_order_update(request)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # Verify no update was called
+        mock_filter.return_value.update.assert_not_called()
 
     def test_call_missing_required_fields_returns_400(self):
         from manager import views as manager_views
