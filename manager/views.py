@@ -1929,8 +1929,12 @@ def manager_order_update(request):
                 android_tv_success, android_tv_info = notify_android_tv(vendor, data)
                 logger.info("📺 Android TV notified | Success=%s | Info=%s", android_tv_success, android_tv_info)
 
-            # 2. Update order in DB
-            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            # 2. Update order in DB (and sync items within same transaction for Buffet)
+            if is_buffet_project:
+                from manager.buffet_views import _buffet_manager_update_order_and_sync_items
+                updated_order = _buffet_manager_update_order_and_sync_items(token_no, vendor, None, action_type, manager)
+            else:
+                updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
             if not updated_order:
                 logger.warning("❌ Failed to update order %s", token_no)
                 return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1974,7 +1978,9 @@ def manager_order_update(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             logger.info("🔔 Preparing order %s by manager %s", token_no, manager.name)
-            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            # Buffet: update parent & child items within same transaction with lock ordering
+            from manager.buffet_views import _buffet_manager_update_order_and_sync_items
+            updated_order = _buffet_manager_update_order_and_sync_items(token_no, vendor, None, action_type, manager)
             if not updated_order:
                 logger.warning("❌ Failed to update order %s", token_no)
                 return Response({"message": "Order update failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1989,7 +1995,11 @@ def manager_order_update(request):
 
         elif action_type in ["delivered", "cancelled"]:
             logger.info("🔔 %s order %s by manager %s", action_type.capitalize(), token_no, manager.name)
-            updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
+            if is_buffet_project:
+                from manager.buffet_views import _buffet_manager_update_order_and_sync_items
+                updated_order = _buffet_manager_update_order_and_sync_items(token_no, vendor, None, action_type, manager)
+            else:
+                updated_order = update_existing_order_by_manager(token_no, vendor, None, action_type, manager)
             if updated_order:
                 payload["title"] = f"Order {action_type.capitalize()}"
                 push_errors = notify_web_push(order, vendor, payload)

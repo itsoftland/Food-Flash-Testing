@@ -88,8 +88,8 @@ def _call_preparing(
     updated.token_no = order.token_no
     updated.status = "preparing"
 
-    def _apply_update(token_no, vend, device, new_status, mgr):
-        order.status = new_status
+    def _apply_update(token_no, vend, *args):
+        order.status = "preparing"
         return updated
 
     patches = dict(
@@ -101,6 +101,10 @@ def _call_preparing(
         order_filter=patch("manager.views.Order.objects.filter"),
         logo=patch("manager.views.VendorLogoSerializer"),
         order_update=patch("manager.views.update_existing_order_by_manager"),
+        buffet_order_update=patch(
+            "manager.buffet_views._buffet_manager_update_order_and_sync_items",
+            side_effect=_apply_update,
+        ),
         push=patch("manager.views.notify_web_push", return_value=push_errors),
         tv=patch("manager.views.notify_android_tv"),
         mqtt=patch("manager.views.send_order_update"),
@@ -109,7 +113,9 @@ def _call_preparing(
     )
     with patches["project"], patches["day_range"], patches["order_filter"] as mock_filter, patches[
         "logo"
-    ] as mock_logo, patches["order_update"] as mock_update, patches["push"] as mock_push, patches[
+    ] as mock_logo, patches["order_update"] as mock_update, patches[
+        "buffet_order_update"
+    ] as mock_buffet_update, patches["push"] as mock_push, patches[
         "tv"
     ] as mock_tv, patches["mqtt"] as mock_mqtt, patches["azure"] as mock_azure, patches[
         "chat"
@@ -121,7 +127,7 @@ def _call_preparing(
         return {
             "response": response,
             "order": order,
-            "mock_update": mock_update,
+            "mock_update": mock_buffet_update if project_name == "dine_flash_buffet" else mock_update,
             "mock_push": mock_push,
             "mock_tv": mock_tv,
             "mock_mqtt": mock_mqtt,
@@ -195,6 +201,9 @@ class BuffetManagerOrderUpdatePreparingTests(SimpleTestCase):
             "manager.views.update_existing_order_by_manager",
             return_value=None,
         ) as mock_update, patch(
+            "manager.buffet_views._buffet_manager_update_order_and_sync_items",
+            return_value=None,
+        ) as mock_buffet_update, patch(
             "manager.views.notify_web_push"
         ) as mock_push:
             mock_filter.return_value.first.return_value = order

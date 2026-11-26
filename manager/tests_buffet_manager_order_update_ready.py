@@ -98,6 +98,9 @@ def _call_ready(
         "manager.views.update_existing_order_by_manager",
         return_value=updated,
     ) as mock_update, patch(
+        "manager.buffet_views._buffet_manager_update_order_and_sync_items",
+        return_value=updated,
+    ) as mock_buffet_update, patch(
         "manager.views.notify_web_push",
         return_value=push_errors,
     ) as mock_push, patch(
@@ -116,7 +119,7 @@ def _call_ready(
         return {
             "response": response,
             "order": order,
-            "mock_update": mock_update,
+            "mock_update": mock_buffet_update if project_name == "dine_flash_buffet" else mock_update,
             "mock_push": mock_push,
             "mock_tv": mock_tv,
             "mock_mqtt": mock_mqtt,
@@ -149,6 +152,9 @@ def _call_status_action(project_name, action):
         "manager.views.update_existing_order_by_manager",
         return_value=updated,
     ) as mock_update, patch(
+        "manager.buffet_views._buffet_manager_update_order_and_sync_items",
+        return_value=updated,
+    ) as mock_buffet_update, patch(
         "manager.views.notify_web_push",
         return_value=[],
     ) as mock_push, patch(
@@ -157,7 +163,8 @@ def _call_status_action(project_name, action):
         mock_filter.return_value.first.return_value = order
         mock_logo.return_value.data = {"logo_url": "https://example.test/logo.png"}
         response = manager_views.manager_order_update(request)
-        return response, mock_update, mock_push, mock_mqtt
+        chosen_update = mock_buffet_update if project_name == "dine_flash_buffet" else mock_update
+        return response, chosen_update, mock_push, mock_mqtt
 
 
 @override_settings(PROJECT_NAME="dine_flash_buffet", PUSH_COOLDOWN_SECONDS=1)

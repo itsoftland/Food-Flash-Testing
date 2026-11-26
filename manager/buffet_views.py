@@ -74,6 +74,119 @@ def _sync_buffet_registry_after_lifecycle(order):
 
     transaction.on_commit(_run)
 
+
+# Buffet-specific statuses that the manager can push to items in bulk.
+_BUFFET_MANAGER_ITEM_SYNC_ACTIONS = frozenset({"ready", "preparing", "delivered", "cancelled"})
+
+
+def _buffet_manager_sync_items_to_status(order, target_status):
+    """
+    Dine Flash Buffet — Manager Parent → Item bulk synchronization.
+
+    Called inside a transaction.atomic() where the parent Order has already
+    been locked with select_for_update().
+    Syncs all non-cancelled items to target_status.
+    When target_status is 'cancelled', all items (including already-cancelled) are
+    left cancelled; already-cancelled items are never touched when target is non-cancel.
+
+    Rules:
+    - Preserve items already in 'cancelled' when target is not 'cancelled'.
+    - When target is 'cancelled', all currently non-cancelled items become cancelled.
+    - Does NOT generate individual item ChatMessages, MQTT, or Web Push notifications.
+    - Child items are locked here with select_for_update() after parent Order is locked.
+
+    Returns the count of items actually changed.
+    """
+    if target_status not in _BUFFET_MANAGER_ITEM_SYNC_ACTIONS:
+        logger.warning(
+            "[_buffet_manager_sync_items_to_status] Unexpected target_status=%s order_id=%s",
+            target_status,
+            order.pk if order else None,
+        )
+        return 0
+
+    if order is None or getattr(order, "pk", None) is None:
+        return 0
+
+    items = list(
+        BuffetOrderItem.objects.select_for_update()
+        .filter(order=order)
+        .exclude(status="cancelled")
+    )
+
+    if not items:
+        # Either no items or all already cancelled; nothing to sync.
+        return 0
+
+    changed = 0
+    for item in items:
+        if item.status == target_status:
+            continue
+        item.status = target_status
+        item.save(update_fields=["status"])
+        changed += 1
+
+    logger.info(
+        "[_buffet_manager_sync_items_to_status] Synced %d item(s) to '%s' | order_id=%s token_no=%s",
+        changed,
+        target_status,
+        order.pk,
+        getattr(order, "token_no", None),
+    )
+    return changed
+
+
+def _buffet_sync_manager_items_and_registry(order, target_status):
+    """
+    Dine Flash Buffet — sync child items to target_status and schedule
+    registry lifecycle after transaction commit.
+
+    Does NOT generate individual item ChatMessages, MQTT, or Web Push notifications.
+    """
+    _buffet_manager_sync_items_to_status(order, target_status)
+    _sync_buffet_registry_after_lifecycle(order)
+
+
+def _buffet_manager_update_order_and_sync_items(token_no, vendor, device, action_type, manager):
+    """
+    Dine Flash Buffet — manager order update and item synchronization within
+    the SAME database transaction and with strict lock ordering:
+    1. Lock parent Order row using select_for_update().
+    2. Update parent Order using standard update_existing_order_by_manager().
+    3. Lock child BuffetOrderItem rows using select_for_update() and bulk sync.
+    4. Register registry lifecycle cleanup on transaction.on_commit().
+
+    Matches update_existing_order_by_manager(token_no, vendor, device, action_type, manager) signature.
+    Returns the updated parent Order, or None if the update failed.
+    """
+    from static.utils.functions.queries import update_existing_order_by_manager
+
+    with transaction.atomic():
+        start_dt, end_dt = get_vendor_business_day_range(vendor)
+        # 1. Lock parent Order first
+        parent_order = (
+            Order.objects.select_for_update()
+            .filter(
+                token_no=token_no,
+                vendor=vendor,
+                created_at__range=(start_dt, end_dt),
+            )
+            .first()
+        )
+        if not parent_order:
+            logger.warning("❌ [buffet] Order token %s not found for lock", token_no)
+            return None
+
+        # 2. Update parent Order
+        updated_order = update_existing_order_by_manager(token_no, vendor, device, action_type, manager)
+        if not updated_order:
+            return None
+
+        # 3. Lock child items & sync to manager-selected status, and schedule registry lifecycle
+        _buffet_sync_manager_items_and_registry(updated_order, action_type)
+        return updated_order
+
+
 def _buffet_vendor_chat_alias(vendor):
     """
     Header label for Dine Flash Buffet customer chat / push payloads.
@@ -372,6 +485,41 @@ def get_buffet_kitchen_items(request):
     except Exception as e:
         logger.exception("[get_buffet_kitchen_items] Error: %s", e)
         return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _aggregate_buffet_parent_status(order):
+    """
+    Dine Flash Buffet: compute the parent Order status from BuffetOrderItem statuses.
+
+    Rules:
+    - If the order has no items, return None (no change).
+    - Ignore cancelled items when non-cancelled items exist.
+    - If all items are cancelled, return 'cancelled'.
+    - If all non-cancelled items share the same status, return that status.
+    - If non-cancelled items have mixed statuses, return None (no change).
+
+    'operation_closed' is treated as a non-cancelled status.
+
+    The caller is responsible for saving the Order only when the computed value
+    differs from Order.status.  Uses model .save() so OrderStatusHistory signals fire.
+    """
+    items = list(order.buffet_items.all())
+    if not items:
+        return None
+
+    all_statuses = [item.status for item in items]
+    non_cancelled = [s for s in all_statuses if s != "cancelled"]
+
+    if not non_cancelled:
+        # All items are cancelled
+        return "cancelled"
+
+    unique = set(non_cancelled)
+    if len(unique) == 1:
+        return unique.pop()
+
+    # Mixed non-cancelled statuses → no change
+    return None
+
 
 def _notify_item_update(vendor, item, status_text):
     """Helper to create ChatMessage and send real-time notification."""
@@ -887,19 +1035,37 @@ def _update_buffet_item_status(request, new_status):
                     item_id_int = int(item_id)
                 except (ValueError, TypeError):
                     return Response({"error": "item_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
-                items = list(
-                    BuffetOrderItem.objects.select_for_update()
-                    .select_related("utility", "order")
-                    .filter(id=item_id_int, order__vendor=vendor)
+                # Resolve order_id without a lock first to establish lock ordering:
+                # parent Order must always be locked before its child items.
+                lookup_oid = (
+                    BuffetOrderItem.objects.filter(id=item_id_int, order__vendor=vendor)
+                    .values_list("order_id", flat=True)
+                    .first()
                 )
-                if not items:
+                if lookup_oid is None:
                     return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
-                ref_item = items[0]
-                if not (start_dt <= ref_item.order.created_at <= end_dt):
+                # Lock parent Order first (consistent ordering: parent before children).
+                parent_order = (
+                    Order.objects.select_for_update()
+                    .filter(pk=lookup_oid)
+                    .first()
+                )
+                if parent_order is None:
+                    return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
+                if not (start_dt <= parent_order.created_at <= end_dt):
                     return Response(
                         {"error": "Buffet item not found for the current business day."},
                         status=status.HTTP_404_NOT_FOUND,
                     )
+                # Now lock the child item row (after parent is locked).
+                items = list(
+                    BuffetOrderItem.objects.select_for_update()
+                    .select_related("utility", "order")
+                    .filter(id=item_id_int, order=parent_order)
+                )
+                if not items:
+                    return Response({"error": "Buffet item not found"}, status=status.HTTP_404_NOT_FOUND)
+                ref_item = items[0]
                 if has_token:
                     try:
                         token_no_int = int(token_no)
@@ -1007,6 +1173,21 @@ def _update_buffet_item_status(request, new_status):
                 )
 
             if updated_any and touched_order is not None:
+                # Item → Parent aggregation: compute parent status from all sibling items.
+                # Reload items fresh inside the same transaction (parent is already locked).
+                touched_order.refresh_from_db()
+                new_parent_status = _aggregate_buffet_parent_status(touched_order)
+                if new_parent_status is not None and touched_order.status != new_parent_status:
+                    touched_order.status = new_parent_status
+                    # Do not alter updated_by — preserve whatever value is currently stored.
+                    touched_order.save(update_fields=["status"])
+                    logger.info(
+                        "[buffet_update_item_status] Parent aggregated | order_id=%s | "
+                        "token_no=%s | parent_status=%s",
+                        touched_order.pk,
+                        touched_order.token_no,
+                        new_parent_status,
+                    )
                 _sync_buffet_registry_after_lifecycle(touched_order)
 
             if not updated_any:
